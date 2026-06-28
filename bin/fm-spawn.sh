@@ -140,6 +140,10 @@ launch_template() {
         printf '%s' 'pi -e __PIEXT__ "$(cat __BRIEF__)"'
       fi
       ;;
+    # omnigent: run the crewmate AS an Omnigent session (GUI/phone/sandbox) via the
+    # pane-client. __BRIEF__/__TURNEND__ are PATHS here (the client reads them); the agent
+    # is $FM_OMNIGENT_AGENT (default claude-native-ui; set cynthia/codex-native-ui per task).
+    omnigent) printf '%s' 'python3 "$HOME/workspace/infra/firstmate/fm_omnigent.py" run "${FM_OMNIGENT_AGENT:-claude-native-ui}" __BRIEF__ __TURNEND__' ;;
     *) return 1 ;;
   esac
 }
@@ -445,6 +449,10 @@ EOF
       ;;
     codex*)
       # codex: turn-end rides the launch command via -c notify=[...] and __TURNEND__.
+      ;;
+    omnigent*)
+      # omnigent: the pane-client (fm_omnigent.py run) touches __TURNEND__ itself from the
+      # SSE stream (session.status idle), so no worktree-resident hook is installed.
       ;;
   esac
 fi
