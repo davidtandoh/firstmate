@@ -10,16 +10,31 @@
 #     on startup) follows the PRIMARY checkout's current default-branch commit:
 #     base_mode is that local commit, with NO fetch and no origin dependency.
 #
-# Every secondmate home is a worktree of this same repo, so it already holds the
-# primary's commit in the shared object store; the local-HEAD sync is therefore a
-# purely local fast-forward that never touches the network. A tracked-files
-# fast-forward never touches the gitignored operational dirs (data/, state/,
-# config/, projects/, .no-mistakes/), so a secondmate's backlog, projects, and
-# in-flight work are never disturbed. Homes are leased at a detached HEAD on the
-# default branch, so the fast-forward advances HEAD only and never moves the
-# shared default branch or any other worktree's checkout.
+# A REMOTE secondmate home follows that same primary commit. Its host cannot read
+# this object store, so bin/fm-spawn.sh and bin/fm-bootstrap.sh hand the commit to
+# bin/fm-remote-secondmate-control.sh, which imports it on that host and then runs
+# THIS ff_target with it as the base, so the guards below stay the only copy of the
+# ancestry rules.
+#
+# A linked-worktree secondmate home already holds the primary's commit in the
+# shared object store, so its local-HEAD sync is a purely local fast-forward that
+# never touches the network. A local standalone clone moves through that path
+# only when it already has the target; otherwise it is skipped until the origin
+# path updates it.
+# A tracked-files fast-forward never touches the gitignored operational dirs
+# (data/, state/, config/, projects/, .no-mistakes/), so it cannot disturb a
+# secondmate's backlog, projects, or in-flight work.
+# The seeded .fm-secondmate-home identity marker is gitignored too; the local
+# sync tolerates only that marker during the one-time upgrade of pre-ignore
+# linked-worktree homes.
+# Locally leased homes start at a detached HEAD on the default branch, so their
+# fast-forward advances HEAD only and never moves the shared default branch or
+# any other worktree's checkout. A standalone remote home may instead advance
+# its checked-out default branch under the same guard.
 
 SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
+# shellcheck source=bin/fm-secondmate-registry-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-secondmate-registry-lib.sh"
 
 # --- helpers ---------------------------------------------------------------
 
@@ -204,7 +219,9 @@ fetch_once() {
 
 # Which watched instruction paths changed between HEAD and BASE (comma list).
 # These are the files a running agent actually reads or runs: its instructions
-# (AGENTS.md, which CLAUDE.md symlinks), its skills, and its tooling (bin/).
+# (AGENTS.md, which CLAUDE.md imports via @AGENTS.md), its agent-loaded skills
+# (.agents/skills/), and its tooling (bin/). Public skills/ is installer-facing
+# and intentionally not part of this watched instruction surface.
 changed_instr() {
   local dir=$1 base=$2 p out=""
   for p in AGENTS.md bin .agents/skills; do
@@ -215,6 +232,20 @@ changed_instr() {
   printf '%s' "$out"
 }
 
+# Translate one remote home sync leg's failure into an operator-actionable
+# reason. The remote leg refuses a command shape it does not recognize with this
+# status, which on this leg can only mean that host's Firstmate copy predates the
+# parent-targeted sync it was just asked for; every other failure already carries
+# its own diagnostic.
+REMOTE_SYNC_UNSUPPORTED_STATUS=2
+remote_sync_failure_reason() { # <exit-status> <output>
+  if [ "$1" = "$REMOTE_SYNC_UNSUPPORTED_STATUS" ]; then
+    printf '%s\n' "the Firstmate copy on that host is too old to sync to this primary's commit; run /updatefirstmate"
+    return 0
+  fi
+  first_line "$2"
+}
+
 dirty_status() {
   local dir=$1 ignore_seed_marker=${2:-no}
   if [ "$ignore_seed_marker" = yes ]; then
@@ -222,6 +253,26 @@ dirty_status() {
   else
     git -C "$dir" status --porcelain 2>/dev/null | head -1
   fi
+}
+
+# List this home's LIVE secondmate direct reports from state/<id>.meta records.
+# The meta file is the liveness signal; data/secondmates.md is only the fallback
+# for durable fields such as home= when an older/incomplete meta lacks them.
+# Output is pipe-delimited: id|home|window|meta-file.
+live_secondmate_meta_records() {
+  local state=$1 registry=${2:-} meta id home window
+  [ -d "$state" ] || return 0
+  for meta in "$state"/*.meta; do
+    [ -f "$meta" ] || continue
+    grep -q '^kind=secondmate$' "$meta" 2>/dev/null || continue
+    id=$(basename "$meta" .meta)
+    home=$(grep '^home=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+    if [ -z "$home" ] && [ -n "$registry" ]; then
+      home=$(secondmate_registry_field "$registry" "$id" home || true)
+    fi
+    window=$(grep '^window=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+    printf '%s|%s|%s|%s\n' "$id" "$home" "$window" "$meta"
+  done
 }
 
 # Fast-forward one target to a base. Prints its status line. Sets globals for the
@@ -336,8 +387,9 @@ ff_target() {
 FF_NUDGE_WINDOWS=""
 FF_SEEN_HOMES=""
 
-# Validate and fast-forward one secondmate home, accumulating its window into
-# FF_NUDGE_WINDOWS when it should be live-converged. Args:
+# Validate and fast-forward one secondmate home, accumulating its stable
+# fm-<id> task selector into FF_NUDGE_WINDOWS when it should be live-converged.
+# Args:
 #   id home window base_mode nudge_requires_instr
 # A home is nudged only when it ACTUALLY advanced (FF_STATUS=updated) and has a
 # live window. With nudge_requires_instr=yes the advance must also have changed
@@ -345,6 +397,20 @@ FF_SEEN_HOMES=""
 # whose only change was non-instruction tracked files, is left undisturbed. The
 # firstmate repo itself (FM_ROOT) is never processed as its own secondmate, and
 # each resolved home is processed at most once.
+#
+# Two optional caller hooks fire from here, each at most once per resolved home:
+#   fm_ff_after_instruction_update <id> <home> <window> <instr>
+#     the nudge-shaped hook: only for an advance that changed the instruction
+#     surface, and only under nudge_requires_instr=yes.
+#   fm_ff_after_secondmate_settled <id> <home> <window> <status> <instr>
+#     the settled-state hook: for every home this sweep left AT the base with a
+#     live window, whether it advanced (status=updated) or was already there
+#     (status=current). A home that was SKIPPED is never settled, so a dirty,
+#     diverged, offline, or unsafe home never reaches this hook and nothing here
+#     forces, stashes, or discards its work. /updatefirstmate uses this hook to
+#     reach every live mate that is genuinely on the new bytes, including the
+#     ones that needed no advance to get there.
+# An undefined hook is simply not called.
 process_secondmate() {
   local id=$1 home=$2 window=${3:-} base_mode=$4 nudge_requires_instr=${5:-no} home_real fm_root_real
   [ -n "$id" ] || return 0
@@ -363,11 +429,19 @@ process_secondmate() {
   FF_SEEN_HOMES="$FF_SEEN_HOMES $home_real"
 
   ff_target "$home_real" "secondmate $id" "$base_mode" yes yes
+  if [ -n "$window" ] && { [ "$FF_STATUS" = "updated" ] || [ "$FF_STATUS" = "current" ]; } \
+    && type fm_ff_after_secondmate_settled >/dev/null 2>&1; then
+    fm_ff_after_secondmate_settled "$id" "$home_real" "$window" "$FF_STATUS" "$FF_INSTR"
+  fi
   if [ "$FF_STATUS" = "updated" ] && [ -n "$window" ]; then
     if [ "$nudge_requires_instr" = yes ] && [ -z "$FF_INSTR" ]; then
       return 0
     fi
-    FF_NUDGE_WINDOWS="$FF_NUDGE_WINDOWS $window"
+    FF_NUDGE_WINDOWS="$FF_NUDGE_WINDOWS fm-$id"
+    if [ "$nudge_requires_instr" = yes ] && [ -n "$FF_INSTR" ] \
+      && type fm_ff_after_instruction_update >/dev/null 2>&1; then
+      fm_ff_after_instruction_update "$id" "$home_real" "$window" "$FF_INSTR"
+    fi
   fi
 }
 
@@ -375,15 +449,12 @@ process_secondmate() {
 # kind=secondmate - fast-forwarding each to base_mode. Passes base_mode and
 # nudge_requires_instr through to process_secondmate. Accumulates into
 # FF_NUDGE_WINDOWS / FF_SEEN_HOMES, which the caller resets before and reads after.
+# The registry argument is only for home= fallback on older or incomplete meta records.
 sweep_live_secondmate_metas() {
-  local state=$1 base_mode=$2 nudge_requires_instr=${3:-no} meta id home window
+  local state=$1 base_mode=$2 nudge_requires_instr=${3:-no} registry=${4:-$FM_HOME/data/secondmates.md} id home window meta
   [ -d "$state" ] || return 0
-  for meta in "$state"/*.meta; do
-    [ -f "$meta" ] || continue
-    grep -q '^kind=secondmate' "$meta" 2>/dev/null || continue
-    id=$(basename "$meta" .meta)
-    home=$(grep '^home=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
-    window=$(grep '^window=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  while IFS='|' read -r id home window meta; do
+    if grep -q '^remote_host=.' "$meta" 2>/dev/null; then continue; fi
     process_secondmate "$id" "$home" "$window" "$base_mode" "$nudge_requires_instr"
-  done
+  done < <(live_secondmate_meta_records "$state" "$registry")
 }

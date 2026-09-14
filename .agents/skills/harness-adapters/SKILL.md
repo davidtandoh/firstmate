@@ -1,118 +1,101 @@
 ---
 name: harness-adapters
-description: Agent-only reference for firstmate harness operations. Use before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter. Contains verified facts for claude, codex, opencode, and pi.
+description: >-
+  Agent-only reference for firstmate harness operations.
+  Use before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
+  Contains verified facts for claude, codex, opencode, pi, pi-signed, grok, kimi, cursor, gemini, muse, rovo, omp, and agy.
 user-invocable: false
+metadata:
+  internal: true
 ---
 
 # harness-adapters
 
-Use this reference before any harness-specific firstmate operation: spawn, recovery, trust-dialog handling, skill invocation, interrupt, exit, resume, or adapter verification.
+This is the one skill, trigger, and routing owner for harness-specific Firstmate operations.
+Load this router first, then exactly the common reference and one harness reference selected below.
+When an action spans rows, load the union once rather than every reference.
+Files under `references/` are resources of this skill, not additional catalogued skills.
 
-Crewmates default to the same harness firstmate is running on unless `config/crew-harness` records an adapter name.
-The captain may override that file at bootstrap or later; a per-task instruction such as "run this one on codex" overrides it for that dispatch only.
-`default` means mirror firstmate's own harness.
+## Path contract
 
-Each adapter splits into mechanics and knowledge.
-The mechanics, including launch command, autonomy flag, and turn-end hook, live in `bin/fm-spawn.sh`.
-The supervision knowledge lives here: busy signature, exit command, interrupt, dialogs, resume behavior, skill invocation, and quirks.
+The skill directory is the directory containing this `SKILL.md`.
+Resolve on-demand reference links and relative links to their executable, documentation, or sibling-skill owners against the skill directory, including links named by a nested reference.
+Operational paths keep the context named by their owner: `config/` and active-home settings belong to the active Firstmate home, `state/` belongs to that home, and project settings such as `.claude/settings.json` belong to the target project.
+
+## Non-negotiable safety
 
 Never dispatch a crewmate or secondmate on an unverified adapter.
-If `config/crew-harness` names an unverified adapter, tell the captain and fall back to firstmate's own harness until that adapter is verified.
-If the captain asks for a new harness, propose verifying it first: spawn a trivial supervised task using `fm-spawn`'s raw-launch-command escape hatch, confirm every fact empirically, then record the mechanics in `fm-spawn`, the busy signature in `fm-watch.sh` and `fm-tmux-lib.sh` defaults, any needed `FM_COMPOSER_IDLE_RE` empty-composer override, and the verified knowledge here.
+If `config/crew-harness` or `config/secondmate-harness` names one, tell the captain under `../../../AGENTS.md` section 9 that the requested worker runtime is not verified, use firstmate's own verified runtime for current work, and ask only whether to verify the requested runtime for future work.
+Do not pause current work for that choice.
+
+On `unknown`, ask the captain instead of guessing.
+A current captain override beats detection, while a per-task override governs only that dispatch.
+For recovery and control, use the exact `harness=` in `state/<id>.meta`; never infer it from a model or provider.
+
+Deliver lifecycle actions only through `../../../bin/fm-control.sh <task-id> interrupt|exit|relaunch`.
+Never type an interrupt key or exit command through `fm-send`, where routing-marked lifecycle text becomes chat.
+Trust handling is complete only when inspection proves the target started processing its instructions; delivery success alone is not proof.
+Muse, Gemini, and AGY are verified only for crewmate and scout work, never a secondmate or primary.
 
 ## Detection
 
-`bin/fm-harness.sh` prints firstmate's own harness, using verified env markers first and then process ancestry.
-`bin/fm-harness.sh crew` resolves the effective crewmate harness from `config/crew-harness`.
-On `unknown`, ask the captain instead of guessing.
-A captain override always beats detection.
-When verifying a new adapter, record its env marker and command name in `bin/fm-harness.sh`.
+`../../../bin/fm-harness.sh` prints firstmate's own harness from verified environment markers and process ancestry, and owns how they combine.
+A marker names its harness, but a structural ancestor of a different harness outranks it, because a marker is ordinary environment state a child or a multiplexer can retain while ancestry is what proves who owns the process tree.
+Only `FM_PI_HARNESS=pi-signed` at the launch boundary together with `PI_CODING_AGENT=true` selects Pi-signed; shared unmarked launcher ancestry remains Pi.
+omp publishes no marker of its own; `FM_OMP_HARNESS=omp` is Firstmate's launch marker and the anchored process name `omp` is its ancestry evidence, as `references/harness/omp.md` records.
+`../../../bin/fm-spawn.sh` owns worker marker establishment, while the README launch command owns the signed-primary boundary.
+`../../../bin/fm-harness.sh crew` resolves `config/crew-harness`, where absent or `default` means firstmate's own harness.
+`../../../bin/fm-harness.sh secondmate` resolves `config/secondmate-harness` -> `config/crew-harness` -> firstmate's own harness.
+`../../../bin/fm-spawn.sh` re-resolves on every spawn, and an explicit per-spawn argument wins for that spawn.
+A new adapter's verified marker and command name must land in `../../../bin/fm-harness.sh`.
 
-For stuck recovery, the target window's harness is recorded as `harness=` in `state/<id>.meta`.
-Use that value for interrupt, exit, resume, and skill-invocation facts.
+## Operation-to-reference matrix
 
-## no-mistakes skill invocation
+Every emitted plan appends the selected or recorded harness reference after the named common references.
+The `harness-adapter-routing-v1` object is the machine-readable and human-visible selection contract: choose the operation, choose the scenario within it, then append the selected harness reference.
+`default` is the normal scenario when no narrower scenario applies.
+Kimi establishes its unsupported primary boundary in its selected harness reference; Muse and Gemini follow Non-negotiable safety above.
+A new tool remains undispatchable until the `verify` plan, its harness entry, every named owner, and the live checks land.
 
-Send the validation skill using the target harness's skill invocation form.
-Natural language is acceptable if uncertain.
-
-- claude: `/<skill>`, for example `/no-mistakes`.
-- codex: `$<skill>`, for example `$no-mistakes`; `/<skill>` is claude-only and codex rejects it as "Unrecognized command".
-- opencode: no separate verified skill invocation beyond normal slash-command behavior; use natural language if the exact skill command is uncertain.
-- pi: no separate verified skill invocation beyond normal command behavior; use natural language if the exact skill command is uncertain.
-
-## claude (VERIFIED)
-
-| Fact | Value |
-|---|---|
-| Busy-pane signature | `esc to interrupt` |
-| Exit command | `/exit` |
-| Interrupt | single Escape |
-| Skill invocation | `/<skill>` (e.g. `/no-mistakes`) |
-
-First launch in a fresh worktree, or first ever on a machine, may show a trust or bypass-permissions confirmation.
-After every spawn, peek the pane within about 20 seconds.
-If such a dialog is showing, accept it with `bin/fm-send.sh <window> --key Enter`, or the choice the dialog requires, and verify the brief started processing.
-
-Claude renders a predicted-next-prompt suggestion as dim/faint text inside an otherwise-empty composer after a turn completes.
-A plain `tmux capture-pane` cannot tell that ghost text apart from typed text.
-Firstmate launches every claude crewmate and secondmate with `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false`, scoped to firstmate-launched agents through `bin/fm-spawn.sh`, so it never touches the captain's global config.
-The CLI's `--prompt-suggestions` flag is print/SDK-mode only and does not suppress the interactive composer ghost text, verified empirically on v2.1.186.
-As defense in depth for any pane that flag cannot reach, including the captain's own firstmate composer that away-mode reads, the pane reader in `bin/fm-tmux-lib.sh` captures only the composer line with ANSI styling, drops dim/faint SGR 2 runs, and ignores them, so only normal-intensity typed text counts as pending input.
-That styled capture is internal to the boolean detector only.
-`fm-peek` and every other human or LLM-facing capture path stays plain `tmux capture-pane` with no escape codes.
-
-## codex (VERIFIED 2026-06-11, codex-cli 0.139.0)
-
-| Fact | Value |
-|---|---|
-| Busy-pane signature | `esc to interrupt` (shown as `• Working (Xs • esc to interrupt)`) |
-| Exit command | `/quit` (slash popup needs about 1 second between text and Enter; `fm-send` handles it) |
-| Interrupt | single Escape |
-| Skill invocation | `$<skill>` (e.g. `$no-mistakes`); `/<skill>` is claude-only and codex rejects it as "Unrecognized command" |
-
-A `$<skill>` invocation opens a `$`-autocomplete (skill) popup, the same hazard as the `/` slash popup: submitting too fast lets the popup swallow the Enter, so the invocation never lands.
-`fm-send` handles it the same way it handles `/` - it gives the popup a longer settle (1.2s) between typing and the first Enter, with `fm_tmux_submit_core`'s retried Enter as the safety net - but the `$` settle is scoped to `harness=codex`, read from the target's `state/<id>.meta`.
-That scope matters because, unlike `/`, a leading `$` commonly starts ordinary text (`$5/month`, `$HOME`), so a universal `$` rule would needlessly slow plain steers to claude/opencode/pi; only a codex target receiving a `$...` message gets the popup-settle.
-An explicit `session:window` target has no meta, so its harness is unknown and treated as non-codex (the safe fast-path default).
-This is why the validation trigger (`$no-mistakes`) to a codex crew now lands on the first Enter instead of biting the popup.
-
-Directory trust dialog on first run per repo root: "Do you trust the contents of this directory?"
-Accept with Enter.
-The decision persists for the repo, so later worktrees of the same project skip it.
-
-Resume after exit with `codex resume <session-id>`.
-The session id is printed on quit.
-
-## opencode (VERIFIED 2026-06-11, v1.15.7-1.17.3)
-
-| Fact | Value |
-|---|---|
-| Busy-pane signature | `esc interrupt` (dotted spinner footer; note no "to") |
-| Exit command | `/exit` |
-| Interrupt | double Escape; known flaky while a long shell command runs, so a wedged pane may need `/exit` and relaunch |
-
-No trust dialog.
-Opencode can auto-upgrade itself in the background and the running TUI can exit mid-task, observed live from 1.15.7 to 1.17.3.
-If a pane shows the exit banner, relaunch with `--continue` to resume the session.
-`--prompt` does not auto-submit alongside `--continue`, so send the next instruction via `fm-send` once the TUI is up.
-
-## pi (VERIFIED 2026-06-11)
-
-| Fact | Value |
-|---|---|
-| Busy-pane signature | `Working...` (braille spinner prefix; no `esc to interrupt` text) |
-| Exit command | `/quit` |
-| Interrupt | single Escape |
-
-Pi has no permission system, so crewmates are always autonomous.
-Keep the brief as one positional argument.
-Multiple positional args become separate queued messages; `fm-spawn`'s template already does this correctly.
-
-Project trust dialog can appear on the first pi run in any not-yet-trusted directory, observed even on clean worktrees.
-Accept with Enter.
-The decision persists per path in `~/.pi/agent/trust.json`, so later spawns in the same worktree slot skip it.
-
-`fm-spawn` keeps the turn-end extension in `state/`, outside the worktree, because project-local extension files make the trust gate strictly worse and pollute the project.
-The extension must listen for pi's `turn_end` event, not `agent_end`, so the watcher wakes after each completed turn instead of only when the whole agent run exits.
-Pi sets `PI_CODING_AGENT=true` for its children; this is its harness-detection env marker.
+```json harness-adapter-routing-v1
+{
+  "operations": {
+    "start": {
+      "default": ["references/common/dispatch.md", "references/common/model-and-effort.md"],
+      "trust-dialog": ["references/common/control-and-recovery.md"]
+    },
+    "trust": {"default": ["references/common/control-and-recovery.md"]},
+    "skill": {"default": ["references/common/control-and-recovery.md"]},
+    "interrupt": {"default": ["references/common/control-and-recovery.md"]},
+    "exit": {"default": ["references/common/control-and-recovery.md"]},
+    "resume": {"default": ["references/common/control-and-recovery.md"]},
+    "recovery": {
+      "default": ["references/common/control-and-recovery.md"],
+      "replacement-profile": ["references/common/control-and-recovery.md", "references/common/dispatch.md", "references/common/model-and-effort.md"],
+      "secondmate": ["references/common/control-and-recovery.md", "references/common/primary-hooks.md"],
+      "replacement-secondmate": ["references/common/control-and-recovery.md", "references/common/dispatch.md", "references/common/model-and-effort.md", "references/common/primary-hooks.md"]
+    },
+    "primary": {"default": ["references/common/primary-hooks.md"]},
+    "model-effort": {
+      "default": ["references/common/model-and-effort.md"],
+      "configured-profile": ["references/common/model-and-effort.md", "references/common/dispatch.md"]
+    },
+    "verify": {"default": ["references/common/dispatch.md", "references/common/control-and-recovery.md", "references/common/primary-hooks.md", "references/common/model-and-effort.md"]}
+  },
+  "harnesses": {
+    "claude": "references/harness/claude.md",
+    "codex": "references/harness/codex.md",
+    "opencode": "references/harness/opencode.md",
+    "pi": "references/harness/pi.md",
+    "pi-signed": "references/harness/pi.md",
+    "grok": "references/harness/grok.md",
+    "kimi": "references/harness/kimi.md",
+    "cursor": "references/harness/cursor.md",
+    "gemini": "references/harness/gemini.md",
+    "muse": "references/harness/muse.md",
+    "rovo": "references/harness/rovo.md",
+    "omp": "references/harness/omp.md",
+    "agy": "references/harness/agy.md"
+  }
+}
+```
