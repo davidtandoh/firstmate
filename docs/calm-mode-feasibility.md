@@ -356,7 +356,7 @@ ok - tracked Pi extensions pass strict no-emit typecheck against Pi 0.81.1
 ## 2026-07-30 Calm working-presentation verification (superseded)
 
 This record captures the first working-presentation implementation and is retained as pipeline history.
-Its same-orientation sail, theme-derived colors, and single-cadence motion were all replaced later the same day; the revision record at the end of this document owns current behavior.
+Its same-orientation sail, theme-derived colors, and single-cadence motion were all replaced later the same day; the Calm working presentation section above owns current behavior.
 
 The working ship was verified against the installed Pi 0.82.0 CLI with a deterministic in-process provider and no credentials.
 The globally installed declaration package remained 0.81.1, so the strict typecheck continued to cover that declaration-evidence version while the real CLI exercised 0.82.0.
@@ -409,9 +409,10 @@ The same run after resizing that TUI to 64 columns, showing the waves refilled t
 Colors at that time were confirmed from an escape-preserving capture as theme-derived entries; the revision below replaced them with standard ANSI blue and yellow.
 Pressing Escape during a run left `Operation aborted` with no boat and no residual blank row, and toggling Calm off restored Pi's stock `⠴ Working...` row on the next run.
 
-## 2026-07-30 Calm working-presentation revision verification
+## 2026-07-30 Calm working-presentation revision verification (superseded)
 
 The revision replaced the single-cadence, theme-colored, same-orientation sprite with a slower boat over independently animated water, standard ANSI colors, and a directional mainsail.
+Its directional ASCII mainsail, ripple water, and blue-and-yellow palette were later replaced by the asymmetric Unicode sail and smooth swell; the Calm working presentation section above owns current behavior.
 It was verified against the installed Pi 0.82.0 CLI with a deterministic in-process provider and no credentials.
 
 ```text
