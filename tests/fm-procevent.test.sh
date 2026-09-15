@@ -1969,6 +1969,16 @@ assert_contains "$out" "no-result" "a failing source with no output publishes no
 assert_present "$HE/state/procevent/fail-src.source" "a failing source stays registered for retry"
 pass "nonzero exit with no output stays armed and silent"
 
+HE0="$TMP_ROOT/he-zero"; new_home "$HE0"
+pe_register "$HE0" remote-reply empty-success -- /bin/sh -c 'exit 0' >/dev/null
+out=$(pe "$HE0" start empty-success)
+assert_contains "$out" "no-result" "an empty successful source publishes nothing"
+[ -z "$(wake_payloads "$HE0")" ] || fail "an empty successful source published an event"
+assert_present "$HE0/state/procevent/empty-success.source" "an empty successful source stays registered for retry"
+assert_absent "$HE0/state/procevent-inbox/empty-success.1.result" "an empty successful source published a result"
+assert_absent "$HE0/state/procevent-inbox/empty-success.1.owner" "an empty successful source published an adapter sidecar"
+pass "exit-zero empty output stays armed without capture, sidecar, or wake"
+
 HF="$TMP_ROOT/hf"; new_home "$HF"
 # shellcheck disable=SC2016  # single quotes are deliberate: the child shell expands this.
 pe_register "$HF" lavish big-src -- /bin/sh -c 'printf "x%.0s" $(seq 1 5000)' >/dev/null

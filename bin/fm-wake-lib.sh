@@ -912,6 +912,30 @@ fm_recovery_marker_reopen_announced() {
   fm_recovery_transition "$1" reopen-announced
 }
 
+fm_lock_try_acquire_recovery_mutex() {
+  local lockdir=$1 pid owner current
+  if fm_lock_try_create "$lockdir"; then
+    return 0
+  fi
+
+  # Recovery serialization is deliberately non-recursive. A live or
+  # unreadable mutex owner is not evidence that the mutex is safe to replace.
+  pid=$(cat "$lockdir/pid" 2>/dev/null) || return 1
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  fm_current_pid current || return 1
+  [ "$pid" != "$current" ] || return 1
+  fm_pid_alive "$pid" && return 1
+  owner=
+  if [ -L "$lockdir" ]; then
+    owner=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || return 1
+  elif [ ! -d "$lockdir" ]; then
+    return 1
+  fi
+  fm_lock_recheck_stale_owner "$lockdir" "$owner" "$pid" || return 1
+  fm_lock_remove_path "$lockdir" || return 1
+  fm_lock_try_create "$lockdir"
+}
+
 fm_lock_try_acquire() {
   local lockdir=$1 pid steal cur rc steal_owner primary_owner current
   FM_LOCK_HELD_PID=
@@ -950,7 +974,7 @@ fm_lock_try_acquire() {
   fi
 
   steal="$lockdir.steal"
-  if ! fm_lock_try_acquire "$steal"; then
+  if ! fm_lock_try_acquire_recovery_mutex "$steal"; then
     FM_LOCK_HELD_PID=$(cat "$lockdir/pid" 2>/dev/null || true)
     FM_LOCK_OWNER_DIR=
     return 1

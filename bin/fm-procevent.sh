@@ -979,9 +979,9 @@ EOF
     esac
   fi
 
-  if [ "$capture_state" = no-result ] || { [ "$extension_owner" -eq 0 ] && [ "$rc" -ne 0 ] && [ ! -s "$out" ]; }; then
+  if [ "$capture_state" = no-result ] || { [ "$extension_owner" -eq 0 ] && [ ! -s "$out" ]; }; then
     # No usable result. Leave the registration armed; the adapter decides
-    # whether a nonzero exit is terminal when it handles the next result.
+    # whether an exit is terminal when it handles the next nonempty result.
     if [ "$extension_owner" -eq 0 ]; then
       rm -f -- "$out" "$runner"
     fi
