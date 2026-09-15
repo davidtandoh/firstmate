@@ -923,7 +923,11 @@ fm_lock_try_acquire_recovery_mutex() {
   pid=$(cat "$lockdir/pid" 2>/dev/null) || return 1
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_current_pid current || return 1
-  [ "$pid" != "$current" ] || return 1
+  if [ "$pid" = "$current" ]; then
+    fm_lock_remove_path "$lockdir" || return 1
+    fm_lock_try_create "$lockdir"
+    return
+  fi
   fm_pid_alive "$pid" && return 1
   owner=
   if [ -L "$lockdir" ]; then

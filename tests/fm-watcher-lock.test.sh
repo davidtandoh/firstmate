@@ -343,6 +343,46 @@ test_lock_stale_steal_mutex_is_reclaimed_without_recursion() {
   pass "stale recovery mutex is reclaimed repeatedly without recursive paths"
 }
 
+# An interrupted mid-steal frame: the primary holder is dead, this process
+# already holds the recovery mutex under its own pid, and the EXIT path then
+# re-acquires the same lock. Refusing the self-held mutex spins the exit path
+# forever, so the wait must return promptly and leave both paths released.
+test_lock_self_held_steal_mutex_is_reclaimed_on_exit_path() {
+  local dir state lockdir dead worker i
+  dir=$(make_case lock-self-held-stealer)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  mkdir "$lockdir"
+  printf '%s\n' "$dead" > "$lockdir/pid"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_current_pid me || exit 10
+    mkdir "$2.steal" || exit 11
+    printf "%s\n" "$me" > "$2.steal/pid" || exit 12
+    fm_lock_acquire_wait "$2" || exit 13
+    fm_lock_release "$2"
+    [ ! -e "$2.steal" ] && [ ! -L "$2.steal" ] || exit 14
+    [ ! -e "$2" ] && [ ! -L "$2" ] || exit 15
+    : > "$3"
+  ' _ "$LIB" "$lockdir" "$dir/done" &
+  worker=$!
+  i=0
+  while [ "$i" -lt 100 ] && kill -0 "$worker" 2>/dev/null; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if kill -0 "$worker" 2>/dev/null; then
+    kill "$worker" 2>/dev/null || true
+    wait "$worker" 2>/dev/null || true
+    fail "exit-path re-acquire spun against its own recovery mutex"
+  fi
+  wait "$worker" || fail "exit-path re-acquire failed (rc=$?)"
+  [ -e "$dir/done" ] || fail "exit-path re-acquire did not complete"
+  assert_absent "$lockdir.steal.steal" "self-held recovery created a recursive mutex path"
+  pass "an abandoned same-process recovery mutex is reclaimed by the exit path"
+}
+
 test_lock_unreadable_steal_mutex_fails_closed() {
   local dir state lockdir dead out
   dir=$(make_case lock-unreadable-stealer)
@@ -1186,6 +1226,7 @@ test_lock_steals_dead_pid_lock
 test_lock_stale_steal_single_winner_under_concurrency
 test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_stale_steal_mutex_is_reclaimed_without_recursion
+test_lock_self_held_steal_mutex_is_reclaimed_on_exit_path
 test_lock_unreadable_steal_mutex_fails_closed
 test_lock_near_component_limit_refuses_without_path_growth
 test_lock_does_not_steal_live_lock
