@@ -924,6 +924,11 @@ fm_lock_try_acquire_recovery_mutex() {
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_current_pid current || return 1
   if [ "$pid" = "$current" ]; then
+    # This process already holds the mutex: an interrupting trap abandoned a
+    # mid-steal frame and the EXIT path is re-acquiring the same lock. Refusing
+    # here spins that exit path forever (the self-held reclaim regression in
+    # tests/fm-watcher-lock.test.sh), so reclaim it like the primary self-held
+    # branch in fm_lock_try_acquire.
     fm_lock_remove_path "$lockdir" || return 1
     fm_lock_try_create "$lockdir"
     return
