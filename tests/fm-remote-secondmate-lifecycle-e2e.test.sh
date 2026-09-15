@@ -659,6 +659,12 @@ assert_present "$REMOTE_HOME/.fm-secondmate-home" "remote provisioning did not p
 assert_present "$REMOTE_HOME/projects/alpha/.git" "remote provisioning did not clone the project on that host"
 assert_grep "$REMOTE_HOME/state/parent-replies.status" "$REMOTE_HOME/data/charter.md" "remote charter did not use its append-only reply log"
 assert_no_grep "$PARENT/state/ios.status" "$REMOTE_HOME/data/charter.md" "remote charter retained the inaccessible local status path"
+assert_grep "$REMOTE_HOME/state/parent-route/ios.inbox" "$REMOTE_HOME/data/charter.md" "remote charter did not use its host-local steering inbox"
+assert_no_grep "$PARENT/state/ios.inbox" "$REMOTE_HOME/data/charter.md" "remote charter retained the inaccessible primary steering inbox"
+declared_remote_inbox=$(sed -n "s|^Firstmate steers you through durable message files in '\([^']*\)'.$|\1|p" "$REMOTE_HOME/data/charter.md")
+remote_home_physical=$(cd "$REMOTE_HOME" && pwd -P)
+[ "$declared_remote_inbox" = "$remote_home_physical/state/parent-route/ios.inbox" ] \
+  || fail "remote charter declared the wrong steering inbox: $declared_remote_inbox"
 if FM_SECONDMATE_CHARTER='Own iOS delivery on the build Mac.' \
   FM_SECONDMATE_SCOPE='iOS implementation and Xcode validation' \
   remote_env "$ROOT/bin/fm-remote-home-seed.sh" ios remote-mac "$REMOTE_ROOT" "$TMP_ROOT/other-home" alpha \
@@ -893,8 +899,14 @@ records_after_send=$(find "$REMOTE_HOME/state/parent-route/ios.inbox" -maxdepth 
   || fail "the retried remote steer did not dedup onto one new record, went $records_before_send -> $records_after_send"
 assert_no_grep 'report the build result' "$HERDR_LOG" "the steer payload was typed into the remote pane"
 assert_grep 'Firstmate instruction waiting' "$HERDR_LOG" "the remote doorbell never rang"
+declared_record=$(find "$declared_remote_inbox" -maxdepth 1 -name '*.msg' | sort | tail -1)
+[ -n "$declared_record" ] || fail "the charter-declared inbox did not receive the remote steer"
+assert_absent "$PARENT/state/ios.inbox" "the remote steer created the charter's old primary inbox"
 CORR=$(newest_remote_inbox_corr)
 [ -n "$CORR" ] || fail "remote send did not carry a correlation token"
+mv "$declared_record" "$declared_remote_inbox/handled/"
+assert_absent "$declared_record" "the charter-declared inbox record remained after acknowledgement"
+assert_present "$declared_remote_inbox/handled/$(basename "$declared_record")" "the charter-declared inbox could not acknowledge the record"
 assert_grep "FM_PENDING_REPLY_EXISTING_CORR=$CORR" "$TMP_ROOT/send.err" "ambiguous remote send did not print its correlation-reusing command"
 phase=$(grep '^phase=' "$PARENT/state/pending-replies/$CORR" | cut -d= -f2-)
 [ "$phase" = delivery_unknown ] || fail "ambiguous remote send did not preserve its pending expectation"

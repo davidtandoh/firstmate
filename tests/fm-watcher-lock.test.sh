@@ -230,8 +230,9 @@ test_lock_steals_dead_pid_lock() {
   state="$dir/state"
   lockdir="$state/.contend.lock"
   dead=$(dead_pid)
-  mkdir "$lockdir"
+  mkdir "$lockdir" "$lockdir.steal"
   printf '%s\n' "$dead" > "$lockdir/pid"
+  printf '%s\n' "$dead" > "$lockdir.steal/pid"
   rc=0
   newpid=$(FM_STATE_OVERRIDE="$state" bash -c '
     . "$1"
@@ -250,8 +251,9 @@ test_lock_stale_steal_single_winner_under_concurrency() {
   lockdir="$state/.contend.lock"
   marker="$dir/wins"
   dead=$(dead_pid)
-  mkdir "$lockdir"
+  mkdir "$lockdir" "$lockdir.steal"
   printf '%s\n' "$dead" > "$lockdir/pid"
+  printf '%s\n' "$dead" > "$lockdir.steal/pid"
   : > "$marker"
   pids=
   i=1
@@ -312,6 +314,109 @@ test_lock_live_steal_mutex_is_not_reclaimed() {
   [ "$lockpid" = "$dead" ] || fail "primary lock changed while live steal mutex was held: $out"
   [ "$stealpid" = "$(cat "$holder_file")" ] || fail "live steal mutex owner changed: $out"
   pass "live steal mutex is not reclaimed"
+}
+
+test_lock_stale_steal_mutex_is_reclaimed_without_recursion() {
+  local dir state lockdir dead attempt longest
+  dir=$(make_case lock-stale-stealer)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  mkdir "$lockdir" "$lockdir.steal"
+  printf '%s\n' "$dead" > "$lockdir/pid"
+  printf '%s\n' "$dead" > "$lockdir.steal/pid"
+  attempt=1
+  while [ "$attempt" -le 3 ]; do
+    FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      fm_lock_try_acquire "$2" || exit 1
+      fm_lock_release "$2"
+    ' _ "$LIB" "$lockdir" || fail "attempt $attempt could not reclaim a stale recovery mutex"
+    assert_absent "$lockdir.steal.steal" "stale recovery created a recursive mutex path"
+    mkdir "$lockdir" "$lockdir.steal"
+    printf '%s\n' "$dead" > "$lockdir/pid"
+    printf '%s\n' "$dead" > "$lockdir.steal/pid"
+    attempt=$((attempt + 1))
+  done
+  longest=$(find "$state" -maxdepth 1 -name '.contend.lock.steal*' -print | awk '{ print length, $0 }' | sort -nr | head -1)
+  case "$longest" in *'.contend.lock.steal') ;; *) fail "repeated recovery grew beyond the fixed mutex path: $longest" ;; esac
+  pass "stale recovery mutex is reclaimed repeatedly without recursive paths"
+}
+
+# An interrupted mid-steal frame: the primary holder is dead, this process
+# already holds the recovery mutex under its own pid, and the EXIT path then
+# re-acquires the same lock. Refusing the self-held mutex spins the exit path
+# forever, so the wait must return promptly and leave both paths released.
+test_lock_self_held_steal_mutex_is_reclaimed_on_exit_path() {
+  local dir state lockdir dead worker i
+  dir=$(make_case lock-self-held-stealer)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  mkdir "$lockdir"
+  printf '%s\n' "$dead" > "$lockdir/pid"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_current_pid me || exit 10
+    mkdir "$2.steal" || exit 11
+    printf "%s\n" "$me" > "$2.steal/pid" || exit 12
+    fm_lock_acquire_wait "$2" || exit 13
+    fm_lock_release "$2"
+    [ ! -e "$2.steal" ] && [ ! -L "$2.steal" ] || exit 14
+    [ ! -e "$2" ] && [ ! -L "$2" ] || exit 15
+    : > "$3"
+  ' _ "$LIB" "$lockdir" "$dir/done" &
+  worker=$!
+  i=0
+  while [ "$i" -lt 100 ] && kill -0 "$worker" 2>/dev/null; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if kill -0 "$worker" 2>/dev/null; then
+    kill "$worker" 2>/dev/null || true
+    wait "$worker" 2>/dev/null || true
+    fail "exit-path re-acquire spun against its own recovery mutex"
+  fi
+  wait "$worker" || fail "exit-path re-acquire failed (rc=$?)"
+  [ -e "$dir/done" ] || fail "exit-path re-acquire did not complete"
+  assert_absent "$lockdir.steal.steal" "self-held recovery created a recursive mutex path"
+  pass "an abandoned same-process recovery mutex is reclaimed by the exit path"
+}
+
+test_lock_unreadable_steal_mutex_fails_closed() {
+  local dir state lockdir dead out
+  dir=$(make_case lock-unreadable-stealer)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  dead=$(dead_pid)
+  mkdir "$lockdir" "$lockdir.steal"
+  printf '%s\n' "$dead" > "$lockdir/pid"
+  printf 'not-a-pid\n' > "$lockdir.steal/pid"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    if fm_lock_try_acquire "$2"; then printf acquired; else printf refused; fi
+  ' _ "$LIB" "$lockdir")
+  [ "$out" = refused ] || fail "an unreadable recovery-mutex owner was replaced"
+  assert_absent "$lockdir.steal.steal" "unreadable recovery created a recursive mutex path"
+  pass "unreadable recovery-mutex owner fails closed"
+}
+
+test_lock_near_component_limit_refuses_without_path_growth() {
+  local dir state base lockdir dead out
+  dir=$(make_case lock-long-path)
+  state="$dir/state"
+  base=$(printf 'x%.0s' $(seq 1 244))
+  lockdir="$state/$base"
+  dead=$(dead_pid)
+  mkdir "$lockdir"
+  printf '%s\n' "$dead" > "$lockdir/pid"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    if fm_lock_try_acquire "$2"; then printf acquired; else printf refused; fi
+  ' _ "$LIB" "$lockdir")
+  [ "$out" = refused ] || fail "near-limit lock unexpectedly acquired"
+  [ ! -e "$lockdir.steal.steal" ] || fail "near-limit recovery grew a recursive path"
+  pass "near-limit lock path refuses without recursive suffix growth"
 }
 
 test_lock_does_not_steal_live_lock() {
@@ -1120,6 +1225,10 @@ test_lock_single_winner_under_concurrency
 test_lock_steals_dead_pid_lock
 test_lock_stale_steal_single_winner_under_concurrency
 test_lock_live_steal_mutex_is_not_reclaimed
+test_lock_stale_steal_mutex_is_reclaimed_without_recursion
+test_lock_self_held_steal_mutex_is_reclaimed_on_exit_path
+test_lock_unreadable_steal_mutex_fails_closed
+test_lock_near_component_limit_refuses_without_path_growth
 test_lock_does_not_steal_live_lock
 test_lock_empty_pid_uses_minimum_grace
 test_lock_late_claim_loses_after_recreate
