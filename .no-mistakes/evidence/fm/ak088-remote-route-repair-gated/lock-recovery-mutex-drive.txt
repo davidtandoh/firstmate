@@ -1,0 +1,36 @@
+### base-d913576 (/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//nm-base-d913576/bin/fm-wake-lib.sh), dead pid=56617
+--- A. exit-path re-acquire while this process already holds the recovery mutex (primary holder dead)
+acquired by pid 56657
+primary released
+mutex released
+returned rc=0
+--- B. stale recovery mutex (dead pid) x3: reclaim without recursive .steal.steal path
+attempt 1: acquired (recovered pid=56617)
+attempt 2: acquired (recovered pid=56617)
+attempt 3: acquired (recovered pid=56617)
+   paths under state: 
+--- C. unreadable recovery-mutex owner (pid file 'not-a-pid') must fail closed
+refused
+   paths under state: .contend.lock .contend.lock.steal 
+--- D. live recovery-mutex owner (another live process) must not be reclaimed
+refused (held pid=56617)
+   paths under state: .contend.lock .contend.lock.steal 
+
+### target-031fc51 (/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2J14319FFN72458A227T2Y3/bin/fm-wake-lib.sh), dead pid=62093
+--- A. exit-path re-acquire while this process already holds the recovery mutex (primary holder dead)
+acquired by pid 62146
+primary released
+mutex released
+returned rc=0
+--- B. stale recovery mutex (dead pid) x3: reclaim without recursive .steal.steal path
+attempt 1: acquired (recovered pid=62093)
+attempt 2: acquired (recovered pid=62093)
+attempt 3: acquired (recovered pid=62093)
+   paths under state: 
+--- C. unreadable recovery-mutex owner (pid file 'not-a-pid') must fail closed
+refused
+   paths under state: .contend.lock .contend.lock.steal 
+--- D. live recovery-mutex owner (another live process) must not be reclaimed
+refused (held pid=62093)
+   paths under state: .contend.lock .contend.lock.steal 
+

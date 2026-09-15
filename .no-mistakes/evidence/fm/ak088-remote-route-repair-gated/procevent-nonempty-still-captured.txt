@@ -1,0 +1,23 @@
+### target: source '/bin/sh -c echo reply-body; exit 0'
+registered: nonempty-ok (remote-reply)
+not-autohandled: nonempty-ok (left for the handler; still unacknowledged)
+retired: nonempty-ok (adapter classified the captured result terminal)
+captured: /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-pe2.zShyQr/nonempty-ok/state/procevent-inbox/nonempty-ok.1.result
+   results: nonempty-ok.1.adapter nonempty-ok.1.result 
+   wake rows:        1
+
+### target: source '/bin/sh -c echo failure-body; exit 1'
+registered: nonempty-fail (remote-reply)
+not-autohandled: nonempty-fail (left for the handler; still unacknowledged)
+retired: nonempty-fail (adapter classified the captured result terminal)
+captured: /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-pe2.zShyQr/nonempty-fail/state/procevent-inbox/nonempty-fail.1.result
+   results: nonempty-fail.1.adapter nonempty-fail.1.result 
+   wake rows:        1
+
+### target: source '/bin/sh -c exit 1'
+registered: empty-fail (remote-reply)
+no-result: empty-fail (exit 1)
+   results: 
+one:2: no such file or directory: /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//nm-pe2.zShyQr/empty-fail/state/.wake-queue
+   wake rows: 0
+

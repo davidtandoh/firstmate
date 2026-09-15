@@ -1,0 +1,30 @@
+### base-d913576 (/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//nm-base-d913576/bin/fm-procevent.sh)
+$ fm-procevent.sh register remote-reply empty-success -- /bin/sh -c 'exit 0'
+registered: empty-success (remote-reply)
+$ fm-procevent.sh start empty-success
+not-autohandled: empty-success (left for the handler; still unacknowledged)
+captured: /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-procevent.9qrRAv/base-d913576/state/procevent-inbox/empty-success.1.result
+(exit 0)
+-- state/procevent (registration):
+   empty-success.16777232-217950356.last-launch
+   empty-success.source
+-- state/procevent-inbox (captured results/sidecars):
+   empty-success.1.adapter
+   empty-success.1.result
+-- state/.wake-queue (wake rows):
+   1789460540	1	check	procevent:empty-success:1	check: procevent remote-reply empty-success 1
+
+### target-031fc51 (/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2J14319FFN72458A227T2Y3/bin/fm-procevent.sh)
+$ fm-procevent.sh register remote-reply empty-success -- /bin/sh -c 'exit 0'
+registered: empty-success (remote-reply)
+$ fm-procevent.sh start empty-success
+no-result: empty-success (exit 0)
+(exit 0)
+-- state/procevent (registration):
+   empty-success.16777232-217951742.last-launch
+   empty-success.source
+-- state/procevent-inbox (captured results/sidecars):
+   (empty)
+-- state/.wake-queue (wake rows):
+   (none)
+

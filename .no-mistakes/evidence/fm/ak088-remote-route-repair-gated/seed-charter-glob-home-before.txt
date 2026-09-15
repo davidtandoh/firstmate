@@ -1,0 +1,45 @@
+### base-d913576: parent-side seed script = /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//nm-base-d913576/bin/fm-remote-home-seed.sh
+    parent FM_HOME = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]
+$ FM_HOME="$PARENT" fm-remote-home-seed.sh ios remote-mac "$REMOTE_ROOT" "$REMOTE_HOME" alpha
+provisioned: /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/remote-home projects=1
+home=remote-mac:/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/remote-home
+(exit 0)
+-- ssh calls: 2
+-- parent charter (data/ios/brief.md) route lines:
+   22:Nobody reads this chat: the captain and the main firstmate see only what is appended to '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.status', and a captain-facing sentence that is not appended there has not been sent.
+   42:Firstmate steers you through durable message files in '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'.
+   43:When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/NNN.msg '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/handled/`.
+   49:   `echo "{state}: {one short line}" >> '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.status'`
+-- remote charter received on the remote host (/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/remote-home/data/charter.md) route lines:
+   22:Nobody reads this chat: the captain and the main firstmate see only what is appended to '"/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/remote-home/state/parent-replies.status"', and a captain-facing sentence that is not appended there has not been sent.
+   42:Firstmate steers you through durable message files in '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'.
+   43:When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/NNN.msg '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/fm[1]/state/ios.inbox'/handled/`.
+   49:   `echo "{state}: {one short line}" >> '"/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-base-d913576.Rd2WkL/remote-home/state/parent-replies.status"'`
+-- verdict:
+   FAIL: remote charter still names the parent's inaccessible inbox
+   ok: parent status path absent from remote charter
+   FAIL: remote charter does not name the host-local inbox cleanly
+   FAIL: remote charter does not name the host-local reply log cleanly
+
+### mid-1df13d2-unquoted-pattern: parent-side seed script = /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//nm-mid-1df13d2/bin/fm-remote-home-seed.sh
+    parent FM_HOME = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]
+$ FM_HOME="$PARENT" fm-remote-home-seed.sh ios remote-mac "$REMOTE_ROOT" "$REMOTE_HOME" alpha
+provisioned: /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/remote-home projects=1
+home=remote-mac:/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/remote-home
+(exit 0)
+-- ssh calls: 2
+-- parent charter (data/ios/brief.md) route lines:
+   22:Nobody reads this chat: the captain and the main firstmate see only what is appended to '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.status', and a captain-facing sentence that is not appended there has not been sent.
+   42:Firstmate steers you through durable message files in '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'.
+   43:When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/NNN.msg '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/handled/`.
+   49:   `echo "{state}: {one short line}" >> '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.status'`
+-- remote charter received on the remote host (/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/remote-home/data/charter.md) route lines:
+   22:Nobody reads this chat: the captain and the main firstmate see only what is appended to '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.status', and a captain-facing sentence that is not appended there has not been sent.
+   42:Firstmate steers you through durable message files in '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'.
+   43:When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/NNN.msg '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.inbox'/handled/`.
+   49:   `echo "{state}: {one short line}" >> '/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/nm-seed-mid-1df13d2-unquoted-pattern.8IAqOt/fm[1]/state/ios.status'`
+-- verdict:
+   FAIL: remote charter still names the parent's inaccessible inbox
+   FAIL: remote charter still names the parent's inaccessible status path
+   FAIL: remote charter does not name the host-local inbox cleanly
+   FAIL: remote charter does not name the host-local reply log cleanly
