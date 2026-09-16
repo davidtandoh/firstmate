@@ -266,6 +266,54 @@ SH
   pass "session-lock: a live version-named session holding the lock is not mistaken for a stale owner"
 }
 
+test_unreadable_identity_is_not_foreign_ownership_or_death() {
+  local dir fb mode got
+  dir="$TMP_ROOT/unreadable-identity"
+  fb=$(fm_fakebin "$dir")
+  mkdir -p "$dir/state"
+  printf '700\n' > "$dir/state/.lock"
+  cat > "$fb/ps" <<'SH'
+#!/usr/bin/env bash
+set -u
+case "$*" in
+  '-o comm= -p 701') exit 1 ;;
+  '-o comm= -p 700')
+    [ "$FM_TEST_READ_MODE" != comm-hidden ] || exit 1
+    printf 'claude\n' ;;
+  '-o args= -p 700') exit 1 ;;
+  '-o ppid= -p 700') printf '1\n' ;;
+  '-o comm= -p '*) printf 'bash\n' ;;
+  '-o args= -p '*) printf 'bash\n' ;;
+  '-o ppid= -p '*) printf '700\n' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/ps"
+  for mode in args-hidden comm-hidden; do
+    got=$(FM_TEST_READ_MODE="$mode" lib_eval "$fb" "
+      fm_session_lock_owned_by_self '$dir/state'; printf '%s ' \"\$?\"
+      fm_harness_pid_alive 700; printf '%s' \"\$?\"
+    ")
+    if [ "$mode" = args-hidden ]; then
+      [ "$got" = '0 0' ] || fail "kernel identity must survive hidden arguments, got '$got'"
+    else
+      [ "$got" = '1 2' ] || fail "unreadable identity must not prove ownership or death, got '$got'"
+    fi
+  done
+  printf '701\n' > "$dir/state/.lock"
+  got=$(FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" lib_eval "$fb" \
+    "set -- status; . '$ROOT/bin/fm-lock.sh'")
+  [ "$got" = 'lock: unreadable process evidence (pid 701)' ] \
+    || fail "lock status treated unreadable ownership as stale: $got"
+  if FM_TEST_READ_MODE=args-hidden FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
+    lib_eval "$fb" ". '$ROOT/bin/fm-lock.sh'" > "$dir/acquire.out" 2>&1; then
+    fail 'lock acquisition reclaimed an owner with unreadable process evidence'
+  fi
+  [ "$(cat "$dir/state/.lock")" = 701 ] || fail 'refused acquisition changed the retained owner'
+  assert_grep 'process evidence is unreadable' "$dir/acquire.out" 'acquisition refused for an unrelated reason'
+  pass 'session-lock: structural identity survives hidden args; unreadable identity remains unproven'
+}
+
 # --- end-to-end layer: the real Stop auto-arm in real process trees ----------
 
 install_autoarm_scripts() {
@@ -404,11 +452,117 @@ test_e2e_daemon_parented_version_named_session_keeps_its_lock() {
   pass "session-lock e2e: a version-named session under a harness-named daemon keeps its own lock"
 }
 
+test_foreign_supervision_requires_stable_identity_and_ancestry() {
+  local dir fakebin mode got status expression
+  dir="$TMP_ROOT/foreign-supervision"
+  fakebin=$(fm_fakebin "$dir")
+  mkdir -p "$dir/state"
+  cat > "$fakebin/ps" <<'SH'
+#!/usr/bin/env bash
+set -u
+field= pid=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) field=$2; shift 2 ;;
+    -p) pid=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+case "$pid:$field" in
+  700:comm=|700:args=)
+    case "$FM_TEST_FOREIGN_MODE" in
+      no-current) printf 'bash\n' ;;
+      other-current) printf 'codex\n' ;;
+      *) printf 'claude\n' ;;
+    esac
+    ;;
+  700:ppid=|800:ppid=|801:ppid=) printf '1\n' ;;
+  800:comm=|800:args=|801:comm=|801:args=)
+    case "$FM_TEST_FOREIGN_MODE" in
+      nonharness-owner) printf 'bash\n' ;;
+      watcher-claude|unreadable-ancestry) printf 'claude\n' ;;
+      *) printf 'codex\n' ;;
+    esac
+    ;;
+  900:comm=|900:args=|1:args=) printf 'bash\n' ;;
+  1:comm=)
+    if [ "$FM_TEST_FOREIGN_MODE" = unreadable-ancestry ]; then
+      [ ! -f "$FM_TEST_FOREIGN_DIR/stop-read" ] || exit 1
+      : > "$FM_TEST_FOREIGN_DIR/stop-read"
+    fi
+    printf 'bash\n'
+    ;;
+  900:ppid=)
+    if [ "$FM_TEST_FOREIGN_MODE" = ancestry ] && [ -f "$FM_TEST_FOREIGN_DIR/parent-read" ]; then
+      printf '801\n'
+    else
+      : > "$FM_TEST_FOREIGN_DIR/parent-read"
+      printf '800\n'
+    fi
+    ;;
+  1:ppid=) printf '0\n' ;;
+  *:comm=|*:args=) printf 'bash\n' ;;
+  *:ppid=) printf '700\n' ;;
+esac
+SH
+  chmod +x "$fakebin/ps"
+  expression='
+    . "$FM_TEST_CODE_ROOT/bin/fm-wake-lib.sh"
+    fm_pid_identity() {
+      local pid=$1 count=0
+      if [ -f "$FM_TEST_FOREIGN_DIR/identity-$pid" ]; then
+        count=$(cat "$FM_TEST_FOREIGN_DIR/identity-$pid")
+      fi
+      count=$((count + 1))
+      printf "%s\n" "$count" > "$FM_TEST_FOREIGN_DIR/identity-$pid"
+      case "$FM_TEST_FOREIGN_MODE:$pid:$count" in
+        owner:800:2|current:700:2) printf "changed-%s\n" "$pid" ;;
+        lock:800:1)
+          printf "801\n" > "$FM_STATE_OVERRIDE/.lock"
+          printf "start-%s\n" "$pid"
+          ;;
+        *) printf "start-%s\n" "$pid" ;;
+      esac
+    }
+    if [ "$FM_TEST_FOREIGN_MODE" = ancestry ] || [ "$FM_TEST_FOREIGN_MODE" = watcher ] \
+      || [ "$FM_TEST_FOREIGN_MODE" = watcher-claude ] || [ "$FM_TEST_FOREIGN_MODE" = unreadable-ancestry ]; then
+      fm_watcher_healthy() {
+        FM_WATCHER_HEALTHY_PID=900
+        FM_WATCHER_HEALTHY_IDENTITY=start-900
+        return 0
+      }
+      fm_watcher_owned_by_session "$FM_STATE_OVERRIDE" /repo/bin/fm-watch.sh 800 start-800 300 "$FM_HOME"
+    else
+      fm_session_lock_foreign_owner "$FM_STATE_OVERRIDE" || exit 1
+      [ "$FM_SESSION_FOREIGN_OWNER_PID" = 800 ] && [ "$FM_SESSION_FOREIGN_OWNER_IDENTITY" = start-800 ]
+    fi
+  '
+  for mode in stable owner current lock watcher watcher-claude ancestry unreadable-ancestry no-current other-current nonharness-owner; do
+    rm -f "$dir"/identity-* "$dir/parent-read" "$dir/stop-read"
+    printf '800\n' > "$dir/state/.lock"
+    FM_TEST_FOREIGN_MODE="$mode" FM_TEST_FOREIGN_DIR="$dir" FM_TEST_CODE_ROOT="$ROOT" \
+      FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" lib_eval "$fakebin" "$expression"
+    status=$?
+    case "$mode" in
+      stable|watcher|watcher-claude) expect_code 0 "$status" "$mode: positive foreign ownership proof failed" ;;
+      *) expect_code 1 "$status" "$mode: changed foreign supervision evidence was accepted" ;;
+    esac
+  done
+  got=$(FM_TEST_FOREIGN_MODE=stable FM_TEST_FOREIGN_DIR="$dir" \
+    lib_eval "$fakebin" 'fm_harness_ancestry_pids 900') || fail "explicit watcher-root ancestry failed"
+  [ "$got" = 800 ] || fail "explicit watcher-root ancestry reached '$got' instead of its own holder"
+  lib_eval "$fakebin" 'fm_harness_ancestry_pids 0' >/dev/null 2>&1; status=$?
+  expect_code 2 "$status" "invalid explicit ancestry root must fail closed"
+  pass "session-lock: foreign supervision rejects changed current/holder identity, lock and watcher ancestry"
+}
+
 test_version_named_session_is_identified_on_both_platforms
 test_harness_at_namespace_pid1_is_examined
 test_ordinary_paths_are_never_harness_processes
 test_harness_beyond_a_gap_never_owns_the_lock
 test_competing_version_named_session_is_seen_as_live
+test_unreadable_identity_is_not_foreign_ownership_or_death
+test_foreign_supervision_requires_stable_identity_and_ancestry
 test_e2e_version_named_session_claims_the_home
 test_e2e_daemon_parented_session_claims_the_home
 test_e2e_daemon_parented_version_named_session_keeps_its_lock

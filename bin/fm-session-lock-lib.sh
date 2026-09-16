@@ -6,6 +6,8 @@
 # bin/fm-lock.sh uses it to acquire and inspect state/.lock;
 # bin/fm-claude-stop-autoarm.sh uses it to prove a Stop hook fires inside the
 # lock-owning primary session before it may arm or rewake.
+# bin/fm-turnend-guard.sh uses the same proof before shared episode mutation
+# and combines its positive foreign-holder read with watcher ownership.
 # This file is sourced by scripts and has no side effects on source.
 
 # Cursor process identity is NOT expressible as a command-name pattern and is
@@ -90,7 +92,7 @@ fm_harness_process_matches() {  # <comm> <args>
   return 1
 }
 
-# Walk the current process ancestry (up to 16 hops) and print this session's
+# Walk process ancestry (up to 16 hops; default: the current process) and print its
 # contiguous verified-harness ancestry, innermost pid first.
 #
 # The walk climbs freely until the first harness match, because the caller is
@@ -108,20 +110,26 @@ fm_harness_process_matches() {  # <comm> <args>
 # claude), with no non-harness process between them. Which pid in that run is the
 # session cannot be read off the ancestry at all, so the whole contiguous run is
 # reported and the callers below decide what they need from it.
-fm_harness_ancestry_pids() {
-  local pid=$$ comm args extending=0 printed=0
+fm_harness_ancestry_pids() {  # [start-pid]
+  local pid=${1:-$$} comm args extending=0 printed=0 args_readable
+  case "$pid" in ''|*[!0-9]*|0) return 2 ;; esac
   for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
-    comm=$(ps -o comm= -p "$pid" 2>/dev/null) || break
-    args=$(ps -o args= -p "$pid" 2>/dev/null)
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 2
+    [ -n "$comm" ] || return 2
+    args_readable=1
+    args=$(ps -o args= -p "$pid" 2>/dev/null) || args_readable=0
     if fm_harness_process_matches "$comm" "$args"; then
       printf '%s\n' "$pid"
       printed=1
       [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || break
       extending=1
+    elif [ "$args_readable" -eq 0 ]; then
+      return 2
     elif [ "$extending" -eq 1 ]; then
       break
     fi
-    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null) || return 2
+    pid=${pid//[[:space:]]/}
     # Examine the top of the chain before stopping. Inside a PID namespace the
     # harness itself is pid 1, so stopping as soon as the next pid is 1 hides the
     # very process this walk exists to find. A host's real pid 1 (init, systemd,
@@ -150,12 +158,20 @@ EOF
   printf '%s\n' "$outermost"
 }
 
-# True if $1 is a live process that looks like a verified harness.
+# Liveness of $1 as a verified harness process. Returns 0 when the process is
+# alive and matches the harness identity, 1 when it is dead or positively not a
+# harness, and 2 when it is alive but its identity cannot be read. Callers must
+# branch on the status rather than on truthiness: 2 is not stale-owner
+# evidence, so it must never reclaim a lock or arm over its holder.
 fm_harness_pid_alive() {
   local pid=$1 comm args
   kill -0 "$pid" 2>/dev/null || return 1
-  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
-  args=$(ps -o args= -p "$pid" 2>/dev/null)
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 2
+  [ -n "$comm" ] || return 2
+  args=$(ps -o args= -p "$pid" 2>/dev/null) || {
+    fm_harness_process_matches "$comm" '' && return 0
+    return 2
+  }
   fm_harness_process_matches "$comm" "$args"
 }
 
@@ -167,17 +183,57 @@ fm_harness_pid_alive() {
 # and an inner pid when a harness-named daemon parents the session. A missing
 # lock, a malformed lock, a lock held by a harness outside this ancestry, or an
 # ancestry that cannot be resolved all fail closed.
+FM_SESSION_LOCK_PID=
+FM_SESSION_HARNESS_PIDS=
 fm_session_lock_owned_by_self() {
   local state=$1 lock_pid pids pid
+  FM_SESSION_LOCK_PID=
+  FM_SESSION_HARNESS_PIDS=
+  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
   lock_pid=$(cat "$state/.lock" 2>/dev/null || true)
   case "$lock_pid" in
     ''|*[!0-9]*) return 1 ;;
   esac
+  FM_SESSION_LOCK_PID=$lock_pid
   pids=$(fm_harness_ancestry_pids) || return 1
+  FM_SESSION_HARNESS_PIDS=$pids
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 0
   done <<EOF
 $pids
 EOF
   return 1
+}
+
+# Positive read-only proof of a live foreign holder refusing this Claude
+# ancestry. Reuse the acquisition owner's exact membership and liveness rules;
+# missing, malformed, unreadable, dead or changing evidence proves nothing.
+# Callers load fm-wake-lib.sh for the shared process-start identity primitive.
+FM_SESSION_FOREIGN_OWNER_PID=
+FM_SESSION_FOREIGN_OWNER_IDENTITY=
+fm_session_lock_foreign_owner() {  # <state>
+  local state=$1 lock_pid pids current comm args current_identity owner_identity
+  FM_SESSION_FOREIGN_OWNER_PID=
+  FM_SESSION_FOREIGN_OWNER_IDENTITY=
+  fm_session_lock_owned_by_self "$state" && return 1
+  lock_pid=$FM_SESSION_LOCK_PID
+  pids=$FM_SESSION_HARNESS_PIDS
+  [ -n "$lock_pid" ] && [ -n "$pids" ] || return 1
+  current=${pids%%$'\n'*}
+  current_identity=$(fm_pid_identity "$current") || return 1
+  comm=$(ps -o comm= -p "$current" 2>/dev/null) || return 1
+  args=$(ps -o args= -p "$current" 2>/dev/null) || return 1
+  fm_harness_process_matches "$comm" "$args" || return 1
+  [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || return 1
+  fm_harness_pid_alive "$lock_pid" || return 1
+  owner_identity=$(fm_pid_identity "$lock_pid") || return 1
+  fm_session_lock_owned_by_self "$state" && return 1
+  [ "$FM_SESSION_LOCK_PID" = "$lock_pid" ] \
+    && [ "$FM_SESSION_HARNESS_PIDS" = "$pids" ] \
+    && [ "$(fm_pid_identity "$current")" = "$current_identity" ] \
+    && [ "$(fm_pid_identity "$lock_pid")" = "$owner_identity" ] || return 1
+  # shellcheck disable=SC2034 # Consumed by the turn-end guard after positive proof.
+  FM_SESSION_FOREIGN_OWNER_PID=$lock_pid
+  # shellcheck disable=SC2034 # Consumed by the turn-end guard after positive proof.
+  FM_SESSION_FOREIGN_OWNER_IDENTITY=$owner_identity
 }

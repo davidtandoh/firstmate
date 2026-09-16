@@ -173,6 +173,32 @@ fm_watcher_healthy() {
   return 0
 }
 
+# The refused Claude Stop reader also needs positive session ownership. A
+# fresh same-home watcher must descend from the exact live foreign holder,
+# with unchanged ancestry and process identities through the read. Callers
+# load the session-lock owner for its existing bounded harness ancestry walk.
+fm_watcher_owned_by_session() {  # <state> <watch> <session-pid> <identity> <grace> <home>
+  local state=$1 watch_path=$2 session_pid=$3 session_identity=$4 grace=$5 home=$6
+  local watcher_pid watcher_identity pids checked_pids pid found=0
+  fm_watcher_healthy "$state" "$watch_path" "$grace" "$home" || return 1
+  watcher_pid=$FM_WATCHER_HEALTHY_PID
+  watcher_identity=$FM_WATCHER_HEALTHY_IDENTITY
+  pids=$(fm_harness_ancestry_pids "$watcher_pid") || return 1
+  while IFS= read -r pid; do
+    [ "$pid" != "$session_pid" ] || found=1
+  done <<EOF
+$pids
+EOF
+  [ "$found" -eq 1 ] || return 1
+  [ "$(fm_pid_identity "$session_pid")" = "$session_identity" ] || return 1
+  checked_pids=$(fm_harness_ancestry_pids "$watcher_pid") || return 1
+  [ "$checked_pids" = "$pids" ] || return 1
+  fm_watcher_healthy "$state" "$watch_path" "$grace" "$home" || return 1
+  [ "$FM_WATCHER_HEALTHY_PID" = "$watcher_pid" ] \
+    && [ "$FM_WATCHER_HEALTHY_IDENTITY" = "$watcher_identity" ] \
+    && [ "$(fm_pid_identity "$session_pid")" = "$session_identity" ]
+}
+
 # fm_watcher_healthy above is the PID-STRICT primitive: true only when a live,
 # identity-matched watcher PROCESS holds this home's lock with a fresh beacon. The
 # arm layer (bin/fm-watch-arm.sh, bin/fm-claude-stop-autoarm.sh) needs exactly

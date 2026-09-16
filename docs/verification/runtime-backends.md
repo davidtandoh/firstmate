@@ -107,6 +107,29 @@ A single-process harness has no descendant that adds a distinct verdict, which i
 The portable regression pins every half without any harness installed: `tests/fm-harness-precedence.test.sh` asserts that this two-process topology decides at comm strength, that the descent probe reaches a strength the top-of-session probe cannot, that a sibling branch answering a foreign harness contributes no verdict, that a foreign args-only verdict at the deepest vantage leaves the comm-strength identity intact, and that equal-depth ties choose the comm-strength leaf regardless of process ordering.
 The run did not reach `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, or `muse`, which were not installed, and stopped at the same pre-existing liveness failure for `cursor` 3.18.9, whose resolved binary on that machine is the editor rather than `cursor-agent`; those adapters are unverified by this run.
 
+### Read-only Claude Stop ownership
+
+Verified 2026-09-16 on macOS aarch64 with the shared session-lock and watcher owners.
+The portable regression runs an actual acquisition refusal in a stable Claude-named process ancestry, then invokes repeated `--claude` Stop calls against the real watcher beneath a foreign holder.
+Each call preserves seeded budget, failure, epoch, queue, session-lock and watcher-identity records by SHA-256, inode and modification time.
+The fixture waits for the watcher's initial summary publication to finish before seeding those records.
+The fixture holder and watcher group use the existing bounded-execution owner.
+Missing, dead, stale, unreadable, unrelated and mismatched evidence keeps the read-only warning.
+No supervision need permits a silent read-only Stop without clearing retained holder state.
+The owning-session frozen-epoch accounting and attended fail-open controls also passed.
+
+```sh
+bin/fm-test-run.sh tests/fm-turnend-guard.test.sh tests/fm-session-lock-ancestry.test.sh
+```
+
+The named-helper native control also verified the existing primary-process identity and explicit-root ancestry walk against installed Claude Code 2.1.273, Codex 0.154.0 and OpenCode 1.18.31 under Herdr 0.9.0, protocol 22.
+The same control verified Gemini CLI 0.19.4 and AGY 1.2.4 for backend liveness without adding them to the primary session-lock identity table.
+Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo and omp were absent and remain unverified by this live control.
+This evidence proves native process attribution and the ownership predicate.
+It does not prove native Claude dispatch or model receipt of a Stop warning in a lock-refused session.
+[`turnend-guard.md`](../turnend-guard.md#guard-predicates) owns the decision and mutation boundary.
+The registration-independent liveness section below owns the token-free live guard and its refresh command.
+
 ## tmux
 
 Foreground-process behavior was verified on 2026-07-07 with tmux 3.6a on macOS.
@@ -1212,7 +1235,7 @@ For Pi on Herdr 0.9.0, `herdr agent get` reflects whether the agent process rema
 A Pi launched as a child of the pane shell (not via `exec`) that then `/quit`s or is SIGKILL'd leaves the pane and shell in place, and `agent get` returns `agent_not_found`.
 A sibling live idle Pi stays `agent=pi` with `agent_status=idle`.
 `fm_backend_herdr_pane_agent_state` maps that `agent_not_found` leftover shell to `no-agent` and `fm_backend_herdr_agent_state` maps it to `dead` (relaunch-allowed), while the live idle pane stays `alive`.
-`herdr pane get` `.agent_status` can still read `idle` after the occupant is gone; liveness is `agent get`, never that pane field.
+`herdr pane get` `.agent_status` can still read `idle` after the occupant is gone; the registration and structural process evidence determine liveness, never that retained pane field alone.
 
 ```sh
 tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh
@@ -1301,7 +1324,7 @@ The registration is still present after the wait, and Herdr's own `pane report-a
 Two vendor facts the fix rests on, both read from the outputs above and from `fm_backend_herdr_pane_process_state`'s `pane process-info` parse:
 
 - Pi's process presents with kernel name `node` and argv0 `pi` (its foreground group also carries Pi's child `node` helpers with argv0 such as `npm view ... version`), so a running Pi is attributed by argv[0] exactly as the tmux probe attributes it; a symlink named `claude` to `sleep` presents as name `sleep`, argv0 `claude`.
-- Herdr creates the record with its own placeholder `agent_status` of `unknown` the moment it notices Pi, before Pi's extension reports `idle`; that transient reads `unknown` in the pane classifier as it always did, and only a lifecycle status is subject to the process-level proof.
+- Herdr creates the record with its own placeholder `agent_status` of `unknown` the moment it notices Pi, before Pi's extension reports `idle`; the current classifier corroborates that placeholder with structural process evidence as described under "Registration-independent liveness" below.
 
 Subcommand presence below the 0.9.0 measurement, checked 2026-09-10 on macOS aarch64 against the pinned upstream release clients fetched from `https://github.com/ogulcancelik/herdr/releases/download/v<version>/herdr-macos-aarch64`:
 
@@ -1340,6 +1363,60 @@ ok - real herdr 0.9.0 + pi 0.85.1: the registration left behind by a quit pi rea
 `tests/fm-crew-state.test.sh` pins the recovery classifier: a stale registration over a shell-only pane reports agent gone rather than alive or unreachable, and a stale `working` record never reports the pane working.
 A stale-registration pane is never a husk: create, reclaim, presentation recovery, and session cleanup keep refusing it, and only recovery reuses it.
 
+### Registration-independent liveness
+
+```mermaid
+flowchart LR
+  R[Herdr registration] --> C[Firstmate pane classifier]
+  P[Structural process evidence] --> C
+  C --> V[alive / dead / unreadable]
+```
+
+A missing registration or an `unknown` placeholder does not prove the harness process is gone.
+`fm_backend_herdr_pane_agent_state` consults its existing process classifier before licensing recovery.
+A proven harness process reads `live` even with missing or placeholder registration.
+A proven shell-only pane reads `no-agent` or `stale-agent` and its endpoint reads `dead`.
+An unreadable process view or an unrelated process without lifecycle registration remains `unknown`; its endpoint reads `unreadable`.
+The descendant walk runs before any foreground verdict, so a foreground that classifies as `other` cannot hide a harness beneath a nested shell.
+
+Production evidence, read 2026-09-16 from one remote Codex secondmate pane through a single authorized names-only read:
+
+- `agent get` returned `agent_not_found`, and `pane process-info` listed only the pane shell in its foreground group, under a terminal-decorated name of the form `zsh (kiro-cli-t`.
+- The pane shell's identity-stable descendant subtree contained a nested `zsh`, a native `codex` process, and its `codex-code-mode-host` child, each with a matching parent and an unchanged start identity before and after the read.
+- The accepted base mapped that shape to `no-agent` and a `dead` endpoint without consulting the descendant walk. The initial submission mapped it to `unknown`, because the decorated shell name reads `other` and that sampler returned before the walk. The current walk-first classifier reads the recorded shape as `agent`, so the pane is `live` and the endpoint is `alive`.
+- This read proves process presence at one bounded snapshot. It does not establish model receipt, an installed runtime correction, or the cause of the absent registration.
+- The exact process artifacts stay private with the task evidence; no further remote read is required for this classification.
+
+Measured 2026-09-16 on macOS aarch64 in a helper-owned named lab with Herdr 0.9.0, protocol 22:
+
+| Installed harness | Version | Running process, missing registration | Running process, settled placeholder | Retained shell after test cleanup |
+| --- | --- | --- | --- | --- |
+| Claude Code | 2.1.273 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| Codex | 0.154.0 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| OpenCode | 1.18.31 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| Gemini CLI | 0.19.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| AGY | 1.2.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+
+Re-measured 2026-09-16 on the walk-first classifier after the descendant-first correction, with the same five installed harnesses and versions.
+The guard checked five harnesses and the default fleet session was unchanged at teardown.
+Claude Code, Codex, OpenCode, and AGY were re-observed alive under a missing registration.
+Gemini CLI had already registered its `unknown` placeholder before the first read, so its missing-registration cell rests on the earlier measurement and the unit fixture, while its placeholder and retained-shell cells were re-observed.
+
+Refresh the token-free live and dead controls with:
+
+```sh
+tests/fm-herdr-agent-liveness-live-e2e.test.sh
+```
+
+The guard checks every installed supported harness and fails if none is available.
+The guard stops only the exact native child of its owned pane after revalidating process start identities, the shell parent, and the foreground process group.
+The guard preserves the shell and asserts that the endpoint is dead.
+The guard does not verify native exit commands, composer readiness, or model receipt.
+Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo, and omp were absent on this host; their live integration is unverified in this measurement.
+`tests/fm-backend-herdr.test.sh` covers missing and placeholder registration with a live foreground harness, a live harness descendant outside the foreground group, the decorated-shell foreground above with and without a real harness descendant, a shell-only pane, unreadable evidence, and an unrelated process.
+`tests/fm-crew-state.test.sh` proves that missing registration cannot turn a live harness into a gone endpoint while retaining the shell-only recovery verdict.
+`tests/fm-harness-liveness-drift-live-e2e.test.sh` refreshes the separate tmux process and harness-ancestry boundary.
+
 ### Away-mode transport
 
 The away daemon is no longer launched on Pi; the away posture there is the record `bin/fm-afk-contract.sh` owns.
@@ -1362,6 +1439,31 @@ Observed guarantees: `fm-afk-launch.sh start` refused on the Pi primary and `con
 The current catch-up reporting boundary is pinned by `tests/fm-afk-return.test.sh` and the same live entry point: Bearings continues through a pending return catch-up, projects its posture as an action-free warning outside Captain's Call, and drops that warning after the gate clears, while an active away window still refuses.
 The fixture captures submitted input through Pi's `input` extension hook, so the lab agent directory needs no provider credentials.
 The daemon injection transport into a live composer keeps its coverage in `tests/fm-afk-inject-herdr-e2e.test.sh` for the harnesses that still run the daemon, and the dedicated Herdr daemon workspace topology is covered by `tests/fm-afk-launch.test.sh` and preserves the captain tab's pane count.
+
+### Lab-helper child-argument transport
+
+Verified on 2026-09-16 with a deterministic model of [Herdr v0.9.0 session parsing and API socket selection](https://github.com/herdrdev/herdr/blob/b99002ac99b09e00b4ca692436cb15a6b0d676f1/src/session.rs).
+`bin/fm-herdr-lab.sh` owns parser-compatible session-option placement in its header and `--help`.
+The regression drives the helper executable with an inherited default socket and checks the effective named API target and exact child argument list.
+The old trailing shape is a negative control that selects the inherited socket and adds helper flags to child input.
+
+Refresh command:
+
+```sh
+bin/fm-test-run.sh tests/fm-herdr-lab.test.sh tests/fm-brief.test.sh
+```
+
+Observed transport output:
+
+```text
+ok - fm-herdr-lab: child separator selects the named API despite inherited default socket and preserves every child argument
+ok - fm-herdr-lab: ordinary calls retain trailing scope and an empty child tail remains empty
+ok - fm-herdr-lab: separator calls preserve default, override, leading-option and lifecycle refusals before CLI execution
+```
+
+The same suite retains viewer identity, guarded lifecycle and default-fleet tripwire controls.
+This proof opens no socket and launches no native agent.
+Native Kiro API binding, startup and lifecycle acceptance remain pending a reviewed helper installation and parent-owned named-lab verification.
 
 ## Zellij
 
