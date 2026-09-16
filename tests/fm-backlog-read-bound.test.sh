@@ -377,15 +377,16 @@ make_hanging_tasks_axi "$E2E_FAKEBIN"
 # through `ps`. A CI runner's ancestry carries no harness process, so the lock
 # would be refused there and the sweep silently skipped. Pin the lock evidence
 # the same way tests/fm-session-start.test.sh's make_fake_ps_harness does:
-# every queried pid reports a live `claude` harness, independent of whatever
-# process tree the test itself was launched from.
+# every queried pid reports a live `claude` harness whose parent is the top of
+# the tree (ppid 0), independent of whatever process tree the test itself was
+# launched from.
 cat > "$E2E_FAKEBIN/ps" <<'SH'
 #!/usr/bin/env bash
 set -u
 case "$*" in
   *"comm="*) printf '%s\n' '/usr/local/bin/claude'; exit 0 ;;
   *"args="*) printf '%s\n' 'claude'; exit 0 ;;
-  *"ppid="*) exit 1 ;;
+  *"ppid="*) printf '0\n'; exit 0 ;;
 esac
 exit 1
 SH

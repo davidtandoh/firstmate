@@ -179,7 +179,7 @@ sed 's/^- ios /- legacy /' "$PARENT/data/secondmates.md" > "$LEGACY/data/secondm
 cp "$PARENT/state/remote-replies/ios.cursor" "$LEGACY/state/remote-replies/legacy.cursor"
 cp "$LEGACY/state/remote-replies/legacy.cursor" "$TMP_ROOT/cursor-before-recovery"
 : > "$TMP_ROOT/empty-output"
-LEGACY_SID=remote-reply-legacy
+LEGACY_SID='remote-reply-legacy'
 LEGACY_RESULT=$(fm_procevent_capture "$LEGACY/state" "$LEGACY_SID" remote-reply "$TMP_ROOT/empty-output")
 cp "${LEGACY_RESULT%.result}.adapter" "$TMP_ROOT/adapter-before-recovery"
 legacy_env() { remote_env env FM_HOME="$LEGACY" "$@"; }

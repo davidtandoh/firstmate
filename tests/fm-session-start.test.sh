@@ -250,8 +250,10 @@ case "$*" in
     exit 0
     ;;
   *"ppid="*)
-    [ -n "${FM_FAKE_HARNESS_PID:-}" ] || exit 1
-    /bin/ps -o ppid= -p "$pid"
+    # Without a stable harness pid the querying process IS the harness and the
+    # top of its tree: report ppid 0 the way a real process table does.
+    [ -n "${FM_FAKE_HARNESS_PID:-}" ] || { printf '0\n'; exit 0; }
+    exec /bin/ps -o ppid= -p "$pid"
     ;;
 esac
 exit 1
@@ -420,12 +422,24 @@ set -u
 log=${FM_FAKE_HERDR_LOG:?}
 state=${FM_FAKE_HERDR_STATE:?}
 mate_id=${FM_FAKE_SECOND_MATE_ID:?}
+shell_pid=${FM_FAKE_HERDR_SHELL_PID:?}
 killed="${state}.killed"
 spawned="${state}.spawned"
 printf '%s\n' "$*" >> "$log"
 case "${1:-} ${2:-}" in
   "status --json")
     printf '%s\n' '{"client":{"protocol":14,"version":"test"},"server":{"running":true}}'
+    ;;
+  "pane process-info")
+    # The husk's missing registration is agent-free only over a proven
+    # shell-only pane, read from the REAL process table: the test's own
+    # process, which parents no harness, stands in for the old pane's shell.
+    if [ "${4:-}" = p-old ] && [ ! -e "$killed" ]; then
+      printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"p-old","shell_pid":%s,"foreground_processes":[{"pid":%s,"name":"bash","argv":["bash"]}]}}}\n' \
+        "$shell_pid" "$shell_pid"
+    else
+      exit 1
+    fi
     ;;
   "session list")
     printf '{"sessions":[{"name":"default","running":true,"socket_path":"%s.sock"}]}\n' "$state"
@@ -629,9 +643,11 @@ EOF
 
 run_session_start_herdr_secondmate() {
   local root=$1 home=$2 fakebin=$3 mate=$4 log=$5 state=$6
+  # The fake ps on PATH shapes only the lock's Claude ancestry; the Herdr
+  # process proof reads the real table through its own ps override.
   FM_BACKEND=herdr FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_STATE="$state" \
     FM_FAKE_SECOND_MATE_ID="$SESSION_START_HERDR_SECOND_MATE_ID" \
-    FM_FAKE_HARNESS_PID=$$ \
+    FM_FAKE_HARNESS_PID=$$ FM_FAKE_HERDR_SHELL_PID=$$ FM_HERDR_PS_BIN=/bin/ps \
     run_session_start "$home" "$root" "$fakebin:$BASE_PATH"
 }
 
