@@ -463,8 +463,10 @@ test_herdr_lab_contract_is_explicit_and_complete() {
     "Herdr lab brief missing helper-owned provisioning"
   assert_grep "\"\$HERDR_LAB_HELPER\" teardown \"\$HERDR_LAB_SESSION\"" "$brief" \
     "Herdr lab brief missing helper-owned teardown"
-  assert_grep "required trailing \`--session \"\$HERDR_LAB_SESSION\"\`" "$brief" \
-    "Herdr lab brief missing the per-call trailing session contract"
+  assert_grep "required parser-visible session option" "$brief" \
+    "Herdr lab brief missing the per-call parser-visible session contract"
+  assert_grep "its header owns child-separator placement" "$brief" \
+    "Herdr lab brief missing the exact placement owner"
   assert_grep "direct \`herdr server stop\`" "$brief" \
     "Herdr lab brief missing the forbidden server-global command list"
   assert_grep "records the live default session before provisioning" "$brief" \

@@ -93,6 +93,140 @@ run_with_fake() {
     "$@"
 }
 
+test_child_separator_keeps_the_named_api_target() {
+  local name="fm-lab-separator-$$" parser_bin output legacy ordinary empty status variant
+  local config="$TMP_ROOT/parser-config" default_socket="$TMP_ROOT/parser-config/herdr.sock"
+  local log="$TMP_ROOT/parser-invocations" child_args
+  parser_bin=$(fm_fakebin "$TMP_ROOT/parser")
+  output="$TMP_ROOT/separator.json"
+  legacy="$TMP_ROOT/legacy-separator.json"
+  ordinary="$TMP_ROOT/ordinary.json"
+  empty="$TMP_ROOT/empty-child.json"
+  : > "$log"
+  cat > "$parser_bin/herdr" <<'PY'
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import sys
+
+# Mirror Herdr v0.9.0 session.rs: stop option parsing at the first child
+# separator; an explicit named session takes precedence over an inherited socket.
+# This fake opens no socket and launches no process.
+with open(os.environ["FM_PARSER_LOG"], "a") as log:
+    log.write("invoked\n")
+args = sys.argv[1:]
+cleaned = []
+child = []
+requested = None
+index = 0
+while index < len(args):
+    arg = args[index]
+    if arg == "--":
+        child = args[index + 1:]
+        cleaned.extend(args[index:])
+        break
+    if arg == "--session":
+        if index + 1 == len(args):
+            raise ValueError("missing value for --session")
+        requested = args[index + 1]
+        index += 2
+        continue
+    if arg.startswith("--session="):
+        requested = arg[len("--session="):]
+        index += 1
+        continue
+    cleaned.append(arg)
+    index += 1
+config = Path(os.environ["FM_PARSER_CONFIG_DIR"])
+if requested is not None:
+    directory = config if requested == "default" else config / "sessions" / requested
+    socket = str(directory / "herdr.sock")
+else:
+    socket = os.environ["HERDR_SOCKET_PATH"]
+print(json.dumps({"api_socket": socket, "child_argv": child,
+                  "cleaned_argv": cleaned, "raw_argv": args,
+                  "inherited_socket": os.environ["HERDR_SOCKET_PATH"],
+                  "ambient_session": os.environ["HERDR_SESSION"],
+                  "socket_opened": False}, sort_keys=True))
+PY
+  chmod +x "$parser_bin/herdr"
+  child_args=(--v3 chat --agent kiro-lab --model gpt-5.6-luna --effort low --trust-tools= '' 'two words' $'two\nlines' 'literal --session default' -- --sessionish server stop)
+
+  # The old trailing shape loses explicit routing and pollutes child argv.
+  HERDR_SESSION="$name" HERDR_SOCKET_PATH="$default_socket" \
+    FM_PARSER_CONFIG_DIR="$config" FM_PARSER_LOG="$log" \
+    "$parser_bin/herdr" agent start canary --kind kiro --pane w2:p1 -- \
+    "${child_args[@]}" --session "$name" > "$legacy" || fail "legacy parser control failed"
+  jq -e --arg socket "$default_socket" --arg name "$name" \
+    '.api_socket == $socket and .ambient_session == $name and .child_argv[-2:] == ["--session", $name]' \
+    "$legacy" >/dev/null || fail "parser control did not expose socket precedence and child pollution"
+
+  PATH="$parser_bin:$PATH" HOME="$TMP_ROOT/parser-home" HERDR_SOCKET_PATH="$default_socket" \
+    FM_PARSER_CONFIG_DIR="$config" FM_PARSER_LOG="$log" \
+    "$ROOT/bin/fm-herdr-lab.sh" run "$name" agent start canary --kind kiro --pane w2:p1 \
+    -- "${child_args[@]}" > "$output" || fail "child separator command failed"
+  python3 - "$output" "$config/sessions/$name/herdr.sock" "$default_socket" "$name" "${child_args[@]}" <<'PY' || fail "child separator lost named routing or changed child arguments"
+from __future__ import annotations
+import json
+from pathlib import Path
+import sys
+with Path(sys.argv[1]).open("rb") as source:
+    data = source.read(65537)
+assert len(data) <= 65536
+result = json.loads(data)
+assert result["api_socket"] == sys.argv[2], result
+assert result["inherited_socket"] == sys.argv[3]
+assert result["ambient_session"] == sys.argv[4]
+assert result["child_argv"] == sys.argv[5:], result
+assert result["socket_opened"] is False
+args = result["raw_argv"]
+separator = args.index("--")
+assert args[separator - 2:separator] == ["--session", sys.argv[4]]
+assert args.count("--session") == 1
+PY
+  pass "fm-herdr-lab: child separator selects the named API despite inherited default socket and preserves every child argument"
+
+  PATH="$parser_bin:$PATH" HOME="$TMP_ROOT/parser-home" HERDR_SOCKET_PATH="$default_socket" \
+    FM_PARSER_CONFIG_DIR="$config" FM_PARSER_LOG="$log" \
+    "$ROOT/bin/fm-herdr-lab.sh" run "$name" workspace list > "$ordinary" || fail "ordinary parser command failed"
+  jq -e --arg socket "$config/sessions/$name/herdr.sock" --arg name "$name" \
+    '.api_socket == $socket and .raw_argv[-2:] == ["--session", $name] and .cleaned_argv == ["workspace", "list"] and .child_argv == []' \
+    "$ordinary" >/dev/null || fail "ordinary command lost the trailing session contract"
+  PATH="$parser_bin:$PATH" HOME="$TMP_ROOT/parser-home" HERDR_SOCKET_PATH="$default_socket" \
+    FM_PARSER_CONFIG_DIR="$config" FM_PARSER_LOG="$log" \
+    "$ROOT/bin/fm-herdr-lab.sh" run "$name" agent start canary -- > "$empty" || fail "empty child command failed"
+  jq -e --arg socket "$config/sessions/$name/herdr.sock" --arg name "$name" \
+    '.api_socket == $socket and .raw_argv[-3:] == ["--session", $name, "--"] and .child_argv == []' \
+    "$empty" >/dev/null || fail "empty child tail received helper arguments"
+  pass "fm-herdr-lab: ordinary calls retain trailing scope and an empty child tail remains empty"
+
+  # Existing override refusal applies on both sides of the separator.
+  : > "$log"
+  for variant in default bad-name session session-equals child-session child-session-equals leading server lifecycle; do
+    case "$variant" in
+      default) set -- run default agent start canary -- --v3 ;;
+      bad-name) set -- run 'fm-lab-bad name' agent start canary -- --v3 ;;
+      session) set -- run "$name" agent start canary --session default -- --v3 ;;
+      session-equals) set -- run "$name" agent start canary --session=default -- --v3 ;;
+      child-session) set -- run "$name" agent start canary -- --session default ;;
+      child-session-equals) set -- run "$name" agent start canary -- --session=default ;;
+      leading) set -- run "$name" -- agent start canary ;;
+      server) set -- run "$name" server stop -- --v3 ;;
+      lifecycle) set -- run "$name" session delete "$name" -- --v3 ;;
+    esac
+    status=0
+    PATH="$parser_bin:$PATH" HOME="$TMP_ROOT/parser-home" HERDR_SOCKET_PATH="$default_socket" \
+      FM_PARSER_CONFIG_DIR="$config" FM_PARSER_LOG="$log" \
+      "$ROOT/bin/fm-herdr-lab.sh" "$@" >/dev/null 2>&1 || status=$?
+    expect_code 1 "$status" "separator refusal control failed: $variant"
+  done
+  [ ! -s "$log" ] || fail "a refused command reached the parser"
+  pass "fm-herdr-lab: separator calls preserve default, override, leading-option and lifecycle refusals before CLI execution"
+}
+
 test_refuses_unsafe_names() {
   local status=0 generated
   fm_herdr_lab_validate_name default >/dev/null 2>&1 || status=$?
@@ -498,6 +632,7 @@ test_viewer_launcher_refuses_unsafe_arguments() {
   pass "fm-herdr-lab: the viewer launcher refuses unsafe sessions and pidfiles"
 }
 
+test_child_separator_keeps_the_named_api_target
 test_refuses_unsafe_names
 test_provision_run_and_guarded_teardown
 test_missing_tripwire_blocks_destruction

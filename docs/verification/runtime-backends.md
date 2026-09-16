@@ -1440,6 +1440,31 @@ The current catch-up reporting boundary is pinned by `tests/fm-afk-return.test.s
 The fixture captures submitted input through Pi's `input` extension hook, so the lab agent directory needs no provider credentials.
 The daemon injection transport into a live composer keeps its coverage in `tests/fm-afk-inject-herdr-e2e.test.sh` for the harnesses that still run the daemon, and the dedicated Herdr daemon workspace topology is covered by `tests/fm-afk-launch.test.sh` and preserves the captain tab's pane count.
 
+### Lab-helper child-argument transport
+
+Verified on 2026-09-16 with a deterministic model of [Herdr v0.9.0 session parsing and API socket selection](https://github.com/herdrdev/herdr/blob/b99002ac99b09e00b4ca692436cb15a6b0d676f1/src/session.rs).
+`bin/fm-herdr-lab.sh` owns parser-compatible session-option placement in its header and `--help`.
+The regression drives the helper executable with an inherited default socket and checks the effective named API target and exact child argument list.
+The old trailing shape is a negative control that selects the inherited socket and adds helper flags to child input.
+
+Refresh command:
+
+```sh
+bin/fm-test-run.sh tests/fm-herdr-lab.test.sh tests/fm-brief.test.sh
+```
+
+Observed transport output:
+
+```text
+ok - fm-herdr-lab: child separator selects the named API despite inherited default socket and preserves every child argument
+ok - fm-herdr-lab: ordinary calls retain trailing scope and an empty child tail remains empty
+ok - fm-herdr-lab: separator calls preserve default, override, leading-option and lifecycle refusals before CLI execution
+```
+
+The same suite retains viewer identity, guarded lifecycle and default-fleet tripwire controls.
+This proof opens no socket and launches no native agent.
+Native Kiro API binding, startup and lifecycle acceptance remain pending a reviewed helper installation and parent-owned named-lab verification.
+
 ## Zellij
 
 The current compatibility floor and latest verification are Zellij 0.44.0 with `jq` on macOS aarch64.
