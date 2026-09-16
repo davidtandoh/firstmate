@@ -164,6 +164,15 @@ fi
 # so this exempts them while guarding every real secondmate home.
 fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 
+# Checkout shape is discovery, not process ownership. A nested worker can load
+# the primary's tracked hooks or inherit FM_HOME. Only positively resolved
+# non-ownership exempts that worker; unreadable evidence retains the backstop.
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$SCRIPT_DIR/fm-session-lock-lib.sh"
+fm_session_lock_owned_by_self "$STATE"
+SESSION_OWNERSHIP=$?
+[ "$SESSION_OWNERSHIP" -ne 1 ] || exit 0
+
 # --- the actual predicate ----------------------------------------------------
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
@@ -228,6 +237,9 @@ block_stop() {
   {
     printf '●%s\n' "$rule"
     printf '●  TURN WOULD END BLIND - SUPERVISION IS OFF\n'
+    if [ "$SESSION_OWNERSHIP" -eq 2 ]; then
+      printf '●  Session ownership is unverified; missing or unreadable evidence does not prove a worker exemption.\n'
+    fi
     if [ "$FM_SUP_IN_FLIGHT" -gt 0 ]; then
       printf '●  %s task(s) in flight, but no live watcher holds this home lock (last beat: %s).\n' "$FM_SUP_IN_FLIGHT" "$FM_SUP_BEACON_DESC"
     elif [ "$FM_SUP_SOURCES" -gt 0 ]; then

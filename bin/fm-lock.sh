@@ -29,7 +29,12 @@ if [ "${1:-}" = "status" ]; then
     echo "lock: unreadable"
     exit 0
   }
-  if fm_harness_pid_alive "$old"; then echo "lock: held by live harness pid $old"; else echo "lock: stale (pid $old dead or not a harness)"; fi
+  fm_harness_pid_alive "$old"
+  case "$?" in
+    0) echo "lock: held by live harness pid $old" ;;
+    2) echo "lock: unreadable process evidence (pid $old)" ;;
+    *) echo "lock: stale (pid $old dead or not a harness)" ;;
+  esac
   exit 0
 fi
 
@@ -61,10 +66,11 @@ if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
     echo "lock acquired: harness pid $me"
     exit 0
   fi
-  if fm_harness_pid_alive "$old"; then
-    echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2
-    exit 1
-  fi
+  fm_harness_pid_alive "$old"
+  case "$?" in
+    0) echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2; exit 1 ;;
+    2) echo "error: session-lock process evidence is unreadable (pid $old); operate read-only until resolved" >&2; exit 1 ;;
+  esac
 fi
 
 if ! fm_lock_try_acquire "$CLAIM_LOCK"; then
@@ -86,9 +92,12 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
-  if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
-    echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2
-    exit 1
+  if [ "$old" != "$me" ]; then
+    fm_harness_pid_alive "$old"
+    case "$?" in
+      0) echo "error: another live firstmate session holds the lock (pid $old); operate read-only until resolved" >&2; exit 1 ;;
+      2) echo "error: session-lock process evidence is unreadable (pid $old); operate read-only until resolved" >&2; exit 1 ;;
+    esac
   fi
 fi
 if ! { printf '%s\n' "$me" > "$LOCK"; } 2>/dev/null; then

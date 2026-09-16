@@ -168,6 +168,82 @@ assert_contains "$out" 'already-handled: remote-reply-ios 1' "replayed generatio
   || fail "replayed ingest duplicated the parent status line"
 pass "replayed capture has one deduplicated append and one durable handling identity"
 
+# Historical empty captures were published by the old runner. Recover only the
+# exact durable generation, without synthesizing a delta or resetting a cursor.
+# The real capture owner supplies the immutable adapter and sequence sidecars.
+. "$ROOT/bin/fm-pr-lib.sh"
+. "$ROOT/bin/fm-procevent-lib.sh"
+LEGACY="$TMP_ROOT/legacy-parent"
+mkdir -p "$LEGACY/state/remote-replies" "$LEGACY/data"
+sed 's/^- ios /- legacy /' "$PARENT/data/secondmates.md" > "$LEGACY/data/secondmates.md"
+cp "$PARENT/state/remote-replies/ios.cursor" "$LEGACY/state/remote-replies/legacy.cursor"
+cp "$LEGACY/state/remote-replies/legacy.cursor" "$TMP_ROOT/cursor-before-recovery"
+: > "$TMP_ROOT/empty-output"
+LEGACY_SID=remote-reply-legacy
+LEGACY_RESULT=$(fm_procevent_capture "$LEGACY/state" "$LEGACY_SID" remote-reply "$TMP_ROOT/empty-output")
+cp "${LEGACY_RESULT%.result}.adapter" "$TMP_ROOT/adapter-before-recovery"
+legacy_env() { remote_env env FM_HOME="$LEGACY" "$@"; }
+if legacy_env "$ADAPTER" handle legacy 1 "$LEGACY_RESULT" > "$TMP_ROOT/empty-handle.out" 2>&1; then
+  fail 'ordinary handling accepted a malformed historical empty capture'
+fi
+assert_absent "${LEGACY_RESULT%.result}.handled" 'ordinary handling silenced an empty capture'
+legacy_env "$ROOT/bin/fm-procevent.sh" reconcile > "$TMP_ROOT/legacy-reconcile.out"
+assert_grep 'published=1' "$TMP_ROOT/legacy-reconcile.out" 'historical empty capture did not resurface'
+for wrong in sequence source path adapter extension receipt nonempty; do
+  recovery_id=legacy; recovery_seq=1; recovery_file=$LEGACY_RESULT
+  case "$wrong" in
+    sequence) recovery_seq=2 ;;
+    source) recovery_id=other ;;
+    path) cp "$LEGACY_RESULT" "$TMP_ROOT/foreign.result"; recovery_file="$TMP_ROOT/foreign.result" ;;
+    adapter) printf 'when\n' > "${LEGACY_RESULT%.result}.adapter" ;;
+    extension) printf 'unsafe extension evidence\n' > "${LEGACY_RESULT%.result}.extension" ;;
+    receipt) printf 'result_sha256=%064d\n' 0 > "$LEGACY/state/remote-replies/legacy.1.ingested" ;;
+    nonempty) printf 'malformed\n' > "$LEGACY_RESULT" ;;
+  esac
+  if legacy_env "$ADAPTER" recover-empty "$recovery_id" "$recovery_seq" "$recovery_file" > "$TMP_ROOT/recovery-$wrong.out" 2>&1; then
+    fail "empty recovery accepted a mismatched $wrong capture"
+  fi
+  assert_absent "${LEGACY_RESULT%.result}.handled" "refused $wrong recovery acknowledged a capture"
+  assert_absent "$LEGACY/state/procevent/$LEGACY_SID.source" "refused $wrong recovery armed a source"
+  cmp "$TMP_ROOT/cursor-before-recovery" "$LEGACY/state/remote-replies/legacy.cursor" \
+    || fail "refused $wrong recovery changed the cursor"
+  printf 'remote-reply\n' > "${LEGACY_RESULT%.result}.adapter"
+  rm -f "${LEGACY_RESULT%.result}.extension" "$LEGACY/state/remote-replies/legacy.1.ingested"
+  : > "$LEGACY_RESULT"
+done
+# An unavailable source owner must not acknowledge the capture after writing
+# its receipt. A retry reuses that same digest binding and completes re-arming.
+: > "$TMP_ROOT/refused-claim-root"
+if legacy_env env FM_PROCEVENT_CLAIM_ROOT="$TMP_ROOT/refused-claim-root" \
+  "$ADAPTER" recover-empty legacy 1 "$LEGACY_RESULT" > "$TMP_ROOT/recovery-arm-failed.out" 2>&1; then
+  fail 'empty recovery succeeded while source re-arming was unavailable'
+fi
+assert_absent "${LEGACY_RESULT%.result}.handled" 'failed re-arming acknowledged the capture'
+assert_present "$LEGACY/state/remote-replies/legacy.1.ingested" 'failed re-arming discarded the recovery receipt'
+cmp "$TMP_ROOT/cursor-before-recovery" "$LEGACY/state/remote-replies/legacy.cursor" \
+  || fail 'failed re-arming changed the cursor'
+legacy_env "$ADAPTER" recover-empty legacy 1 "$LEGACY_RESULT" > "$TMP_ROOT/recovery.out" \
+  || fail "exact empty recovery failed: $(cat "$TMP_ROOT/recovery.out")"
+legacy_env "$ADAPTER" recover-empty legacy 1 "$LEGACY_RESULT" >> "$TMP_ROOT/recovery.out" \
+  || fail 'empty recovery could not replay idempotently'
+assert_grep "handled: $LEGACY_SID 1" "$TMP_ROOT/recovery.out" 'empty recovery did not acknowledge the captured generation'
+assert_grep "already-handled: $LEGACY_SID 1" "$TMP_ROOT/recovery.out" 'empty recovery repeated its handling identity'
+assert_present "$LEGACY/state/remote-replies/legacy.1.ingested" 'empty recovery lacks a digest-bound ingestion receipt'
+assert_grep 'result_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' \
+  "$LEGACY/state/remote-replies/legacy.1.ingested" 'recovery receipt does not bind the original empty digest'
+assert_present "$LEGACY/state/procevent/$LEGACY_SID.source" 'empty recovery did not restore the cursor-anchored source'
+cmp "$TMP_ROOT/cursor-before-recovery" "$LEGACY/state/remote-replies/legacy.cursor" \
+  || fail 'empty recovery changed the committed cursor'
+[ ! -s "$LEGACY_RESULT" ] || fail 'empty recovery rewrote the original result'
+cmp "$TMP_ROOT/adapter-before-recovery" "${LEGACY_RESULT%.result}.adapter" \
+  || fail 'empty recovery rewrote adapter evidence'
+assert_absent "$LEGACY/state/legacy.status" 'empty recovery invented a remote status reply'
+rm -f "$LEGACY/state/.wake-queue"
+legacy_env "$ROOT/bin/fm-procevent.sh" reconcile > "$TMP_ROOT/recovered-reconcile.out"
+assert_grep 'published=0' "$TMP_ROOT/recovered-reconcile.out" 'recovered empty capture resurfaced'
+legacy_env "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null
+pass 'historical empty recovery preserves evidence and cursor, refuses mismatches, and stops re-announcement'
+
 printf 'working [corr=1111111111111111]: second generation\n' \
   >> "$REMOTE/state/parent-replies.status"
 remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null \

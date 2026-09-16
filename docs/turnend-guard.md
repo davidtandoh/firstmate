@@ -26,6 +26,11 @@ The marker must be a regular non-symlink file whose whitespace-stripped first li
 An unmarked checkout or invalid marker falls through to the git-dir check.
 That check keeps crewmate and scout linked worktrees inert because their git dir differs from their git common dir.
 It also requires `AGENTS.md`, `bin/`, and the effective state directory.
+After checkout discovery, `bin/fm-session-lock-lib.sh` owns the process-role verdict.
+A verified harness ancestry that differs from the live verified session-lock owner identifies a non-owning worker and makes the shared guard inert, including when the worker inherited `FM_HOME` or loaded a primary hook.
+Missing, malformed, or unreadable lock or process evidence does not establish that exemption and retains the supervision backstop with an ownership diagnostic.
+The owning supervisor still needs the strict watcher proof below; a completed foreground checkpoint does not prove supervision continues after its turn ends.
+Claude automatic recovery and Cursor parking preserve a lock whose live owner cannot be read instead of reclaiming that lock as stale.
 
 For an in-scope primary, the guard counts in-flight work from `state/*.meta`.
 Registered `state/procevent/*.source` records also require supervision even though they have no task metadata.
@@ -189,6 +194,7 @@ That warning uses `bin/fm-supervision-instructions.sh --repair-line`, so it alwa
 `tests/fm-guard-stale-banner.test.sh` covers the pull-guard predicate, including the persistent-model fresh-leftover-beacon negative control; the auto-arm model's healthy fresh-beacon-without-a-watcher case, session-and-recovery-bound long-turn rewake tolerance, independently broken tolerance signals, open-claim negative control, stale-beacon alarm, and isolation from other models; and the extension model's live-watcher path, ownership-qualified fresh hand-off, held-lock failures, independently broken ownership signals, stale-beacon alarm, queued-wake warning, and Pi and pi-signed harness routing.
 It also covers true-reason banner wording and reason-keyed episode dedup surviving a beacon mtime change.
 `tests/fm-cursor-primary.test.sh` covers the Cursor park end to end over real processes with no harness installed: each tracked Claude-shaped entrypoint standing down on a Cursor payload, both follow-up sources, the bounded repair nag and its reset, the nested loop bounds, supersession, away-mode and lock-ownership inertness, Pi-host stand-down without Cursor identity and continued parking when `PI_CODING_AGENT` leaks alongside `CURSOR_AGENT` or `CURSOR_INVOKED_AS`, child-worktree exclusion, and that the adapter never exits 2.
+`tests/fm-session-lock-ancestry.test.sh` covers owning supervisor and non-owning worker turn ends over real process trees, plus structural identity surviving hidden arguments and unreadable identity proving neither foreign ownership nor process death.
 `FM_CURSOR_PRIMARY_LIVE_E2E=1 tests/fm-cursor-primary-live-e2e.test.sh` is the opt-in guard that proves the same behavior against the installed cursor-agent and fails naming the harness and version.
 `tests/fm-kimi-harness.test.sh` covers the separate Kimi crew hook's format preservation, idempotence, refusal cases, token guard, spawn registration, and teardown cleanup.
 `tests/fm-supervision-instructions.test.sh` covers recovery-line ownership and pi-signed's identity-preserving reuse of Pi's protocol.

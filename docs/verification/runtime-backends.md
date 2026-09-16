@@ -1212,7 +1212,7 @@ For Pi on Herdr 0.9.0, `herdr agent get` reflects whether the agent process rema
 A Pi launched as a child of the pane shell (not via `exec`) that then `/quit`s or is SIGKILL'd leaves the pane and shell in place, and `agent get` returns `agent_not_found`.
 A sibling live idle Pi stays `agent=pi` with `agent_status=idle`.
 `fm_backend_herdr_pane_agent_state` maps that `agent_not_found` leftover shell to `no-agent` and `fm_backend_herdr_agent_state` maps it to `dead` (relaunch-allowed), while the live idle pane stays `alive`.
-`herdr pane get` `.agent_status` can still read `idle` after the occupant is gone; liveness is `agent get`, never that pane field.
+`herdr pane get` `.agent_status` can still read `idle` after the occupant is gone; the registration and structural process evidence determine liveness, never that retained pane field alone.
 
 ```sh
 tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh
@@ -1301,7 +1301,7 @@ The registration is still present after the wait, and Herdr's own `pane report-a
 Two vendor facts the fix rests on, both read from the outputs above and from `fm_backend_herdr_pane_process_state`'s `pane process-info` parse:
 
 - Pi's process presents with kernel name `node` and argv0 `pi` (its foreground group also carries Pi's child `node` helpers with argv0 such as `npm view ... version`), so a running Pi is attributed by argv[0] exactly as the tmux probe attributes it; a symlink named `claude` to `sleep` presents as name `sleep`, argv0 `claude`.
-- Herdr creates the record with its own placeholder `agent_status` of `unknown` the moment it notices Pi, before Pi's extension reports `idle`; that transient reads `unknown` in the pane classifier as it always did, and only a lifecycle status is subject to the process-level proof.
+- Herdr creates the record with its own placeholder `agent_status` of `unknown` the moment it notices Pi, before Pi's extension reports `idle`; the current classifier corroborates that placeholder with structural process evidence as described under "Registration-independent liveness" below.
 
 Subcommand presence below the 0.9.0 measurement, checked 2026-09-10 on macOS aarch64 against the pinned upstream release clients fetched from `https://github.com/ogulcancelik/herdr/releases/download/v<version>/herdr-macos-aarch64`:
 
@@ -1339,6 +1339,46 @@ ok - real herdr 0.9.0 + pi 0.85.1: the registration left behind by a quit pi rea
 `tests/fm-backend-herdr.test.sh` pins the logic portably with canned `process-info` bodies over real processes, driving the signals apart: the identical shell-only foreground reads `stale-agent` for a childless shell and `live` when an agent-named process is still a descendant of that shell, a `working`, `done`, or `blocked` record over a shell-only pane reads the same as `idle`, an unreadable process view reads `unknown` and refuses husk closing, a transient prompt helper beside the shell settles into `stale-agent` on the next shell-only sample while a foreground that never settles within the bound still reads `live`, and `busy_state` verifies a `working` record before reporting busy.
 `tests/fm-crew-state.test.sh` pins the recovery classifier: a stale registration over a shell-only pane reports agent gone rather than alive or unreachable, and a stale `working` record never reports the pane working.
 A stale-registration pane is never a husk: create, reclaim, presentation recovery, and session cleanup keep refusing it, and only recovery reuses it.
+
+### Registration-independent liveness
+
+```mermaid
+flowchart LR
+  R[Herdr registration] --> C[Firstmate pane classifier]
+  P[Structural process evidence] --> C
+  C --> V[alive / dead / unreadable]
+```
+
+A missing registration or an `unknown` placeholder does not prove the harness process is gone.
+`fm_backend_herdr_pane_agent_state` consults its existing process classifier before licensing recovery.
+A proven harness process reads `live` even with missing or placeholder registration.
+A proven shell-only pane reads `no-agent` or `stale-agent` and its endpoint reads `dead`.
+An unreadable process view or an unrelated process without lifecycle registration remains `unknown`; its endpoint reads `unreadable`.
+
+Measured 2026-09-16 on macOS aarch64 in a helper-owned named lab with Herdr 0.9.0, protocol 22:
+
+| Installed harness | Version | Running process, missing registration | Running process, settled placeholder | Retained shell after test cleanup |
+| --- | --- | --- | --- | --- |
+| Claude Code | 2.1.273 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| Codex | 0.154.0 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| OpenCode | 1.18.31 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| Gemini CLI | 0.19.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+| AGY | 1.2.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+
+Refresh the token-free live and dead controls with:
+
+```sh
+tests/fm-herdr-agent-liveness-live-e2e.test.sh
+```
+
+The guard checks every installed supported harness and fails if none is available.
+The guard stops only the exact native child of its owned pane after revalidating process start identities, the shell parent, and the foreground process group.
+The guard preserves the shell and asserts that the endpoint is dead.
+The guard does not verify native exit commands, composer readiness, or model receipt.
+Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo, and omp were absent on this host; their live integration is unverified in this measurement.
+`tests/fm-backend-herdr.test.sh` covers missing and placeholder registration with a live foreground harness, a live harness descendant outside the foreground group, a shell-only pane, unreadable evidence, and an unrelated process.
+`tests/fm-crew-state.test.sh` proves that missing registration cannot turn a live harness into a gone endpoint while retaining the shell-only recovery verdict.
+`tests/fm-harness-liveness-drift-live-e2e.test.sh` refreshes the separate tmux process and harness-ancestry boundary.
 
 ### Away-mode transport
 

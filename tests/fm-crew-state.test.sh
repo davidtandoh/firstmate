@@ -1582,16 +1582,22 @@ test_no_run_herdr_husk_dead_still_reads_gone() {
   FM_FAKE_AXI_STATUS=""
   FM_FAKE_RUNS_LIST=""
   FM_FAKE_TMUX_MISSING=1
-  # The pane exists and answers pane get, but no agent is registered in it,
-  # and the scrollback read fails besides.
+  # The pane exists with positive shell-only process evidence, no agent
+  # registration, and a failed scrollback read.
   FM_FAKE_HERDR_READ_FAIL=1
   FM_FAKE_HERDR_HUSK=1
+  FM_FAKE_HERDR_PROCESS=shell
   local out; out=$(run_crew_state "$d" feat-herdr-husk)
   assert_contains "$out" "state: unknown" "a husk pane has no live current state"
   assert_contains "$out" "backend target gone" "a husk pane keeps its gone-class death evidence"
   assert_contains "$out" "agent gone, pane shell remains" "the husk verdict names what actually died"
   assert_not_contains "$out" "backend unreachable" "a husk pane is not an unreachable backend"
   pass "a husk pane (agent gone) still reads gone for reclaim"
+  FM_FAKE_HERDR_PROCESS=agent
+  out=$(run_crew_state "$d" feat-herdr-husk)
+  assert_not_contains "$out" "backend target gone" "missing registration cannot hide a live harness"
+  assert_not_contains "$out" "backend unreachable" "the structurally live endpoint remains readable"
+  pass "missing Herdr registration with a live harness never reads gone"
 }
 
 # Regression (2026-07 herdr false-surface incident, now solved semantically):

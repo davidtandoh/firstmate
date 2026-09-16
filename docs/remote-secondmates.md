@@ -203,6 +203,7 @@ Because a remote reply reaches the primary only through this asynchronous mirror
 A remote mate that did answer is therefore never asked to repost while its answer is still in flight, and a genuinely missing answer still gets exactly one repost once the mirror is known to be current.
 The [process-to-event operating contract](configuration.md#process-to-event-sources-stateprocevent) owns automatic application, one-announcement replay deduplication, and the unhandled fallback path.
 The source log is never truncated or consumed.
+Historical zero-byte capture recovery is explicit and evidence-preserving; the remote-reply adapter's header owns the operation, and [process-event-sources](../.agents/skills/process-event-sources/SKILL.md#handling-a-wake) owns its handling policy.
 A shortened or changed prefix stops the relay and surfaces a continuity failure instead of silently resetting the cursor.
 
 An SSH exit status of 255 always means transport failure or unknown remote completion.

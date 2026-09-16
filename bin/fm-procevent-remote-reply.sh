@@ -4,6 +4,7 @@
 # Usage:
 #   fm-procevent-remote-reply.sh arm <secondmate-id>
 #   fm-procevent-remote-reply.sh handle <secondmate-id> <sequence> <result-file>
+#   fm-procevent-remote-reply.sh recover-empty <secondmate-id> <sequence> <result-file>
 #   fm-procevent-remote-reply.sh autohandle <source-id> <sequence> <result-file>
 #   fm-procevent-remote-reply.sh classify <result-file>
 #   fm-procevent-remote-reply.sh terminal <result-file>
@@ -17,6 +18,11 @@
 # terminal for that exact registration; `handle` validates and idempotently
 # ingests it, acknowledges the captured generation, then registers the next
 # cursor-anchored source. A continuity break is escalated and not re-armed.
+# `recover-empty` explicitly recovers a historical zero-byte built-in capture.
+# It verifies the inbox, source, sequence, and captured adapter identity, records
+# the empty digest through the ingestion receipt owner, re-arms at the unchanged
+# cursor, and acknowledges through the generation owner. Original result and
+# sidecar bytes remain intact. Nonempty or mismatched evidence is refused.
 #
 # `autohandle` is the runner's own entry into that same `handle`: it takes the
 # canonical source id instead of the secondmate id and is called by the runner
@@ -85,6 +91,10 @@ DOCUMENT_LOCAL_FAILURE=2
 . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-procevent-lib.sh
+. "$SCRIPT_DIR/fm-procevent-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,60p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -424,10 +434,47 @@ cmd_ingest() {
   printf 'ingested: %s appended=%s offset=%s\n' "$id" "$appended" "$to"
 }
 
+# Validate the captured generation before ingestion or acknowledgement. A
+# caller-supplied copy must never ingest bytes while acknowledging another file.
+validate_capture() { # <id> <sequence> <result>
+  local sid seq=$2 result=$3 state inbox parent adapter
+  sid=$(source_id "$1")
+  case "$seq" in ''|*[!0-9]*) die "sequence must be a nonnegative integer" ;; esac
+  state=$(fm_procevent_state_root_resolve "$STATE") || die "reply state directory is unsafe"
+  inbox=$(fm_procevent_inbox_dir "$state")
+  fm_procevent_private_directory_valid "$inbox" 0 || die "reply capture inbox is unsafe"
+  parent=$(CDPATH='' cd -P -- "$(dirname -- "$result")" 2>/dev/null && pwd -P) \
+    || die "reply capture directory is unavailable"
+  [ "$parent/${result##*/}" = "$inbox/$sid.$seq.result" ] \
+    || die "result does not identify the captured source and sequence"
+  [ "$(fm_procevent_result_source_id "$result")" = "$sid" ] \
+    && [ "$(fm_procevent_result_sequence "$result")" = "$seq" ] \
+    || die "result generation does not match the requested capture"
+  adapter=$(fm_procevent_result_adapter "$result") || die "reply capture adapter identity is unreadable"
+  [ "$adapter" = remote-reply ] || die "capture belongs to a different adapter"
+  [ ! -e "${result%.result}.extension" ] && [ ! -L "${result%.result}.extension" ] \
+    || die "capture belongs to an extension or has unsafe extension evidence"
+}
+
+cmd_recover_empty_locked() {
+  local id=$1 seq=$2 result=$3 sid
+  validate_capture "$@"
+  [ ! -s "$result" ] || die "empty recovery requires a zero-byte captured result"
+  remote_route_exists "$id"
+  read_cursor "$id"
+  # A receipt conflict fails before re-arming. Reusing the ingestion owner also
+  # lets a retry after a crash retain the original generation's digest binding.
+  write_ingest_receipt "$id" "$seq" "$result" || die "cannot record empty capture recovery"
+  cmd_arm_locked "$id" || return 1
+  sid=$(source_id "$id")
+  "$SCRIPT_DIR/fm-procevent.sh" handled "$sid" "$seq" || return 1
+  printf 'recovered-empty: %s %s offset=%s\n' "$sid" "$seq" "$CURSOR_OFFSET"
+}
+
 cmd_handle_locked() {
   local id=${1:-} seq=${2:-} result=${3:-} sid class rc=0 to
   validate_id "$id"
-  case "$seq" in ''|*[!0-9]*) die "sequence must be a nonnegative integer" ;; esac
+  validate_capture "$@"
   sid=$(source_id "$id")
   class=$(classify_result "$result")
   [ "$class" != malformed ] || die "remote reply result is malformed"
@@ -471,6 +518,17 @@ cmd_handle() {
     fm_lock_acquire_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
     trap 'fm_lock_release "$lock"' EXIT
     cmd_handle_locked "$@"
+  )
+}
+
+cmd_recover_empty() {
+  local id=$1 lock
+  validate_id "$id"
+  lock=$(secondmate_reply_lifecycle_lock_path "$STATE" "$id")
+  (
+    fm_lock_acquire_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
+    trap 'fm_lock_release "$lock"' EXIT
+    cmd_recover_empty_locked "$@"
   )
 }
 
@@ -563,6 +621,7 @@ case "${1:-}" in
   arm-locked) shift; [ "$#" -eq 1 ] || usage; require_parent_lifecycle_lock "$1"; cmd_arm_locked "$@" ;;
   source) shift; [ "$#" -eq 1 ] || usage; cmd_source "$@" ;;
   handle) shift; [ "$#" -eq 3 ] || usage; cmd_handle "$@" ;;
+  recover-empty) shift; [ "$#" -eq 3 ] || usage; cmd_recover_empty "$@" ;;
   autohandle) shift; [ "$#" -eq 3 ] || usage; cmd_autohandle "$@" ;;
   ingest) shift; [ "$#" -eq 2 ] || usage; cmd_ingest "$@" ;;
   classify) shift; [ "$#" -eq 1 ] || usage; classify_result "$1" ;;

@@ -2214,9 +2214,10 @@ EOF
 #                 reaped it - verified empirically: killing a pane's shell pid
 #                 on a live server makes herdr immediately drop both the pane
 #                 and its tab from `pane get`/`tab list`).
-#   no-agent    - `pane get` succeeds (the pane structurally exists) but `agent
-#                 get` responds with error code agent_not_found: nothing is
-#                 registered in it - exactly what a herdr session-layout restore
+#   no-agent    - `pane get` succeeds, `agent get` responds with error code
+#                 agent_not_found, AND the process view proves shell-only.
+#                 Absent registration alone is not process death. This is what a
+#                 herdr session-layout restore
 #                 produces (verified empirically: `session stop` + fresh `herdr
 #                 server` restart leaves the pane alive, agent_status "unknown",
 #                 agent get -> agent_not_found - docs/herdr-backend.md "ID
@@ -2234,8 +2235,10 @@ EOF
 #                 running agent. No registered status outranks the process
 #                 view, because a killed mid-turn agent leaves `working`
 #                 behind just as a quit one leaves `idle`.
-#   live        - `agent get` succeeds with a registered agent_status and the
-#                 process-level view is `agent` or `other`: a harness process
+#   live        - the process-level view is `agent`, including while Herdr has
+#                 no registration or its placeholder status `unknown`; or
+#                 `agent get` reports a lifecycle status and the process view
+#                 is `other`: a harness process
 #                 is running, or something that is not a bare shell is, so the
 #                 registration keeps its authority. An idle or blocked agent
 #                 is still a genuine, still-registered agent, not a restored
@@ -2244,7 +2247,8 @@ EOF
 #                 either call, a `pane get` success whose own echoed pane_id
 #                 does not round-trip (guards against misreading a herdr
 #                 response shape change as "the pane exists"), or a registered
-#                 agent whose process-level view is unreadable - the
+#                 agent whose process-level view is unreadable, or absent or
+#                 placeholder registration with an unrelated foreground - the
 #                 registration alone is no longer trusted, and its absence is
 #                 not claimed either. The caller must fail safe toward refusal
 #                 here, never toward closing - this is the conservative
@@ -2262,16 +2266,28 @@ fm_backend_herdr_pane_agent_state() {  # <session> <pane_id>
   out=$(fm_backend_herdr_cli "$session" agent get "$pane_id" 2>&1)
   code=$(printf '%s' "$out" | jq -r '.error.code // empty' 2>/dev/null)
   if [ -n "$code" ]; then
-    [ "$code" = "agent_not_found" ] && printf 'no-agent' || printf 'unknown'
+    if [ "$code" != agent_not_found ]; then
+      printf 'unknown'
+      return 0
+    fi
+    # Herdr registration is asynchronous and may be absent even while the
+    # harness is running. Only positive shell-only process evidence licenses
+    # recovery or husk replacement; a retained screen proves neither verdict.
+    case "$(fm_backend_herdr_pane_process_state "$session" "$pane_id")" in
+      agent) printf 'live' ;;
+      shell) printf 'no-agent' ;;
+      *) printf 'unknown' ;;
+    esac
     return 0
   fi
   status=$(printf '%s' "$out" | jq -r '.result.agent.agent_status // empty' 2>/dev/null)
   case "$status" in
-    working|idle|done|blocked) ;;
+    working|idle|done|blocked|unknown) ;;
     *) printf 'unknown'; return 0 ;;
   esac
   case "$(fm_backend_herdr_pane_process_state "$session" "$pane_id")" in
-    agent|other) printf 'live' ;;
+    agent) printf 'live' ;;
+    other) [ "$status" != unknown ] && printf 'live' || printf 'unknown' ;;
     shell) printf 'stale-agent' ;;
     *) printf 'unknown' ;;
   esac
