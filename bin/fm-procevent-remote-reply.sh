@@ -434,8 +434,8 @@ cmd_ingest() {
   printf 'ingested: %s appended=%s offset=%s\n' "$id" "$appended" "$to"
 }
 
-# Validate the captured generation before ingestion or acknowledgement. A
-# caller-supplied copy must never ingest bytes while acknowledging another file.
+# Validate a historical capture before empty recovery acknowledges it. A
+# caller-supplied copy must never be recovered in place of the captured file.
 validate_capture() { # <id> <sequence> <result>
   local sid seq=$2 result=$3 state inbox parent adapter
   sid=$(source_id "$1")
@@ -474,7 +474,7 @@ cmd_recover_empty_locked() {
 cmd_handle_locked() {
   local id=${1:-} seq=${2:-} result=${3:-} sid class rc=0 to
   validate_id "$id"
-  validate_capture "$@"
+  case "$seq" in ''|*[!0-9]*) die "sequence must be a nonnegative integer" ;; esac
   sid=$(source_id "$id")
   class=$(classify_result "$result")
   [ "$class" != malformed ] || die "remote reply result is malformed"

@@ -1360,7 +1360,7 @@ Production evidence, read 2026-09-16 from one remote Codex secondmate pane throu
 
 - `agent get` returned `agent_not_found`, and `pane process-info` listed only the pane shell in its foreground group, under a terminal-decorated name of the form `zsh (kiro-cli-t`.
 - The pane shell's identity-stable descendant subtree contained a nested `zsh`, a native `codex` process, and its `codex-code-mode-host` child, each with a matching parent and an unchanged start identity before and after the read.
-- The accepted base mapped that shape to `no-agent` and a `dead` endpoint without consulting the descendant walk; the submitted classifier mapped it to `unknown` because the decorated shell name reads `other` and the sample returned before the walk.
+- The accepted base mapped that shape to `no-agent` and a `dead` endpoint without consulting the descendant walk. The initial submission mapped it to `unknown`, because the decorated shell name reads `other` and that sampler returned before the walk. The current walk-first classifier reads the recorded shape as `agent`, so the pane is `live` and the endpoint is `alive`.
 - This read proves process presence at one bounded snapshot. It does not establish model receipt, an installed runtime correction, or the cause of the absent registration.
 - The exact process artifacts stay private with the task evidence; no further remote read is required for this classification.
 
@@ -1373,6 +1373,8 @@ Measured 2026-09-16 on macOS aarch64 in a helper-owned named lab with Herdr 0.9.
 | OpenCode | 1.18.31 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
 | Gemini CLI | 0.19.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
 | AGY | 1.2.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
+
+Re-measured 2026-09-16 on the walk-first classifier after the descendant-first correction, with the same five installed harnesses and versions; every result in the table held, the guard checked five harnesses, and the default fleet session was unchanged at teardown.
 
 Refresh the token-free live and dead controls with:
 
