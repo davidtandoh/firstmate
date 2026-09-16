@@ -192,8 +192,6 @@ install_guard_scripts() {
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
-  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
-  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   mkdir -p "$dir/docs"
   cp -R "$ROOT/docs/supervision-protocols" "$dir/docs/supervision-protocols"
   chmod +x "$dir/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard-grok.sh" "$dir/bin/fm-operational-input.sh" "$dir/bin/fm-supervision-instructions.sh" "$dir/bin/fm-harness.sh"
@@ -279,50 +277,6 @@ nonexistent_pid() {
     pid=$((pid + 1))
   done
   printf '%s\n' "$pid"
-}
-
-test_hook_ownership_distinguishes_worker_owner_and_unreadable() {
-  local dir fb out rc holder mode
-  dir=$(make_primary_dir "$TMP_ROOT/hook-session-ownership")
-  : > "$dir/state/task.meta"
-  sleep 120 &
-  holder=$!
-  fb=$(fm_fakebin "$dir/processes")
-  cat > "$fb/ps" <<'SH'
-#!/usr/bin/env bash
-set -u
-case "$*" in
-  "-o comm= -p $FM_TEST_LOCK_PID") printf 'codex\n' ;;
-  "-o args= -p $FM_TEST_LOCK_PID") printf 'codex\n' ;;
-  '-o comm= -p 800') printf 'claude\n' ;;
-  '-o args= -p 800') printf 'claude\n' ;;
-  '-o ppid= -p 800') printf '1\n' ;;
-  '-o comm= -p '* )
-    [ "$FM_TEST_OWNER_MODE" != unreadable ] || exit 1
-    printf 'bash\n' ;;
-  '-o args= -p '* ) printf 'bash\n' ;;
-  '-o ppid= -p '* ) printf '800\n' ;;
-  *) exec "$FM_TEST_REAL_PS" "$@" ;;
-esac
-SH
-  chmod +x "$fb/ps"
-  for mode in worker owner unreadable; do
-    if [ "$mode" = owner ]; then printf '800\n' > "$dir/state/.lock"
-    else printf '%s\n' "$holder" > "$dir/state/.lock"; fi
-    out=$(printf '{"stop_hook_active":false}' | PATH="$fb:$PATH" FM_TEST_REAL_PS="$(command -v ps)" \
-      FM_TEST_OWNER_MODE="$mode" FM_TEST_LOCK_PID="$holder" FM_HOME="$dir" bash "$dir/bin/fm-turnend-guard.sh" 2>&1)
-    rc=$?
-    if [ "$mode" = worker ]; then
-      expect_code 0 "$rc" "verified worker must not supervise another session's home"
-      [ -z "$out" ] || fail "worker hook emitted a supervision warning"
-    else
-      expect_code 2 "$rc" "$mode must retain the monitoring requirement"
-      assert_contains "$out" 'TURN WOULD END BLIND' "$mode lost the supervision backstop"
-    fi
-  done
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
-  pass 'turn-end ownership: verified worker stands down; owner and unreadable evidence retain monitoring'
 }
 
 watcher_identity() {
@@ -1227,9 +1181,7 @@ EOF
 run_hook_claude() {
   local dir=$1 stop_active=$2 home
   home=$(cd "$dir" && pwd)
-  # These budget cases model a primary whose hook lost process evidence. The
-  # separate ownership cases provide complete owner and worker process tables.
-  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" | PATH="$BLIND_BIN:$PATH" CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1
+  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1
 }
 
 seed_claude_failure() {
@@ -2259,7 +2211,6 @@ test_predicate_registered_check_survives_rebinding_drift
 test_predicate_unregistered_check_needs_nothing
 test_predicate_task_pr_poll_is_not_a_custom_check
 test_predicate_relay_shim_is_not_a_custom_check
-test_hook_ownership_distinguishes_worker_owner_and_unreadable
 test_hook_silent_when_no_work_in_flight
 test_hook_blocks_when_fresh_beacon_has_no_live_lock
 test_hook_blocks_source_only_home

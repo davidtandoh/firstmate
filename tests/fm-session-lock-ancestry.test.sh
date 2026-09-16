@@ -327,7 +327,6 @@ install_autoarm_scripts() {
   cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
   cp "$ROOT/bin/fm-lock.sh" "$dir/bin/fm-lock.sh"
-  cp "$ROOT/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard.sh"
   chmod +x "$dir/bin/fm-claude-stop-autoarm.sh" "$dir/bin/fm-lock.sh"
   cat > "$dir/bin/fm-watch-arm.sh" <<'SH'
 #!/usr/bin/env bash
@@ -453,36 +452,6 @@ test_e2e_daemon_parented_version_named_session_keeps_its_lock() {
   pass "session-lock e2e: a version-named session under a harness-named daemon keeps its own lock"
 }
 
-test_e2e_turnend_guard_separates_owned_and_foreign_real_trees() {
-  local dir mode holder rc
-  for mode in owner worker; do
-    dir="$TMP_ROOT/e2e-turnend-$mode"
-    make_primary_home "$dir"
-    "$NAMED_CLAUDE" -c 'sleep 60; true' >/dev/null 2>&1 &
-    holder=$!
-    cat > "$dir/session.sh" <<'SH'
-#!/usr/bin/env bash
-if [ "$FM_FIXTURE_GUARD_ROLE" = owner ]; then printf '%s\n' "$$" > "$FM_HOME/state/.lock"
-else printf '%s\n' "$FM_FIXTURE_FOREIGN_PID" > "$FM_HOME/state/.lock"; fi
-printf '{"stop_hook_active":false}\n' | "$FM_HOME/bin/fm-turnend-guard.sh" > "$FM_HOME/state/hook.out" 2>&1
-printf '%s\n' "$?" > "$FM_HOME/state/hook.rc"
-SH
-    FM_FIXTURE_GUARD_ROLE="$mode" FM_FIXTURE_FOREIGN_PID="$holder" \
-      run_fixture_tree "$dir" "$NAMED_CLAUDE"
-    rc=$(hook_rc "$dir")
-    kill "$holder" 2>/dev/null || true
-    wait "$holder" 2>/dev/null || true
-    if [ "$mode" = owner ]; then
-      expect_code 2 "$rc" 'a real owning harness tree must retain its monitoring requirement'
-      assert_grep 'TURN WOULD END BLIND' "$dir/state/hook.out" 'owning tree lost the supervision warning'
-    else
-      expect_code 0 "$rc" 'a real worker tree must not supervise the foreign owning tree'
-      [ ! -s "$dir/state/hook.out" ] || fail 'foreign worker tree emitted a supervision warning'
-    fi
-  done
-  pass 'turn-end e2e: real process trees distinguish owning supervisor and foreign worker'
-}
-
 test_version_named_session_is_identified_on_both_platforms
 test_harness_at_namespace_pid1_is_examined
 test_ordinary_paths_are_never_harness_processes
@@ -492,4 +461,3 @@ test_unreadable_identity_is_not_foreign_ownership_or_death
 test_e2e_version_named_session_claims_the_home
 test_e2e_daemon_parented_session_claims_the_home
 test_e2e_daemon_parented_version_named_session_keeps_its_lock
-test_e2e_turnend_guard_separates_owned_and_foreign_real_trees

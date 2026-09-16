@@ -2085,12 +2085,15 @@ fm_backend_herdr_explicit_close_pane_confirmed() {  # <session> <pane_id>
 #                shell sits under the pane's top shell.
 #   other      - the foreground group holds something that is neither: a tool
 #                the agent is running in its own process group, a pager, a
-#                stranger's process. Not a shell-only pane. An idle shell
-#                transiently hosts prompt helpers such as starship in its
-#                foreground group (the same shape the idle-shell proof settles
-#                on), so this verdict alone is resampled for the same bounded
-#                settle window and the first agent or shell reading wins; only
-#                an exhausted window keeps `other`.
+#                stranger's process, or the pane shell itself under a
+#                terminal-decorated name such as `zsh (kiro-cli-t`, AND no
+#                descendant of the pane shell is a verified harness. Not a
+#                shell-only pane. An idle shell transiently hosts prompt
+#                helpers such as starship in its foreground group (the same
+#                shape the idle-shell proof settles on), so this verdict alone
+#                is resampled for the same bounded settle window and the first
+#                agent or shell reading wins; only an exhausted window keeps
+#                `other`.
 #   unreadable - process-info failed, described a different pane, named no
 #                shell pid, or the process table could not be read or does not
 #                contain the shell pid. An empty foreground-process list is NOT
@@ -2156,27 +2159,32 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
     i=$((i + 1))
   done
 
-  # Nothing in the foreground is a harness. A foreground that is not purely
-  # shells is already `other`, whatever else the pane holds. Before calling a
-  # shells-only foreground a shell-only PANE, look for a harness that is still a
-  # descendant of the pane shell outside the foreground group; only its
-  # absence, read from the real process table, is proof of an agent-free pane.
-  [ "$others" -eq 0 ] || { printf 'other'; return 0; }
+  # Nothing in the foreground is a harness. Before any verdict, look for a
+  # harness that is still a descendant of the pane shell outside the foreground
+  # group. The foreground alone cannot rule one out: a terminal can decorate the
+  # pane shell's own name (measured 2026-09-16 on a remote Codex pane whose
+  # foreground was only `zsh (kiro-cli-t` while Codex ran beneath a nested
+  # shell - docs/verification/runtime-backends.md "Registration-independent
+  # liveness"), and that name reads `other`, not `shell`. Only the descendant's
+  # absence, read from the real process table, proves a shells-only foreground
+  # is an agent-free PANE; a foreground that is not purely shells stays `other`
+  # whether or not the table could be read.
   ps_bin=${FM_HERDR_PS_BIN:-ps}
-  command -v "$ps_bin" >/dev/null 2>&1 || { printf 'unreadable'; return 0; }
-  rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) || { printf 'unreadable'; return 0; }
-  printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }' \
-    || { printf 'unreadable'; return 0; }
-  while IFS=$'\t' read -r pid name; do
-    [ -n "$pid" ] || continue
-    args=$(LC_ALL=C "$ps_bin" -p "$pid" -o args= 2>/dev/null) || continue
-    args=${args#"${args%%[![:space:]]*}"}
-    argv0=${args%%[[:space:]]*}
-    if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" = agent ]; then
-      printf 'agent'
-      return 0
-    fi
-  done <<EOF
+  verdict=unreadable
+  if command -v "$ps_bin" >/dev/null 2>&1 \
+    && rows=$(LC_ALL=C "$ps_bin" -axo pid=,ppid=,comm= 2>/dev/null) \
+    && printf '%s\n' "$rows" | awk -v shell="$shell_pid" '$1 == shell { found = 1 } END { exit(found ? 0 : 1) }'; then
+    verdict=shell
+    while IFS=$'\t' read -r pid name; do
+      [ -n "$pid" ] || continue
+      args=$(LC_ALL=C "$ps_bin" -p "$pid" -o args= 2>/dev/null) || continue
+      args=${args#"${args%%[![:space:]]*}"}
+      argv0=${args%%[[:space:]]*}
+      if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" = agent ]; then
+        printf 'agent'
+        return 0
+      fi
+    done <<EOF
 $(printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
   {
     pid[NR] = $1; ppid[NR] = $2
@@ -2198,7 +2206,8 @@ $(printf '%s\n' "$rows" | awk -v shell="$shell_pid" '
     }
   }')
 EOF
-  printf 'shell'
+  fi
+  if [ "$others" -eq 0 ]; then printf '%s' "$verdict"; else printf 'other'; fi
 }
 
 # fm_backend_herdr_pane_agent_state: classify <pane_id> in <session> as one of

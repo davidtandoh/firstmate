@@ -6,8 +6,6 @@
 # bin/fm-lock.sh uses it to acquire and inspect state/.lock;
 # bin/fm-claude-stop-autoarm.sh uses it to prove a Stop hook fires inside the
 # lock-owning primary session before it may arm or rewake.
-# bin/fm-turnend-guard.sh uses the same ownership evidence to exempt a verified
-# non-owning worker without treating unreadable process evidence as an exemption.
 # This file is sourced by scripts and has no side effects on source.
 
 # Cursor process identity is NOT expressible as a command-name pattern and is

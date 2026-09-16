@@ -635,6 +635,37 @@ test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_aliv
   pass "herdr stale registration: an agent process outside the foreground group still counts as alive"
 }
 
+decorated_shell_process_info() {  # <shell-pid>
+  # The measured remote shape (2026-09-16): the foreground group is the pane
+  # shell itself under a terminal-decorated name, with no argv surfaces.
+  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"zsh (kiro-cli-t"}]}}}' "$1" "$1" "$1"
+}
+
+test_agent_descendant_under_a_decorated_shell_foreground_stays_alive() {
+  local lab sleep_bin shell_pid out status
+  sleep_bin=$(command -v sleep) || fail "sleep not found"
+  lab="$TMP_ROOT/decorated-shell-descendant-bin"; mkdir -p "$lab"
+  ln -sf "$sleep_bin" "$lab/codex"
+  sh -c "'$lab/codex' 300; :" &
+  shell_pid=$!
+  sleep 0.3
+  for status in missing unknown idle; do
+    out=$(stale_registration_case "decorated-$status" "$status" "$(decorated_shell_process_info "$shell_pid")")
+    [ "$out" = "live alive refused" ] \
+      || fail "a real harness descendant under a decorated shell foreground with $status registration must stay live/alive, got '$out'"
+  done
+  pkill -P "$shell_pid" 2>/dev/null || true
+  kill "$shell_pid" 2>/dev/null || true
+  "$sleep_bin" 300 &
+  shell_pid=$!
+  out=$(FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 \
+    stale_registration_case decorated-childless missing "$(decorated_shell_process_info "$shell_pid")")
+  kill "$shell_pid" 2>/dev/null || true
+  [ "$out" = 'unknown unreadable refused' ] \
+    || fail "a decorated shell name with no harness descendant proves neither liveness nor a shell-only pane, got '$out'"
+  pass "herdr liveness: a harness descendant proves a decorated-shell foreground alive; its absence stays unproven"
+}
+
 test_agent_descendant_under_a_spaced_install_path_stays_alive() {
   local lab sleep_bin shell_pid out
   sleep_bin=$(command -v sleep) || fail "sleep not found"
@@ -5264,6 +5295,7 @@ test_registered_agent_with_a_non_shell_foreground_process_stays_alive
 test_transient_prompt_helper_settles_into_stale_agent
 test_exhausted_settle_window_keeps_a_non_shell_foreground_live
 test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_alive
+test_agent_descendant_under_a_decorated_shell_foreground_stays_alive
 test_agent_descendant_under_a_spaced_install_path_stays_alive
 test_registered_agent_with_an_unreadable_process_view_is_unknown
 test_registered_agent_with_an_empty_foreground_over_a_real_shell_settles_via_descendant_walk

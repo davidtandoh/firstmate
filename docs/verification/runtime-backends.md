@@ -1354,6 +1354,15 @@ A missing registration or an `unknown` placeholder does not prove the harness pr
 A proven harness process reads `live` even with missing or placeholder registration.
 A proven shell-only pane reads `no-agent` or `stale-agent` and its endpoint reads `dead`.
 An unreadable process view or an unrelated process without lifecycle registration remains `unknown`; its endpoint reads `unreadable`.
+The descendant walk runs before any foreground verdict, so a foreground that classifies as `other` cannot hide a harness beneath a nested shell.
+
+Production evidence, read 2026-09-16 from one remote Codex secondmate pane through a single authorized names-only read:
+
+- `agent get` returned `agent_not_found`, and `pane process-info` listed only the pane shell in its foreground group, under a terminal-decorated name of the form `zsh (kiro-cli-t`.
+- The pane shell's identity-stable descendant subtree contained a nested `zsh`, a native `codex` process, and its `codex-code-mode-host` child, each with a matching parent and an unchanged start identity before and after the read.
+- The accepted base mapped that shape to `no-agent` and a `dead` endpoint without consulting the descendant walk; the submitted classifier mapped it to `unknown` because the decorated shell name reads `other` and the sample returned before the walk.
+- This read proves process presence at one bounded snapshot. It does not establish model receipt, an installed runtime correction, or the cause of the absent registration.
+- The exact process artifacts stay private with the task evidence; no further remote read is required for this classification.
 
 Measured 2026-09-16 on macOS aarch64 in a helper-owned named lab with Herdr 0.9.0, protocol 22:
 
@@ -1376,7 +1385,7 @@ The guard stops only the exact native child of its owned pane after revalidating
 The guard preserves the shell and asserts that the endpoint is dead.
 The guard does not verify native exit commands, composer readiness, or model receipt.
 Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo, and omp were absent on this host; their live integration is unverified in this measurement.
-`tests/fm-backend-herdr.test.sh` covers missing and placeholder registration with a live foreground harness, a live harness descendant outside the foreground group, a shell-only pane, unreadable evidence, and an unrelated process.
+`tests/fm-backend-herdr.test.sh` covers missing and placeholder registration with a live foreground harness, a live harness descendant outside the foreground group, the decorated-shell foreground above with and without a real harness descendant, a shell-only pane, unreadable evidence, and an unrelated process.
 `tests/fm-crew-state.test.sh` proves that missing registration cannot turn a live harness into a gone endpoint while retaining the shell-only recovery verdict.
 `tests/fm-harness-liveness-drift-live-e2e.test.sh` refreshes the separate tmux process and harness-ancestry boundary.
 
