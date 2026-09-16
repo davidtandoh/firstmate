@@ -1,0 +1,115 @@
+# 1. Reproduce the historical inbox with the real capture owner: sequences 1 and 3 are zero-byte captures, sequence 2 is a real reply.
+
+$ ls -l /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox
+total 32
+-rw-------@ 1 davidtandoh  wheel  13 Sep 16 15:35 remote-reply-agent-station.1.adapter
+-rw-------@ 1 davidtandoh  wheel   0 Sep 16 15:35 remote-reply-agent-station.1.result
+-rw-------@ 1 davidtandoh  wheel  13 Sep 16 15:35 remote-reply-agent-station.2.adapter
+-rw-------@ 1 davidtandoh  wheel  45 Sep 16 15:35 remote-reply-agent-station.2.result
+-rw-------@ 1 davidtandoh  wheel  13 Sep 16 15:35 remote-reply-agent-station.3.adapter
+-rw-------@ 1 davidtandoh  wheel   0 Sep 16 15:35 remote-reply-agent-station.3.result
+[exit=0]
+
+$ wc -c /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.2.result /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.3.result
+       0 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+      45 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.2.result
+       0 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.3.result
+      45 total
+[exit=0]
+# 2. Old behaviour under test: every unacknowledged capture resurfaces on each drain-side reconcile.
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent.sh reconcile
+reconciled: published=3 started=0 stopped=0 uncertain=0 failed=0
+[exit=0]
+
+$ cat state/.wake-queue
+1789569343	1	check	procevent:remote-reply-agent-station:1	check: procevent remote-reply remote-reply-agent-station 1
+1789569344	2	check	procevent:remote-reply-agent-station:2	check: procevent remote-reply remote-reply-agent-station 2
+1789569344	3	check	procevent:remote-reply-agent-station:3	check: procevent remote-reply remote-reply-agent-station 3
+# 3. Ordinary handling of a zero-byte capture is still refused (it is malformed, not a delta).
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh handle agent-station 1 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+error: remote reply result is malformed
+[exit=1]
+
+$ ls /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox
+remote-reply-agent-station.1.adapter
+remote-reply-agent-station.1.result
+remote-reply-agent-station.2.adapter
+remote-reply-agent-station.2.result
+remote-reply-agent-station.3.adapter
+remote-reply-agent-station.3.result
+[exit=0]
+# 4. recover-empty refuses a nonempty capture, a copied file, and a wrong sequence.
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 2 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.2.result
+error: empty recovery requires a zero-byte captured result
+[exit=1]
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 1 /tmp/fm-live-reply.8wwOqX/copy.result
+error: result does not identify the captured source and sequence
+[exit=1]
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 3 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+error: result does not identify the captured source and sequence
+[exit=1]
+# 5. recover-empty acknowledges exactly the captured zero-byte generation, re-arms the source at the unchanged cursor, and is idempotent.
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 1 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+registered: remote-reply-agent-station (remote-reply)
+armed: remote-reply-agent-station offset=0
+handled: remote-reply-agent-station 1
+recovered-empty: remote-reply-agent-station 1 offset=0
+[exit=0]
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 1 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+registered: remote-reply-agent-station (remote-reply)
+armed: remote-reply-agent-station offset=0
+already-handled: remote-reply-agent-station 1
+recovered-empty: remote-reply-agent-station 1 offset=0
+[exit=0]
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent-remote-reply.sh recover-empty agent-station 3 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.3.result
+registered: remote-reply-agent-station (remote-reply)
+armed: remote-reply-agent-station offset=0
+handled: remote-reply-agent-station 3
+recovered-empty: remote-reply-agent-station 3 offset=0
+[exit=0]
+
+$ ls /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox
+remote-reply-agent-station.1.adapter
+remote-reply-agent-station.1.handled
+remote-reply-agent-station.1.result
+remote-reply-agent-station.2.adapter
+remote-reply-agent-station.2.result
+remote-reply-agent-station.3.adapter
+remote-reply-agent-station.3.handled
+remote-reply-agent-station.3.result
+[exit=0]
+
+$ wc -c /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.3.result
+       0 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.1.result
+       0 /tmp/fm-live-reply.8wwOqX/parent/state/procevent-inbox/remote-reply-agent-station.3.result
+       0 total
+[exit=0]
+
+$ cmp adapter sidecar before/after
+adapter sidecar unchanged
+
+$ cat state/remote-replies/agent-station.1.ingested
+result_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+$ ls state/procevent/
+remote-reply-agent-station.source
+
+$ cat state/remote-replies/agent-station.cursor (absent = still at offset 0)
+cat: /tmp/fm-live-reply.8wwOqX/parent/state/remote-replies/agent-station.cursor: No such file or directory
+# 6. After recovery only the real, still-unhandled reply (sequence 2) resurfaces; the recovered empties stay quiet.
+
+$ penv /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4/bin/fm-procevent.sh reconcile
+reconciled: published=1 started=1 stopped=0 uncertain=0 failed=0
+[exit=0]
+
+$ cat state/.wake-queue
+1789569345	4	check	procevent:remote-reply-agent-station:2	check: procevent remote-reply remote-reply-agent-station 2
+# === done ===

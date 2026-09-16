@@ -1,0 +1,95 @@
+# === [target] source tree: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2N99CTQWD7MEB51QWJ9W5A4 ===
+# 1. A Codex-named session takes the home lock and runs the REAL bin/fm-watch.sh beneath it (backend: inert tmux stub).
+# lock holder pid=4004 (/tmp/fm-live-guard.EutWcX/target/codex); watcher pid=4006 parent=4004 (bash)
+
+$ cat /tmp/fm-live-guard.EutWcX/target/state/.watch.lock/pid /tmp/fm-live-guard.EutWcX/target/state/.watch.lock/fm-home
+4006
+/tmp/fm-live-guard.EutWcX/target
+[exit=0]
+# 2. Seed the holder's private records: one in-flight task, a budget, a failure episode, its epoch ledger and a queued wake.
+# 3. A Claude-named session tries to acquire the lock, then serves every Stop from that same ancestry.
+
+$ (inside claude) bin/fm-lock.sh
+error: another live firstmate session holds the lock (pid 4004); operate read-only until resolved
+[exit=1]
+# 4. Live foreign-owned watcher, refused lock, work in flight: three consecutive Stops.
+
+$ (inside claude) Stop #1 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #2 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #3 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 5. Adversarial: watcher lock metadata rewritten to point at an unrelated live process (beacon still fresh).
+
+$ (inside claude) Stop #4 [unrelated live pid in watcher lock]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+TURN WOULD END BLIND - SUPERVISION IS UNVERIFIED
+This Claude Stop cannot verify that it owns this home session lock.
+No identity-stable live watcher owned by its verified lock holder is proved (last beat: 2s ago).
+Keep this session read-only. Ask the lock-owning supervisor to inspect its watcher home, path, process identity and ancestry.
+[exit=2]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #5 [watcher lock restored]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 6. Adversarial: the holder's process evidence becomes unreadable (ps fails for pid 4004); watcher and beacon untouched.
+
+$ (inside claude) [unreadable holder]: bin/fm-lock.sh status
+lock: unreadable process evidence (pid 4004)
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #7 [unreadable holder]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+TURN WOULD END BLIND - SUPERVISION IS UNVERIFIED
+This Claude Stop cannot verify that it owns this home session lock.
+No identity-stable live watcher owned by its verified lock holder is proved (last beat: 3s ago).
+Keep this session read-only. Ask the lock-owning supervisor to inspect its watcher home, path, process identity and ancestry.
+[exit=2]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ cat /tmp/fm-live-guard.EutWcX/target/state/.lock
+4004
+[exit=0]
+
+$ (inside claude) Stop #8 [unreadable holder]: bin/fm-claude-stop-autoarm.sh
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ cat state/.lock  (must still be the holder pid 4004)
+4004
+
+$ (inside claude) Stop #9 [holder readable again]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 7. Adversarial: the watcher process is stopped but its beacon is kept fresh (a stale-but-fresh beacon must not count as supervision).
+cat: /tmp/fm-live-guard.EutWcX/target/state/.watch.lock/pid: No such file or directory
+# watcher gone: no process; beacon age: 0s
+
+$ (inside claude) Stop #10 [no watcher, fresh beacon]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+TURN WOULD END BLIND - SUPERVISION IS UNVERIFIED
+This Claude Stop cannot verify that it owns this home session lock.
+No identity-stable live watcher owned by its verified lock holder is proved (last beat: 0s ago).
+Keep this session read-only. Ask the lock-owning supervisor to inspect its watcher home, path, process identity and ancestry.
+[exit=2]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #11 [no watcher, fresh beacon]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+TURN WOULD END BLIND - SUPERVISION IS UNVERIFIED
+This Claude Stop cannot verify that it owns this home session lock.
+No identity-stable live watcher owned by its verified lock holder is proved (last beat: 0s ago).
+Keep this session read-only. Ask the lock-owning supervisor to inspect its watcher home, path, process identity and ancestry.
+[exit=2]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 8. No work in flight: the refused reader must still not clear the holder's episode records.
+
+$ (inside claude) Stop #12 [no work remains]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# === [target] done ===
+/tmp/fm-live-drive/guard-drive.sh: line 66:  4004 Terminated: 15          env PATH="$FAKEBIN:$PATH" FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$HOME_DIR" FM_STATE_OVERRIDE="$HOME_DIR/state" FM_CONFIG_OVERRIDE="$HOME_DIR/config" FM_DATA_OVERRIDE="$HOME_DIR/data" FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" "$@"

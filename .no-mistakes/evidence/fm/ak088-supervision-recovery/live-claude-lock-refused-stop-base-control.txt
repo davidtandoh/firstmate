@@ -1,0 +1,116 @@
+# === [base-a530c8a] source tree: /tmp/fm-live-drive/base-src ===
+# 1. A Codex-named session takes the home lock and runs the REAL bin/fm-watch.sh beneath it (backend: inert tmux stub).
+# lock holder pid=8179 (/tmp/fm-live-guard.PeLj6v/base-a530c8a/codex); watcher pid=8183 parent=8179 (bash)
+
+$ cat /tmp/fm-live-guard.PeLj6v/base-a530c8a/state/.watch.lock/pid /tmp/fm-live-guard.PeLj6v/base-a530c8a/state/.watch.lock/fm-home
+8183
+/tmp/fm-live-guard.PeLj6v/base-a530c8a
+[exit=0]
+# 2. Seed the holder's private records: one in-flight task, a budget, a failure episode, its epoch ledger and a queued wake.
+# 3. A Claude-named session tries to acquire the lock, then serves every Stop from that same ancestry.
+
+$ (inside claude) bin/fm-lock.sh
+error: another live firstmate session holds the lock (pid 8179); operate read-only until resolved
+[exit=1]
+# 4. Live foreign-owned watcher, refused lock, work in flight: three consecutive Stops.
+
+$ (inside claude) Stop #1 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ CHANGED:
+    2,3d1
+    < sha=12d267ee5a1334c3 ino=218830601 mtime_ns=1789569322680455864 .claude-autoarm-failure-alarmed
+    < sha=a19918cc65531f64 ino=218830600 mtime_ns=1789569322680399197 .claude-autoarm-failure-notified
+    9d6
+    < sha=1779ff5a7e5fcaf2 ino=218830599 mtime_ns=1789569322680305071 .turnend-claude-blocks
+
+$ (inside claude) Stop #2 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #3 [live foreign watcher]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 5. Adversarial: watcher lock metadata rewritten to point at an unrelated live process (beacon still fresh).
+
+$ (inside claude) Stop #4 [unrelated live pid in watcher lock]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #5 [watcher lock restored]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# 6. Adversarial: the holder's process evidence becomes unreadable (ps fails for pid 8179); watcher and beacon untouched.
+
+$ (inside claude) [unreadable holder]: bin/fm-lock.sh status
+lock: stale (pid 8179 dead or not a harness)
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ (inside claude) Stop #7 [unreadable holder]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+
+$ cat /tmp/fm-live-guard.PeLj6v/base-a530c8a/state/.lock
+8179
+[exit=0]
+
+$ (inside claude) Stop #8 [unreadable holder]: bin/fm-claude-stop-autoarm.sh
+[exit=0]
+# state/ CHANGED:
+    1c1
+    < sha=b3a9a0449f75a335 ino=218830602 mtime_ns=1789569322680524614 .claude-autoarm-epoch
+    ---
+    > sha=771376498f6da1ec ino=218830703 mtime_ns=1789569324857754732 .claude-autoarm-epoch
+    6c6
+    < sha=cc97905ff62bf4fa ino=218830525 mtime_ns=1789569321790225488 .lock
+    ---
+    > sha=f7f0f609961bbe23 ino=218830525 mtime_ns=1789569324514478356 .lock
+# ARM-RAN marker present: an arm cycle was started
+
+$ cat state/.lock  (must still be the holder pid 8179)
+9674
+
+$ (inside claude) Stop #9 [holder readable again]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ unchanged (sha256, inode, mtime of every file)
+# ARM-RAN marker present: an arm cycle was started
+# 7. Adversarial: the watcher process is stopped but its beacon is kept fresh (a stale-but-fresh beacon must not count as supervision).
+cat: /tmp/fm-live-guard.PeLj6v/base-a530c8a/state/.watch.lock/pid: No such file or directory
+# watcher gone: no process; beacon age: 0s
+
+$ (inside claude) Stop #10 [no watcher, fresh beacon]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  TURN WOULD END BLIND - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher holds this home lock (last beat: 0s ago).
+●  The Stop-owned auto-arm did not claim this home either, so recovery is NOT already under way.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit=2]
+# state/ CHANGED:
+    6a7
+    > sha=619780471957f6e4 ino=218830795 mtime_ns=1789569326683546480 .turnend-claude-blocks
+# ARM-RAN marker present: an arm cycle was started
+
+$ (inside claude) Stop #11 [no watcher, fresh beacon]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  TURN WOULD END BLIND - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher holds this home lock (last beat: 2s ago).
+●  The Stop-owned auto-arm did not claim this home either, so recovery is NOT already under way.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[exit=2]
+# state/ CHANGED:
+    7c7
+    < sha=619780471957f6e4 ino=218830795 mtime_ns=1789569326683546480 .turnend-claude-blocks
+    ---
+    > sha=683a725cdb54bfda ino=218830810 mtime_ns=1789569328726324785 .turnend-claude-blocks
+# ARM-RAN marker present: an arm cycle was started
+# 8. No work in flight: the refused reader must still not clear the holder's episode records.
+
+$ (inside claude) Stop #12 [no work remains]: bin/fm-turnend-guard.sh --claude <<< '{"session_id":"live-refused-claude","stop_hook_active":true}'
+[exit=0]
+# state/ CHANGED:
+    7d6
+    < sha=683a725cdb54bfda ino=218830810 mtime_ns=1789569328726324785 .turnend-claude-blocks
+# ARM-RAN marker present: an arm cycle was started
+# === [base-a530c8a] done ===

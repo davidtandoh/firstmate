@@ -1,0 +1,40 @@
+# host: Darwin arm64; herdr herdr 0.9.0; 2026-09-16T14:30:25Z
+# default fleet sessions before:
+name                 status   directory                                        socket
+default              running  /Users/davidtandoh/.config/herdr                 /Users/davidtandoh/.config/herdr/herdr.sock
+# claude: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.0 + claude 2.1.273 (Claude Code): process=agent registration=unknown endpoint=alive
+ok - Herdr live harness: claude 2.1.273 (Claude Code) remains alive independently of registration
+# Herdr 0.9.0 + claude 2.1.273 (Claude Code): settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: claude 2.1.273 (Claude Code) leaves a recoverable shell after identity-bound test cleanup
+# codex: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.0 + codex codex-cli 0.154.0: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: codex codex-cli 0.154.0 remains alive independently of registration
+# Herdr 0.9.0 + codex codex-cli 0.154.0: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: codex codex-cli 0.154.0 leaves a recoverable shell after identity-bound test cleanup
+# opencode: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.0 + opencode 1.18.31: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: opencode 1.18.31 remains alive independently of registration
+# Herdr 0.9.0 + opencode 1.18.31: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: opencode 1.18.31 leaves a recoverable shell after identity-bound test cleanup
+# skip: pi is not installed; Herdr process liveness is unverified here
+# skip: pi-signed is not installed; Herdr process liveness is unverified here
+# skip: grok is not installed; Herdr process liveness is unverified here
+# skip: kimi is not installed; Herdr process liveness is unverified here
+# skip: cursor is not installed; Herdr process liveness is unverified here
+# Herdr 0.9.0 + gemini 0.19.4: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: gemini 0.19.4 remains alive independently of registration
+# Herdr 0.9.0 + gemini 0.19.4: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: gemini 0.19.4 leaves a recoverable shell after identity-bound test cleanup
+# skip: muse is not installed; Herdr process liveness is unverified here
+# skip: rovo is not installed; Herdr process liveness is unverified here
+# skip: omp is not installed; Herdr process liveness is unverified here
+# Herdr 0.9.0 + agy 1.2.4: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: agy 1.2.4 remains alive independently of registration
+# Herdr 0.9.0 + agy 1.2.4: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: agy 1.2.4 leaves a recoverable shell after identity-bound test cleanup
+# checked 5 installed harnesses; no prompt submitted
+exit=0
+# default fleet sessions after:
+name                 status   directory                                        socket
+default              running  /Users/davidtandoh/.config/herdr                 /Users/davidtandoh/.config/herdr/herdr.sock
