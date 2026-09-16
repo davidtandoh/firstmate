@@ -176,22 +176,18 @@ fm_harness_pid_alive() {
 # and an inner pid when a harness-named daemon parents the session. A missing
 # lock, a malformed lock, a lock held by a harness outside this ancestry, or an
 # ancestry that cannot be resolved all fail closed.
-# Return 0 for verified ownership, 1 only for a different verified harness
-# ancestry with a live verified lock owner, and 2 for unproven ownership.
-# Boolean callers still fail closed for both negative verdicts.
 fm_session_lock_owned_by_self() {
   local state=$1 lock_pid pids pid
-  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 2
+  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
   lock_pid=$(cat "$state/.lock" 2>/dev/null || true)
   case "$lock_pid" in
-    ''|*[!0-9]*) return 2 ;;
+    ''|*[!0-9]*) return 1 ;;
   esac
-  pids=$(fm_harness_ancestry_pids) || return 2
+  pids=$(fm_harness_ancestry_pids) || return 1
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 0
   done <<EOF
 $pids
 EOF
-  fm_harness_pid_alive "$lock_pid" || return 2
   return 1
 }

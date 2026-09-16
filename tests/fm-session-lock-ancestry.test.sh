@@ -297,7 +297,7 @@ SH
     if [ "$mode" = args-hidden ]; then
       [ "$got" = '0 0' ] || fail "kernel identity must survive hidden arguments, got '$got'"
     else
-      [ "$got" = '2 2' ] || fail "unreadable identity must prove neither foreign ownership nor death, got '$got'"
+      [ "$got" = '1 2' ] || fail "unreadable identity must not prove ownership or death, got '$got'"
     fi
   done
   printf '701\n' > "$dir/state/.lock"
