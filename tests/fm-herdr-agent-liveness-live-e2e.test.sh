@@ -13,6 +13,8 @@ set -euo pipefail
 . "$ROOT/tests/harness-live-helpers.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$ROOT/bin/fm-wake-lib.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$ROOT/bin/fm-session-lock-lib.sh"
 herdr_forget_inherited_pane
 fm_live_gate default-on FM_HERDR_AGENT_LIVENESS_LIVE_E2E herdr jq
 
@@ -69,6 +71,19 @@ for harness in claude codex opencode pi pi-signed grok kimi cursor gemini muse r
   child_pid=$(printf '%s' "$info" | jq -er --arg pane "$pane" --argjson shell "$shell_pid" \
     '.result.process_info | select(.pane_id == $pane and .shell_pid == $shell) | .foreground_process_group_id | select(type == "number" and . > 1)')
   child_identity=$(fm_pid_identity "$child_pid") || fail "$harness: native child start identity is unreadable"
+  # These installed executables also participate in primary session ownership.
+  # Check the shared identity and explicit-root walk without widening that table
+  # to worker-only harnesses or claiming that a model received a Stop warning.
+  if fm_harness_path_name "/$harness" >/dev/null || [ "$harness" = cursor ]; then
+      fm_harness_pid_alive "$child_pid" || fail "$harness: native primary identity is not recognized"
+      ownership_pids=$(fm_harness_ancestry_pids "$child_pid") \
+        || fail "$harness: native explicit-root session ancestry is unreadable"
+      printf '%s\n' "$ownership_pids" | grep -qx "$child_pid" \
+        || fail "$harness: native session is absent from its own ownership ancestry"
+      [ "$(fm_pid_identity "$child_pid")" = "$child_identity" ] \
+        || fail "$harness: native identity changed during ownership reads"
+      printf '# %s: native primary identity and explicit-root ownership ancestry verified\n' "$harness"
+  fi
   registry=$(lab agent get "$pane" 2>&1) || true
   status=$(printf '%s' "$registry" | jq -r '.result.agent.agent_status // .error.code // "unreadable"')
   state=$(fm_backend_herdr_agent_state "$HERDR_LAB_SESSION:$pane")

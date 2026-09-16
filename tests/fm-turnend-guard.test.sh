@@ -15,6 +15,8 @@ set -u
 
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-supervision-lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-turnend-guard)
 fm_git_identity fmtest fmtest@example.invalid
@@ -192,6 +194,9 @@ install_guard_scripts() {
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
+  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
+  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
+  ln -s /bin/bash "$dir/claude"
   mkdir -p "$dir/docs"
   cp -R "$ROOT/docs/supervision-protocols" "$dir/docs/supervision-protocols"
   chmod +x "$dir/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard-grok.sh" "$dir/bin/fm-operational-input.sh" "$dir/bin/fm-supervision-instructions.sh" "$dir/bin/fm-harness.sh"
@@ -1181,7 +1186,16 @@ EOF
 run_hook_claude() {
   local dir=$1 stop_active=$2 home
   home=$(cd "$dir" && pwd)
-  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1
+  # Each ordinary case explicitly owns the lock. Refused cases use the
+  # persistent non-owning process below and never overwrite this owner record.
+  # shellcheck disable=SC2016 # expanded by the named fixture session
+  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" \
+    | CLAUDECODE=1 FM_HOME="$home" "$dir/claude" -c '
+        printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+        "$FM_HOME/bin/fm-turnend-guard.sh" --claude
+        status=$?
+        exit "$status"
+      ' 2>&1
 }
 
 seed_claude_failure() {
@@ -1226,17 +1240,6 @@ run_integrated_autoarm() {
         printf "%s\n" "$$" > "$FM_HOME/state/.lock"
         "$FM_HOME/bin/fm-claude-stop-autoarm.sh"
       ' 2>&1
-}
-
-# The same real hook, fired from a harness-named process that does NOT write
-# state/.lock: whoever already holds that lock decides whether this firing is
-# the owning session's or a competing one.
-run_integrated_autoarm_unowned() {
-  local dir=$1 home
-  home=$(cd "$dir" && pwd)
-  # shellcheck disable=SC2016 # the fake harness expands FM_HOME inside its child shell.
-  printf '{"session_id":"sess-claude-mode","stop_hook_active":false}\n' \
-    | FM_HOME="$home" "$dir/fake-claude" -c '"$FM_HOME/bin/fm-claude-stop-autoarm.sh"' 2>&1
 }
 
 write_integrated_failed_arm() {
@@ -1335,7 +1338,7 @@ test_hook_claude_mode_repeated_failed_to_arming_interleavings_reach_fail_open() 
 }
 
 test_hook_claude_mode_terminal_boundary_excludes_starting_owner() {
-  local dir fakebin ready release once guard_out guard_status auto_out auto_status guard_pid
+  local dir fakebin ready release once guard_out guard_status auto_out auto_status
   dir=$(make_primary_dir "$TMP_ROOT/hook-claude-terminal-boundary")
   : > "$dir/state/task1.meta"
   : > "$dir/state/.claude-autoarm-failure-notified"
@@ -1362,22 +1365,29 @@ fi
 exec /bin/cat "$@"
 SH
   chmod +x "$fakebin/cat"
-  (
-    printf '{"stop_hook_active":true,"session_id":"sess-claude-mode"}' \
-      | PATH="$fakebin:$PATH" \
-        FM_TERMINAL_ROLE_PATH="$dir/state/.claude-autoarm.lock/role" \
-        FM_TERMINAL_READY="$ready" \
-        FM_TERMINAL_RELEASE="$release" \
-        FM_TERMINAL_ONCE="$once" \
-        CLAUDECODE=1 FM_HOME="$dir" bash "$dir/bin/fm-turnend-guard.sh" --claude \
-          > "$guard_out" 2>&1
-    printf '%s\n' "$?" > "$guard_status"
-  ) &
-  guard_pid=$!
-  IFS= read -r _ < "$ready"
-  auto_out=$(run_integrated_autoarm "$dir"); auto_status=$?
-  printf 'release\n' > "$release"
-  wait "$guard_pid"
+  # Both participants descend from one stable owning session. The timeout
+  # owner bounds the FIFO handshake if either participant fails to reach it.
+  # shellcheck disable=SC2016 # expanded by the fixture session
+  PATH="$fakebin:$PATH" FM_HOME="$dir" \
+    FM_TERMINAL_ROLE_PATH="$dir/state/.claude-autoarm.lock/role" \
+    FM_TERMINAL_READY="$ready" FM_TERMINAL_RELEASE="$release" FM_TERMINAL_ONCE="$once" \
+    fm_run_timed "$FM_TEST_STUB_MAX_BLOCK_SECONDS" "$dir/claude" -c '
+      printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+      (
+        printf "{\"stop_hook_active\":true,\"session_id\":\"sess-claude-mode\"}\n" \
+          | "$FM_HOME/bin/fm-turnend-guard.sh" --claude > "$FM_HOME/guard.out" 2>&1
+        printf "%s\n" "$?" > "$FM_HOME/guard.status"
+      ) &
+      guard_pid=$!
+      IFS= read -r _ < "$FM_TERMINAL_READY"
+      printf "{\"session_id\":\"sess-claude-mode\",\"stop_hook_active\":false}\n" \
+        | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" > "$FM_HOME/auto.out" 2>&1
+      printf "%s\n" "$?" > "$FM_HOME/auto.status"
+      printf "release\n" > "$FM_TERMINAL_RELEASE"
+      wait "$guard_pid"
+    ' || fail "owning terminal handshake failed or exceeded its bound"
+  auto_out=$(cat "$dir/auto.out")
+  auto_status=$(cat "$dir/auto.status")
   expect_code 0 "$auto_status" "an owner starting inside the terminal window must lose the existing owner boundary"
   [ -z "$auto_out" ] || fail "excluded terminal-window owner produced output: $auto_out"
   assert_absent "$dir/state/arm-ran" "excluded terminal-window owner started an arm cycle"
@@ -1633,26 +1643,11 @@ test_hook_claude_mode_integrated_monotonic_fail_open() {
   pass "fm-turnend-guard --claude: integrated fresh failures reach one bounded fail-open, stop continuation, and reset on recovery"
 }
 
-# The auto-arm's ledger epoch advances only when the hook reaches its
-# generation claim. A live harness-named process outside the hook's ancestry
-# holding state/.lock keeps the hook inert by its identity contract, so the
-# ledger stays at the exhausted-failure epoch the hook wrote before it went
-# quiet. The block budget used to advance only on an epoch change, so this
-# shape re-blocked without limit and the attended fail-open never fired: the
-# budget must count consecutive re-blocks against an unchanged epoch instead.
-hold_session_lock_from_foreign_harness() {  # sets FOREIGN_LOCK_HOLDER
-  local dir=$1
-  # `bash -c` execs a single command in place, which would rename the process
-  # to sleep; the trailing no-op keeps the harness-named shell as the holder.
-  # Started in this shell, not a command substitution, so the caller can reap
-  # it and no inherited pipe keeps a substitution waiting on the sleeper.
-  "$dir/fake-claude" -c 'sleep 60; true' >/dev/null 2>&1 &
-  FOREIGN_LOCK_HOLDER=$!
-  printf '%s\n' "$FOREIGN_LOCK_HOLDER" > "$dir/state/.lock"
-}
-
+# If the owning session's auto-arm stops participating after an exhausted
+# failure, its ledger epoch stays unchanged. The block budget must count each
+# owning Stop against that frozen epoch and retain its bounded fail-open.
 test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
-  local dir out status guard_out guard_status holder i pid identity count epoch_line
+  local dir out status guard_out guard_status i pid identity count epoch_line
   dir=$(make_primary_dir "$TMP_ROOT/hook-claude-frozen-epoch")
   : > "$dir/state/task1.meta"
   install_integrated_autoarm "$dir"
@@ -1664,12 +1659,9 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   expect_code 0 "$guard_status" "the first failed epoch must own its Stop handoff"
   epoch_line=$(sed -n '1p' "$dir/state/.claude-autoarm-epoch")
 
-  hold_session_lock_from_foreign_harness "$dir"
-  holder=$FOREIGN_LOCK_HOLDER
   for i in 1 2 3 4; do
-    out=$(run_integrated_autoarm_unowned "$dir"); status=$?
-    expect_code 0 "$status" "an auto-arm outside the lock owner's ancestry must stay inert at stop $i"
-    [ -z "$out" ] || fail "inert auto-arm produced output at stop $i: $out"
+    # No async hook participates: the owning session must still spend its
+    # bounded budget against the unchanged ledger.
     [ "$(sed -n '1p' "$dir/state/.claude-autoarm-epoch")" = "$epoch_line" ] \
       || fail "the ledger epoch advanced at stop $i, so this case no longer drives a frozen epoch"
     guard_out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" true); guard_status=$?
@@ -1696,8 +1688,6 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   identity=$(watcher_identity "$dir" "$pid") || {
     kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
-    kill "$holder" 2>/dev/null || true
-    wait "$holder" 2>/dev/null || true
     fail "could not identify the frozen-epoch recovery watcher"
   }
   record_watcher_lock "$dir" "$pid" "$identity"
@@ -1705,8 +1695,6 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   guard_out=$(run_hook_claude "$dir" true); guard_status=$?
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
   rm -rf "$dir/state/.watch.lock"
   expect_code 0 "$guard_status" "a healthy watcher must still allow the stop after a frozen-epoch alarm"
   [ -z "$guard_out" ] || fail "healthy allow after the frozen-epoch alarm produced output: $guard_out"
@@ -1921,87 +1909,288 @@ test_hook_claude_mode_allow_resets_budget() {
   pass "fm-turnend-guard --claude: positive watcher recovery resets failure episode state"
 }
 
-# A Claude session refused the session lock by another live harness-named
-# session follows that holder's watcher: a live identity-matched watcher with a
-# fresh beacon is supervision elsewhere and lets every Stop through without
-# touching state, while a fresh beacon alone (the gap between a Codex holder's
-# foreground checkpoints), a mismatched watcher identity, or a dead watcher
-# still blocks and never manufactures a failure episode.
+# Capture the entire private state tree. File bytes, inode and mtime are
+# compared; directories retain their identity too. Only the owner may mutate
+# these records. The real watcher is asleep between its own polls.
+refused_state_snapshot() {  # <state>
+  python3 - "$1" <<'PY_SNAPSHOT'
+import hashlib, json, os, stat, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+rows = []
+for path in sorted(root.rglob('*')):
+    st = path.lstat()
+    row = {'path': str(path.relative_to(root)), 'inode': st.st_ino, 'mode': st.st_mode}
+    if stat.S_ISREG(st.st_mode):
+        if st.st_size > 1048576:
+            raise SystemExit('oversized fixture state')
+        row.update(mtime_ns=st.st_mtime_ns, sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    elif stat.S_ISLNK(st.st_mode):
+        row['target'] = os.readlink(str(path))
+    rows.append(row)
+print(json.dumps(rows, sort_keys=True))
+PY_SNAPSHOT
+}
+
+REFUSED_WATCHER=
+REFUSED_WATCHER_IDENTITY=
+REFUSED_HOLDER=
+REFUSED_HOLDER_IDENTITY=
+REFUSED_HOLDER_RUNNER=
+REFUSED_SESSION=
+REFUSED_SESSION_IDENTITY=
+REFUSED_DIR=
+signal_refused_fixture_process() {  # <created-pid> <captured-identity>
+  local pid=$1 identity=$2
+  [ -n "$pid" ] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  [ -n "$identity" ] && [ "$(watcher_identity "$REFUSED_DIR" "$pid")" = "$identity" ] \
+    || fail "refusing cleanup of a changed fixture process"
+  kill -TERM "$pid" 2>/dev/null || true
+}
+stop_refused_watcher() {
+  local child parent comm identity
+  [ -n "$REFUSED_WATCHER" ] || return 0
+  kill -0 "$REFUSED_WATCHER" 2>/dev/null || return 0
+  # This watcher is a direct child of our fixture holder. TERM is deferred
+  # while its poll sleep runs, so stop only its identity-bound sleep child.
+  parent=$(ps -p "$REFUSED_WATCHER" -o ppid= | tr -d '[:space:]')
+  [ "$parent" = "$REFUSED_HOLDER" ] || fail "refusing cleanup of a reparented watcher"
+  signal_refused_fixture_process "$REFUSED_WATCHER" "$REFUSED_WATCHER_IDENTITY"
+  for child in $(pgrep -P "$REFUSED_WATCHER" 2>/dev/null || true); do
+    parent=$(ps -p "$child" -o ppid= | tr -d '[:space:]')
+    comm=$(ps -p "$child" -o comm=)
+    [ "$parent" = "$REFUSED_WATCHER" ] || continue
+    case "$comm" in sleep|*/sleep) ;; *) continue ;; esac
+    identity=$(watcher_identity "$REFUSED_DIR" "$child") || continue
+    [ "$(ps -p "$child" -o ppid= | tr -d '[:space:]')" = "$REFUSED_WATCHER" ] \
+      && [ "$(watcher_identity "$REFUSED_DIR" "$child")" = "$identity" ] || continue
+    kill -TERM "$child" 2>/dev/null || true
+  done
+}
+cleanup_refused_fixture() {
+  stop_refused_watcher
+  signal_refused_fixture_process "$REFUSED_SESSION" "$REFUSED_SESSION_IDENTITY"
+  signal_refused_fixture_process "$REFUSED_HOLDER" "$REFUSED_HOLDER_IDENTITY"
+  [ -z "$REFUSED_SESSION" ] || wait "$REFUSED_SESSION" 2>/dev/null || true
+  [ -z "$REFUSED_HOLDER_RUNNER" ] || wait "$REFUSED_HOLDER_RUNNER" 2>/dev/null || true
+  fm_test_cleanup
+}
+trap cleanup_refused_fixture EXIT
+
+refused_stop() {  # <sequence> <expected-exit>
+  local sequence=$1 expected=$2 i before after out status
+  before=$(refused_state_snapshot "$REFUSED_DIR/state") || fail "state snapshot failed"
+  printf '%s\n' "$before" > "$REFUSED_DIR/results/$sequence.before.json"
+  printf '{"session_id":"refused-session","stop_hook_active":true}\n' \
+    > "$REFUSED_DIR/requests/$sequence"
+  for i in $(seq 1 300); do
+    [ ! -f "$REFUSED_DIR/results/$sequence.status" ] || break
+    sleep 0.01
+  done
+  [ -f "$REFUSED_DIR/results/$sequence.status" ] || fail "refused Stop $sequence did not finish"
+  status=$(cat "$REFUSED_DIR/results/$sequence.status")
+  out=$(cat "$REFUSED_DIR/results/$sequence.out")
+  expect_code "$expected" "$status" "refused Stop $sequence returned the wrong outcome ($out)"
+  if [ "$expected" -eq 0 ]; then
+    [ -z "$out" ] || fail "supervised elsewhere emitted output: $out"
+  else
+    assert_contains "$out" 'TURN WOULD END BLIND' "unverified supervision lost the backstop"
+    assert_contains "$out" 'read-only' "refused session received mutating repair guidance"
+    assert_not_contains "$out" 'FIRSTMATE SUPERVISION IS GENUINELY DOWN' "refused session consumed owner fail-open"
+    assert_not_contains "$out" 'bin/fm-watch-arm.sh' "refused session was told to arm a watcher"
+  fi
+  after=$(refused_state_snapshot "$REFUSED_DIR/state") || fail "state snapshot failed"
+  printf '%s\n' "$after" > "$REFUSED_DIR/results/$sequence.after.json"
+  if [ "$before" != "$after" ]; then
+    python3 - "$REFUSED_DIR/results/$sequence.before.json" "$REFUSED_DIR/results/$sequence.after.json" <<'PY_DIFF'
+import json, sys
+from pathlib import Path
+snapshots = []
+for name in sys.argv[1:]:
+    path = Path(name)
+    if path.is_symlink() or path.stat().st_size > 1048576:
+        raise SystemExit('invalid fixture snapshot')
+    snapshots.append({row['path']: row for row in json.loads(path.read_bytes())})
+before, after = snapshots
+for name in sorted(set(before) | set(after)):
+    if before.get(name) != after.get(name):
+        print(json.dumps({'path': name, 'before': before.get(name), 'after': after.get(name)}, sort_keys=True))
+PY_DIFF
+  fi
+  [ "$before" = "$after" ] || fail "refused Stop $sequence changed owner state bytes or identity"
+}
+
 test_hook_claude_mode_lock_refused_session_follows_foreign_watcher() {
-  local dir home holder wpid identity out status before after lock_out i plain
+  local dir home fakebin i identity other_pid sequence ready child args real_ps summary_busy
   dir=$(make_primary_dir "$TMP_ROOT/hook-claude-lock-refused")
   home=$(cd "$dir" && pwd)
+  REFUSED_DIR=$home
+  # Run the existing real watcher and its production dependencies in this one
+  # private home. Its backend is an inert tmux stub, never the captain fleet.
+  cp -R "$ROOT/bin/." "$dir/bin/"
+  mkdir -p "$dir/config" "$dir/requests" "$dir/results"
+  printf 'tmux\n' > "$dir/config/backend"
+  fakebin=$(fm_fakebin "$dir/watcher")
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/tmux"
+  chmod +x "$fakebin/tmux"
+  real_ps=$(command -v ps)
+  cat > "$fakebin/ps" <<SH
+#!/usr/bin/env bash
+pid= next=0
+for arg in "\$@"; do
+  if [ "\$next" -eq 1 ]; then pid=\$arg; next=0; fi
+  [ "\$arg" != -p ] || next=1
+done
+if [ -f "\$FM_HOME/unreadable.pid" ] \
+  && [ "\$pid" = "\$(cat "\$FM_HOME/unreadable.pid")" ]; then exit 1; fi
+exec "$real_ps" "\$@"
+SH
+  chmod +x "$fakebin/ps"
+  ln -s /bin/bash "$dir/codex"
+  # shellcheck disable=SC2016 # expanded inside the holder process
+  fm_run_timed "$FM_TEST_STUB_MAX_BLOCK_SECONDS" env PATH="$fakebin:$PATH" \
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$home" FM_STATE_OVERRIDE="$home/state" \
+    FM_CONFIG_OVERRIDE="$home/config" FM_DATA_OVERRIDE="$home/data" \
+    FM_PROJECTS_OVERRIDE="$home/projects" "$dir/codex" -c '
+    printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+    FM_POLL=300 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+      "$FM_HOME/bin/fm-watch.sh" > "$FM_HOME/watch.out" 2> "$FM_HOME/watch.err" &
+    printf "%s\n" "$!" > "$FM_HOME/watcher.pid"
+    while [ ! -e "$FM_HOME/holder.stop" ]; do sleep 0.05; done
+    wait
+  ' &
+  REFUSED_HOLDER_RUNNER=$!
+  for i in $(seq 1 300); do
+    [ ! -f "$dir/state/.last-watcher-beat" ] || break
+    sleep 0.01
+  done
+  [ -f "$dir/state/.last-watcher-beat" ] || fail "real foreign watcher did not poll: $(cat "$dir/watch.err")"
+  REFUSED_HOLDER=$(cat "$dir/state/.lock")
+  REFUSED_HOLDER_IDENTITY=$(watcher_identity "$home" "$REFUSED_HOLDER") || fail "fixture holder identity is unreadable"
+  REFUSED_WATCHER=$(cat "$dir/watcher.pid")
+  [ "$(cat "$dir/state/.watch.lock/pid")" = "$REFUSED_WATCHER" ] || fail "real watcher did not publish its own PID"
+  [ "$(ps -p "$REFUSED_WATCHER" -o ppid= | tr -d '[:space:]')" = "$REFUSED_HOLDER" ] || fail "watcher is outside the foreign holder tree"
+  identity=$(cat "$dir/state/.watch.lock/pid-identity")
+  REFUSED_WATCHER_IDENTITY=$identity
+  # A beacon is written at poll entry. Wait for the completed idle poll before
+  # seeding retained work, so its first cycle cannot consume fixture records.
+  ready=0
+  for i in $(seq 1 300); do
+    for child in $(pgrep -P "$REFUSED_WATCHER" 2>/dev/null || true); do
+      args=$(ps -p "$child" -o args= 2>/dev/null || true)
+      case "$args" in 'sleep 300'|*/'sleep 300') ready=1 ;; esac
+    done
+    [ "$ready" -ne 1 ] || break
+    sleep 0.01
+  done
+  [ "$ready" -eq 1 ] || fail "real watcher never completed its initial idle poll"
+  # The poll starts a bounded summary publication without waiting. Require
+  # that exact child and its publication lock to retire before seeding work.
+  ready=0
+  for i in $(seq 1 300); do
+    summary_busy=0
+    for child in $(pgrep -P "$REFUSED_WATCHER" 2>/dev/null || true); do
+      args=$(ps -p "$child" -o args= 2>/dev/null || true)
+      case "$args" in *"$home/bin/fm-home-summary-refresh.sh"*) summary_busy=1 ;; esac
+    done
+    if [ "$summary_busy" -eq 0 ] && [ -f "$dir/state/home-summary.json" ] \
+      && [ ! -e "$dir/state/.home-summary-refresh.lock" ] \
+      && [ ! -L "$dir/state/.home-summary-refresh.lock" ]; then
+      ready=1
+      break
+    fi
+    sleep 0.01
+  done
+  [ "$ready" -eq 1 ] || fail "initial watcher summary publication did not finish within the fixture bound"
+  # Existing holder records are deliberately nonempty and must survive Stops.
   : > "$dir/state/task1.meta"
-  cp "$ROOT/bin/fm-lock.sh" "$dir/bin/fm-lock.sh"
-  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
-  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
-  ln -s "$(command -v sleep)" "$dir/codex"
-  "$dir/codex" 120 &
-  holder=$!
-  printf '%s\n' "$holder" > "$dir/state/.lock"
-  lock_out=$(FM_HOME="$home" bash "$dir/bin/fm-lock.sh" status 2>&1)
-  [ "$lock_out" = "lock: held by live harness pid $holder" ] \
-    || fail "the foreign holder must be a live harness the lock owner refuses, got '$lock_out'"
-  sleep 120 &
-  wpid=$!
-  identity=$(watcher_identity "$dir" "$wpid") || {
-    kill "$wpid" "$holder" 2>/dev/null || true
-    fail "could not identify the foreign session's watcher"
-  }
-  record_watcher_lock "$dir" "$wpid" "$identity"
-  touch "$dir/state/.last-watcher-beat"
-  before=$(ls -A "$dir/state" | sort)
-  for i in 1 2 3; do
-    out=$(run_hook_claude "$dir" false); status=$?
-    expect_code 0 "$status" "refused Stop $i must end quietly while the holder's watcher is live"
-    [ -z "$out" ] || fail "refused Stop $i emitted output while supervised elsewhere: $out"
+  seed_claude_budget "$dir" 2 7
+  printf 'holder-notice\n' > "$dir/state/.claude-autoarm-failure-notified"
+  printf 'holder-alarm\n' > "$dir/state/.claude-autoarm-failure-alarmed"
+  printf 'epoch=7 owner_pid=%s outcome=failed-suppressed updated_at=1\n' "$REFUSED_HOLDER" > "$dir/state/.claude-autoarm-epoch"
+  printf '1\t7\tcheck\tholder\tcheck: retained holder wake\n' > "$dir/state/.wake-queue"
+  # One stable verified Claude ancestry actually tries acquisition and is
+  # refused, then invokes every Stop without touching the owner records.
+  # shellcheck disable=SC2016 # expanded inside the refused session
+  env PATH="$fakebin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_CONFIG_OVERRIDE="$home/config" \
+    FM_DATA_OVERRIDE="$home/data" FM_PROJECTS_OVERRIDE="$home/projects" "$dir/claude" -c '
+    "$FM_HOME/bin/fm-lock.sh" > "$FM_HOME/refusal.out" 2>&1
+    printf "%s\n" "$?" > "$FM_HOME/refusal.status"
+    for sequence in $(seq 1 20); do
+      for retry in $(seq 1 12000); do
+        [ ! -e "$FM_HOME/session.stop" ] || exit 0
+        [ ! -f "$FM_HOME/requests/$sequence" ] || break
+        sleep 0.01
+      done
+      [ -f "$FM_HOME/requests/$sequence" ] || exit 1
+      "$FM_HOME/bin/fm-turnend-guard.sh" --claude < "$FM_HOME/requests/$sequence" \
+        > "$FM_HOME/results/$sequence.out" 2>&1
+      printf "%s\n" "$?" > "$FM_HOME/results/$sequence.status"
+    done
+  ' &
+  REFUSED_SESSION=$!
+  for i in $(seq 1 300); do
+    [ ! -f "$dir/refusal.status" ] || break
+    sleep 0.01
   done
-  after=$(ls -A "$dir/state" | sort)
-  [ "$before" = "$after" ] || fail "supervised-elsewhere Stops changed state entries: $after"
-  [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "a refused session rewrote the session lock"
-  [ "$(cat "$dir/state/.watch.lock/pid")" = "$wpid" ] || fail "a refused session rewrote the watcher lock"
+  expect_code 1 "$(cat "$dir/refusal.status")" "current Claude ancestry must actually fail acquisition"
+  assert_contains "$(cat "$dir/refusal.out")" 'another live firstmate session holds the lock' "acquisition failed for a reason other than foreign ownership"
+  REFUSED_SESSION_IDENTITY=$(watcher_identity "$home" "$REFUSED_SESSION") || fail "refused session identity is unreadable"
+  for sequence in 1 2 3; do refused_stop "$sequence" 0; done
   printf 'mismatch\n' > "$dir/state/.watch.lock/pid-identity"
-  out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" false); status=$?
-  expect_code 2 "$status" "a mismatched watcher identity must keep the backstop for a refused session"
-  assert_contains "$out" 'TURN WOULD END BLIND' "mismatched watcher identity lost the blind-turn banner"
+  refused_stop 4 2
   printf '%s\n' "$identity" > "$dir/state/.watch.lock/pid-identity"
-  kill "$wpid" 2>/dev/null || true
-  wait "$wpid" 2>/dev/null || true
+  printf 'different-home\n' > "$dir/state/.watch.lock/fm-home"
+  refused_stop 5 2
+  printf '%s\n' "$home" > "$dir/state/.watch.lock/fm-home"
+  printf 'different-path\n' > "$dir/state/.watch.lock/watcher-path"
+  refused_stop 6 2
+  printf '%s/bin/fm-watch.sh\n' "$home" > "$dir/state/.watch.lock/watcher-path"
+  touch -t 202001010000 "$dir/state/.last-watcher-beat"
+  refused_stop 7 2
   touch "$dir/state/.last-watcher-beat"
-  for i in 1 2; do
-    out=$(FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=100 run_hook_claude "$dir" false); status=$?
-    expect_code 2 "$status" "a fresh beacon without a live watcher process must block refused Stop $i"
-    assert_contains "$out" 'TURN WOULD END BLIND' "checkpoint-gap Stop $i lost the blind-turn banner"
-    assert_not_contains "$out" 'FIRSTMATE SUPERVISION IS GENUINELY DOWN' "a refused session reached the attended fail-open"
+  # Caller-written metadata around an unrelated live process is insufficient.
+  sleep 60 &
+  other_pid=$!
+  record_watcher_lock "$dir" "$other_pid" "$(watcher_identity "$dir" "$other_pid")"
+  refused_stop 8 2
+  kill "$other_pid" 2>/dev/null || true
+  wait "$other_pid" 2>/dev/null || true
+  record_watcher_lock "$dir" "$REFUSED_WATCHER" "$identity"
+  printf '%s\n' "$REFUSED_WATCHER" > "$dir/unreadable.pid"
+  refused_stop 9 2
+  rm -f "$dir/unreadable.pid"
+  refused_stop 10 0
+  printf '%s\n' "$REFUSED_HOLDER" > "$dir/unreadable.pid"
+  refused_stop 11 2
+  rm -f "$dir/unreadable.pid"
+  refused_stop 12 0
+  stop_refused_watcher
+  for i in $(seq 1 300); do
+    kill -0 "$REFUSED_WATCHER" 2>/dev/null || break
+    sleep 0.01
   done
-  [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "a blocked refused session rewrote the session lock"
-  assert_absent "$dir/state/.claude-autoarm-failure-notified" "a refused session manufactured a failure notice"
-  assert_absent "$dir/state/.claude-autoarm-epoch" "a refused session manufactured an auto-arm epoch"
-  assert_absent "$dir/state/.claude-autoarm-failure-alarmed" "a refused session consumed the attended alarm"
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
-  rm -f "$dir/state/.turnend-claude-blocks"
-  sleep 120 &
-  plain=$!
-  printf '%s\n' "$plain" > "$dir/state/.lock"
-  lock_out=$(FM_HOME="$home" bash "$dir/bin/fm-lock.sh" status 2>&1)
-  [ "$lock_out" = "lock: stale (pid $plain dead or not a harness)" ] \
-    || fail "a non-harness holder must not read as an actual refusal, got '$lock_out'"
-  sleep 120 &
-  wpid=$!
-  identity=$(watcher_identity "$dir" "$wpid") || {
-    kill "$wpid" "$plain" 2>/dev/null || true
-    fail "could not identify the unrefused case's watcher"
-  }
-  record_watcher_lock "$dir" "$wpid" "$identity"
   touch "$dir/state/.last-watcher-beat"
-  out=$(run_hook_claude "$dir" false); status=$?
-  kill "$wpid" "$plain" 2>/dev/null || true
-  wait "$wpid" "$plain" 2>/dev/null || true
-  rm -rf "$dir/state/.watch.lock"
-  expect_code 0 "$status" "without an actual refusal the same live watcher proof must still allow the Stop"
-  [ -z "$out" ] || fail "the unrefused allow emitted output: $out"
-  pass "fm-turnend-guard --claude: a lock-refused session is supervised by the holder's live watcher and keeps the backstop without it"
+  refused_stop 13 2
+  refused_stop 14 2
+  signal_refused_fixture_process "$REFUSED_HOLDER" "$REFUSED_HOLDER_IDENTITY"
+  wait "$REFUSED_HOLDER_RUNNER" 2>/dev/null || true
+  REFUSED_HOLDER=
+  REFUSED_HOLDER_RUNNER=
+  refused_stop 15 2
+  printf 'bad-lock\n' > "$dir/state/.lock"
+  refused_stop 16 2
+  rm -f "$dir/state/.lock"
+  refused_stop 17 2
+  rm -f "$dir/state/task1.meta"
+  refused_stop 18 0
+  touch "$dir/session.stop"
+  wait "$REFUSED_SESSION"
+  REFUSED_SESSION=
+  REFUSED_WATCHER=
+  pass "fm-turnend-guard --claude: actual refused session preserves seeded owner state under strict foreign watcher and failed evidence"
 }
 
 test_hook_claude_mode_waits_for_late_claim() {

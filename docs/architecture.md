@@ -130,7 +130,10 @@ The Pi supervision branch's deliberate queued-wake warning exception is owned by
 It leads with a prominent bordered tangle banner, while `bin/fm-guard.sh` owns the watcher-down banner and reminder policy so repeated guarded commands stay noisy without reprinting the full banner in the same episode.
 On every verified primary harness, tracked hook integration gives the primary session a push-based backstop: when work, a process-event source, a registered custom check, or Relay polling needs supervision and no supervision owner provably holds this home with a fresh beacon, blocking-capable Stop hooks block and nonblocking turn-end integrations force one bounded follow-up.
 The guard covers the main primary and genuinely marked secondmate homes, exempts child crewmate/scout worktrees, is loop-safe per harness, and is documented in [turnend-guard.md](turnend-guard.md).
-The guard does not consult session-lock ownership; [turnend-guard.md](turnend-guard.md#guard-predicates) states when a lock-refused second primary is supervised by the holder's live watcher and when it still receives the warning.
+The Claude guard uses the session-lock owner's bounded ancestry proof before it can change shared recovery state.
+A verified owner retains the existing recovery behavior.
+An unverified reader remains read-only and ends silently only when the same ownership helpers prove a live foreign holder and its identity-stable same-home watcher.
+[turnend-guard.md](turnend-guard.md#guard-predicates) owns that proof, the read-only warning, and the unchanged behavior of other harness integrations.
 
 Away mode is a posture of the one supervision session, recorded in `state/.afk-contract` by `bin/fm-afk-contract.sh` after the captain confirms a read-back of their away words and mandate clauses, and announced at entry as hold-for-return only because no phone channel exists.
 The record owner's header is the single owner of the record schema and clause fields, and by the captain's mandate no static parser reads the clause text: the object and precondition are recorded verbatim, structural presence and the verb list are checked, and the coarse best-effort never-set flag can miss spellings including joined compounds such as `oneTimeCode`.

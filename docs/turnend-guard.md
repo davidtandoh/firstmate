@@ -26,9 +26,29 @@ The marker must be a regular non-symlink file whose whitespace-stripped first li
 An unmarked checkout or invalid marker falls through to the git-dir check.
 That check keeps crewmate and scout linked worktrees inert because their git dir differs from their git common dir.
 It also requires `AGENTS.md`, `bin/`, and the effective state directory.
-The guard does not read session-lock ownership: a second primary session that could not acquire the lock is allowed silently, touching no state, while the lock holder's identity-matched watcher process is live with a fresh beacon, and it receives the warning otherwise, because only the strict watcher proof below allows a turn to end.
-Between a Codex holder's bounded foreground checkpoints (`bin/fm-watch-checkpoint.sh`) no watcher process exists even though the beacon stays fresh, so a refused session's Stop landing in that gap blocks by design: a fresh beacon alone is not owner proof.
-`tests/fm-turnend-guard.test.sh` covers a lock-refused session across repeated real Stop calls against a live, mismatched, and absent foreign watcher.
+For Claude Stop, the session-lock owner first verifies whether the current harness ancestry owns `state/.lock`.
+A verified owner retains the existing auto-arm, budget accounting and attended fail-open behavior.
+A Stop that cannot verify ownership reads state without changing the holder's budget, failure episode, generation or wake queue.
+If work remains, that reader ends silently only when `fm_session_lock_foreign_owner` proves a live foreign holder refusing its verified Claude ancestry and `fm_watcher_owned_by_session` proves the holder's live same-home watcher.
+Both helpers recheck process-start identity and ancestry through the read.
+A missing, malformed, dead, unreadable, mismatched or changing proof produces a read-only warning.
+The refused reader does not arm, reclaim, charge a budget, clear an episode, consume the owner's attended fail-open, or instruct itself to repair supervision.
+
+```mermaid
+flowchart LR
+    C[Claude Stop] --> L{Verified session-lock owner?}
+    L -->|Yes| O[Existing owner recovery and budget]
+    L -->|Unverified| R[Read-only holder and watcher proof]
+    R -->|Verified live foreign ownership| E[End silently]
+    R -->|Missing or invalid evidence| W[Read-only warning]
+```
+
+Only verified ownership permits shared episode mutation.
+A fresh beacon alone does not prove foreign supervision.
+Between bounded foreground checkpoints, a watcher can be absent while its beacon remains fresh; that condition still warns the refused reader.
+That mechanism does not establish the cause of a reported production warning without the process and owner records at Stop time.
+`tests/fm-turnend-guard.test.sh` exercises actual acquisition refusal, repeated real Stop calls, a real watcher beneath its foreign holder, and byte-preserved seeded holder records.
+Its frozen-epoch regression now uses an owning session; unreadable or refused readers cannot charge that session's budget.
 A completed foreground checkpoint does not prove supervision continues after its turn ends.
 Claude automatic recovery and Cursor parking preserve a lock whose live owner cannot be read instead of reclaiming that lock as stale.
 
@@ -114,15 +134,16 @@ Fresh `failed` and `failed-suppressed` outcomes enter or advance the failure pro
 The auto-arm itself rechecks the healthy watcher predicate and retries a bounded number of times before reporting a genuine failure.
 The first fresh exhausted-failure epoch preserves its handoff without consuming a blocked-stop count, while later fresh failed epochs advance the same monotonic progression instead of resetting it.
 When none of those proofs appears, it re-blocks up to `FM_CLAUDE_TURNEND_BLOCK_BUDGET` times (default 3, below Claude's 8-block override).
-In Claude mode, positive watcher recovery clears the block budget, failure notice, and attended alarm together under the existing budget lock before either hook reports ordinary recovery.
+For a verified owning Claude session, positive watcher recovery clears the block budget, failure notice, and attended alarm together under the existing budget lock before either hook reports ordinary recovery.
 The one loud attended fail-open is available only when the auto-arm has recorded an exhausted failure, its one notice is already consumed, the block budget is exhausted, and a final check finds neither a healthy watcher nor an automatic continuation.
 Each epoch identity is charged at most once per Stop under the budget lock, and a re-block against an epoch the auto-arm did not advance past the previous re-block is charged as well.
-That second rule is what bounds an inert auto-arm: a hook kept silent by a session lock held by a live harness outside its ancestry, a hook that never fires, or a hook failing before its generation claim leaves the ledger frozen at its last outcome.
+That second rule bounds an owning session whose auto-arm never fires or fails before its generation claim, leaving the ledger frozen at its last outcome.
+The read-only ownership gate above prevents a refused Stop from spending that budget.
 Charging only epoch changes let the count freeze with that ledger, so the guard re-blocked without limit and the attended fail-open was never reachable; `budget_account_current_epoch` in `bin/fm-turnend-guard.sh` owns the rule.
 Whenever both coordination locks are needed, positive auto-arm recovery and the terminal check acquire the auto-arm owner lock before the budget lock.
 After that alarm, the Stop auto-arm suppresses further exit-2 continuations until positive watcher recovery, so the final fail-open remains reachable.
 The alarm cannot repeat during that failure episode, and a later unhealthy stop blocks again.
-A positively verified healthy watcher clears the failure notice, alarm, and block budget for a future independent episode.
+A positively verified healthy watcher clears the owning session's failure notice, alarm, and block budget for a future independent episode.
 A Claude failure notice describes the automatic mechanism as broken and does not direct a routine manual background arm.
 
 OpenCode, Pi, and pi-signed expose passive callbacks for this purpose.

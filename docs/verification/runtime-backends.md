@@ -107,6 +107,29 @@ A single-process harness has no descendant that adds a distinct verdict, which i
 The portable regression pins every half without any harness installed: `tests/fm-harness-precedence.test.sh` asserts that this two-process topology decides at comm strength, that the descent probe reaches a strength the top-of-session probe cannot, that a sibling branch answering a foreign harness contributes no verdict, that a foreign args-only verdict at the deepest vantage leaves the comm-strength identity intact, and that equal-depth ties choose the comm-strength leaf regardless of process ordering.
 The run did not reach `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, or `muse`, which were not installed, and stopped at the same pre-existing liveness failure for `cursor` 3.18.9, whose resolved binary on that machine is the editor rather than `cursor-agent`; those adapters are unverified by this run.
 
+### Read-only Claude Stop ownership
+
+Verified 2026-09-16 on macOS aarch64 with the shared session-lock and watcher owners.
+The portable regression runs an actual acquisition refusal in a stable Claude-named process ancestry, then invokes repeated `--claude` Stop calls against the real watcher beneath a foreign holder.
+Each call preserves seeded budget, failure, epoch, queue, session-lock and watcher-identity records by SHA-256, inode and modification time.
+The fixture waits for the watcher's initial summary publication to finish before seeding those records.
+The fixture holder and watcher group use the existing bounded-execution owner.
+Missing, dead, stale, unreadable, unrelated and mismatched evidence keeps the read-only warning.
+No supervision need permits a silent read-only Stop without clearing retained holder state.
+The owning-session frozen-epoch accounting and attended fail-open controls also passed.
+
+```sh
+bin/fm-test-run.sh tests/fm-turnend-guard.test.sh tests/fm-session-lock-ancestry.test.sh
+```
+
+The named-helper native control also verified the existing primary-process identity and explicit-root ancestry walk against installed Claude Code 2.1.273, Codex 0.154.0 and OpenCode 1.18.31 under Herdr 0.9.0, protocol 22.
+The same control verified Gemini CLI 0.19.4 and AGY 1.2.4 for backend liveness without adding them to the primary session-lock identity table.
+Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo and omp were absent and remain unverified by this live control.
+This evidence proves native process attribution and the ownership predicate.
+It does not prove native Claude dispatch or model receipt of a Stop warning in a lock-refused session.
+[`turnend-guard.md`](../turnend-guard.md#guard-predicates) owns the decision and mutation boundary.
+The registration-independent liveness section below owns the token-free live guard and its refresh command.
+
 ## tmux
 
 Foreground-process behavior was verified on 2026-07-07 with tmux 3.6a on macOS.
