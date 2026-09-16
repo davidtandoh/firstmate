@@ -1374,7 +1374,10 @@ Measured 2026-09-16 on macOS aarch64 in a helper-owned named lab with Herdr 0.9.
 | Gemini CLI | 0.19.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
 | AGY | 1.2.4 | `alive` | `unknown` registration, `alive` endpoint | `dead` |
 
-Re-measured 2026-09-16 on the walk-first classifier after the descendant-first correction, with the same five installed harnesses and versions; every result in the table held, the guard checked five harnesses, and the default fleet session was unchanged at teardown.
+Re-measured 2026-09-16 on the walk-first classifier after the descendant-first correction, with the same five installed harnesses and versions.
+The guard checked five harnesses and the default fleet session was unchanged at teardown.
+Claude Code, Codex, OpenCode, and AGY were re-observed alive under a missing registration.
+Gemini CLI had already registered its `unknown` placeholder before the first read, so its missing-registration cell rests on the earlier measurement and the unit fixture, while its placeholder and retained-shell cells were re-observed.
 
 Refresh the token-free live and dead controls with:
 

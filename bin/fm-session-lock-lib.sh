@@ -155,7 +155,11 @@ EOF
   printf '%s\n' "$outermost"
 }
 
-# True if $1 is a live process that looks like a verified harness.
+# Liveness of $1 as a verified harness process. Returns 0 when the process is
+# alive and matches the harness identity, 1 when it is dead or positively not a
+# harness, and 2 when it is alive but its identity cannot be read. Callers must
+# branch on the status rather than on truthiness: 2 is not stale-owner
+# evidence, so it must never reclaim a lock or arm over its holder.
 fm_harness_pid_alive() {
   local pid=$1 comm args
   kill -0 "$pid" 2>/dev/null || return 1

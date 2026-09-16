@@ -26,7 +26,9 @@ The marker must be a regular non-symlink file whose whitespace-stripped first li
 An unmarked checkout or invalid marker falls through to the git-dir check.
 That check keeps crewmate and scout linked worktrees inert because their git dir differs from their git common dir.
 It also requires `AGENTS.md`, `bin/`, and the effective state directory.
-The guard does not read session-lock ownership: a second primary session that could not acquire the lock still receives the warning, and only the strict watcher proof below allows a turn to end.
+The guard does not read session-lock ownership: a second primary session that could not acquire the lock is allowed silently, touching no state, while the lock holder's identity-matched watcher process is live with a fresh beacon, and it receives the warning otherwise, because only the strict watcher proof below allows a turn to end.
+Between a Codex holder's bounded foreground checkpoints (`bin/fm-watch-checkpoint.sh`) no watcher process exists even though the beacon stays fresh, so a refused session's Stop landing in that gap blocks by design: a fresh beacon alone is not owner proof.
+`tests/fm-turnend-guard.test.sh` covers a lock-refused session across repeated real Stop calls against a live, mismatched, and absent foreign watcher.
 A completed foreground checkpoint does not prove supervision continues after its turn ends.
 Claude automatic recovery and Cursor parking preserve a lock whose live owner cannot be read instead of reclaiming that lock as stale.
 

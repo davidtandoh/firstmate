@@ -528,7 +528,7 @@ test_live_process_survives_missing_or_unknown_registration() {
   out=$(stale_registration_case 'missing-unreadable' missing - 1)
   [ "$out" = 'unknown unreadable refused' ] \
     || fail "missing registration plus unreadable processes must refuse recovery, got '$out'"
-  out=$(stale_registration_case 'missing-other' missing \
+  out=$(FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 stale_registration_case 'missing-other' missing \
     '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":4242,"foreground_processes":[{"pid":4243,"name":"sleep","argv":["sleep","30"]}]}}}')
   [ "$out" = 'unknown unreadable refused' ] \
     || fail "an unregistered stranger's process must not prove agent liveness or death, got '$out'"
