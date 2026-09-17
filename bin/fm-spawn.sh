@@ -2018,8 +2018,14 @@ effort_flag_for_harness() {
       esac
       ;;
     agy)
-      # agy 1.2.0 --effort accepts exactly low|medium|high, so xhigh and max are
-      # omitted rather than passed as known-bad values (record-and-omit).
+      # Native agy rejected --effort for this exact model and selected Gemini
+      # instead. Do not infer other models' capabilities from their names.
+      if [ "$model" = claude-opus-4-6-thinking ]; then
+        echo "notice: agy model '$model' does not support --effort; recording requested effort '$effort' but omitting the flag to avoid model fallback" >&2
+        return 0
+      fi
+      # agy accepts low|medium|high; retain the existing record-and-omit
+      # behavior for xhigh and max on every other model.
       case "$effort" in
         low|medium|high) printf -- '--effort %s ' "$(shell_quote "$effort")" ;;
       esac

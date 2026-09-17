@@ -549,6 +549,8 @@ if [ "${1:-}" = models ]; then
   printf 'gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n'
   printf 'gemini-3.8-flash-medium\tGemini 3.8 Flash (Medium)\n'
   printf 'gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n'
+  printf 'claude-opus-4-6-thinking\tClaude Opus 4.6 (Thinking)\n'
+  printf 'future-model\tSynthetic model with unknown effort support\n'
   exit 0
 fi
 echo "fake agy must never execute" >&2
@@ -647,6 +649,49 @@ test_agy_launch_carries_the_brief_with_model_effort_and_autonomy() {
   assert_grep 'model=gemini-3.8-flash-low' "$meta" "agy meta did not record its model"
   assert_grep 'effort=low' "$meta" "agy meta did not record its effort"
   pass "fm-spawn: agy launch carries brief, model, effort, and autonomy with cleared markers"
+}
+
+test_agy_opus_effort_is_recorded_and_disclosed_but_omitted() {
+  local effort id rec out launch
+  local -a launch_args
+  for effort in low medium high xhigh max default; do
+    id="agy-opus-$effort-$$"
+    rec=$(make_agy_spawn_case "opus-$effort" "$id")
+    read_agy_spawn_record "$rec"
+    launch_args=(--model claude-opus-4-6-thinking)
+    if [ "$effort" != default ]; then launch_args+=(--effort "$effort"); fi
+    out=$(run_agy_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+      "${launch_args[@]}") \
+      || fail "Opus spawn failed for effort $effort: $out"
+    launch=$(cat "$CASE_DIR/launch.log")
+    assert_contains "$launch" "--model 'claude-opus-4-6-thinking'" "Opus model selection was lost"
+    assert_not_contains "$launch" "--effort" "Opus launch carried an incompatible effort flag"
+    assert_grep "effort=$effort" "$HOME_DIR/state/$id.meta" "requested effort was not retained"
+    assert_grep 'model=claude-opus-4-6-thinking' "$HOME_DIR/state/$id.meta" "requested Opus model was not retained"
+    if [ "$effort" = default ]; then
+      assert_not_contains "$out" 'omitting the flag' "default effort must not produce an omission notice"
+    else
+      assert_contains "$out" "recording requested effort '$effort' but omitting the flag" "unsupported effort omission was silent"
+    fi
+  done
+  pass "fm-spawn: Opus keeps its model and effort metadata but omits incompatible effort with a notice"
+}
+
+test_agy_other_model_effort_behavior_is_preserved() {
+  local model id rec out launch
+  # This is a pass-through contract, not a claim of vendor capability.
+  # A suffix-free synthetic model catches unsupported name-based heuristics.
+  for model in future-model default; do
+    id="agy-effort-$model-$$"
+    rec=$(make_agy_spawn_case "effort-$model" "$id")
+    read_agy_spawn_record "$rec"
+    out=$(run_agy_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+      --model "$model" --effort high) || fail "pass-through spawn failed: $out"
+    launch=$(cat "$CASE_DIR/launch.log")
+    assert_contains "$launch" "--effort 'high'" "unrelated model lost existing effort behavior"
+    assert_not_contains "$out" 'omitting the flag' "unrelated model received an unsupported capability verdict"
+  done
+  pass "fm-spawn: other models and default selection retain effort pass-through"
 }
 
 test_agy_effort_xhigh_is_recorded_but_omitted() {
@@ -909,6 +954,8 @@ test_herdr_shell_first_with_live_registry_stays_live
 test_herdr_lone_unregistered_pane_is_agent_free
 test_herdr_malformed_and_failed_reads_stay_unknown
 test_agy_launch_carries_the_brief_with_model_effort_and_autonomy
+test_agy_opus_effort_is_recorded_and_disclosed_but_omitted
+test_agy_other_model_effort_behavior_is_preserved
 test_agy_effort_xhigh_is_recorded_but_omitted
 test_agy_unlisted_model_refuses_before_pane_creation
 test_agy_unreachable_listing_launches_unvalidated

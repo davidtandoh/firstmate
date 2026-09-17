@@ -82,10 +82,29 @@ gemini-3.8-flash-low	Gemini 3.8 Flash (Low)
 ```
 
 `agy --help` documents `--effort` as `low|medium|high` and `--model` as the model for the session.
+`--effort` acceptance is model-scoped rather than uniform: `bin/fm-spawn.sh` omits the flag with a stderr notice for `claude-opus-4-6-thinking`, the one model recorded as rejecting it, and `tests/fm-agy-harness.test.sh` covers that omission alongside unchanged pass-through for every other model.
 The bare `gemini-3.8-flash` id from this home's previous config is not listed; only the suffixed `-high`, `-medium`, and `-low` variants are.
 `bin/fm-spawn.sh`'s `agy_model_validate` refuses a requested id a reachable `agy models` listing omits, and launches unvalidated with a stderr notice when the listing is unreachable.
 The listing is a remote fetch (`Fetching available models...`), so the probe runs with stdin detached under the shared hard bound from `bin/fm-timeout-lib.sh` (15 seconds by default, `FM_AGY_MODELS_TIMEOUT`; a non-positive or non-numeric value clamps back to that default, because a non-positive bound is not a bound); a stalled fetch or a sign-in prompt is cut off and falls through to the unvalidated launch instead of blocking the spawn before any pane exists.
 Print mode (`agy -p "Reply with exactly: AGY_PRINT_PROBE_OK" --model gemini-3.8-flash-low`) returned the exact reply with exit 0 in about 8 seconds, proving the credential path without a pane.
+
+### Opus and `--effort`: parent observation, 2026-09-17
+
+This subsection is a separate observation from the Subject table above.
+The parent Firstmate session recorded it on 2026-09-17 in its own session records (`opus-receipt-2026-09-17.md` and `model-switch-answer-2026-09-17.md`), which are not part of this repository.
+It is an attributed observation, not a replayable transcript.
+Those records do not hold the exact launch argv, the `agy` version, the platform, or the verbatim warning text, so none of them is quoted here.
+
+| Step | Observation |
+|---|---|
+| Launch | A native launch that requested `claude-opus-4-6-thinking` with `--effort` showed a native warning that `--effort` is not supported for that model. agy selected Gemini 3.8 Flash Medium instead of Opus. |
+| Model picker | In the same session, the parent opened `/model`. The helper verdict for that step was `unknown`; the native screen showed that the picker opened. |
+| Selection | The parent selected `Claude Opus 4.6 (Thinking)` with Down, then Enter. The row offered no effort control. The native confirmation and the footer showed Opus. |
+| Receipt | One authorized synthetic prompt prohibited tools, edits, and continuation of prior work. The response `AGY-OPUS-RECEIPT-20260917` appeared, and the pane returned to idle with Opus selected. No tool call was observed. |
+| Authority | The user answered yes to that same-session model switch and one receipt. No restart, installation, or direct Claude CLI call occurred. |
+
+The observation proves the fallback that the spawn omission prevents, interactive selection of Opus, and one Opus response.
+It does not prove high effort on Opus, because the picker offered no effort control.
 
 ## Busy state: the pinned status row, unknown on absence
 
@@ -159,6 +178,7 @@ The unauthenticated failure mode was never observed; this host's agy runs signed
 No slash-skill invocation form was verified, so skill invocation stays natural language.
 `--continue` and `--conversation` resume were never exercised; recovery uses deterministic relaunch from the brief on disk.
 No primary or secondmate behavior was built or tested, and none is claimed.
+For `claude-opus-4-6-thinking`, an automatic native launch after the `--effort` omission, full lifecycle acceptance (spawn, steer, relaunch, exit), and quota routing were never exercised; only `tests/fm-agy-harness.test.sh` covers the omission, and the 2026-09-17 observation under Model and effort covers interactive selection and one response.
 
 ## Refreshing this record
 
