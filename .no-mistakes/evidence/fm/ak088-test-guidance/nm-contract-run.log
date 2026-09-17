@@ -1,0 +1,8 @@
+FM_TEST_BEGIN 2026-09-17T08:54:24Z tests/fm-nm-test-contract.test.sh family=unclassified expected_gate_skip=none
+ok - no-mistakes does not configure commands.test
+FM_TEST_END 2026-09-17T08:54:25Z tests/fm-nm-test-contract.test.sh exit=0 duration_ms=152 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=197
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=152 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-nm-test-contract.test.sh duration_ms=152
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M2Q93MFSA8EZRGQWR18ZN763/nm-contract-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=197

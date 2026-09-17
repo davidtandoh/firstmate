@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 152,
+      "failed": 0,
+      "name": "unclassified"
+    }
+  ],
+  "finished_at": "2026-09-17T08:54:25Z",
+  "run_id": "fm-test-run-1789635264863-94725",
+  "scripts": [
+    {
+      "duration_ms": 152,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-nm-test-contract.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-09-17T08:54:24Z",
+  "summary": {
+    "duration_ms": 197,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}

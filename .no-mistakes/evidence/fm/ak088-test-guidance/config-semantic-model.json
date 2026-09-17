@@ -1,0 +1,16 @@
+{
+  "commands": {
+    "lint": "bin/fm-lint.sh"
+  },
+  "test.evidence": {
+    "store_in_repo": true
+  },
+  "test.instructions_lines": 14,
+  "disable_project_settings": true,
+  "top_keys": [
+    "disable_project_settings",
+    "document",
+    "commands",
+    "test"
+  ]
+}
