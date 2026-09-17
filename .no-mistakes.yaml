@@ -36,5 +36,20 @@ commands:
 # Publish each run's test evidence to the orphan no-mistakes/evidence branch linked from the PR.
 # The evidence is not committed to the feature or default branch.
 test:
+  instructions: |
+    Derive live scenarios from the requested intent and fresh integrated diff.
+    Use the smallest existing executable test that drives each scenario.
+    For worker delivery-contract changes, start with:
+    bin/fm-test-run.sh tests/fm-task-delivery.test.sh --jobs 1 --per-script-timeout-secs 90 --max-wall-ms 120000 --json <evidence-directory>/delivery-timing.json
+    Replace <evidence-directory> with the Test prompt's evidence directory.
+    Run each additional justified script in a separate foreground invocation.
+    Retain complete output and timing artifacts with exit and gate-skip fields.
+    A timed-out script is incomplete evidence; stop and report the scenario.
+    Do not background tests or use head/tail output as a completion verdict.
+    Do not run a family or full-suite walk for local Test.
+    Record the observable scenario outcome and exact evidence path.
+    Distinguish isolated-fixture coverage from real remote acceptance.
+    Mark unavailable live scenarios untested with a specific reason.
+    Keep broad regression and hosted CI mandatory for delivery.
   evidence:
     store_in_repo: true
