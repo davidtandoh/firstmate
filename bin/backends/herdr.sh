@@ -3618,7 +3618,10 @@ fm_backend_herdr_socket_path() {  # <session>
 # api schema`. FM_BACKEND_HERDR_EVENTS_FORCE overrides the whole verdict for
 # tests (1 = capable, 0 = incapable) without touching the real binary. The
 # `api schema` read is ~220KB, so callers (the watcher) memoize this per session
-# for a process lifetime rather than probing every poll.
+# for a process lifetime rather than probing every poll. The schema is matched
+# in-shell, never piped to grep: an early-exiting reader breaks the writer on a
+# response this size and rejects a capable client under pipefail
+# (test_events_capable_drains_large_schema).
 fm_backend_herdr_events_capable() {  # <session>
   local session=$1 protocol schema
   case "${FM_BACKEND_HERDR_EVENTS_FORCE:-}" in
