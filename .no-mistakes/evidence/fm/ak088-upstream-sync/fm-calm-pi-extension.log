@@ -1,0 +1,20 @@
+FM_TEST_BEGIN 2026-09-17T09:42:38Z tests/fm-calm-pi-extension.test.sh family=pure-contract-unit expected_gate_skip=none
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - Pi calm compatibility evidence never rejects a Pi version for being newer than 0.82.0, and still fails closed on a missing or malformed version
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - missing Pi presentation class exports reach the independent adapter degradation path
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: pi or tmux not found for Pi operational follow-up E2E
+skip: pi or tmux not found for Pi Calm hidden-block geometry E2E
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - the rendered-export-DOM guard renders in one pass, retries a bounded number of Chrome start-up failures, and reports the Chrome binary, Chrome version, Pi version, exit status, and Chrome diagnostic when every attempt fails
+skip: pi or tmux not found for Pi calm interactive E2E
+fm-test-run: gate skip: tests/fm-calm-pi-extension.test.sh: installed @earendil-works/pi-coding-agent package not found
+FM_TEST_END 2026-09-17T09:42:42Z tests/fm-calm-pi-extension.test.sh exit=0 duration_ms=3965 gate_skip=true
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=1 duration_ms=4020
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=3965 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-calm-pi-extension.test.sh duration_ms=3965
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M2QAQDR3KSR8SEK0HPEX49PC/fm-calm-pi-extension-timing.json
