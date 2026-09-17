@@ -1,0 +1,52 @@
+=== fm-spawn.sh drive-claude-opus-4-6-thinking-high-64316 <proj> --harness agy --model claude-opus-4-6-thinking --effort high
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'claude-opus-4-6-thinking' --effort 'high' 
+--- task metadata:
+model=claude-opus-4-6-thinking
+effort=high
+
+=== fm-spawn.sh drive-claude-opus-4-6-thinking-xhigh-64316 <proj> --harness agy --model claude-opus-4-6-thinking --effort xhigh
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'claude-opus-4-6-thinking' 
+--- task metadata:
+model=claude-opus-4-6-thinking
+effort=xhigh
+
+=== fm-spawn.sh drive-gemini-3.8-flash-high-high-64316 <proj> --harness agy --model gemini-3.8-flash-high --effort high
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'gemini-3.8-flash-high' --effort 'high' 
+--- task metadata:
+model=gemini-3.8-flash-high
+effort=high
+
+=== fm-spawn.sh drive-future-model-medium-64316 <proj> --harness agy --model future-model --effort medium
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'future-model' --effort 'medium' 
+--- task metadata:
+model=future-model
+effort=medium
+
+=== fm-spawn.sh drive-claude-opus-9-not-listed-high-64316 <proj> --harness agy --model claude-opus-9-not-listed --effort high
+exit=1
+--- spawn output (notices):
+error: agy model 'claude-opus-9-not-listed' is not listed by 'agy models'; choose a listed id or omit --model
+--- agy flags typed into the pane:
+
+--- task metadata:
+grep: <case>/drive-claude-opus-9-not-listed-high/home/state/drive-claude-opus-9-not-listed-high-64316.meta: No such file or directory
+
+not ok - Opus launch carried an incompatible effort flag (unexpected: '--effort')
+--- output ---
+env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS '<case>/opus-low/fake/fakebin/agy' --prompt-interactive "$('<tmp>/base/bin/fm-operational-input.sh' encode launch-brief < '<case>/opus-low/home/data/agy-opus-low-64316/launch-brief.md')" --model 'claude-opus-4-6-thinking' --effort 'low' --dangerously-skip-permissions

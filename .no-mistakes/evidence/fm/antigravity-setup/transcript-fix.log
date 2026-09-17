@@ -1,0 +1,52 @@
+=== fm-spawn.sh drive-claude-opus-4-6-thinking-high-72683 <proj> --harness agy --model claude-opus-4-6-thinking --effort high
+exit=0
+--- spawn output (notices):
+notice: agy model 'claude-opus-4-6-thinking' does not support --effort; recording requested effort 'high' but omitting the flag to avoid model fallback
+--- agy flags typed into the pane:
+--model 'claude-opus-4-6-thinking' 
+--- task metadata:
+model=claude-opus-4-6-thinking
+effort=high
+
+=== fm-spawn.sh drive-claude-opus-4-6-thinking-xhigh-72683 <proj> --harness agy --model claude-opus-4-6-thinking --effort xhigh
+exit=0
+--- spawn output (notices):
+notice: agy model 'claude-opus-4-6-thinking' does not support --effort; recording requested effort 'xhigh' but omitting the flag to avoid model fallback
+--- agy flags typed into the pane:
+--model 'claude-opus-4-6-thinking' 
+--- task metadata:
+model=claude-opus-4-6-thinking
+effort=xhigh
+
+=== fm-spawn.sh drive-gemini-3.8-flash-high-high-72683 <proj> --harness agy --model gemini-3.8-flash-high --effort high
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'gemini-3.8-flash-high' --effort 'high' 
+--- task metadata:
+model=gemini-3.8-flash-high
+effort=high
+
+=== fm-spawn.sh drive-future-model-medium-72683 <proj> --harness agy --model future-model --effort medium
+exit=0
+--- spawn output (notices):
+(none)
+--- agy flags typed into the pane:
+--model 'future-model' --effort 'medium' 
+--- task metadata:
+model=future-model
+effort=medium
+
+=== fm-spawn.sh drive-claude-opus-9-not-listed-high-72683 <proj> --harness agy --model claude-opus-9-not-listed --effort high
+exit=1
+--- spawn output (notices):
+error: agy model 'claude-opus-9-not-listed' is not listed by 'agy models'; choose a listed id or omit --model
+--- agy flags typed into the pane:
+
+--- task metadata:
+grep: <case>/drive-claude-opus-9-not-listed-high/home/state/drive-claude-opus-9-not-listed-high-72683.meta: No such file or directory
+
+ok - fm-spawn: Opus keeps its model and effort metadata but omits incompatible effort with a notice
+ok - fm-spawn: other models and default selection retain effort pass-through
+ok - fm-spawn: agy omits xhigh from the launch but records it in task metadata
