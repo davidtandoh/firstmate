@@ -1,0 +1,7 @@
+# Real herdr 0.9.0 responses passed through a PATH shim that renames one capability in the real 275 KB schema
+stripped=events.subscribe pipefail=off schema_bytes=275131 rc=1 stdout_bytes=0 stderr=[]
+stripped=events.subscribe pipefail=on schema_bytes=275131 rc=1 stdout_bytes=0 stderr=[]
+stripped=pane.agent_status_changed pipefail=off schema_bytes=275080 rc=1 stdout_bytes=0 stderr=[]
+stripped=pane.agent_status_changed pipefail=on schema_bytes=275080 rc=1 stdout_bytes=0 stderr=[]
+stripped=NOTHING_STRIPPED pipefail=off schema_bytes=275129 rc=0 stdout_bytes=0 stderr=[]
+stripped=NOTHING_STRIPPED pipefail=on schema_bytes=275129 rc=0 stdout_bytes=0 stderr=[]

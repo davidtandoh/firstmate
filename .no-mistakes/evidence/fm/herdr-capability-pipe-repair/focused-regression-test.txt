@@ -1,0 +1,12 @@
+## target e8582f0
+ok - events capability: large both schema, ignored SIGPIPE, pipefail=off
+ok - events capability: large subscribe_only schema, ignored SIGPIPE, pipefail=off
+ok - events capability: large status_only schema, ignored SIGPIPE, pipefail=off
+ok - events capability: large both schema, ignored SIGPIPE, pipefail=on
+ok - events capability: large subscribe_only schema, ignored SIGPIPE, pipefail=on
+ok - events capability: large status_only schema, ignored SIGPIPE, pipefail=on
+exit=
+## base ce64cbb herdr.sh with new regression test (expected to fail)
+not ok - events capability both pipefail=off emitted stderr: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2Q27TBHMWHJVZ435P3MQG1T/bin/backends/herdr.sh: line 3636: printf: write error: Broken pipe
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M2Q27TBHMWHJVZ435P3MQG1T/bin/backends/herdr.sh: line 3637: printf: write error: Broken pipe
+exit=

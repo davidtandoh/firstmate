@@ -1,0 +1,11 @@
+# Live capability probe against real herdr 0.9.0 at /opt/homebrew/bin/herdr
+# real schema bytes: 275129; client protocol: 22
+# grep on PATH: ugrep 7.8.4 aarch64-apple-macosx +neon/A; bash 3.2.57(1)-release; probe shell ignores SIGPIPE
+## base ce64cbb (piped grep -Fq)
+base   pipefail=off X=1 rc=0 stdout_bytes=0 stderr=[bin/backends/herdr.sh: line 3636: printf: write error: Broken pipe|bin/backends/herdr.sh: line 3637: printf: write error: Broken pipe|]
+base   pipefail=on  X=1 rc=1 stdout_bytes=0 stderr=[bin/backends/herdr.sh: line 3636: printf: write error: Broken pipe|]
+## target e8582f0 (in-shell case match)
+fixed  pipefail=off X=1 rc=0 stdout_bytes=0 stderr=[]
+fixed  pipefail=on  X=1 rc=0 stdout_bytes=0 stderr=[]
+## target, adversarial: protocol floor raised above real client -> must reject
+fixed  pipefail=on  FM_BACKEND_HERDR_MIN_EVENTS_PROTOCOL=999 rc=0 stdout_bytes=0 stderr=[]
