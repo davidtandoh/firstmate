@@ -5047,6 +5047,47 @@ set_fake_agent() {  # <agent-dir> <window-or-pane> <status>
   printf '%s' "$status" > "$dir/$key.status"
 }
 
+test_events_capable_drains_large_schema() {
+  local mode capabilities dir resp fb rc expected
+  for mode in off on; do
+    for capabilities in both subscribe_only status_only; do
+      dir="$TMP_ROOT/events-capable-$mode-$capabilities"
+      resp="$dir/responses"
+      mkdir -p "$resp"
+      fb=$(make_herdr_fakebin "$dir")
+      printf '{"client":{"protocol":20}}\n' > "$resp/1.out"
+      # Put matches before many short lines, beyond any pipe buffer.
+      {
+        printf '{"capabilities":['
+        case "$capabilities" in
+          both) printf '"events.subscribe","pane.agent_status_changed"' ;;
+          subscribe_only) printf '"events.subscribe"' ;;
+          status_only) printf '"pane.agent_status_changed"' ;;
+        esac
+        printf '],"padding":[\n'
+        local i
+        for ((i=0; i<25000; i++)); do printf '"padding",\n'; done
+        printf '"end"]}\n'
+      } > "$resp/2.out"
+      rc=0
+      PATH="$fb:$PATH" FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$resp" \
+        FM_HERDR_SCRIPT_STATUS=1 FM_BACKEND_HERDR_EVENTS_FORCE='' \
+        bash -c '
+          . "$0/bin/backends/herdr.sh"
+          trap "" PIPE
+          if [ "$1" = on ]; then set -o pipefail; else set +o pipefail; fi
+          fm_backend_herdr_events_capable fixture
+        ' "$ROOT" "$mode" > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+      expected=1
+      [ "$capabilities" != both ] || expected=0
+      [ "$rc" -eq "$expected" ] || fail "events capability $capabilities pipefail=$mode: expected $expected, got $rc"
+      [ ! -s "$dir/stderr" ] || fail "events capability $capabilities pipefail=$mode emitted stderr: $(cat "$dir/stderr")"
+      [ ! -s "$dir/stdout" ] || fail "events capability probe should be silent"
+      pass "events capability: large $capabilities schema, ignored SIGPIPE, pipefail=$mode"
+    done
+  done
+}
+
 test_normalize_event_leaves_from_empty() {
   local rec
   rec=$(bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_normalize_event wG:pQ wG blocked claude' "$ROOT")
@@ -5469,6 +5510,7 @@ test_dispatch_routes_herdr_backend
 test_dispatch_busy_state_unknown_for_tmux
 test_dispatch_composer_state_routes_by_backend
 test_scripts_route_explicit_target_through_meta_backend
+test_events_capable_drains_large_schema
 test_normalize_event_leaves_from_empty
 test_escalation_marker_keys_like_watcher
 test_apply_transition_blocked_requires_commit_to_dedupe
