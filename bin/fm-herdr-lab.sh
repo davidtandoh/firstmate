@@ -15,11 +15,9 @@
 # Session names must begin with "fm-lab-" and can never be "default".
 # The name command sanitizes the label, caps it at 16 characters, and appends
 # process/random suffixes to keep generated socket paths short.
-# Every Herdr call made here carries one explicit --session <session>.
-# Ordinary calls carry it last. If a call has a child -- separator, the helper
-# puts its session option immediately before the first separator and preserves
-# all child arguments. Herdr stops session parsing at that separator, so a
-# trailing session option there would become child input and lose API isolation.
+# Every Herdr call made here carries --session <session>: trailing, or
+# immediately before the first -- delimiter so it stays a Herdr option instead
+# of becoming a passthrough argument such as an agent start argument.
 # The run command rejects caller-supplied --session flags, any leading option
 # before the subcommand, all session lifecycle operations, and every server
 # operation.
@@ -63,18 +61,15 @@ fm_herdr_lab_tripwire_path() { # <session>
 }
 
 fm_herdr_lab_raw() { # <session> <herdr arguments...>
-  local name=$1 arg separated=0
-  local -a argv=()
+  local name=$1 i
   shift
-  for arg in "$@"; do
-    if [ "$arg" = -- ] && [ "$separated" -eq 0 ]; then
-      argv+=(--session "$name")
-      separated=1
-    fi
-    argv+=("$arg")
+  local -a args=("$@")
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    [ "${args[i]}" = -- ] || continue
+    HERDR_SESSION="$name" herdr "${args[@]:0:i}" --session "$name" "${args[@]:i}"
+    return
   done
-  [ "$separated" -ne 0 ] || argv+=(--session "$name")
-  HERDR_SESSION="$name" herdr "${argv[@]}"
+  HERDR_SESSION="$name" herdr "$@" --session "$name"
 }
 
 fm_herdr_lab_session_list() { # <session>
