@@ -28,6 +28,8 @@ APPLICABLE_VETO="$LAB/applicable-veto.json"
 MUSE_EXHAUSTED="$LAB/muse-exhausted.json"
 MUSE_POSITIVE="$LAB/muse-positive.json"
 AGY_POSITIVE="$LAB/agy-positive.json"
+KIRO_POSITIVE="$LAB/kiro-positive.json"
+KIRO_UNKNOWN="$LAB/kiro-unknown.json"
 TOON="$LAB/quota.toon"
 RENDERER_TOON="$LAB/renderer-quota.toon"
 EMPTY_TOON="$LAB/empty-quota.toon"
@@ -556,6 +558,22 @@ if out=$(call_choose --snapshot "$MUSE_EXHAUSTED" --candidate muse:default 2>/de
 fi
 [ "$out" = "none" ] || fail "exhausted Meta quota returned: $out"
 ok "Muse uses Meta quota"
+
+# kiro maps to quota-axi's own kiro provider, never to claude, even though
+# kiro serves Claude models. quota-axi reports kiro's credits with unknown
+# quota semantics, so this legacy chooser, which dispatches only on positive
+# evidence, refuses it; the resolver treats it as eligible but unranked.
+jq '.providers += [{"provider":"kiro","windows":[],"quotaSemantics":{"status":"known","effectiveAvailability":[{"scope":"all_models","status":"known","effectivePercentRemaining":40,"runway":{"status":"through_reset"}}]}}]' \
+  "$LAB/captured.json" > "$KIRO_POSITIVE"
+out=$(call_choose --snapshot "$KIRO_POSITIVE" --candidate kiro:default)
+[ "$out" = "kiro default" ] || fail "kiro candidate with a positive kiro row returned: $out"
+jq '.providers += [{"provider":"kiro","windows":[],"quotaSemantics":{"status":"unknown","effectiveAvailability":[]}}]' \
+  "$LAB/captured.json" > "$KIRO_UNKNOWN"
+if out=$(call_choose --snapshot "$KIRO_UNKNOWN" --candidate kiro:default 2>/dev/null); then
+  fail "kiro candidate dispatched on unknown kiro quota"
+fi
+[ "$out" = "none" ] || fail "unknown kiro quota returned: $out"
+ok "kiro uses its own kiro quota row"
 
 jq '.providers += [{"provider":"agy","windows":[],"quotaSemantics":{"status":"known","effectiveAvailability":[{"scope":"all_models","status":"known","effectivePercentRemaining":25,"runway":{"status":"through_reset"}}]}}]' \
   "$LAB/captured.json" > "$AGY_POSITIVE"
