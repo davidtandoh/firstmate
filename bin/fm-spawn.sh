@@ -356,7 +356,9 @@
 #     __DEVINCONFIG__ private per-task Devin config with lifecycle hooks
 #     __AGYBIN__    resolved, agy-verified executable for an agy launch
 #     __KIROBIN__   resolved, kiro-verified executable for a kiro launch
-#     __KIROHOME__  firstmate-owned per-task KIRO_HOME dir (hook agent config + trust setting)
+#     __KIROHOME__  firstmate-owned per-task KIRO_HOME dir (hook scripts, V2 agent config, trust setting)
+#     __KIROENGINE__ kiro agent engine from config/kiro-engine (v3 default, or v2)
+#     __KIROAGENTFLAG__ `--agent firstmate ` on V2, empty on V3
 # Verified per-harness turn-end hooks are installed automatically where enabled; some live outside the worktree.
 # Kimi uses one surgically installed Firstmate region in $HOME/.kimi-code/config.toml,
 # a firstmate-owned global hook and registry, and a gitignored per-task pointer.
@@ -389,20 +391,28 @@
 # busy turn - answering the dialog first if it renders anyway - before
 # reporting success (the rovo/kimi launch-then-confirm shape). Its busy state
 # is a screen-scrape fallback like grok and rovo, and it is crewmate/scout only.
-# kiro (Kiro CLI, V2 engine) IS claude-shaped: its V2 agent-config hooks
-# (userPromptSubmit opens a turn, stop closes it and keeps the turn-ended
-# notification touch) are the per-task turn-end wiring. That config must not go
-# into the worktree's own .kiro/, so - mirroring gemini - the spawn writes a
-# firstmate-owned per-task agent config under state/<id>.kiro-home/agents/ and
-# reaches it by relocating KIRO_HOME onto that dir on the launch command; the
-# captain's real ~/.kiro is never touched, and auth is unaffected on AL2 where
-# it lives in the XDG data dir - where macOS carries auth is unestablished, so
-# a macOS worker may hit an auth prompt (docs/verification/kiro.md owns that
-# gap). --agent is name-only (a path is rejected), and --trust-all-tools
-# would otherwise block on a modal, so the spawn seeds
-# chat.disableTrustAllConfirmation into that per-task home's settings. kiro is
-# crewmate/scout only and refused for --secondmate. The kiro-hook record is its
-# only busy-state source (bin/fm-busy-lib.sh).
+# kiro (Kiro CLI) runs on the engine config/kiro-engine selects: v3 (the
+# default when the file is absent) or v2. Both engines fire the same
+# claude-shaped pair (userPromptSubmit opens a turn, stop closes it and keeps
+# the turn-ended notification touch) through firstmate-generated per-task
+# scripts under state/<id>.kiro-home/hooks/; the engines differ only in how
+# kiro finds those scripts. On V2 the spawn writes a firstmate-owned per-task
+# agent config under state/<id>.kiro-home/agents/ naming them, never into the
+# worktree's own .kiro/, and reaches it by relocating KIRO_HOME onto that dir
+# on the launch command (--agent is name-only, a path is rejected). V3
+# resolves agents, hooks and its task store from the real $HOME/.kiro and
+# ignores KIRO_HOME for them (kiro-cli 2.24.1), so a V3 launch names no agent
+# and instead installs one firstmate-owned global hook pair under
+# $HOME/.kiro/hooks that is a guarded no-op unless the session's cwd holds a
+# .fm-kiro-hook token pointer matching the firstmate-owned registry - the grok
+# shape. On both engines KIRO_HOME still relocates the settings file, so
+# --trust-all-tools, which would otherwise block on a modal, runs with
+# chat.disableTrustAllConfirmation seeded into that per-task home. The login
+# never lives in KIRO_HOME: it is in the XDG data dir on AL2 and in
+# ~/Library/Application Support/kiro-cli on macOS, so relocating KIRO_HOME
+# keeps it (docs/verification/kiro.md). kiro is crewmate/scout only and
+# refused for --secondmate. The kiro-hook record is its only busy-state source
+# (bin/fm-busy-lib.sh).
 # cursor installs no per-task hook either: it writes state/<id>.cursor-session to
 # bind the pane to cursor's own conversation transcript (projects root, the exact
 # workspace path cursor records in .workspace-trusted, and the conversations that
@@ -1936,8 +1946,8 @@ agy_model_validate() {  # <agy-bin> <model>
   return 1
 }
 
-# kiro pre-launch model validation. `kiro-cli chat --agent-engine v2
-# --list-models -f json` (kiro-cli 2.21.4) prints
+# kiro pre-launch model validation. `kiro-cli chat --agent-engine <engine>
+# --list-models -f json` (kiro-cli 2.21.4 on V2) prints
 # {"models":[{"model_id":"<id>",...}],"default_model":"auto"} for the account's
 # catalog; model ids are bare (claude-opus-5, auto), never provider-prefixed. A
 # requested model absent from a reachable listing is concrete unsupported
@@ -1954,11 +1964,11 @@ agy_model_validate() {  # <agy-bin> <model>
 # all - a renamed field, or an empty catalog - also establishes nothing about
 # whether the model exists, so it takes the same unvalidated-launch notice; only
 # a listing that parses and omits the requested id is unsupported evidence.
-kiro_model_validate() {  # <kiro-bin> <model>
-  local bin=$1 model=$2 listing ids rc=0 bound=${FM_KIRO_MODELS_TIMEOUT:-15}
+kiro_model_validate() {  # <kiro-bin> <model> [engine]
+  local bin=$1 model=$2 engine=${3:-v2} listing ids rc=0 bound=${FM_KIRO_MODELS_TIMEOUT:-15}
   case "$bound" in ''|*[!0-9]*|0*) bound=15 ;; esac
   [ -n "$model" ] && [ "$model" != default ] || return 0
-  listing=$(fm_run_timed "$bound" "$bin" chat --agent-engine v2 --list-models -f json 2>/dev/null < /dev/null) || rc=$?
+  listing=$(fm_run_timed "$bound" "$bin" chat --agent-engine "$engine" --list-models -f json 2>/dev/null < /dev/null) || rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$listing" ]; then
     if [ "$rc" -eq 124 ]; then
       echo "notice: 'kiro-cli --list-models' did not answer within ${bound}s; launching with --model '$model' unvalidated" >&2
@@ -1992,8 +2002,8 @@ kiro_model_validate() {  # <kiro-bin> <model>
 # worktree or pane exists, and name the path. The physical resolution is what
 # gets embedded, so that is what is checked; an unresolvable state dir falls back
 # to the configured string.
-kiro_hook_path_validate() {  # <state-dir> <id>
-  local state=$1 id=$2 real
+kiro_hook_path_validate() {  # <state-dir> <id> [engine]
+  local state=$1 id=$2 engine=${3:-v2} real
   real=$(cd "$state" 2>/dev/null && pwd -P) || real=$state
   [ -n "$real" ] || real=$state
   case "$real/$id.kiro-home" in
@@ -2001,7 +2011,123 @@ kiro_hook_path_validate() {  # <state-dir> <id>
       echo "error: kiro hook scripts would live under '$real/$id.kiro-home', whose path contains whitespace; a kiro hook command must be a single unquoted token and so cannot carry whitespace, so point FM_HOME or FM_STATE_OVERRIDE at a whitespace-free path" >&2
       return 1 ;;
   esac
+  # V3 reaches those scripts through the global pair under $HOME/.kiro/hooks,
+  # whose command paths are single tokens too.
+  if [ "$engine" = v3 ]; then
+    case "$(kiro_v3_hooks_dir)" in
+      '' | *[[:space:]]*)
+        echo "error: the kiro V3 global hooks would live under '$(kiro_v3_hooks_dir)', which is empty or contains whitespace; a kiro hook command must be a single unquoted token, so run the spawn with a whitespace-free HOME or select config/kiro-engine v2" >&2
+        return 1 ;;
+    esac
+  fi
   return 0
+}
+
+# config/kiro-engine: one token naming the agent engine a kiro launch pins,
+# `v3` or `v2`. Absent means v3, the engine the captain runs interactively
+# (`kiro-cli --v3`); v2 keeps the launch that upstream verified on Amazon Linux
+# 2, where V3 is unsupported. The token is the file's whitespace-trimmed
+# content, and any other value or an unreadable file refuses the kiro spawn
+# before any endpoint, worktree, or record exists, the same shape as
+# config/claude-permission-mode. Read on every kiro spawn and relaunch.
+kiro_engine_resolve() {  # <config-dir>
+  local file=$1/kiro-engine present engine
+  present=$(fm_config_source_present "$file") || return 1
+  if [ "$present" = 0 ]; then
+    printf 'v3\n'
+    return 0
+  fi
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    echo "error: config/kiro-engine must be a readable regular file holding one of: v3, v2" >&2
+    return 1
+  fi
+  engine=$(tr -d '[:space:]' <"$file" || true)
+  case "$engine" in
+    v3 | v2) printf '%s\n' "$engine" ;;
+    *)
+      echo "error: config/kiro-engine holds '$engine'; accepted values are: v3 (the default when the file is absent), v2" >&2
+      return 1
+      ;;
+  esac
+}
+
+# Where kiro V3 reads global hook files: $HOME/.kiro/hooks. V3's agent service
+# resolves it from the process home directory and ignores KIRO_HOME (verified by
+# reading the kiro-cli 2.24.1 agent-service bundle; docs/verification/kiro.md).
+kiro_v3_hooks_dir() {
+  [ -n "${HOME:-}" ] || return 0
+  printf '%s\n' "$HOME/.kiro/hooks"
+}
+
+# Write the firstmate-owned V3 global hook pair: firstmate-crew.json under
+# $HOME/.kiro/hooks, one dispatcher per trigger beside it, and the fm-kiro.d
+# registry. The file set is fixed and idempotent, and nothing else in the
+# captain's ~/.kiro is read or written. Each dispatcher runs the per-task script
+# only when the hook's cwd carries a well-formed .fm-kiro-hook token whose
+# registry entry names an existing <id>.kiro-home, so every other V3 session -
+# the captain's own included - pays one file test and exits 0. Both print
+# nothing and exit 0, because V3 reads a Stop hook's exit 1 or a JSON block
+# decision on stdout as "keep going".
+install_kiro_v3_global_hooks() {
+  local dir auth event script tmp
+  dir=$(kiro_v3_hooks_dir)
+  [ -n "$dir" ] || { echo "error: HOME is unset; cannot install the kiro V3 global hooks" >&2; return 1; }
+  auth="$dir/fm-kiro.d"
+  mkdir -p "$auth" || { echo "error: could not create $auth" >&2; return 1; }
+  chmod 700 "$auth" 2>/dev/null || true
+  for event in user-prompt-submit stop; do
+    script="$dir/fm-kiro-$event"
+    tmp=$(mktemp "$dir/.fm-kiro-$event.XXXXXX") || return 1
+    cat >"$tmp" <<EOF
+#!/usr/bin/env bash
+# Firstmate-owned kiro V3 $event dispatcher, written by bin/fm-spawn.sh.
+# A guarded no-op unless this hook's cwd is a firstmate kiro worktree; it
+# prints nothing on either stream.
+exec 2>/dev/null
+auth_dir=$(shell_quote "$auth")
+p="\$PWD/.fm-kiro-hook"
+[ -f "\$p" ] || exit 0
+first=
+IFS= read -r first < "\$p" 2>/dev/null || [ -n "\$first" ] || exit 0
+case "\$first" in token=*) token=\${first#token=} ;; *) exit 0 ;; esac
+case "\$token" in fm.????????????) : ;; *) exit 0 ;; esac
+case "\$token" in *[!A-Za-z0-9._-]*) exit 0 ;; esac
+home=
+IFS= read -r home < "\$auth_dir/\$token" 2>/dev/null || [ -n "\$home" ] || exit 0
+case "\$home" in /*.kiro-home) : ;; *) exit 0 ;; esac
+s="\$home/hooks/$event"
+[ -x "\$s" ] || exit 0
+"\$s" </dev/null >/dev/null 2>&1 || true
+exit 0
+EOF
+    if ! chmod 755 "$tmp" || ! mv -f "$tmp" "$script"; then
+      rm -f "$tmp"
+      return 1
+    fi
+  done
+  tmp=$(mktemp "$dir/.firstmate-crew.XXXXXX") || return 1
+  cat >"$tmp" <<EOF
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Firstmate crew turn start",
+      "description": "Firstmate-owned: opens a firstmate kiro crewmate's turn; a no-op in any other session.",
+      "trigger": "UserPromptSubmit",
+      "action": {"type": "command", "command": "$(json_escape "$dir/fm-kiro-user-prompt-submit")"},
+      "timeout": 10
+    },
+    {
+      "name": "Firstmate crew turn end",
+      "description": "Firstmate-owned: closes a firstmate kiro crewmate's turn; a no-op in any other session.",
+      "trigger": "Stop",
+      "action": {"type": "command", "command": "$(json_escape "$dir/fm-kiro-stop")"},
+      "timeout": 10
+    }
+  ]
+}
+EOF
+  mv -f "$tmp" "$dir/firstmate-crew.json" || { rm -f "$tmp"; return 1; }
 }
 
 # --agent is name-only, and kiro resolves that name from the relocated
@@ -2162,11 +2288,12 @@ launch_template() {
   # agy exposes no hook surface, so busy state is a rendered-tail fallback
   # (bin/fm-busy-lib.sh) and nothing is armed below.
   agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS __AGYBIN__ --prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)" __MODELFLAG____EFFORTFLAG__--dangerously-skip-permissions' ;;
-  # kiro (Kiro CLI, V2 engine): a positional prompt starts the supervised
-  # interactive session and auto-submits the brief (verified: a positional
+  # kiro (Kiro CLI): a positional prompt starts the supervised
+  # interactive session and auto-submits the brief (verified on V2: a positional
   # brief submitted itself with no extra Enter, kiro-cli 2.21.4). --agent-engine
-  # v2 pins the AL2-supported engine (v3/KAS is out of scope and unsupported
-  # here). --agent names the firstmate-owned per-task agent config that carries
+  # pins the engine config/kiro-engine selects (__KIROENGINE__, v3 by default;
+  # v2 is the only engine Amazon Linux 2 supports). On V2, __KIROAGENTFLAG__
+  # expands to --agent firstmate, which names the per-task agent config that carries
   # the busy/turn-end hooks; --agent is name-only, so the config is reached by
   # relocating KIRO_HOME onto the per-task home that holds an agents/firstmate.json
   # (see the hook section below) rather than by a config path. --trust-all-tools
@@ -2177,9 +2304,14 @@ launch_template() {
   # The foreign primary markers are cleared for the same reason cursor/gemini/agy
   # clear them: kiro publishes no marker of its own and does not scrub an
   # inherited CLAUDECODE, so bin/fm-harness.sh must not read a kiro worker as its
-  # launcher. The V2 stop hook is a real turn-end pair, so busy state is armed
-  # below (unlike agy's screen-scrape-only fallback).
-  kiro) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS KIRO_HOME=__KIROHOME__ __KIROBIN__ chat --agent-engine v2 --agent firstmate __MODELFLAG____EFFORTFLAG__--trust-all-tools "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
+  # launcher. The stop hook is a real turn-end pair, so busy state is armed
+  # below (unlike agy's screen-scrape-only fallback). On V3 __KIROAGENTFLAG__ is
+  # empty: V3 never reads agents from KIRO_HOME, so the session runs kiro's
+  # default agent and the hooks arrive through the global pair instead. KIRO_HOME
+  # still relocates what the V3 TUI reads from it - settings/cli.json (the trust
+  # modal setting) and the sessions/history store - and never holds the login,
+  # which lives in kiro's application data directory.
+  kiro) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS KIRO_HOME=__KIROHOME__ __KIROBIN__ chat --agent-engine __KIROENGINE__ __KIROAGENTFLAG____MODELFLAG____EFFORTFLAG__--trust-all-tools "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
   # grok (Grok Build TUI): a positional prompt starts the supervised interactive
   # session. --always-approve auto-approves every tool execution (verified: the
   # crewmate runs fully autonomously, no permission gate), which an unattended
@@ -2478,9 +2610,10 @@ if [ "$HARNESS" = agy ]; then
   agy_model_validate "$AGY_BIN" "$MODEL" || exit 1
 fi
 if [ "$HARNESS" = kiro ]; then
-  kiro_model_validate "$KIRO_BIN" "$MODEL" || exit 1
+  KIRO_ENGINE=$(kiro_engine_resolve "$CONFIG") || exit 1
+  kiro_model_validate "$KIRO_BIN" "$MODEL" "$KIRO_ENGINE" || exit 1
   if [ "$RAW_LAUNCH" -eq 0 ]; then
-    kiro_hook_path_validate "$STATE" "$ID" || exit 1
+    kiro_hook_path_validate "$STATE" "$ID" "$KIRO_ENGINE" || exit 1
   fi
 fi
 # Worker account pin (header above): resolved before any endpoint, worktree, or
@@ -4371,8 +4504,9 @@ agy)
   fi
   ;;
 kiro)
-  # A raw launch carries no --agent, so no name can be shadowed.
-  if [ "$RAW_LAUNCH" -eq 0 ]; then
+  # A raw launch carries no --agent, so no name can be shadowed, and a V3
+  # launch names no agent at all.
+  if [ "$RAW_LAUNCH" -eq 0 ] && [ "$KIRO_ENGINE" = v2 ]; then
     kiro_workspace_agent_validate "$WT" || exit 1
   fi
   ;;
@@ -4551,9 +4685,12 @@ EOF
       # turn end leaves the record busy until the next userPromptSubmit re-opens
       # it, and the supervisor reads that record as provably working. Nothing
       # rescues it: the rendered `Kiro is working` footer is a delivery guard
-      # only (bin/fm-composer-lib.sh), never a worker state source.
+      # only (bin/fm-composer-lib.sh), never a worker state source. On V3 the
+      # same pair arrives through V3's UserPromptSubmit and Stop triggers (V3
+      # maps the V2 names onto them); that V3 fires them for a firstmate worker,
+      # and whether its Stop fires on Escape, are not yet verified live.
       #
-      # These are written into a FIRSTMATE-OWNED per-task agent config under
+      # On V2 these are written into a FIRSTMATE-OWNED per-task agent config under
       # state/<id>.kiro-home/agents/, reached by relocating KIRO_HOME onto that
       # home on the launch command, never into the worktree's own .kiro/ - that
       # dir belongs to the project, and --agent is name-only so a config path is
@@ -4561,7 +4698,8 @@ EOF
       # chat.disableTrustAllConfirmation, which suppresses --trust-all-tools's
       # otherwise blocking confirmation modal (verified on AL2: the modal is the
       # only blocker there, and auth stays in the XDG data dir unaffected by
-      # KIRO_HOME; macOS auth location is unestablished, docs/verification/kiro.md).
+      # KIRO_HOME; on macOS it stays in ~/Library/Application Support/kiro-cli,
+      # docs/verification/kiro.md).
       #
       # Each hook command is a single-token absolute path to a generated script
       # under the same per-task home, so the hooks behave identically whether
@@ -4595,9 +4733,39 @@ $busy_cmd_prefix idle $busy_suffix --event stop 2>/dev/null || true
 exit 0
 EOF
       chmod +x "$k_submit" "$k_stop"
-      cat >"$KIRO_HOME_DIR/agents/firstmate.json" <<EOF
+      if [ "$KIRO_ENGINE" = v2 ]; then
+        cat >"$KIRO_HOME_DIR/agents/firstmate.json" <<EOF
 {"name":"firstmate","description":"Firstmate per-task crewmate agent (busy-state and turn-end hooks)","tools":["*"],"allowedTools":["*"],"hooks":{"userPromptSubmit":[{"command":"$(json_escape "$k_submit")"}],"stop":[{"command":"$(json_escape "$k_stop")"}]}}
 EOF
+      else
+        # V3 reads neither agents nor hooks from KIRO_HOME: its agent service
+        # resolves both from the real $HOME/.kiro (kiro-cli 2.24.1). It does
+        # load standalone hook files from $HOME/.kiro/hooks/*.json for every
+        # session and runs each command with the session's cwd, so the V3 path
+        # is the grok shape: one firstmate-owned global pair that is a guarded
+        # no-op unless that cwd holds a .fm-kiro-hook pointer whose token names
+        # a registry entry, which in turn names this task's kiro home. The
+        # dispatchers then run the same per-task scripts the V2 agent config
+        # names, so both engines share one busy contract. The token indirection,
+        # not a path in the worktree, decides what runs, so a worker cannot
+        # point the hook at a script of its choosing. The pair is rewritten on
+        # every V3 spawn; teardown and relaunch retire this task's token and
+        # pointer, never the shared pair.
+        install_kiro_v3_global_hooks || exit 1
+        KIRO_V3_AUTH_DIR="$(kiro_v3_hooks_dir)/fm-kiro.d"
+        old_umask=$(umask)
+        umask 077
+        kiro_auth_file=$(mktemp "$KIRO_V3_AUTH_DIR/fm.XXXXXXXXXXXX") || {
+          umask "$old_umask"
+          echo "error: could not mint a kiro hook registry entry under $KIRO_V3_AUTH_DIR" >&2
+          exit 1
+        }
+        umask "$old_umask"
+        printf '%s\n' "$KIRO_HOME_DIR" >"$kiro_auth_file"
+        printf '%s\n' "${kiro_auth_file##*/}" >"$STATE/$ID.kiro-hook-token"
+        printf 'token=%s\n' "${kiro_auth_file##*/}" >"$WT/.fm-kiro-hook"
+        exclude_path '.fm-kiro-hook'
+      fi
     fi
     ;;
   opencode*)
@@ -5140,6 +5308,11 @@ agy) LAUNCH=${LAUNCH//__AGYBIN__/"$(shell_quote "$AGY_BIN")"} ;;
 kiro)
   LAUNCH=${LAUNCH//__KIROBIN__/"$(shell_quote "$KIRO_BIN")"}
   LAUNCH=${LAUNCH//__KIROHOME__/"$(shell_quote "$STATE_REAL/$ID.kiro-home")"}
+  LAUNCH=${LAUNCH//__KIROENGINE__/$KIRO_ENGINE}
+  case "$KIRO_ENGINE" in
+  v2) LAUNCH=${LAUNCH//__KIROAGENTFLAG__/--agent firstmate } ;;
+  *) LAUNCH=${LAUNCH//__KIROAGENTFLAG__/} ;;
+  esac
   ;;
 esac
 LAUNCH=${LAUNCH//__WORKTREE__/$sq_worktree}

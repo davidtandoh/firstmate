@@ -1,19 +1,19 @@
 # Kiro CLI adapter verification
 
-Maintainer-verification record for the `kiro` crewmate/scout adapter (V2 engine).
+Maintainer-verification record for the `kiro` crewmate/scout adapter on the V2 engine, with the V3 engine's source-backed wiring recorded in [V3 engine](#v3-engine-kiro-cli-2241-macos).
 It records the active empirical facts the adapter depends on and the exact commands that establish them.
 The live drift guard `tests/fm-kiro-signals-live-e2e.test.sh` (family `live-harness-optin`, control `FM_KIRO_SIGNALS_LIVE`) is what refreshes the vendor-controlled facts below; run it after every kiro upgrade.
 It is opt-in and submits real prompts, so its runtime is unbounded and it is run deliberately rather than from a validation step.
 The portable regression `tests/fm-kiro-harness.test.sh` is what CI enforces, and it does not cover the vendor-rendered surface, so a green suite is not evidence that these signals still work.
 
-Scope: V2 engine only (`--agent-engine v2`). The v3/KAS engine is out of scope and was not exercised: it is unsupported on this Amazon Linux 2 host and its hooks are not yet at parity.
+Scope: the sections before "V3 engine" cover the V2 engine (`--agent-engine v2`), which is the only engine Amazon Linux 2 supports. `config/kiro-engine` now defaults to V3; the V3 section records what was established for it and what remains unproven.
 
 ## Environment
 
 - Date: 2026-09-13.
 - Host: Amazon Linux 2 (Linux 5.10, x86_64).
 - Tool: `kiro-cli 2.21.4`, installed via toolbox at `~/.toolbox/bin/kiro-cli` (a bash sandbox shim that runs `aim sandbox --client kiro-cli`, whose descendant is the compiled bun/node binary).
-- Auth: a signed-in account. On this Amazon Linux 2 host auth state lives in the XDG data dir `~/.local/share/kiro-cli/data.sqlite3`, not under `KIRO_HOME`. That path does not exist on macOS, so both the location and the untouched-by-relocation premise resting on it are Amazon Linux 2 measurements only - see "What is NOT verified" for the macOS gap and what it costs.
+- Auth: a signed-in account. On this Amazon Linux 2 host auth state lives in the XDG data dir `~/.local/share/kiro-cli/data.sqlite3`, not under `KIRO_HOME`. On macOS it lives in `~/Library/Application Support/kiro-cli`, also outside `KIRO_HOME`; the V3 section records that evidence.
 - Three measurements in this record rest on a later build: the idle composer's placeholder colour (`38;2;158;158;158`) and its 256-colour encoding (`38;5;247`) were measured on `kiro-cli 2.21.5` on macOS, and the `--agent` name-collision precedence was measured on `kiro-cli 2.22.2-nightly.2` on macOS. Every other claim here was measured on 2.21.4 on the Amazon Linux 2 host above.
 
 ## Agent-config hooks are claude-shaped (V2)
@@ -200,10 +200,72 @@ It first requires that row to appear mid-turn, matched through `FM_DELIVERY_AGY_
 It then calls `fm_pane_is_busy` with no harness - the read `fm_tmux_submit_core` makes - rather than folding a capture itself, so it cannot pass against rows the delivery path would not consult.
 Its failure names the folded delivery tail it read, alongside the harness and version every failure in the guard carries.
 
+## V3 engine (kiro-cli 2.24.1, macOS)
+
+Added on 2026-09-26 on macOS with `kiro-cli 2.24.1` (`/Applications/Kiro CLI.app`, launcher `~/.local/bin/kiro-cli`).
+Everything in this section comes from installed help, credit-free `agent` commands, and reading the installed V3 JavaScript bundles.
+No V3 chat, ACP session, or live crewmate was run, so the lifecycle rows at the end of the section stay unproven until the live canary below passes.
+
+### Launch surface
+
+`kiro-cli chat --help` and `kiro-cli --v3 chat --help` print identical text.
+Both list `--agent-engine <v2|v1|v3>` (V2 is the listed default), `--v3`, `--agent`, `--model`, `--effort` (`low, medium, high, xhigh, max`), `-a/--trust-all-tools`, `--trust-tools <names>`, `--list-models`, `-f json`, and a positional `[INPUT]`.
+So the adapter keeps one launch shape and substitutes the engine: `chat --agent-engine v3`.
+
+### What KIRO_HOME relocates under V3
+
+The V3 terminal UI, `~/Library/Application Support/kiro-cli/tui.js`, resolves its config root as `process.env.KIRO_HOME`, falling back to `~/.kiro`.
+It reads only `settings/*.json` (including `settings/cli.json`, which holds `chat.disableTrustAllConfirmation`), `sessions/`, and `.cli_bash_history` from that root, plus `agents/` for a one-time agent-format upgrade.
+
+The V3 agent service, `kas/2.24.1-*/node_modules/@kiro/agent/dist/server/acp-server.js`, never reads `KIRO_HOME`.
+It resolves these from the process home directory:
+
+- user agent profiles from `~/.kiro/agents` (with workspace profiles from `<cwd>/.kiro/agents` when the workspace is trusted);
+- standalone hook files from `~/.kiro/hooks/*.json` (with workspace hook files from `<cwd>/.kiro/hooks`);
+- the task store from `~/.kiro/tasks/<scope>`, including the start-up sweep that clears stale task execution statuses across every scope.
+
+A separate quota-axi probe on the same version confirmed the task-store finding from runtime behaviour: with `KIRO_HOME` pointed at a temporary directory, a V3 ACP session still authenticated, left a task file planted under that `KIRO_HOME` unchanged, and logged its stale-status sweep to the real `~/.kiro/logs`.
+Consequences for the adapter:
+
+- A per-task agent config under `KIRO_HOME` would never load under V3, so a V3 launch names no agent.
+- Hooks must live in the real `~/.kiro/hooks`, so the V3 path installs one guarded global pair there.
+- A per-task `KIRO_HOME` does not isolate V3 tasks, agents, hooks, steering, or skills; it isolates only the TUI's settings and session history.
+
+### Authentication
+
+The macOS login lives in `~/Library/Application Support/kiro-cli` (`data.sqlite3`), outside any `KIRO_HOME`.
+The quota-axi probe above authenticated a V3 session with a temporary `KIRO_HOME`.
+Locally, `KIRO_HOME=<tmp> kiro-cli agent list` and `kiro-cli --v3 agent list` both ran without an auth prompt and listed a probe agent from `<tmp>/agents` as `Global`, so the V2 agent resolution through `KIRO_HOME` still holds on 2.24.1.
+The `--v3` flag does not change the `agent` subcommand's output.
+`kiro-cli agent validate --path <tmp>/agents/<probe>.json` accepted the same flat `{"hooks":{"userPromptSubmit":[{"command":...}],"stop":[...]}}` shape the V2 path writes.
+
+### Hook semantics
+
+The agent service maps V2 hook names onto V3 triggers: `userPromptSubmit` and `promptSubmit` to `UserPromptSubmit`, and `stop`, `agentStop`, and `SessionEnd` to `Stop`.
+Standalone hook files use `{"version":"v1","hooks":[{"name","trigger","action":{"type":"command","command"},"timeout"}]}`, the shape the Agent Kit already installs under `~/.kiro/hooks`.
+Each command runs with the session's cwd and receives `{session_id, hook_event_name, cwd, ...}` as its payload.
+For `Stop`, exit code 1 or a stdout JSON `{"decision":"block"}` tells the agent to continue, so both firstmate dispatchers print nothing and always exit 0.
+
+### Unproven on V3 until the live canary passes
+
+| Lifecycle check | Status |
+|---|---|
+| Launch starts the V3 TUI and the positional brief auto-submits | Unproven live |
+| The trust-all modal stays suppressed by `KIRO_HOME/settings/cli.json` | Source-backed (TUI reads it), unproven live |
+| No workspace-trust or sign-in dialog blocks a fresh worktree | Unproven live |
+| `UserPromptSubmit` fires for the brief and later prompts, opening the record | Source-backed, unproven live |
+| `Stop` fires once per main-agent turn, closing the record and touching `turn-ended` | Source-backed, unproven live |
+| A delegated subagent's `Stop` does not close the record early | Unproven |
+| Escape interrupts, and whether `Stop` fires on it | Unproven live |
+| `/quit` exits and prints a resume line | Unproven live |
+| The pane's foreground process is named `kiro-cli` for liveness | Unproven live on macOS |
+| The `Kiro is working` delivery footer still renders under the V3 TUI | Unproven live |
+| Dispatcher token gating, silence, and exit 0 | Proven by `tests/fm-busy-adapter-wiring.test.sh` |
+| Launch shape, engine selection, registration, teardown retirement | Proven by `tests/fm-kiro-harness.test.sh` |
+
 ## What is NOT verified
 
-- The v3/KAS engine (out of scope; unsupported on AL2, hooks not yet at parity).
-- Where kiro carries auth on macOS, and so whether relocating `KIRO_HOME` leaves it intact there. The XDG path in Environment is an Amazon Linux 2 measurement; `~/.local/share/kiro-cli` does not exist on macOS, so the untouched-by-relocation premise the spawn launches on has no macOS evidence at all. It stays unestablished on purpose rather than by oversight: settling it means probing a credential store, and that store is the operator's alone and is not ours to inspect. The cost is concrete. A kiro worker spawned on macOS may hit an interactive auth prompt, and a prompt nobody is present to answer makes the harness unusable UNATTENDED on that platform - which is the only way this fleet runs it. Do not read the Amazon Linux 2 result as covering macOS.
+- Any V3 lifecycle behaviour marked unproven in the V3 table above.
 - Any StopFailure/SessionEnd-equivalent hook trigger (none found). On an abnormal turn end (a stream or API error, a model-side abort) the `stop` hook never fires, so the busy record stays open and the supervisor reads the worker as provably working - deferring instead of surfacing or retiring the endpoint - until the next `userPromptSubmit` re-opens the record. The rendered footer does not rescue it: it is a delivery guard only and the classifier has no kiro pane arm.
 - Whether kiro V2 hands a hook `command` string to a shell or splits it into argv. Nothing depends on it: both hook commands are single-token absolute paths to scripts the spawn generates under `state/<id>.kiro-home/hooks/`, so the same script runs either way, and the redirect, the `|| true` tolerance of a refused event and the turn-end `touch` all sit inside the script where the interpreter is fixed by its shebang. The portable regression executes each generated script directly rather than through `sh -c`, so a shape that only a shell could run cannot pass CI.
 - Whether the union's anchored kiro literal matches a live kiro pane. The anchor is derived from the footer template in the `kiro-cli-chat` binary on kiro-cli 2.22.2-nightly.2 on macOS, so it rests on vendor source rather than on a rendered pane, and no live run has yet read a real footer through the union on the Linux desk. The portable regression cannot settle it either, because its fixtures assemble the same separator bytes the union's alternative accepts, so a separator that does not match vendor output passes CI green. If the literal is wrong the union never matches a live kiro pane and the submit core's post-Enter read stays idle, so every steer to a kiro worker lands and is then reported undelivered, and a retry duplicates it - which is why the anchor requires only what all three template variants share.

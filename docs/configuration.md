@@ -730,8 +730,11 @@ devin is verified for crewmate and scout launches only; a secondmate is refused 
 
 Its private worker config disables Claude Code imports (including the captain's hooks) and Devin commit attribution without editing user or project config; [`fm-devin-config.sh`](../bin/fm-devin-config.sh) owns these enforced settings and [Devin verification](verification/devin.md) owns the live evidence and observed model availability.
 
-kiro (Kiro CLI, V2 engine only) is likewise verified for crewmate and scout launches ONLY, refused for a secondmate for the same reason; it is claude-shaped, so its per-task turn-end and busy hooks live in a firstmate-owned agent config the spawn writes under `state/<id>.kiro-home` and reaches by relocating `KIRO_HOME` (never the worktree's own `.kiro/`), with the `--trust-all-tools` modal suppressed by a seeded `chat.disableTrustAllConfirmation` setting; [`docs/verification/kiro.md`](verification/kiro.md) owns that evidence, and the v3/KAS engine is out of scope and unsupported on Amazon Linux 2.
-A kiro hook command must be one unquoted token and so cannot carry whitespace, so a kiro spawn refuses before launch when that per-task home path contains whitespace and asks for a whitespace-free `FM_HOME` or `FM_STATE_OVERRIDE`.
+kiro (Kiro CLI) is likewise verified for crewmate and scout launches ONLY, refused for a secondmate for the same reason, and runs on the engine [`config/kiro-engine`](#kiro-engine-configkiro-engine) selects.
+It is claude-shaped: its busy and turn-end hooks run firstmate-generated scripts under `state/<id>.kiro-home`, which the launch also uses as a relocated `KIRO_HOME` (never the worktree's own `.kiro/`), with the `--trust-all-tools` modal suppressed by a seeded `chat.disableTrustAllConfirmation` setting.
+On V2 a firstmate-owned per-task agent config names those scripts; on V3, which ignores `KIRO_HOME` for agents and hooks, a firstmate-owned global hook pair under `~/.kiro/hooks` reaches them through a token pointer in the worktree.
+[`docs/verification/kiro.md`](verification/kiro.md) owns that evidence and what remains unproven on V3.
+A kiro hook command must be one unquoted token and so cannot carry whitespace, so a kiro spawn refuses before launch when that per-task home path, or on V3 the `~/.kiro/hooks` path, contains whitespace, and asks for a whitespace-free `FM_HOME`, `FM_STATE_OVERRIDE`, or `HOME`.
 
 ### Verification and primary supervision
 
@@ -824,6 +827,24 @@ The diagnostic names the accepted values; Firstmate never falls back to a permis
 The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
 
 The [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md) records the verified shape of both launches and which once-per-machine dialog each one can meet.
+
+## Kiro engine (config/kiro-engine)
+
+The optional local, gitignored `config/kiro-engine` selects the agent engine every kiro crewmate and scout launch pins with `--agent-engine`.
+
+| Token | Engine and hook wiring |
+| --- | --- |
+| `v3` | The next-generation engine that `kiro-cli --v3` runs. Hooks reach the worker through a firstmate-owned global pair under `~/.kiro/hooks`. |
+| `v2` | The pre-3.0 engine, and the only one Amazon Linux 2 supports. Hooks live in a per-task agent config under `state/<id>.kiro-home`. |
+
+The token is the file's whitespace-trimmed content.
+An absent file means `v3`.
+Any other value or an unreadable file refuses the kiro spawn before any endpoint, worktree, or task record exists, and the diagnostic names the accepted values.
+Spawns on other harnesses never read the file.
+
+`bin/fm-spawn.sh` reads the file on every kiro spawn and relaunch, so a change reaches the next launch without a restart.
+It is inherited into secondmate homes like `config/claude-permission-mode`, so a secondmate's kiro crewmates run on the captain's engine.
+The [Kiro adapter reference](../.agents/skills/harness-adapters/references/harness/kiro.md#engine-selection) records what each engine reads from `KIRO_HOME` and from the real `~/.kiro`.
 
 ## Worker account pin (config/claude-account, config/pi-account)
 

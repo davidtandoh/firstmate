@@ -423,24 +423,30 @@ fm_control_harness_wiring_paths() {  # <harness> <worktree> <state-dir> <id>
     # and are cleared wholesale by teardown's rm -rf of <id>.kiro-home. Nothing
     # is written into the worktree, whose own .kiro/ belongs to the project, and
     # nothing in the captain's real ~/.kiro is touched.
+    # A V3 launch adds the grok-shaped worktree pointer that lets the global
+    # hook pair find this task; its registry token is retired through
+    # fm_control_harness_turnend_token_path below.
     kiro)
       printf '%s\n' "$state/$id.kiro-home/agents/firstmate.json"
       printf '%s\n' "$state/$id.kiro-home/hooks/user-prompt-submit"
       printf '%s\n' "$state/$id.kiro-home/hooks/stop"
+      printf '%s\n' "$wt/.fm-kiro-hook"
       ;;
   esac
 }
 
 # The firstmate-owned global turn-end registry entry a harness mints per task.
-# grok and kimi are the two adapters whose turn-end hook is global and gated by
-# a private token file; every other adapter's wiring is fully covered by
-# fm_control_harness_wiring_paths. Prints the registry path or nothing.
+# grok, kimi, and kiro on its V3 engine are the adapters whose turn-end hook is
+# global and gated by a private token file; every other adapter's wiring is
+# fully covered by fm_control_harness_wiring_paths. Prints the registry path or
+# nothing.
 fm_control_harness_turnend_token_path() {  # <harness> <state-dir> <id>
   local harness=${1-} state=${2-} id=${3-}
   [ -n "$state" ] && [ -n "$id" ] || return 1
   case "$harness" in
     grok) printf '%s\n' "$state/$id.grok-turnend-token" ;;
     kimi) printf '%s\n' "$state/$id.kimi-turnend-token" ;;
+    kiro) printf '%s\n' "$state/$id.kiro-hook-token" ;;
   esac
 }
 
@@ -450,6 +456,7 @@ fm_control_harness_turnend_auth_path() {  # <harness> <token>
   case "$harness" in
     grok) printf '%s\n' "${GROK_HOME:-$HOME/.grok}/hooks/fm-turn-end.d/$token" ;;
     kimi) printf '%s\n' "$HOME/.kimi-code/fm-turn-end.d/$token" ;;
+    kiro) printf '%s\n' "$HOME/.kiro/hooks/fm-kiro.d/$token" ;;
     *) return 0 ;;
   esac
 }

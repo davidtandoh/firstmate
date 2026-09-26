@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Behavior tests for the verified Kiro CLI crewmate/scout adapter (V2 engine).
+# Behavior tests for the verified Kiro CLI crewmate/scout adapter, on both the
+# V3 engine (the default) and the V2 engine config/kiro-engine can select.
 #
 # The facts pinned here are the ones a kiro release could silently change and
 # the ones a wrong guess would make dangerous:
@@ -32,6 +33,15 @@
 #      or unreadable listing launches unvalidated instead. --effort passes the full
 #      low|medium|high|xhigh|max vocabulary (unlike agy, which omits xhigh).
 #   5. kiro is a crewmate/scout adapter only: a secondmate launch is refused.
+#   6. config/kiro-engine selects the engine: absent means v3, v2 keeps every
+#      V2 fact above, and any other value refuses before a pane exists. V3
+#      resolves agents and hooks from the real $HOME/.kiro rather than
+#      KIRO_HOME, so a V3 launch names no agent and writes no agent config;
+#      it installs a firstmate-owned global hook pair under $HOME/.kiro/hooks
+#      instead, registers this task through a token, and drops a git-excluded
+#      .fm-kiro-hook pointer in the worktree. Teardown retires the token. The
+#      dispatchers themselves are executed end to end in
+#      fm-busy-adapter-wiring.test.sh. Cases 3-4 above run with v2 pinned.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -157,16 +167,36 @@ test_kiro_wiring_path_is_the_out_of_tree_hook_config() {
   out=$(fm_control_harness_wiring_paths kiro /wt /state kid)
   expected="/state/kid.kiro-home/agents/firstmate.json
 /state/kid.kiro-home/hooks/user-prompt-submit
-/state/kid.kiro-home/hooks/stop"
+/state/kid.kiro-home/hooks/stop
+/wt/.fm-kiro-hook"
   [ "$out" = "$expected" ] \
-    || fail "kiro wiring must retire the per-task hook config and both hook scripts, got '$out'"
-  case "$out" in
-    */wt/*) fail "kiro wiring must not point inside the worktree" ;;
+    || fail "kiro wiring must retire the per-task hook config, both hook scripts and the V3 pointer, got '$out'"
+  # The V3 pointer is the only worktree-resident artifact.
+  case "$(printf '%s\n' "$out" | grep -v '^/wt/.fm-kiro-hook$')" in
+    */wt/*) fail "kiro wiring must not point inside the worktree beyond the V3 pointer" ;;
   esac
-  pass "fm-control-lib: kiro wiring paths are the out-of-tree hook config and its two hook scripts"
+  [ "$(fm_control_harness_turnend_token_path kiro /state kid)" = /state/kid.kiro-hook-token ] \
+    || fail "kiro's V3 registry token must be retired through the turn-end token path"
+  [ "$(HOME=/h fm_control_harness_turnend_auth_path kiro fm.abcdefABCDEF)" = /h/.kiro/hooks/fm-kiro.d/fm.abcdefABCDEF ] \
+    || fail "kiro's V3 registry entry must live under \$HOME/.kiro/hooks/fm-kiro.d"
+  [ -z "$(HOME=/h fm_control_harness_turnend_auth_path kiro '../x')" ] \
+    || fail "a malformed kiro token must resolve to no registry path"
+  pass "fm-control-lib: kiro wiring paths are the out-of-tree hook config, its scripts, and the V3 pointer and token"
 }
 
 # --- Busy: the hook record is the only state source -------------------------
+
+test_kiro_quota_is_its_own_provider() {
+  # Kiro serves Claude models on Kiro credits, so its quota is quota-axi's own
+  # kiro provider row, never the claude row.
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-quota-axi-lib.sh"
+    [ "$(fm_quota_provider_for_harness kiro)" = kiro ] || exit 1
+    [ "$(fm_quota_single_provider_for_harness kiro)" = kiro ] || exit 2
+  ) || fail "kiro must map to the kiro quota provider in both quota-axi tables"
+  pass "fm-quota-axi-lib: kiro reads the kiro quota provider, not claude"
+}
 
 test_kiro_hook_is_the_trusted_primary_source() {
   fm_busy_source_trusted kiro kiro-hook || fail "kiro-hook must be trusted for kiro"
@@ -341,7 +371,7 @@ case "${1:-}" in
       ". '"*"'") staged=${literal#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || literal=$(cat "$staged") ;;
     esac
     case "$literal" in
-      *"--agent-engine v2"*) printf '%s\n' "$literal" >> "$FM_FAKE_LAUNCH_LOG" ;;
+      *"--agent-engine "*) printf '%s\n' "$literal" >> "$FM_FAKE_LAUNCH_LOG" ;;
     esac
     exit 0
     ;;
@@ -357,6 +387,7 @@ SH
   cat > "$fakebin/kiro-cli" <<'SH'
 #!/usr/bin/env bash
 set -u
+[ -z "${FM_FAKE_KIRO_ARGS_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_KIRO_ARGS_LOG"
 case "$*" in
   *"--list-models"*)
     if [ "${FM_FAKE_KIRO_MODELS_FAIL:-0}" = 1 ]; then exit 3; fi
@@ -409,6 +440,12 @@ Exercise Kiro dispatch.
 Verify launch and hook wiring.
 EOF
   printf 'kiro\n' > "$home/config/crew-harness"
+  # Most cases pin the V2 engine they were written against; KIRO_TEST_ENGINE
+  # names another token, or `absent` to leave config/kiro-engine unset (v3).
+  case "${KIRO_TEST_ENGINE:-v2}" in
+    absent) ;;
+    *) printf '%s\n' "${KIRO_TEST_ENGINE:-v2}" > "$home/config/kiro-engine" ;;
+  esac
   fm_git_worktree "$proj" "$wt" "wt-$name"
   touch "$home/state/.last-watcher-beat"
   : > "$case_dir/launch.log"
@@ -437,6 +474,7 @@ run_kiro_spawn() {
     FM_FAKE_KIRO_MODELS_HANG="${FM_FAKE_KIRO_MODELS_HANG:-0}" \
     FM_FAKE_KIRO_MODELS_PRETTY="${FM_FAKE_KIRO_MODELS_PRETTY:-0}" \
     FM_FAKE_KIRO_MODELS_RENAMED="${FM_FAKE_KIRO_MODELS_RENAMED:-0}" \
+    FM_FAKE_KIRO_ARGS_LOG="$case_dir/kiro-args.log" \
     FM_KIRO_MODELS_TIMEOUT="${FM_KIRO_MODELS_TIMEOUT:-1}" \
     PATH="$fakebin:$BASE_PATH" \
     "$SPAWN" "$id" "$proj" --harness kiro --mode no-mistakes --yolo off "$@" 2>&1
@@ -470,6 +508,104 @@ test_kiro_launch_carries_brief_agent_engine_and_clears_markers() {
   assert_grep 'model=claude-opus-5' "$meta" "kiro meta did not record its model"
   assert_grep 'effort=high' "$meta" "kiro meta did not record its effort"
   pass "fm-spawn: kiro launch carries brief, V2 engine, agent, model, effort with cleared markers"
+}
+
+test_kiro_v3_is_the_default_engine_and_names_no_agent() {
+  local id rec out rc launch
+  id="kiro-v3-launch-z11-$$"
+  rec=$(KIRO_TEST_ENGINE=absent make_kiro_spawn_case v3launch "$id")
+  read_kiro_spawn_record "$rec"
+  [ ! -e "$HOME_DIR/config/kiro-engine" ] || fail "the default case must leave config/kiro-engine absent"
+  out=$(run_kiro_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" \
+    --model claude-opus-5 --effort max)
+  rc=$?
+  expect_code 0 "$rc" "a default-engine kiro spawn should succeed: $out"
+  launch=$(cat "$CASE_DIR/launch.log")
+  assert_contains "$launch" "$FAKEBIN_DIR/kiro-cli" "kiro V3 launch did not pin the resolved absolute binary"
+  assert_contains "$launch" "chat --agent-engine v3 " "an absent config/kiro-engine must launch the V3 engine"
+  assert_not_contains "$launch" "--agent-engine v2" "a V3 launch must not also carry the V2 engine"
+  assert_not_contains "$launch" "--agent firstmate" "V3 reads no agent from KIRO_HOME, so the launch must name none"
+  assert_not_contains "$launch" "__KIRO" "kiro V3 launch left a kiro placeholder unsubstituted"
+  assert_contains "$launch" "--trust-all-tools" "kiro V3 launch omitted --trust-all-tools"
+  assert_contains "$launch" "--model 'claude-opus-5'" "kiro V3 launch did not carry the requested model"
+  assert_contains "$launch" "--effort 'max'" "kiro V3 launch did not carry the requested effort"
+  assert_contains "$launch" "KIRO_HOME=" "kiro V3 launch did not relocate KIRO_HOME"
+  assert_contains "$launch" "$HOME_DIR/state/$id.kiro-home" "kiro V3 launch did not relocate KIRO_HOME to the per-task home"
+  assert_contains "$launch" "env -u CLAUDECODE" "kiro V3 launch did not clear the inherited launcher marker"
+  # The model check asks the same engine the worker will run.
+  assert_grep 'chat --agent-engine v3 --list-models -f json' "$CASE_DIR/kiro-args.log" \
+    "the V3 model check did not list the V3 catalog"
+  pass "fm-spawn: an absent config/kiro-engine launches V3 with no agent name, validating against the V3 catalog"
+}
+
+test_kiro_v3_installs_the_guarded_global_hook_pair() {
+  local id rec out rc user_home hooks home_dir token trigger cmd
+  id="kiro-v3-hooks-z12-$$"
+  rec=$(KIRO_TEST_ENGINE=v3 make_kiro_spawn_case v3hooks "$id")
+  read_kiro_spawn_record "$rec"
+  out=$(run_kiro_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+  rc=$?
+  expect_code 0 "$rc" "a V3 kiro spawn should succeed: $out"
+  user_home=$HOME_DIR
+  hooks="$user_home/.kiro/hooks"
+  home_dir="$HOME_DIR/state/$id.kiro-home"
+  # Both engines share the per-task scripts and the trust setting.
+  [ -x "$home_dir/hooks/user-prompt-submit" ] || fail "V3 spawn did not write the per-task open script"
+  [ -x "$home_dir/hooks/stop" ] || fail "V3 spawn did not write the per-task close script"
+  [ "$(jq -r '.["chat.disableTrustAllConfirmation"]' "$home_dir/settings/cli.json")" = true ] \
+    || fail "the kiro V3 trust modal is not suppressed"
+  [ ! -e "$home_dir/agents/firstmate.json" ] || fail "V3 must not write an agent config it would never read"
+  [ ! -e "$WT_DIR/.kiro" ] || fail "V3 spawn wrote into the worktree's own .kiro/"
+  # The global pair is the V3-consumed contract, parsed as JSON.
+  jq -e '.version == "v1"' "$hooks/firstmate-crew.json" >/dev/null \
+    || fail "the V3 global hook file is not a v1 hook document"
+  for trigger in UserPromptSubmit Stop; do
+    cmd=$(jq -r --arg t "$trigger" '[.hooks[] | select(.trigger == $t)] | if length == 1 then .[0].action.command else empty end' "$hooks/firstmate-crew.json")
+    [ -n "$cmd" ] || fail "the V3 global hook file must carry exactly one $trigger hook"
+    [ "$cmd" = "${cmd%%[[:space:]]*}" ] || fail "the V3 $trigger command must be a single token, got '$cmd'"
+    [ -x "$cmd" ] || fail "the V3 $trigger command is not an executable file: '$cmd'"
+    case "$cmd" in "$hooks"/*) ;; *) fail "the V3 $trigger dispatcher must live beside the hook file, got '$cmd'" ;; esac
+  done
+  # The task is registered by token: the worktree pointer names it, the
+  # registry entry names this task's kiro home, and state keeps it for retirement.
+  token=$(cat "$HOME_DIR/state/$id.kiro-hook-token")
+  case "$token" in fm.????????????) ;; *) fail "the V3 registry token is malformed: '$token'" ;; esac
+  [ "$(cat "$WT_DIR/.fm-kiro-hook")" = "token=$token" ] || fail "the worktree pointer does not name the task token"
+  [ "$(cat "$hooks/fm-kiro.d/$token")" = "$(cd "$HOME_DIR/state" && pwd -P)/$id.kiro-home" ] \
+    || fail "the registry entry does not name this task's kiro home"
+  [ -z "$(git -C "$WT_DIR" status --porcelain -- .fm-kiro-hook)" ] \
+    || fail "the V3 pointer must be git-excluded, never an untracked file a worker could commit"
+  # Nothing else in the captain's ~/.kiro is written.
+  [ "$(cd "$user_home/.kiro" && find . -mindepth 1 -maxdepth 1 | sort | tr '\n' ' ')" = "./hooks " ] \
+    || fail "a V3 spawn must write only ~/.kiro/hooks"
+
+  out=$(HOME="$HOME_DIR" FM_ROOT_OVERRIDE='' FM_HOME="$HOME_DIR" \
+    FM_STATE_OVERRIDE="$HOME_DIR/state" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+    FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
+    FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" PATH="$FAKEBIN_DIR:$BASE_PATH" \
+    "$TEARDOWN" "$id" --force 2>&1)
+  rc=$?
+  expect_code 0 "$rc" "V3 kiro teardown should succeed: $out"
+  [ ! -e "$hooks/fm-kiro.d/$token" ] || fail "teardown left the V3 registry entry behind"
+  [ ! -e "$HOME_DIR/state/$id.kiro-hook-token" ] || fail "teardown left the V3 registry token behind"
+  [ ! -e "$home_dir" ] || fail "teardown left the per-task kiro home behind"
+  [ -f "$hooks/firstmate-crew.json" ] || fail "teardown must keep the shared global pair for other tasks"
+  pass "fm-spawn: a V3 kiro spawn installs the guarded global hook pair and a token pointer that teardown retires"
+}
+
+test_kiro_engine_config_refuses_unknown_values() {
+  local id rec out rc
+  id="kiro-engine-bad-z13-$$"
+  rec=$(KIRO_TEST_ENGINE=v9 make_kiro_spawn_case badengine "$id")
+  read_kiro_spawn_record "$rec"
+  out=$(run_kiro_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "an unknown config/kiro-engine must refuse the spawn"
+  assert_contains "$out" "config/kiro-engine holds 'v9'" "the refusal did not name the offending value"
+  assert_contains "$out" "v3 (the default when the file is absent), v2" "the refusal did not name the accepted values"
+  [ -s "$CASE_DIR/launch.log" ] && fail "an unknown engine created a launch command" || true
+  [ ! -e "$HOME_DIR/state/$id.kiro-home" ] || fail "an unknown engine still armed the per-task home"
+  pass "fm-spawn: an unknown config/kiro-engine refuses before any pane is created"
 }
 
 test_kiro_per_task_hook_config_is_out_of_tree() {
@@ -714,11 +850,15 @@ test_kiro_ancestry_outranks_inherited_claude_marker
 test_kiro_liveness_names_the_command_an_agent
 test_kiro_control_mechanics_are_the_verified_ones
 test_kiro_wiring_path_is_the_out_of_tree_hook_config
+test_kiro_quota_is_its_own_provider
 test_kiro_hook_is_the_trusted_primary_source
 test_kiro_record_is_the_only_state_source
 test_kiro_composer_glyph_and_placeholder
 test_kiro_delivery_footer_matches_and_is_scoped
 test_kiro_launch_carries_brief_agent_engine_and_clears_markers
+test_kiro_v3_is_the_default_engine_and_names_no_agent
+test_kiro_v3_installs_the_guarded_global_hook_pair
+test_kiro_engine_config_refuses_unknown_values
 test_kiro_per_task_hook_config_is_out_of_tree
 test_kiro_effort_xhigh_passes_through
 test_kiro_unlisted_model_refuses_before_pane_creation

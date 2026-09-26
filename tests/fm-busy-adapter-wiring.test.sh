@@ -428,6 +428,7 @@ test_kiro_hooks_semantic_lifecycle() {
   local rec id=busy-ki-1 out state agent
   rec=$(make_spawn_case kiro-lifecycle kiro "$id")
   read_case_record "$rec"
+  printf 'v2\n' > "$HOME_DIR/config/kiro-engine"
   out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR")
   expect_code 0 $? "kiro spawn should succeed: $out"
   state="$HOME_DIR/state"
@@ -462,6 +463,7 @@ test_kiro_hooks_stale_incarnation_harmless() {
   local rec id=busy-ki-2 out state agent
   rec=$(make_spawn_case kiro-stale kiro "$id")
   read_case_record "$rec"
+  printf 'v2\n' > "$HOME_DIR/config/kiro-engine"
   out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR")
   expect_code 0 $? "kiro spawn should succeed: $out"
   state="$HOME_DIR/state"
@@ -472,6 +474,66 @@ test_kiro_hooks_stale_incarnation_harmless() {
   out=$(classify kiro "$id" "$state")
   [ "$out" = "busy fm-spawn" ] || fail "a stale-gen hook event must not change state, got '$out'"
   pass "kiro hook events from a superseded incarnation are rejected without breaking the hook"
+}
+
+# kiro V3 reads hooks only from the real $HOME/.kiro/hooks, so the spawn installs
+# a firstmate-owned global pair there. V3 runs every hook command with the
+# session's cwd, so each dispatcher is EXECUTED DIRECTLY (never through `sh -c`,
+# for the same single-token reason as run_kiro_hook) from the cwd under test.
+run_kiro_v3_hook() {  # <user-home> <trigger> <cwd>
+  local json=$1/.kiro/hooks/firstmate-crew.json cmd
+  cmd=$(jq -r --arg t "$2" '.hooks[] | select(.trigger == $t) | .action.command' "$json")
+  [ -n "$cmd" ] && [ "$cmd" != null ] || fail "no $2 hook in $json"
+  [ "$cmd" = "${cmd%%[[:space:]]*}" ] || fail "the V3 $2 hook command is not a single token: '$cmd'"
+  [ -x "$cmd" ] || fail "the V3 $2 hook command is not an executable file: '$cmd'"
+  (cd "$3" && "$cmd" </dev/null)
+}
+
+test_kiro_v3_global_hooks_semantic_lifecycle() {
+  local rec id=busy-ki-v3 out state user_home elsewhere rc
+  rec=$(make_spawn_case kiro-v3-lifecycle kiro "$id")
+  read_case_record "$rec"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR")
+  expect_code 0 $? "V3 kiro spawn should succeed: $out"
+  state="$HOME_DIR/state"
+  user_home="$HOME_DIR/user-home"
+  assert_absent "$state/$id.kiro-home/agents/firstmate.json" "V3 must not write an agent config"
+  assert_absent "$WT_DIR/.kiro" "V3 kiro spawn must not write the worktree's own .kiro/"
+
+  out=$(classify kiro "$id" "$state")
+  [ "$out" = "busy fm-spawn" ] || fail "seed after V3 spawn must be 'busy fm-spawn', got '$out'"
+
+  rm -f "$state/$id.turn-ended"
+  out=$(run_kiro_v3_hook "$user_home" Stop "$WT_DIR") || fail "the V3 Stop dispatcher must exit 0"
+  [ -z "$out" ] || fail "the V3 Stop dispatcher must print nothing (V3 reads stdout as a decision), got '$out'"
+  [ -f "$state/$id.turn-ended" ] || fail "V3 Stop no longer touches the notification marker"
+  out=$(classify kiro "$id" "$state")
+  [ "$out" = "idle kiro-hook" ] || fail "V3 Stop must classify 'idle kiro-hook', got '$out'"
+
+  run_kiro_v3_hook "$user_home" UserPromptSubmit "$WT_DIR" || fail "the V3 UserPromptSubmit dispatcher failed"
+  out=$(classify kiro "$id" "$state")
+  [ "$out" = "busy kiro-hook" ] || fail "V3 UserPromptSubmit must classify 'busy kiro-hook', got '$out'"
+
+  # Every other V3 session - the captain's own included - runs the same global
+  # pair, and must be a silent no-op that leaves this task untouched.
+  elsewhere="$CASE_DIR/elsewhere"
+  mkdir -p "$elsewhere"
+  rc=0
+  out=$(run_kiro_v3_hook "$user_home" Stop "$elsewhere") || rc=$?
+  [ "$rc" -eq 0 ] && [ -z "$out" ] || fail "a non-firstmate V3 session's Stop must exit 0 silently (rc=$rc, out='$out')"
+  out=$(classify kiro "$id" "$state")
+  [ "$out" = "busy kiro-hook" ] || fail "a non-firstmate V3 Stop must not close this task, got '$out'"
+  # A pointer whose token has no registry entry, or that tries to escape the
+  # registry, runs nothing.
+  printf 'token=fm.AAAAAAAAAAAA\n' > "$elsewhere/.fm-kiro-hook"
+  out=$(run_kiro_v3_hook "$user_home" Stop "$elsewhere" 2>&1) || fail "an unregistered token must still exit 0"
+  [ -z "$out" ] || fail "an unregistered token must be silent on both streams, got '$out'"
+  printf 'token=../../x\n' > "$elsewhere/.fm-kiro-hook"
+  out=$(run_kiro_v3_hook "$user_home" Stop "$elsewhere" 2>&1) || fail "an escaping token must still exit 0"
+  [ -z "$out" ] || fail "an escaping token must be silent on both streams, got '$out'"
+  out=$(classify kiro "$id" "$state")
+  [ "$out" = "busy kiro-hook" ] || fail "an unregistered or escaping token must not close this task, got '$out'"
+  pass "kiro V3 global hooks open on UserPromptSubmit and close on Stop only from the task's worktree"
 }
 
 test_raw_kiro_launch_has_no_semantic_wiring() {
@@ -516,6 +578,7 @@ test_raw_gemini_launch_has_no_semantic_wiring
 test_gemini_is_refused_as_a_secondmate
 test_kiro_hooks_semantic_lifecycle
 test_kiro_hooks_stale_incarnation_harmless
+test_kiro_v3_global_hooks_semantic_lifecycle
 test_raw_kiro_launch_has_no_semantic_wiring
 test_codex_unverified_until_a_semantic_source_exists
 
