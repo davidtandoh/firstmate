@@ -3286,7 +3286,7 @@ cleanup_firstmate_home_children() {
       "$sub_state/$child_id.devin-config.json" \
       "$sub_state/.$child_id.branch-outcome-index"
     chmod u+w "$sub_state/$child_id.git-hooks" 2>/dev/null || true
-    rm -rf "$sub_state/$child_id.git-hooks"
+    rm -rf "$sub_state/$child_id.git-hooks" "$sub_state/$child_id.kiro-home"
   done
 }
 
@@ -3742,6 +3742,10 @@ rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
   "$STATE/$ID.reconcile-nudged" "$STATE/$ID.gemini-settings.json" "$STATE/$ID.devin-config.json" \
   "$STATE/.$ID.branch-outcome-index" \
   "$STATE/.secondmate-relaunch-$ID" "$STATE/.secondmate-relaunch-bound-$ID"
+# kiro's per-task home is a directory (its relocated KIRO_HOME holds the hook
+# agent config, the trust setting, and this task's sessions), so it needs a
+# recursive removal rather than the file rm above.
+rm -rf "$STATE/$ID.kiro-home"
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any
 # leftover unhandled steer here is moot rather than unlanded work.
