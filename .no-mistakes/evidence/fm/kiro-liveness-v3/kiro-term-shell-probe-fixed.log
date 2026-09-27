@@ -1,0 +1,7 @@
+# lab session: fm-lab-kiro-term-probe-53718-32266 ; code under test: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3H7WZA0TJBAAWAQC3J6REW2
+# herdr pane process-info (decorated empty shell):
+{"foreground_process_group_id":53848,"foreground_processes":[{"argv":["zsh (kiro-cli-term)","-f"],"argv0":"zsh (kiro-cli-term)","cmdline":"zsh (kiro-cli-term) -f","cwd":"/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/tmp.htG5p6D87f","name":"zsh","pid":53848}],"pane_id":"w1:p2","shell_pid":53848}
+# ps comm/args: zsh (kiro-cli-te zsh (kiro-cli-term) -f
+# registration: agent_not_found
+pane_process_state=shell
+agent_state=dead

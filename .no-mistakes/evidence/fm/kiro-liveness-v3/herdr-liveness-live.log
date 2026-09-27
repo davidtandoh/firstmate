@@ -1,0 +1,44 @@
+FM_TEST_BEGIN 2026-09-27T10:53:38Z tests/fm-herdr-agent-liveness-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+# claude: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.1 + claude 2.1.283 (Claude Code): process=agent registration=unknown endpoint=alive
+ok - Herdr live harness: claude 2.1.283 (Claude Code) remains alive independently of registration
+# Herdr 0.9.1 + claude 2.1.283 (Claude Code): settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: claude 2.1.283 (Claude Code) leaves a recoverable shell after identity-bound test cleanup
+# codex: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.1 + codex codex-cli 0.157.1: process=agent registration=unknown endpoint=alive
+ok - Herdr live harness: codex codex-cli 0.157.1 remains alive independently of registration
+# Herdr 0.9.1 + codex codex-cli 0.157.1: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: codex codex-cli 0.157.1 leaves a recoverable shell after identity-bound test cleanup
+# opencode: native primary identity and explicit-root ownership ancestry verified
+# Herdr 0.9.1 + opencode 1.18.31: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: opencode 1.18.31 remains alive independently of registration
+# Herdr 0.9.1 + opencode 1.18.31: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: opencode 1.18.31 leaves a recoverable shell after identity-bound test cleanup
+# skip: pi is not installed; Herdr process liveness is unverified here
+# skip: pi-signed is not installed; Herdr process liveness is unverified here
+# skip: grok is not installed; Herdr process liveness is unverified here
+# skip: kimi is not installed; Herdr process liveness is unverified here
+# skip: cursor is not installed; Herdr process liveness is unverified here
+# Herdr 0.9.1 + gemini 0.19.4: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: gemini 0.19.4 remains alive independently of registration
+# Herdr 0.9.1 + gemini 0.19.4: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: gemini 0.19.4 leaves a recoverable shell after identity-bound test cleanup
+# skip: muse is not installed; Herdr process liveness is unverified here
+# skip: rovo is not installed; Herdr process liveness is unverified here
+# skip: omp is not installed; Herdr process liveness is unverified here
+# Herdr 0.9.1 + agy 1.2.12: process=agent registration=agent_not_found endpoint=alive
+ok - Herdr live harness: agy 1.2.12 remains alive independently of registration
+# Herdr 0.9.1 + agy 1.2.12: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: agy 1.2.12 leaves a recoverable shell after identity-bound test cleanup
+ok - Herdr Kiro V3: bun and tui.js identify an agent independently of the launcher
+# Herdr 0.9.1 + kiro kiro-cli 2.24.1: process=agent registration=unknown endpoint=alive
+ok - Herdr live harness: kiro kiro-cli 2.24.1 remains alive independently of registration
+# Herdr 0.9.1 + kiro kiro-cli 2.24.1: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: kiro kiro-cli 2.24.1 leaves a recoverable shell after identity-bound test cleanup
+# checked 6 installed harnesses; no prompt submitted
+FM_TEST_END 2026-09-27T10:53:55Z tests/fm-herdr-agent-liveness-live-e2e.test.sh exit=0 duration_ms=17692 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=17759
+FM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=17692 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-herdr-agent-liveness-live-e2e.test.sh duration_ms=17692
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M3H7WZA0TJBAAWAQC3J6REW2/herdr-liveness-live-timing.json
+FM_TEST_BUDGET max_wall_ms=450000 duration_ms=17759

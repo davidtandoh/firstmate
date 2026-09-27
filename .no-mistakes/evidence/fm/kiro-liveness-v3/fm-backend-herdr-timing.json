@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 300559,
+      "failed": 1,
+      "name": "backend-dispatch"
+    }
+  ],
+  "finished_at": "2026-09-27T11:00:35Z",
+  "run_id": "fm-test-run-1790506534478-91202",
+  "scripts": [
+    {
+      "duration_ms": 300559,
+      "exit": 124,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-backend-herdr.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-09-27T10:55:34Z",
+  "summary": {
+    "duration_ms": 300628,
+    "failed": 1,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}
