@@ -64,6 +64,7 @@ Muse is likewise anchored to the exact `muse` launcher identity or the installed
 omp is anchored to the exact `omp` identity for the same reason, so `ompd` and `comp` remain ambiguous.
 AGY and Devin are anchored to the exact `agy` and `devin` identities for the same reason, so unrelated names containing either fragment remain ambiguous.
 Kiro is anchored to the exact `kiro-cli` foreground identity for the same reason (its toolbox/aim-sandbox wrapper is the foreground process, with the compiled binary a descendant), so unrelated names containing that fragment remain ambiguous.
+The Kiro V3 engine is also identified from the foreground command line when its bundled `kiro-cli/bun` runs the adjacent `kiro-cli/tui.js`, and a shell renamed by Kiro's shell integration stays a shell; [Kiro verification](verification/kiro.md#v3-foreground-process-identity) owns that evidence.
 Cursor is identified from its exact `cursor-agent` identity or versioned install tree in the foreground process path or structured argv[0]; a bare `node` or unrelated `agent` remains ambiguous.
 
 The CI-enforced portable regression and opt-in real-harness drift guard follow the split owned by `.agents/skills/firstmate-coding-guidelines/SKILL.md`.
