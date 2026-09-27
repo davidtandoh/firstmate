@@ -142,6 +142,7 @@ fm_quota_single_provider_table() {
     'kimi kimi' \
     'cursor cursor' \
     'agy agy' \
+    'kiro kiro' \
     'muse meta'
 }
 
@@ -173,6 +174,7 @@ fm_quota_provider_for_harness() {
     kimi)         printf 'kimi\n' ;;
     cursor)       printf 'cursor\n' ;;
     muse)         printf 'meta\n' ;;
+    kiro)         printf 'kiro\n' ;;
     *)            return 1 ;;
   esac
 }
