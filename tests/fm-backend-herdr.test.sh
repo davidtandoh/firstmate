@@ -573,6 +573,12 @@ test_live_process_survives_missing_or_unknown_registration() {
     [ "$out" = 'live alive refused' ] \
       || fail "a verified harness with $status registration must remain alive and refuse replacement, got '$out'"
   done
+  for status in missing unknown; do
+    out=$(stale_registration_case "kiro-v3-$status" "$status" \
+      '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":4242,"foreground_process_group_id":4243,"foreground_processes":[{"pid":4243,"name":"bun","argv":["/Users/test/Library/Application Support/kiro-cli/bun","--no-env-file","/Users/test/Library/Application Support/kiro-cli/tui.js"],"cmdline":"/Users/test/Library/Application Support/kiro-cli/bun --no-env-file /Users/test/Library/Application Support/kiro-cli/tui.js"}]}}}')
+    [ "$out" = 'live alive refused' ] \
+      || fail "Kiro V3 bun alone with $status registration must remain alive and refuse replacement, got '$out'"
+  done
   out=$(stale_registration_case 'missing-unreadable' missing - 1)
   [ "$out" = 'unknown unreadable refused' ] \
     || fail "missing registration plus unreadable processes must refuse recovery, got '$out'"
@@ -743,8 +749,9 @@ test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_aliv
 
 decorated_shell_process_info() {  # <shell-pid>
   # The measured remote shape (2026-09-16): the foreground group is the pane
-  # shell itself under a terminal-decorated name, with no argv surfaces.
-  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"zsh (kiro-cli-t"}]}}}' "$1" "$1" "$1"
+  # shell itself under a terminal-decorated name; the 2026-09-27 report
+  # also supplies the full shell-integration argv[0].
+  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"zsh (kiro-cli-t","argv":["zsh (kiro-cli-term)"],"argv0":"zsh (kiro-cli-term)"}]}}}' "$1" "$1" "$1"
 }
 
 test_agent_descendant_under_a_decorated_shell_foreground_stays_alive() {
@@ -767,9 +774,9 @@ test_agent_descendant_under_a_decorated_shell_foreground_stays_alive() {
   out=$(FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 \
     stale_registration_case decorated-childless missing "$(decorated_shell_process_info "$shell_pid")")
   kill "$shell_pid" 2>/dev/null || true
-  [ "$out" = 'unknown unreadable refused' ] \
-    || fail "a decorated shell name with no harness descendant proves neither liveness nor a shell-only pane, got '$out'"
-  pass "herdr liveness: a harness descendant proves a decorated-shell foreground alive; its absence stays unproven"
+  [ "$out" = 'no-agent dead husk' ] \
+    || fail "the verified Kiro shell name without an agent descendant must permit recovery, got '$out'"
+  pass "herdr liveness: a harness descendant keeps the decorated shell alive; a childless Kiro shell permits recovery"
 }
 
 test_agent_descendant_under_a_spaced_install_path_stays_alive() {
