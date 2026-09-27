@@ -33,6 +33,7 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-herdr-tests)
 # still override this default.
 mkdir -p "$TMP_ROOT/ambient-home"
 export FM_HOME="$TMP_ROOT/ambient-home"
+export FM_HERDR_TEST_SHELL_PID=$$
 export FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
 
 # make_herdr_fakebin: a `herdr` stub that logs every invocation (one line,
@@ -64,6 +65,18 @@ fi
 if [ "${1:-}" = terminal ] && [ "${2:-}" = title ] && [ "${3:-}" = clear ]; then
   reason=${FM_FAKE_HERDR_FOREGROUND_REASON:-no_foreground_client}
   printf '{"result":{"reason":"%s"}}\n' "$reason"
+  exit 0
+fi
+# Existing restored-shell fixtures imply an agent-free pane. Supply real,
+# childless shell evidence for their new process-proof read without consuming
+# the response intended for the next operation. Explicit process-info bodies
+# and failures still take precedence, including every unreadable negative.
+if [ "${1:-}" = pane ] && [ "${2:-}" = process-info ] \
+  && [ ! -f "$RESP/$next.exit" ] \
+  && jq -e '.error.code == "agent_not_found"' "$RESP/$((next - 1)).out" >/dev/null 2>&1 \
+  && ! jq -e '.result.type == "pane_process_info"' "$RESP/$next.out" >/dev/null 2>&1; then
+  pane=${4:-}
+  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_processes":[{"pid":%s,"name":"bash","argv":["bash"]}]}}}\n' "$pane" "$FM_HERDR_TEST_SHELL_PID" "$FM_HERDR_TEST_SHELL_PID"
   exit 0
 fi
 n=$next
@@ -494,7 +507,11 @@ stale_registration_case() {  # <dir-suffix> <agent_status> <process-info-body|->
     # +1: pane get -> the pane structurally exists
     printf '{"result":{"pane":{"pane_id":"w1:p2"}}}\n' > "$resp/$((n + 1)).out"
     # +2: agent get -> a registered agent with the given status
-    printf '{"result":{"agent":{"agent":"pi","agent_status":"%s"}}}\n' "$2" > "$resp/$((n + 2)).out"
+    if [ "$2" = missing ]; then
+      printf '{"error":{"code":"agent_not_found"}}\n' > "$resp/$((n + 2)).out"
+    else
+      printf '{"result":{"agent":{"agent":"pi","agent_status":"%s"}}}\n' "$2" > "$resp/$((n + 2)).out"
+    fi
     # +3: pane process-info -> the pane's actual process view
     [ "$3" = - ] || printf '%s\n' "$3" > "$resp/$((n + 3)).out"
     [ -z "${4:-}" ] || printf '%s\n' "$4" > "$resp/$((n + 3)).exit"
@@ -546,6 +563,24 @@ test_registered_agent_with_a_live_foreground_process_stays_alive() {
   [ "$out" = "live alive refused" ] \
     || fail "a registered agent whose foreground process is Pi must stay live/alive, got '$out'"
   pass "herdr stale registration: a registered agent with a live Pi foreground process still reads alive"
+}
+
+test_live_process_survives_missing_or_unknown_registration() {
+  local status out
+  for status in missing unknown; do
+    out=$(stale_registration_case "live-$status" "$status" \
+      '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":4242,"foreground_process_group_id":4243,"foreground_processes":[{"pid":4243,"name":"codex","argv":["codex"]}]}}}')
+    [ "$out" = 'live alive refused' ] \
+      || fail "a verified harness with $status registration must remain alive and refuse replacement, got '$out'"
+  done
+  out=$(stale_registration_case 'missing-unreadable' missing - 1)
+  [ "$out" = 'unknown unreadable refused' ] \
+    || fail "missing registration plus unreadable processes must refuse recovery, got '$out'"
+  out=$(FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 stale_registration_case 'missing-other' missing \
+    '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":4242,"foreground_processes":[{"pid":4243,"name":"sleep","argv":["sleep","30"]}]}}}')
+  [ "$out" = 'unknown unreadable refused' ] \
+    || fail "an unregistered stranger's process must not prove agent liveness or death, got '$out'"
+  pass 'Herdr liveness: live process outranks missing/unknown registration; unreadable or unrelated processes refuse replacement'
 }
 
 # --- the bound agent session reference (relaunch session continuity) --------
@@ -672,7 +707,7 @@ test_exhausted_settle_window_keeps_a_non_shell_foreground_live() {
 }
 
 test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_alive() {
-  local lab sleep_bin shell_pid out shell_verdict
+  local lab sleep_bin shell_pid out shell_verdict status
   sleep_bin=$(command -v sleep) || fail "sleep not found"
   lab="$TMP_ROOT/stale-reg-descendant-bin"; mkdir -p "$lab"
   # A symlink to a real long-running binary so the kernel records `pi` as the
@@ -683,7 +718,11 @@ test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_aliv
   sh -c "'$lab/pi' 300; :" &
   shell_pid=$!
   sleep 0.3
-  out=$(stale_registration_case descendant idle "$(shell_only_process_info "$shell_pid")")
+  for status in idle unknown missing; do
+    out=$(stale_registration_case "descendant-$status" "$status" "$(shell_only_process_info "$shell_pid")")
+    [ "$out" = "live alive refused" ] \
+      || fail "a real harness descendant with $status registration must stay live/alive, got '$out'"
+  done
   pkill -P "$shell_pid" 2>/dev/null || true
   kill "$shell_pid" 2>/dev/null || true
   [ "$out" = "live alive refused" ] \
@@ -694,10 +733,43 @@ test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_aliv
   "$sleep_bin" 300 &
   shell_pid=$!
   shell_verdict=$(stale_registration_case descendant-childless idle "$(shell_only_process_info "$shell_pid")")
+  out=$(stale_registration_case descendant-childless-missing missing "$(shell_only_process_info "$shell_pid")")
   kill "$shell_pid" 2>/dev/null || true
   [ "$shell_verdict" = "stale-agent dead refused" ] \
     || fail "the childless control must read stale-agent so the descendant case is not vacuous, got '$shell_verdict'"
+  [ "$out" = 'no-agent dead husk' ] || fail "the same missing registration over a real childless shell must permit recovery, got '$out'"
   pass "herdr stale registration: an agent process outside the foreground group still counts as alive"
+}
+
+decorated_shell_process_info() {  # <shell-pid>
+  # The measured remote shape (2026-09-16): the foreground group is the pane
+  # shell itself under a terminal-decorated name, with no argv surfaces.
+  printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p2","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"zsh (kiro-cli-t"}]}}}' "$1" "$1" "$1"
+}
+
+test_agent_descendant_under_a_decorated_shell_foreground_stays_alive() {
+  local lab sleep_bin shell_pid out status
+  sleep_bin=$(command -v sleep) || fail "sleep not found"
+  lab="$TMP_ROOT/decorated-shell-descendant-bin"; mkdir -p "$lab"
+  ln -sf "$sleep_bin" "$lab/codex"
+  sh -c "'$lab/codex' 300; :" &
+  shell_pid=$!
+  sleep 0.3
+  for status in missing unknown idle; do
+    out=$(stale_registration_case "decorated-$status" "$status" "$(decorated_shell_process_info "$shell_pid")")
+    [ "$out" = "live alive refused" ] \
+      || fail "a real harness descendant under a decorated shell foreground with $status registration must stay live/alive, got '$out'"
+  done
+  pkill -P "$shell_pid" 2>/dev/null || true
+  kill "$shell_pid" 2>/dev/null || true
+  "$sleep_bin" 300 &
+  shell_pid=$!
+  out=$(FM_BACKEND_HERDR_IDLE_SHELL_PROOF_POLLS=1 \
+    stale_registration_case decorated-childless missing "$(decorated_shell_process_info "$shell_pid")")
+  kill "$shell_pid" 2>/dev/null || true
+  [ "$out" = 'unknown unreadable refused' ] \
+    || fail "a decorated shell name with no harness descendant proves neither liveness nor a shell-only pane, got '$out'"
+  pass "herdr liveness: a harness descendant proves a decorated-shell foreground alive; its absence stays unproven"
 }
 
 test_agent_descendant_under_a_spaced_install_path_stays_alive() {
@@ -3584,7 +3656,7 @@ test_projection_reclaim_replaces_only_exact_husk_and_advances_binding() {
   [ -n "$agent_line" ] && [ "$agent_line" -lt "$close_line" ] \
     || fail "reclaim did not recheck the old pane agent state before the close"
   boundary_mutations=$(sed -n "$((agent_line + 1)),$((close_line - 1))p" "$log" \
-    | grep -Ev $'\x1f(tab\x1flist|pane\x1flist|workspace\x1flist|terminal\x1ftitle\x1fclear)' || true)
+    | grep -Ev $'\x1f(tab\x1flist|pane\x1flist|pane\x1fprocess-info|workspace\x1flist|terminal\x1ftitle\x1fclear)' || true)
   [ -z "$boundary_mutations" ] \
     || fail "reclaim mutated between the old pane agent recheck and the close: $boundary_mutations"
   assert_not_contains "$calls" $'workspace\x1fclose' "reclaim introduced workspace-close authority"
@@ -5449,6 +5521,47 @@ set_fake_agent() {  # <agent-dir> <window-or-pane> <status>
   printf '%s' "$status" > "$dir/$key.status"
 }
 
+test_events_capable_drains_large_schema() {
+  local mode capabilities dir resp fb rc expected
+  for mode in off on; do
+    for capabilities in both subscribe_only status_only; do
+      dir="$TMP_ROOT/events-capable-$mode-$capabilities"
+      resp="$dir/responses"
+      mkdir -p "$resp"
+      fb=$(make_herdr_fakebin "$dir")
+      printf '{"client":{"protocol":20}}\n' > "$resp/1.out"
+      # Put matches before many short lines, beyond any pipe buffer.
+      {
+        printf '{"capabilities":['
+        case "$capabilities" in
+          both) printf '"events.subscribe","pane.agent_status_changed"' ;;
+          subscribe_only) printf '"events.subscribe"' ;;
+          status_only) printf '"pane.agent_status_changed"' ;;
+        esac
+        printf '],"padding":[\n'
+        local i
+        for ((i=0; i<25000; i++)); do printf '"padding",\n'; done
+        printf '"end"]}\n'
+      } > "$resp/2.out"
+      rc=0
+      PATH="$fb:$PATH" FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$resp" \
+        FM_HERDR_SCRIPT_STATUS=1 FM_BACKEND_HERDR_EVENTS_FORCE='' \
+        bash -c '
+          . "$0/bin/backends/herdr.sh"
+          trap "" PIPE
+          if [ "$1" = on ]; then set -o pipefail; else set +o pipefail; fi
+          fm_backend_herdr_events_capable fixture
+        ' "$ROOT" "$mode" > "$dir/stdout" 2> "$dir/stderr" || rc=$?
+      expected=1
+      [ "$capabilities" != both ] || expected=0
+      [ "$rc" -eq "$expected" ] || fail "events capability $capabilities pipefail=$mode: expected $expected, got $rc"
+      [ ! -s "$dir/stderr" ] || fail "events capability $capabilities pipefail=$mode emitted stderr: $(cat "$dir/stderr")"
+      [ ! -s "$dir/stdout" ] || fail "events capability probe should be silent"
+      pass "events capability: large $capabilities schema, ignored SIGPIPE, pipefail=$mode"
+    done
+  done
+}
+
 test_normalize_event_leaves_from_empty() {
   local rec
   rec=$(bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_normalize_event wG:pQ wG blocked claude' "$ROOT")
@@ -5691,6 +5804,7 @@ test_agent_state_bypasses_a_stale_client_shadowing_a_compatible_one
 test_recovery_grade_read_widens_only_at_its_own_boundary
 test_stale_registration_over_a_shell_only_pane_is_agent_free
 test_stale_registration_ignores_status_and_reads_the_process
+test_live_process_survives_missing_or_unknown_registration
 test_pane_agent_session_ref_reports_a_resumable_reference_with_its_agent
 test_pane_agent_session_ref_degrades_to_nothing_when_not_resumable
 test_registered_agent_with_a_live_foreground_process_stays_alive
@@ -5698,6 +5812,7 @@ test_registered_agent_with_a_non_shell_foreground_process_stays_alive
 test_transient_prompt_helper_settles_into_stale_agent
 test_exhausted_settle_window_keeps_a_non_shell_foreground_live
 test_registered_agent_with_an_agent_descendant_outside_the_foreground_stays_alive
+test_agent_descendant_under_a_decorated_shell_foreground_stays_alive
 test_agent_descendant_under_a_spaced_install_path_stays_alive
 test_registered_agent_with_an_unreadable_process_view_is_unknown
 test_registered_agent_with_an_empty_foreground_over_a_real_shell_settles_via_descendant_walk
@@ -5887,6 +6002,7 @@ test_dispatch_routes_herdr_backend
 test_dispatch_busy_state_unknown_for_tmux
 test_dispatch_composer_state_routes_by_backend
 test_scripts_route_explicit_target_through_meta_backend
+test_events_capable_drains_large_schema
 test_normalize_event_leaves_from_empty
 test_escalation_marker_keys_like_watcher
 test_apply_transition_blocked_requires_commit_to_dedupe

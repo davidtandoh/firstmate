@@ -176,6 +176,13 @@ fm_backend_herdr_cli() {
       printf ',"panes":'; fixture_panes
       printf '}}}\n'
       ;;
+    "pane process-info")
+      # An absent registration is agent-free only over a proven shell-only
+      # pane, read from the REAL process table: this test's own childless
+      # shell stands in for the pane shell.
+      printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_processes":[{"pid":%s,"name":"bash","argv":["bash"]}]}}}\n' \
+        "$PANE" "$$" "$$"
+      ;;
     "session list")
       printf '%s\n' '{"sessions":[{"name":"test","running":true,"socket_path":"/tmp/fake.sock"}]}'
       ;;

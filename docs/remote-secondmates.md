@@ -568,6 +568,7 @@ The [process-to-event operating contract](configuration.md#process-to-event-sour
 ### Source log continuity
 
 The source log is never truncated or consumed.
+Historical zero-byte capture recovery is explicit and evidence-preserving; the remote-reply adapter's header owns the operation, and [process-event-sources](../.agents/skills/process-event-sources/SKILL.md#handling-a-wake) owns its handling policy.
 A shortened or changed prefix stops the relay and surfaces a continuity failure instead of silently resetting the cursor.
 
 ### SSH exit 255 and unavailable homes

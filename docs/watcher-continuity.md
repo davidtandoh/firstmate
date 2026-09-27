@@ -84,6 +84,7 @@ It re-arms by parking that awaited hook on `bin/fm-watch-arm.sh` and returning a
 Claude's `.claude/settings.json` Stop `asyncRewake` hook (`bin/fm-claude-stop-autoarm.sh`) owns routine tokenless re-arm.
 The hook fires on every Stop.
 On each Stop, an eligible primary with supervision need admits one home-scoped owner, which foregrounds `bin/fm-watch-arm.sh` inside the hook-owned process tree.
+A numeric session-lock owner that the shared `fm_harness_pid_alive` predicate positively reports dead or not a harness is reclaimed through `bin/fm-lock.sh` before auto-arm state changes; a live owner or an owner with unreadable process evidence is never reclaimed.
 While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
 
 ### Claude session-lock ownership

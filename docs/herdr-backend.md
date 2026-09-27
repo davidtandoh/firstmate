@@ -659,7 +659,7 @@ No Herdr-specific copy of that protocol exists.
 
 Stopping and restarting a named Herdr server preserves workspace, tab, pane, and label ids.
 The underlying harness processes and live agent registrations do not survive.
-A restored same-labeled tab with a missing pane or no registered agent is a husk.
+A restored same-labeled tab with a missing pane or an unregistered, proven shell-only pane is a husk.
 
 Create replaces only a confidently dead or no-agent husk, creates the replacement before closing the old tab, and refuses live or unknown states.
 This prevents closing the workspace's last tab before a replacement exists.
@@ -687,6 +687,12 @@ The first agent or shell sample in that window decides.
 No registered status outranks the process view, because an agent killed mid-turn leaves `working` behind just as a quit one leaves `idle`.
 The native busy verdict is verified the same way, so a shell-only pane never reads busy.
 
+Registration absence does not prove process death either.
+Herdr can return `agent_not_found` or its placeholder status `unknown` while a verified harness process is running.
+The shared pane classifier reports that process as `live` and refuses replacement.
+Without a registration, only a proven shell-only process view reports `no-agent`; an unrelated foreground or unreadable process evidence remains `unknown`.
+The descendant walk runs before any foreground verdict, because a terminal can decorate the pane shell's own name so that the foreground group reads `other` while a live harness sits beneath a nested shell (measured 2026-09-16 on a remote Codex pane; [verification](verification/runtime-backends.md#registration-independent-liveness)).
+
 ### Process-view version support
 
 The `pane process-info` subcommand that this process-level proof depends on is present in every supported release client from the 0.7.1 floor upward (measured 2026-09-10 on the pinned 0.7.1, 0.7.3, 0.7.4, and 0.7.5 release clients - [verification](verification/runtime-backends.md) "Stale agent registration").
@@ -703,7 +709,7 @@ The generic Herdr agent-liveness probe reuses that pane classifier, then applies
 | --- | --- |
 | A structurally gone pane, or a pane read from a session positively reported as having no running server | `missing` |
 | A restored agent-less shell, or a stale registration over a shell-only pane | `dead` |
-| A registered agent with a live process | `alive` |
+| A verified live harness process, with or without a registration | `alive` |
 | Every other unexpected read | `unreadable` |
 
 Neither the stopped-server exception nor the stale-registration verdict widens husk detection or any close authority.
@@ -817,7 +823,7 @@ The helper:
 Immediately before every destructive call it re-queries the named session and refuses empty, missing, literal `default`, or `default:true` identities.
 Its before/after tripwire requires the live default-session snapshot to remain byte-identical.
 
-The helper's header and `--help` own exact commands.
+The helper's header and `--help` own exact commands and parser-compatible session-option placement.
 Tests use thin compatibility wrappers in `tests/herdr-test-safety.sh` and never duplicate the destructive policy.
 
 ## Active limits

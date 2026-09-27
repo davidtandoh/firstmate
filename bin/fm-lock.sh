@@ -50,6 +50,13 @@ if [ "${1:-}" = "status" ]; then
     free) echo "lock: free" ;;
     unreadable) echo "lock: unreadable" ;;
     held) echo "lock: held by live harness pid $FM_LOCK_INSPECT_PID" ;;
+    unknown)
+      # A live pid whose identity cannot be read is neither held nor stale.
+      case "$FM_LOCK_INSPECT_PID:$FM_LOCK_INSPECT_LIVE_HARNESS" in
+        [0-9]*:unknown) echo "lock: unreadable process evidence (pid $FM_LOCK_INSPECT_PID)" ;;
+        *) echo "lock: stale (pid $FM_LOCK_INSPECT_PID dead or not a harness)" ;;
+      esac
+      ;;
     *) echo "lock: stale (pid $FM_LOCK_INSPECT_PID dead or not a harness)" ;;
   esac
   exit 0
@@ -189,15 +196,25 @@ refuse_live_owner() {  # <recorded-pid>
   exit 1
 }
 
+# fm_harness_pid_alive returns 2 when the recorded pid is alive but its
+# identity cannot be read. That is not stale-owner evidence, so it must never
+# reclaim the lock.
+refuse_unreadable_owner() {  # <recorded-pid>
+  echo "error: session-lock process evidence is unreadable (pid $1); operate read-only until resolved" >&2
+  exit 1
+}
+
 if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
   old=$(cat "$LOCK" 2>/dev/null || true)
   if [ "$old" = "$me" ] || fm_session_lock_owned_by_self "$STATE"; then
     confirm_own_lock "$old"
     old=$(cat "$LOCK" 2>/dev/null || true)
   fi
-  if fm_harness_pid_alive "$old"; then
-    refuse_live_owner "$old"
-  fi
+  fm_harness_pid_alive "$old"
+  case "$?" in
+    0) refuse_live_owner "$old" ;;
+    2) refuse_unreadable_owner "$old" ;;
+  esac
 fi
 
 if ! fm_lock_try_acquire "$CLAIM_LOCK"; then
@@ -219,12 +236,22 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
-  if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
-    fm_session_lock_owned_by_self "$STATE" && confirm_own_lock "$old"
-    old=$(cat "$LOCK" 2>/dev/null || true)
-    if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
-      refuse_live_owner "$old"
-    fi
+  if [ "$old" != "$me" ]; then
+    fm_harness_pid_alive "$old"
+    case "$?" in
+      0)
+        fm_session_lock_owned_by_self "$STATE" && confirm_own_lock "$old"
+        old=$(cat "$LOCK" 2>/dev/null || true)
+        if [ "$old" != "$me" ]; then
+          fm_harness_pid_alive "$old"
+          case "$?" in
+            0) refuse_live_owner "$old" ;;
+            2) refuse_unreadable_owner "$old" ;;
+          esac
+        fi
+        ;;
+      2) refuse_unreadable_owner "$old" ;;
+    esac
   fi
 fi
 # The sidecar goes first: a fresh pid beside a previous session's id would let

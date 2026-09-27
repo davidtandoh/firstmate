@@ -273,6 +273,54 @@ SH
   pass "session-lock: a live version-named session holding the lock is not mistaken for a stale owner"
 }
 
+test_unreadable_identity_is_not_foreign_ownership_or_death() {
+  local dir fb mode got
+  dir="$TMP_ROOT/unreadable-identity"
+  fb=$(fm_fakebin "$dir")
+  mkdir -p "$dir/state"
+  printf '700\n' > "$dir/state/.lock"
+  cat > "$fb/ps" <<'SH'
+#!/usr/bin/env bash
+set -u
+case "$*" in
+  '-o comm= -p 701') exit 1 ;;
+  '-o comm= -p 700')
+    [ "$FM_TEST_READ_MODE" != comm-hidden ] || exit 1
+    printf 'claude\n' ;;
+  '-o args= -p 700') exit 1 ;;
+  '-o ppid= -p 700') printf '1\n' ;;
+  '-o comm= -p '*) printf 'bash\n' ;;
+  '-o args= -p '*) printf 'bash\n' ;;
+  '-o ppid= -p '*) printf '700\n' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/ps"
+  for mode in args-hidden comm-hidden; do
+    got=$(FM_TEST_READ_MODE="$mode" lib_eval "$fb" "
+      fm_session_lock_owned_by_self '$dir/state'; printf '%s ' \"\$?\"
+      fm_harness_pid_alive 700; printf '%s' \"\$?\"
+    ")
+    if [ "$mode" = args-hidden ]; then
+      [ "$got" = '0 0' ] || fail "kernel identity must survive hidden arguments, got '$got'"
+    else
+      [ "$got" = '1 2' ] || fail "unreadable identity must not prove ownership or death, got '$got'"
+    fi
+  done
+  printf '701\n' > "$dir/state/.lock"
+  got=$(FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" lib_eval "$fb" \
+    "set -- status; . '$ROOT/bin/fm-lock.sh'")
+  [ "$got" = 'lock: unreadable process evidence (pid 701)' ] \
+    || fail "lock status treated unreadable ownership as stale: $got"
+  if FM_TEST_READ_MODE=args-hidden FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" \
+    lib_eval "$fb" ". '$ROOT/bin/fm-lock.sh'" > "$dir/acquire.out" 2>&1; then
+    fail 'lock acquisition reclaimed an owner with unreadable process evidence'
+  fi
+  [ "$(cat "$dir/state/.lock")" = 701 ] || fail 'refused acquisition changed the retained owner'
+  assert_grep 'process evidence is unreadable' "$dir/acquire.out" 'acquisition refused for an unrelated reason'
+  pass 'session-lock: structural identity survives hidden args; unreadable identity remains unproven'
+}
+
 # A background Claude session's process table. The hook fires inside
 # `claude bg-spare` (710), whose parent is `claude bg-pty-host` (720). With the
 # transient daemon gone the pty-host is reparented to launchd, so the contiguous
@@ -1098,6 +1146,7 @@ test_harness_at_namespace_pid1_is_examined
 test_ordinary_paths_are_never_harness_processes
 test_harness_beyond_a_gap_never_owns_the_lock
 test_competing_version_named_session_is_seen_as_live
+test_unreadable_identity_is_not_foreign_ownership_or_death
 test_same_session_id_owns_a_recycled_background_chain
 test_anchor_pid_is_the_model_loop_process_only_for_a_trusted_id
 test_e2e_version_named_session_claims_the_home

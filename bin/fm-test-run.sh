@@ -357,7 +357,7 @@ family_for_basename() {
     fm-devin-signals-live-e2e.test.sh|fm-muse-signals-live-e2e.test.sh|fm-rovo-signals-live-e2e.test.sh|fm-agy-signals-live-e2e.test.sh|\
     fm-launch-prompt-signals-live-e2e.test.sh|\
     fm-kiro-signals-live-e2e.test.sh|\
-    fm-herdr-version-floor-live-e2e.test.sh|\
+    fm-herdr-version-floor-live-e2e.test.sh|fm-herdr-agent-liveness-live-e2e.test.sh|\
     fm-herdr-pi-stale-registration-live-e2e.test.sh|\
     fm-worker-account-live-e2e.test.sh|\
     fm-opencode-primary-live-e2e.test.sh|fm-pi-branch-live-e2e.test.sh|\
@@ -1393,6 +1393,11 @@ families_for_changed_path() {
       printf '%s\n' real-herdr-gated
       printf '%s\n' backend-dispatch
       printf '%s\n' pure-contract-unit
+      printf '%s\n' __script__:fm-herdr-agent-liveness-live-e2e.test.sh
+      ;;
+    tests/harness-live-helpers.sh)
+      printf '%s\n' __script__:fm-harness-liveness-drift-live-e2e.test.sh
+      printf '%s\n' __script__:fm-herdr-agent-liveness-live-e2e.test.sh
       ;;
     bin/fm-herdr-session-cleanup.sh)
       printf '%s\n' session-bootstrap

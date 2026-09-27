@@ -95,7 +95,7 @@ fm_harness_process_matches() {  # <comm> <args>
   return 1
 }
 
-# Walk the current process ancestry (up to 16 hops) and print this session's
+# Walk process ancestry (up to 16 hops; default: the current process) and print its
 # contiguous verified-harness ancestry, innermost pid first.
 #
 # The walk climbs freely until the first harness match, because the caller is
@@ -113,20 +113,26 @@ fm_harness_process_matches() {  # <comm> <args>
 # claude), with no non-harness process between them. Which pid in that run is the
 # session cannot be read off the ancestry at all, so the whole contiguous run is
 # reported and the callers below decide what they need from it.
-fm_harness_ancestry_pids() {
-  local pid=$$ comm args extending=0 printed=0
+fm_harness_ancestry_pids() {  # [start-pid]
+  local pid=${1:-$$} comm args extending=0 printed=0 args_readable
+  case "$pid" in ''|*[!0-9]*|0) return 2 ;; esac
   for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
-    comm=$(ps -o comm= -p "$pid" 2>/dev/null) || break
-    args=$(ps -o args= -p "$pid" 2>/dev/null)
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 2
+    [ -n "$comm" ] || return 2
+    args_readable=1
+    args=$(ps -o args= -p "$pid" 2>/dev/null) || args_readable=0
     if fm_harness_process_matches "$comm" "$args"; then
       printf '%s\n' "$pid"
       printed=1
       [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || break
       extending=1
+    elif [ "$args_readable" -eq 0 ]; then
+      return 2
     elif [ "$extending" -eq 1 ]; then
       break
     fi
-    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null) || return 2
+    pid=${pid//[[:space:]]/}
     # Examine the top of the chain before stopping. Inside a PID namespace the
     # harness itself is pid 1, so stopping as soon as the next pid is 1 hides the
     # very process this walk exists to find. A host's real pid 1 (init, systemd,
@@ -160,12 +166,20 @@ EOF
   printf '%s\n' "$outermost"
 }
 
-# True if $1 is a live process that looks like a verified harness.
+# Liveness of $1 as a verified harness process. Returns 0 when the process is
+# alive and matches the harness identity, 1 when it is dead or positively not a
+# harness, and 2 when it is alive but its identity cannot be read. Callers must
+# branch on the status rather than on truthiness: 2 is not stale-owner
+# evidence, so it must never reclaim a lock or arm over its holder.
 fm_harness_pid_alive() {
   local pid=$1 comm args
   kill -0 "$pid" 2>/dev/null || return 1
-  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
-  args=$(ps -o args= -p "$pid" 2>/dev/null)
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 2
+  [ -n "$comm" ] || return 2
+  args=$(ps -o args= -p "$pid" 2>/dev/null) || {
+    fm_harness_process_matches "$comm" '' && return 0
+    return 2
+  }
   fm_harness_process_matches "$comm" "$args"
 }
 
@@ -272,6 +286,7 @@ fm_session_lock_anchor_pid() {
 # an ancestry that cannot be resolved all fail closed.
 fm_session_lock_owned_by_self() {
   local state=$1 lock_pid pids pid
+  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
   lock_pid=$(cat "$state/.lock" 2>/dev/null || true)
   case "$lock_pid" in
     ''|*[!0-9]*) return 1 ;;
@@ -283,7 +298,7 @@ fm_session_lock_owned_by_self() {
 $pids
 EOF
   fm_session_lock_same_session "$state" "$pids" || return 1
-  fm_harness_pid_alive "$lock_pid"
+  fm_harness_pid_alive "$lock_pid" || return 1
 }
 
 # True when state dir $1 records a live verified harness outside this process's
@@ -333,7 +348,7 @@ FM_LOCK_INSPECT_STATE=unknown
 FM_LOCK_INSPECT_PID=
 FM_LOCK_INSPECT_LIVE_HARNESS=unknown
 fm_session_lock_inspect() {  # <state>
-  local state=$1 lock pid
+  local state=$1 lock pid alive_rc
   # shellcheck disable=SC2034 # Output globals, read by lock status and inbox ready.
   FM_LOCK_INSPECT_STATE=unknown
   # shellcheck disable=SC2034 # Output globals, read by lock status and inbox ready.
@@ -364,13 +379,23 @@ fm_session_lock_inspect() {  # <state>
       ;;
   esac
   if kill -0 "$pid" 2>/dev/null; then
-    if fm_harness_pid_alive "$pid"; then
-      FM_LOCK_INSPECT_STATE=held
-      FM_LOCK_INSPECT_LIVE_HARNESS=true
-    else
-      FM_LOCK_INSPECT_STATE=unknown
-      FM_LOCK_INSPECT_LIVE_HARNESS=false
-    fi
+    # Capture the tri-state status without tripping a sourcing caller's set -e.
+    alive_rc=0
+    fm_harness_pid_alive "$pid" || alive_rc=$?
+    case "$alive_rc" in
+      0)
+        FM_LOCK_INSPECT_STATE=held
+        FM_LOCK_INSPECT_LIVE_HARNESS=true
+        ;;
+      2)
+        # Alive, but its identity is unreadable: unknown, not "not a harness".
+        FM_LOCK_INSPECT_STATE=unknown
+        ;;
+      *)
+        FM_LOCK_INSPECT_STATE=unknown
+        FM_LOCK_INSPECT_LIVE_HARNESS=false
+        ;;
+    esac
     return 0
   fi
   if ps -o comm= -p "$pid" >/dev/null 2>&1; then

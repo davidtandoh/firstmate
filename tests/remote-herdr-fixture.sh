@@ -36,6 +36,9 @@ STATE='$state'
 LOG='$log'
 SEND_FAIL='$send_fail'
 SOCKET='$socket'
+# A long-lived real process (the installing test) stands in for an agent-free
+# pane's shell, so the process-table proof can read it after this call exits.
+PANE_SHELL_PID='$$'
 SH
   cat >> "$script" <<'SH'
 printf '%s\n' "$*" >> "$LOG"
@@ -99,8 +102,18 @@ case "${1:-} ${2:-}" in
     jq_state --arg p "${3:-}" '.typed[$p] = true | .working[$p] = true' | save ;;
   "pane read") printf '\n' ;;
   "pane process-info")
-    printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"codex","argv0":"codex","argv":["codex"],"cmdline":"codex"}]}}}\n' \
-      "$pane" "$$" "$$" "$$" ;;
+    [ -n "$pane" ] || pane=${3:-}
+    # A pane with a registered agent runs codex in its foreground; once the
+    # agent is gone the pane holds only its shell, so a missing registration
+    # is backed by a proven shell-only process view.
+    if [ "$(jq_state -r --arg p "$pane" '.typed[$p] // false')" = true ]; then
+      printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"codex","argv0":"codex","argv":["codex"],"cmdline":"codex"}]}}}\n' \
+        "$pane" "$$" "$$" "$$"
+    else
+      printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_processes":[{"pid":%s,"name":"bash","argv":["bash"]}]}}}\n' \
+        "$pane" "$PANE_SHELL_PID" "$PANE_SHELL_PID"
+    fi
+    ;;
   "agent get")
     pane=${3:-}
     if [ "$(jq_state -r --arg p "$pane" '.working[$p] // false')" = true ]; then
