@@ -103,4 +103,5 @@ Unsupported and unverified.
 Kiro serves several vendors' models on Kiro credits, so dispatch reads quota-axi's own `kiro` provider row, never `claude`.
 quota-axi reports that row with unknown quota semantics and reads it only while no Kiro process or task is running, so while a Kiro crewmate works the row reads as busy and unknown.
 The resolver therefore treats a kiro profile as eligible but unranked, with that uncertainty disclosed, as `../../quota-array-dispatch/SKILL.md` prescribes.
+Known accepted race: a quota read that starts within about one second of a Kiro launch can run the V3 start-up sweep over the real `~/.kiro/tasks` and clear that new task's running status ([What KIRO_HOME relocates under V3](../../../../../docs/verification/kiro.md#what-kiro_home-relocates-under-v3)).
 `references/common/primary-hooks.md`'s unsupported-boundary rule applies: never invent a wake protocol from a similar TUI.
