@@ -1,0 +1,25 @@
+kiro-cli: kiro-cli 2.24.1
+### Scenario A: config/kiro-engine=v9 (unknown)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//fm-lab.MxmFg1
+error: config/kiro-engine holds 'v9'; accepted values are: v3 (the default when the file is absent), v2
+rc=1
+state after A:
+lab tmux sessions:
+error connecting to /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-lab.MxmFg1/tmux/tmux-501/fm-lab (No such file or directory)
+
+### Scenario B: engine v3 (file absent), unlisted model checked against real kiro-cli V3 catalog
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//fm-lab.MxmFg1
+error: kiro model 'not-a-real-model' is not listed by 'kiro-cli --list-models'; choose a listed model_id or omit --model
+rc=1
+state after B:
+lab tmux sessions:
+error connecting to /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-lab.MxmFg1/tmux/tmux-501/fm-lab (No such file or directory)
+
+### Scenario C: engine v2, unlisted model checked against real kiro-cli V2 catalog
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T//fm-lab.MxmFg1
+error: kiro model 'not-a-real-model' is not listed by 'kiro-cli --list-models'; choose a listed model_id or omit --model
+rc=1
+state after C:
+
+~/.kiro/hooks untouched:
+unchanged
