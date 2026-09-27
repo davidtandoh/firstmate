@@ -1731,6 +1731,9 @@ Pi, pi-signed, Grok, Kimi, Cursor, Muse, Rovo, and omp were absent on this host;
 `tests/fm-backend-herdr.test.sh` covers missing and placeholder registration with a live foreground harness, a live harness descendant outside the foreground group, the decorated-shell foreground above with and without a real harness descendant, a shell-only pane, unreadable evidence, and an unrelated process.
 `tests/fm-crew-state.test.sh` proves that missing registration cannot turn a live harness into a gone endpoint while retaining the shell-only recovery verdict.
 `tests/fm-harness-liveness-drift-live-e2e.test.sh` refreshes the separate tmux process and harness-ancestry boundary.
+On 2026-09-27 the guard also verified Kiro CLI 2.24.1 on Herdr 0.9.1: the V3 Bun process classified as an agent without its launcher, the live endpoint remained `alive`, and cleanup left a `dead` shell.
+[Kiro verification](kiro.md#v3-foreground-process-identity) owns the commands, output, and shell-integration identity evidence.
+
 ### Pane status authority across a relaunch
 
 Measured 2026-09-21 on Linux x86_64 against Herdr 0.9.1 (client protocol 22) and Pi 0.86.1, in an isolated `fm-lab-` session (`bin/fm-herdr-lab.sh`), after the same freeze was observed live on a relaunched Pi crewmate whose pane read `idle` while its validation pipeline ran.

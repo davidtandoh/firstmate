@@ -44,7 +44,7 @@ workspace=$(lab workspace create --label harness-liveness --cwd "$TMP_ROOT/cwd" 
 ws=$(printf '%s' "$workspace" | jq -er '.result.workspace.workspace_id')
 checked=0
 
-for harness in claude codex opencode pi pi-signed grok kimi cursor gemini muse rovo omp agy; do
+for harness in claude codex opencode pi pi-signed grok kimi cursor gemini muse rovo omp agy kiro; do
   if ! binary=$(fm_test_resolve_harness_binary "$harness"); then
     printf '# skip: %s is not installed; Herdr process liveness is unverified here\n' "$harness"
     continue
@@ -58,6 +58,7 @@ for harness in claude codex opencode pi pi-signed grok kimi cursor gemini muse r
   shell_identity=$(fm_pid_identity "$shell_pid") || fail "$harness: pane shell identity is unreadable"
   args=''
   [ "$harness" != cursor ] || args=' --trust'
+  [ "$harness" != kiro ] || args=' chat --agent-engine v3'
   launch=$(printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE %q%s' "$binary" "$args")
   lab pane run "$pane" "$launch" >/dev/null
   process=''
@@ -67,6 +68,24 @@ for harness in claude codex opencode pi pi-signed grok kimi cursor gemini muse r
     sleep 0.1
   done
   [ "$process" = agent ] || fail "Herdr $herdr_version + $harness $version: running harness process is not attributable ($process)"
+  # Kiro's launcher is already recognizable. Require the V3 interpreter
+  # itself so that the launcher cannot make a broken bun rule pass vacuously.
+  if [ "$harness" = kiro ]; then
+    kiro_process=''
+    for _ in $(seq 1 100); do
+      info=$(lab pane process-info --pane "$pane")
+      kiro_process=$(printf '%s' "$info" | jq -c \
+        '.result.process_info.foreground_processes[] | select(.name == "bun")' | head -1)
+      [ -z "$kiro_process" ] || break
+      sleep 0.1
+    done
+    [ -n "$kiro_process" ] || fail "Herdr $herdr_version + $harness $version: no V3 bun foreground process observed"
+    kiro_argv0=$(printf '%s' "$kiro_process" | jq -r '.argv[0] // .argv0 // empty')
+    kiro_args=$(printf '%s' "$kiro_process" | jq -r '.cmdline // (.argv | join(" "))')
+    [ "$(fm_agent_process_classify bun "$kiro_argv0" "$kiro_args")" = agent ] \
+      || fail "Herdr $herdr_version + $harness $version: V3 bun process is not attributable without its launcher"
+    pass "Herdr Kiro V3: bun and tui.js identify an agent independently of the launcher"
+  fi
   info=$(lab pane process-info --pane "$pane")
   child_pid=$(printf '%s' "$info" | jq -er --arg pane "$pane" --argjson shell "$shell_pid" \
     '.result.process_info | select(.pane_id == $pane and .shell_pid == $shell) | .foreground_process_group_id | select(type == "number" and . > 1)')

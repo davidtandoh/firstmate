@@ -9,6 +9,7 @@ fm_test_resolve_harness_binary() { # <harness>
     fm_cursor_resolve_binary 2>/dev/null && return 0
     return 1
   fi
+  [ "$harness" != kiro ] || harness=kiro-cli
   candidate=$(command -v "$harness" 2>/dev/null || true)
   if [ -n "$candidate" ] && [ -x "$candidate" ]; then
     printf '%s\n' "$candidate"

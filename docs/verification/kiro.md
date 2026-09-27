@@ -203,8 +203,62 @@ Its failure names the folded delivery tail it read, alongside the harness and ve
 ## V3 engine (kiro-cli 2.24.1, macOS)
 
 Added on 2026-09-26 on macOS with `kiro-cli 2.24.1` (`/Applications/Kiro CLI.app`, launcher `~/.local/bin/kiro-cli`).
-Everything in this section comes from installed help, credit-free `agent` commands, and reading the installed V3 JavaScript bundles.
-No V3 chat, ACP session, or live crewmate was run, so the lifecycle rows at the end of the section stay unproven until the live canary below passes.
+The initial evidence came from installed help, credit-free `agent` commands, and reading the installed V3 JavaScript bundles.
+The token-free foreground-process verification below adds a live V3 launch on 2026-09-27; it does not prove prompt receipt, hooks, or the lifecycle rows at the end of this section.
+
+### V3 foreground-process identity
+
+Verified 2026-09-27 on macOS with `kiro-cli 2.24.1` and Herdr 0.9.1 in a helper-owned non-default lab.
+The shared identity owner is `fm_agent_process_classify_name` in `bin/fm-agent-process-lib.sh`; Herdr and tmux supply its command-line evidence.
+The token-free live guard now resolves `kiro` to `kiro-cli`, launches `chat --agent-engine v3`, and requires the Bun process itself to classify as an agent independently of the recognized launcher.
+Refresh with:
+
+```sh
+bin/fm-test-run.sh tests/fm-herdr-agent-liveness-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+ok - Herdr Kiro V3: bun and tui.js identify an agent independently of the launcher
+# Herdr 0.9.1 + kiro kiro-cli 2.24.1: process=agent registration=unknown endpoint=alive
+# Herdr 0.9.1 + kiro kiro-cli 2.24.1: settled registration=unknown endpoint=alive
+ok - Herdr stopped harness: kiro kiro-cli 2.24.1 leaves a recoverable shell after identity-bound test cleanup
+# checked 6 installed harnesses; no prompt submitted
+```
+
+The structural evidence came from these reads inside the named lab, after launching `kiro-cli chat --agent-engine v3`:
+
+```sh
+"$HERDR_LAB_HELPER" run "$HERDR_LAB_SESSION" pane process-info --pane "$pane"
+ps -p "$pid" -o pid=,comm=,args=
+```
+
+Herdr reported `name=bun` and an argv array consisting of the bundled `kiro-cli/bun`, `--no-env-file`, the adjacent `kiro-cli/tui.js`, `chat`, `--agent-engine`, and `v3`.
+Both executable and script were under `~/Library/Application Support/kiro-cli/`.
+The `ps` comm field was truncated to `/Users/davidtand`; its args field retained the complete paths including the space in `Application Support`.
+The classifier requires the observed executable/script relationship; an unrelated Bun process or another script under the same runtime remains `other`.
+The live process group also contained `kiro-cli` and `kiro-cli-chat`, which is why the guard checks the Bun member separately.
+
+### Kiro shell-integration identity
+
+The 2026-09-27 agent-station handoff reported Herdr `name="zsh (kiro-cli-t"` and `argv0="zsh (kiro-cli-term)"` for an empty shell.
+That remote observation was supplied with this task and was not re-read from the remote endpoint.
+On 2026-09-27 the title was replayed with a real local shell in the isolated lab:
+
+```sh
+"$HERDR_LAB_HELPER" run "$HERDR_LAB_SESSION" pane run "$shellpane" \
+  "exec -a 'zsh (kiro-cli-term)' /bin/zsh -f"
+"$HERDR_LAB_HELPER" run "$HERDR_LAB_SESSION" pane process-info --pane "$shellpane"
+ps -p "$pid" -o pid=,comm=,args=
+```
+
+Herdr 0.9.1 reported `name="zsh"`, `argv0="zsh (kiro-cli-term)"`, and `argv=["zsh (kiro-cli-term)","-f"]`.
+The local `ps` comm field was `zsh (kiro-cli-te` and args was `zsh (kiro-cli-term) -f`.
+This verifies how the current local tools expose a renamed shell; it does not claim a native Kiro shell-integration launch on this host.
+The full title and the two observed truncations classify as shells.
+The descendant check still keeps a real agent under such a shell alive; only a shell without an agent descendant permits recovery.
+`tests/fm-kiro-harness.test.sh`, `tests/fm-tmux-agent-liveness.test.sh`, and `tests/fm-backend-herdr.test.sh` cover the classifier, the real-process command-line path, and the recovery boundary respectively.
 
 ### Launch surface
 

@@ -24,8 +24,22 @@
 # Keeping one classifier means independent name sources (a kernel process
 # name, an argv[0], a rendered pane title) can never drift into disagreeing
 # about what a given name means.
-fm_agent_process_classify_name() {  # <path> [argv0] -> agent|shell|other
-  local path=$1 argv0=${2:-} base
+fm_agent_process_classify_name() {  # <path> [argv0] [args] -> agent|shell|other
+  local path=$1 argv0=${2:-} args=${3:-} base kiro_root kiro_script
+  # Kiro V3 uses its bundled bun with an adjacent tui.js. Keep the exact
+  # executable/script relationship, including spaces in macOS install paths.
+  # A bare bun, a different script, or a later mention of tui.js is not proof.
+  case "$args" in
+    /*/kiro-cli/bun\ --no-env-file\ *)
+      kiro_root=${args%%/kiro-cli/bun --no-env-file *}/kiro-cli
+      kiro_script=${args#"$kiro_root/bun --no-env-file "}
+      if [ "$argv0" = "$kiro_root/bun" ] || { [ "${argv0##*/}" != bun ] && [ "$argv0" = "${kiro_root%%[[:space:]]*}" ]; }; then
+        case "$kiro_script" in
+          "$kiro_root/tui.js"|"$kiro_root/tui.js "*) printf 'agent'; return 0 ;;
+        esac
+      fi
+      ;;
+  esac
   base=${path##*/}
   base=${base#-}
   case "$base" in
@@ -52,11 +66,15 @@ fm_agent_process_classify_name() {  # <path> [argv0] -> agent|shell|other
     # live foreground process name is the bare word `kiro-cli` (verified,
     # kiro-cli 2.21.4: a toolbox/aim-sandbox wrapper whose comm reads kiro-cli,
     # with the compiled binary a descendant), and a glob would claim unrelated
-    # commands containing that fragment. comm and argv[0] are the fields this
-    # classifier gets; tmux's #{pane_current_command} carries the launcher's name
+    # commands containing that fragment. The V3 command-line rule above
+    # owns its bundled interpreter shape. tmux's #{pane_current_command}
+    # carries the launcher's name
     # where kiro-cli sits behind a wrapper, so it is not a dependable kiro
     # identity (docs/verification/kiro.md).
     kiro-cli) printf 'agent' ;;
+    # Kiro's shell integration changes argv[0]; retain the observed Linux
+    # Herdr and macOS ps truncations as shells, never agents.
+    'zsh (kiro-cli-term)'|'zsh (kiro-cli-t'|'zsh (kiro-cli-te') printf 'shell' ;;
     zsh|bash|sh|dash|ash|ksh|mksh|tcsh|csh|fish) printf 'shell' ;;
     *)
       if fm_harness_path_name "$path" >/dev/null || fm_harness_path_name "$argv0" >/dev/null; then
@@ -90,18 +108,18 @@ fm_agent_process_classify_name() {  # <path> [argv0] -> agent|shell|other
 #            on Linux the exec name, on macOS argv[0] truncated to 16 bytes.
 #   <argv0>  argv[0] as the process reports it - a bare name or an install
 #            path, whichever the launcher used (empty when unknown).
-#   <args>   the flattened command line, read only for the node-bundle
-#            harnesses whose identity sits in argv[1] (bin/fm-gemini-lib.sh).
+#   <args>   the flattened command line, read for bundled interpreters whose
+#            script argument carries identity (Kiro and bin/fm-gemini-lib.sh).
 #   [pid]    when given, lets the Gemini rule read argv boundaries from the
 #            live process instead of the flattened line.
 fm_agent_process_classify() {  # <name> <argv0> <args> [pid] -> agent|shell|other
   local name=${1:-} argv0=${2:-} args=${3:-} pid=${4:-} by_name by_argv0
-  by_name=$(fm_agent_process_classify_name "$name" "$argv0")
+  by_name=$(fm_agent_process_classify_name "$name" "$argv0" "$args")
   [ "$by_name" != agent ] || { printf 'agent'; return 0; }
   if [ -n "$argv0" ]; then
     # argv[0] is classified as a path in its own right, so a bare `pi` or a
     # `-zsh` login name reads by basename and an install path by component.
-    by_argv0=$(fm_agent_process_classify_name "$argv0" "$argv0")
+    by_argv0=$(fm_agent_process_classify_name "$argv0" "$argv0" "$args")
     [ "$by_argv0" != agent ] || { printf 'agent'; return 0; }
   else
     by_argv0=$by_name

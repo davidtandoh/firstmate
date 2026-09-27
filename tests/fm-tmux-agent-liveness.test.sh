@@ -203,6 +203,22 @@ wait_for_state "$SESSION:agent" alive \
   || fail "a running harness-named foreground process must classify alive"
 pass "tmux liveness: a harness-named foreground process classifies alive"
 
+# Kiro V3's interpreter has no harness name. Command-line evidence must
+# carry the verdict, including an install path with spaces; the script decoy
+# holds the executable identity constant while removing that evidence.
+mkdir -p "$LAB/Application Support/kiro-cli"
+ln -s "$STANDIN_BIN" "$LAB/Application Support/kiro-cli/bun"
+new_window kiro-v3 "$LAB/Application Support/kiro-cli/bun" --no-env-file "$LAB/Application Support/kiro-cli/tui.js"
+wait_for_state "$SESSION:kiro-v3" alive \
+  || fail "Kiro V3 command-line evidence must identify the interpreter"
+if title_classifies_agent "$SESSION:kiro-v3" || comms_classify_agent "$SESSION:kiro-v3"; then
+  fail "Kiro V3 regression must not get agent identity from process names"
+fi
+new_window kiro-decoy "$LAB/Application Support/kiro-cli/bun" --no-env-file "$LAB/other.js"
+wait_for_state "$SESSION:kiro-decoy" ambiguous \
+  || fail "the same bun executable with an unrelated script must stay ambiguous"
+pass "tmux liveness: Kiro V3 script identity carries the verdict without process-name evidence"
+
 # --- muse's version-suffixed binary name ------------------------------------
 # A muse crewmate pane misclassified here reads as a dead endpoint, so a healthy
 # worker would be torn down or relaunched. The decoys below are what keep the

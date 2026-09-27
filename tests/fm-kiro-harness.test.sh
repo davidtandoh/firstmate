@@ -143,7 +143,33 @@ test_kiro_liveness_names_the_command_an_agent() {
     || fail "the kiro-cli process name must classify as a live agent"
   [ "$(fm_agent_process_classify_name /usr/bin/kiroctl)" = other ] \
     || fail "an unrelated kiroctl process must not classify as a kiro agent"
-  pass "fm-agent-process-lib: kiro-cli is an agent, unrelated names are not"
+  local install='/Users/test/Library/Application Support/kiro-cli' args name argv0
+  args="$install/bun --no-env-file $install/tui.js chat --agent-engine v3"
+  [ "$(fm_agent_process_classify_name bun "$install/bun" "$args")" = agent ] \
+    || fail "Kiro V3's bundled bun and tui.js must identify an agent"
+  [ "$(fm_agent_process_classify bun "$install/bun" "$args")" = agent ] \
+    || fail "the shared classifier must forward Kiro V3 command-line evidence"
+  [ "$(fm_agent_process_classify /Users/test/Libr /Users/test/Library/Application "$args")" = agent ] \
+    || fail "Kiro paths containing spaces must survive truncated ps identity fields"
+  for args in '/usr/bin/bun' '/usr/bin/bun /tmp/tui.js' \
+    "$install/bun --no-env-file $install/tui.js.bak" \
+    "$install/bun --no-env-file /tmp/tui.js" \
+    "/usr/bin/bun /tmp/app.js $install/tui.js" \
+    "/usr/bin/bun /tmp/app.js $install/bun --no-env-file /usr/bin/bun /tmp/app.js $install/tui.js"; do
+    argv0=/usr/bin/bun
+    case "$args" in "$install/bun "*) argv0="$install/bun" ;; esac
+    [ "$(fm_agent_process_classify bun "$argv0" "$args")" = other ] \
+      || fail "unrelated bun command must not identify an agent: $args"
+  done
+  for name in 'zsh (kiro-cli-term)' 'zsh (kiro-cli-t' 'zsh (kiro-cli-te'; do
+    [ "$(fm_agent_process_classify_name "$name")" = shell ] \
+      || fail "Kiro shell integration name must identify a shell: $name"
+    [ "$(fm_agent_process_classify "$name" 'zsh (kiro-cli-term)' 'zsh (kiro-cli-term)')" = shell ] \
+      || fail "both decorated shell identity fields must agree on shell"
+  done
+  [ "$(fm_agent_process_classify_name 'zsh (kiro-cli-task)')" = other ] \
+    || fail "unverified Kiro-like shell titles must remain other"
+  pass "fm-agent-process-lib: Kiro V2/V3 agents and decorated shells stay distinct"
 }
 
 # --- Control ----------------------------------------------------------------
