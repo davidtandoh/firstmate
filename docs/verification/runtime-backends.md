@@ -2433,5 +2433,6 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 On 2026-09-29, Herdr 0.9.1 reported Omnigent 0.16.0.dev0 (d8208e80) as a Python foreground wrapper around Codex 0.157.1.
 Named Herdr labs verified wrapper attribution, one initial Codex exit, and a later Codex primary-to-worker launch with redacted worker request/response content in MLflow.
-The later worker exposed unresolved turn-end notification and composer/exit failures; complete wrapped supervision is not verified.
+Restoring UTF-8 on the existing terminal attach resolved its composer/exit failure; the wrapped Codex app-server still lacks the task's turn-end notification configuration.
+Complete wrapped supervision and a fresh launch of the corrected entrypoint remain unverified.
 The [Omnigent verification record](omnigent.md) owns the exact evidence, incomplete harness matrix, and `tests/fm-omnigent-live-e2e.test.sh` refresh command.

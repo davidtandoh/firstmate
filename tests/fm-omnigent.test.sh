@@ -56,6 +56,22 @@ export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+LC_ALL=C "$OMNI" run codex 'locale probe'
+jq -e '.client_encoding == "UTF-8"' "$OMNI_RESULT" >/dev/null \
+  || fail 'Omnigent attach must preserve native glyphs under an ASCII supervisor locale'
+cat > "$TMP_ROOT/tools/locale" <<'SHIM'
+#!/usr/bin/env bash
+printf 'C\nPOSIX\n'
+SHIM
+chmod +x "$TMP_ROOT/tools/locale"
+rm "$OMNI_RESULT"
+if LC_ALL=C "$OMNI" run codex 'locale probe' > "$TMP_ROOT/error" 2>&1; then
+  fail 'launch without an installed UTF-8 locale was accepted'
+fi
+[ ! -e "$OMNI_RESULT" ] || fail 'missing locale launched Omnigent'
+grep -q 'UTF-8 locale' "$TMP_ROOT/error" || fail 'missing locale refusal is not actionable'
+rm "$TMP_ROOT/tools/locale"
+pass 'Omnigent attach uses UTF-8 or refuses before native launch'
 # shellcheck disable=SC2016 # Literal shell syntax must survive the launch unchanged.
 env -u FM_ROOT_OVERRIDE FM_HOME="$TMP_ROOT/secondmate" COMPACT_ADVISER_DISABLE=1 FM_OMNIGENT=on \
   "$OMNI" run codex --model chosen-model -c 'model_reasoning_effort="high"' --disable hooks 'literal $HOME; $(false)'

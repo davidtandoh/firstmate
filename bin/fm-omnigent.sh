@@ -138,4 +138,19 @@ while [ "${#NATIVE[@]}" -gt 0 ]; do
     NATIVE=("${NATIVE[@]:1}")
   fi
 done
-exec env "${CLIENT_ENV[@]}" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}"
+# Omnigent attaches through tmux without -u. An ASCII supervisor locale makes
+# that client replace native prompt glyphs with underscores, so the shared
+# composer reader cannot prove safe steering or exit. Set only the attaching
+# client's locale; the explicit native environment above remains independent.
+client_locale=${LC_ALL:-${LC_CTYPE:-${LANG:-}}}
+client_locale=$(locale -a | LC_ALL=C awk -v current="$client_locale" '
+  tolower($0) ~ /[.]utf-?8$/ {
+    if (!first) first=$0
+    if ($0 == current) selected=$0
+    if (tolower($0) == "en_us.utf-8" || tolower($0) == "en_us.utf8") english=$0
+    if (tolower($0) == "c.utf8" || tolower($0) == "c.utf-8") neutral=$0
+  }
+  END { print selected ? selected : (neutral ? neutral : (english ? english : first)) }
+') || fail 'cannot list installed locales for the native terminal attach'
+[ -n "$client_locale" ] || fail 'an installed UTF-8 locale is required for the native terminal attach'
+exec env "${CLIENT_ENV[@]}" LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}"

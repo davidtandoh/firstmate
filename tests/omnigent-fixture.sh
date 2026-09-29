@@ -25,7 +25,7 @@ SHIM
 set -euo pipefail
 case "$*" in *--help) printf '  --env KEY=VALUE\n'; exit 0 ;; esac
 python3 - "$0" "$@" <<'PY'
-import json, os, pathlib, sys
+import json, os, pathlib, subprocess, sys
 service = pathlib.Path(sys.argv[1]).parents[2]
 args = sys.argv[2:]
 environment = {}
@@ -35,6 +35,7 @@ for index, value in enumerate(args[:-1]):
         environment[name] = text
 with (service / 'result.json').open('w') as output:
     json.dump({'argv': args, 'environment': environment,
+               'client_encoding': subprocess.check_output(['locale', 'charmap'], text=True).strip(),
                'config_home': os.environ.get('OMNIGENT_CONFIG_HOME')}, output)
 PY
 SHIM

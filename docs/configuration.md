@@ -585,7 +585,8 @@ bin/fm-omnigent.sh start claude
 The launcher resolves the Kit-managed Omnigent executable, server URL, and client environment from the host's status response.
 It runs the equivalent of `omnigent claude --server <server_url>` with that environment and explicit native environment propagation.
 A separately launched `omnigent claude` or `omnigent codex` session is also detected through the native `OMNIGENT=1` marker, provided it uses the same working service and native environment interface.
-A missing executable, unsupported interface, stopped service, invalid status, or unhealthy server refuses the launch with a diagnostic.
+A missing executable, unsupported interface, stopped service, invalid status, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
+The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
 Firstmate never retries the launch without tracing.
 
 ### Claude external-import consent

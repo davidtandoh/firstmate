@@ -57,12 +57,34 @@ Presence of a requested response string inside a user prompt is not assistant-re
 The verification used `MlflowClient.search_traces` scoped to experiment `1`, ``metadata.`mlflow.trace.session` = '<conversation-id>'``, and `span.name LIKE 'agent:%'`, then `MlflowClient.get_trace` for the matching trace.
 It checked user and assistant items separately and retained counts and safe markers instead of raw exported transcripts.
 
+## Codex composer and notification diagnosis
+
+A paired capture on 2026-09-29 found the native `›` glyph in Codex's own tmux screen and an underscore in the outer Herdr screen.
+The attaching tmux client reported `client_utf8=0` under `LC_ALL=C`.
+Reattaching that same terminal with `LC_ALL=en_US.UTF-8` restored the glyph; the unchanged shared composer classifier returned `empty`, and `fm-control exit` returned `stopped`.
+Firstmate now selects an installed UTF-8 locale for the attaching client.
+The portable fixture keeps an underscore composer `unknown` and proves that real drafts remain `pending` beside the Omnigent footer.
+The live guard deliberately launches from an ASCII supervisor locale.
+A fresh launch of the corrected entrypoint stopped before native startup because the host daemon did not become available within 30 seconds, so that complete launch still needs verification.
+
+The worker's terminal argv contained its task-specific `notify` override, but the paired native Codex app-server argv did not.
+The app-server's private config retained the ambient notification command instead of Firstmate's task marker.
+The app-server environment did contain the expected `FM_TASK_ID`, `FM_OMNIGENT=on`, and `OMNIGENT=1`.
+A direct Codex launch with the same notification flags created its turn-end marker; the wrapped launch did not.
+The installed Omnigent server builder consumes the terminal arguments for profile selection but does not propagate the task's notification override to the app-server configuration.
+This boundary needs an Omnigent correction; adding more Firstmate environment variables does not supply the missing configuration.
+
+A second primary-to-worker run reproduced the primary's missing final response in MLflow while its final response existed in Omnigent's transcript store.
+An isolated fixture against the installed PAK redactor reproduced acceptance of assistant commentary before the expected final response, returning in less than one millisecond despite its 10-second settle budget.
+The earlier `mlflow-forward-failed` diagnostic lacks the status, exception cause, size, and timing needed to attribute that specific failure.
+A separate 147-byte synthetic forwarding probe returned HTTP 200 in 31 milliseconds; it does not explain the historical failure.
+
 ## Remaining live boundaries
 
 | Check | Observed result |
 |---|---|
-| Codex turn-end notification | The launch passed its `notify` command to the real Codex CLI, but neither the initial turn nor the steering turn created the notification file. |
-| Codex control exit | The earlier environment probe exited successfully; the later completed worker's composer classified `unknown`, so `fm-control` refused to submit `/quit`. |
+| Codex turn-end notification | Native control passed; the wrapped app-server lacks the task notification override. |
+| Codex control exit | Passed after restoring UTF-8 on the existing terminal attach; a fresh corrected launch remains blocked before native startup. |
 | Codex interrupt and relaunch | Not proven after the later composer refusal. |
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
 | Claude native supervision | Follow-up gated on the operator's [manual consent procedure](../configuration.md#claude-external-import-consent). |
@@ -85,7 +107,7 @@ LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
 ```
 
 The local contract test executes the launch delivered to ship, scout, and secondmate panes and observes the explicit native arguments and environment at a service double.
-It checks marker detection, home policy, malformed settings, service refusal before metadata publication, native opt-out, and dispatch preservation.
+It checks marker detection, home policy, malformed settings, service refusal before metadata publication, native opt-out, dispatch preservation, and the attaching client's UTF-8 locale.
 The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises recovery without an inherited marker.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.

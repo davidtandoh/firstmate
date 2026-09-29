@@ -70,7 +70,8 @@ for harness in claude codex kiro agy; do
     kiro) args=(chat --agent-engine v3 --trust-all-tools '') ;;
     agy) args=(--dangerously-skip-permissions) ;;
   esac
-  launch=$(printf '%q ' env -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE "$ROOT/bin/fm-omnigent.sh" run "$harness" "${args[@]}")
+  # An ASCII supervisor locale must not corrupt the wrapper's tmux attach.
+  launch=$(printf '%q ' env -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE LC_ALL=C "$ROOT/bin/fm-omnigent.sh" run "$harness" "${args[@]}")
   lab pane run "$pane" "$launch" >/dev/null
   state=''
   for _ in $(seq 1 100); do
