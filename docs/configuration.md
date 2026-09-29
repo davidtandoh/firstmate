@@ -588,6 +588,20 @@ A separately launched `omnigent claude` or `omnigent codex` session is also dete
 A missing executable, unsupported interface, stopped service, invalid status, or unhealthy server refuses the launch with a diagnostic.
 Firstmate never retries the launch without tracing.
 
+### Claude external-import consent
+
+Claude-under-Omnigent acceptance is a follow-up until the operator reviews and answers Claude's external-import dialog.
+Agents must leave that dialog unanswered; the [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md#workspace-trust) owns consent persistence and its scope.
+
+1. In an interactive terminal, open the original project checkout used by the workers, for example `cd ~/workspace/firstmate`.
+2. Run `bin/fm-omnigent.sh start claude` with the healthy Kit service already running.
+3. When Claude asks to allow external `CLAUDE.md` imports, review the listed files.
+   If you approve those imports, use the terminal's arrow keys to select **Yes, allow external imports**, then press Enter yourself.
+   If you decline, leave Claude verification gated.
+4. After the normal composer appears, enter `/exit`.
+5. Rerun the Claude worker canary and the [live verification](verification/omnigent.md#live-herdr-guard).
+   A different project or another consent prompt requires its own review; a prior approval is not permission for an agent to rewrite Claude's trust store.
+
 ### Select the home policy
 
 The optional local, gitignored `config/omnigent` file contains one token:
