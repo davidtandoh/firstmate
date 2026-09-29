@@ -58,6 +58,10 @@ export FM_TEST_SEAM=1
 # under the marker. A case that verifies the refusal sets FM_TASK_ID itself.
 unset FM_TASK_ID
 
+# A suite launched from a traced primary must not contact the real observation
+# service. Omnigent contract cases set their marker after sourcing this library.
+unset OMNIGENT FM_OMNIGENT
+
 # Clear the tasks-axi env overrides. An operator shell exports TASKS_AXI_FILE
 # (and may export TASKS_AXI_BACKEND) at its real home's backlog, and tasks-axi
 # resolves that env AHEAD of the .tasks.toml a fixture copies, so a suite that

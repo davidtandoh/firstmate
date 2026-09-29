@@ -92,6 +92,7 @@ printf 'herdr_session=fm-remote\n'
 printf 'harness=%s\n' "$harness"
 printf 'model=%s\n' "$model"
 printf 'effort=%s\n' "$effort"
+[ "${FM_FAKE_OMNIGENT:-}" != on ] || printf 'omnigent=on\n'
 SH
 chmod +x "$FAKEBIN/fake-ssh"
 
@@ -188,5 +189,15 @@ expect_code 0 "$RC" "a confirmed remote relaunch should succeed with an armed PR
 fm_pr_poll_artifacts_valid "$HOME_DIR/state" ios "$ROOT/bin/fm-pr-poll.sh" \
   || fail "a remote relaunch broke PR poll authentication by writing harness/model/effort after pr="
 pass "a remote relaunch keeps an already-armed PR poll authenticating"
+
+
+reset_meta
+OUT=$(FM_FAKE_OMNIGENT=on run_relaunch ios codex gpt-5.4 high); RC=$?
+expect_code 0 "$RC" 'wrapped remote relaunch should publish the confirmed mode'
+assert_grep 'omnigent=on' "$HOME_DIR/state/ios.meta" 'remote relaunch lost its confirmed mode'
+OUT=$(run_relaunch ios codex gpt-5.4 high); RC=$?
+expect_code 0 "$RC" 'native remote relaunch should clear the old wrapped mode'
+if grep -q '^omnigent=' "$HOME_DIR/state/ios.meta"; then fail 'remote relaunch retained a stale wrapped mode'; fi
+pass 'parent recovery records the remote endpoint actual Omnigent mode'
 
 echo "ALL TESTS PASSED"

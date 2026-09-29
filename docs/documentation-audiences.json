@@ -389,6 +389,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/omnigent.md",
+      "audience": "maintainer-architecture"
+    },
+    {
       "path": "docs/orca-backend.md",
       "audience": "operator-current"
     },
@@ -494,6 +498,10 @@
     },
     {
       "path": "docs/verification/muse.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/verification/omnigent.md",
       "audience": "maintainer-verification"
     },
     {

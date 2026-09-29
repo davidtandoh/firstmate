@@ -296,6 +296,25 @@ comms_classify_agent "$SESSION:launcher" \
   || fail "the launcher's harness child must be visible in the foreground process group"
 pass "tmux liveness: a launcher whose own identity reads as a bare shell classifies alive from its harness child"
 
+# Omnigent's interpreter name alone carries no harness identity. The ordered
+# interpreter/entrypoint/subcommand argv must carry it independently.
+if command -v python3 >/dev/null 2>&1; then
+  printf '%s\n' 'import time; time.sleep(900)' > "$LAB/bin/omnigent"
+  cp "$LAB/bin/omnigent" "$LAB/bin/probe.py"
+  new_window omni-python python3 "$LAB/bin/omnigent" codex --server http://127.0.0.1:6767
+  wait_for_state "$SESSION:omni-python" alive \
+    || fail 'the real Python Omnigent wrapper must classify alive from ordered argv'
+  title_classifies_agent "$SESSION:omni-python" && fail 'Python title must be blind for this case'
+  comms_classify_agent "$SESSION:omni-python" && fail 'Python comm/argv0 must be blind for this case'
+  new_window omni-server python3 "$LAB/bin/omnigent" server
+  wait_for_state "$SESSION:omni-server" ambiguous || fail 'Omnigent server must not be an agent'
+  new_window omni-decoy python3 "$LAB/bin/probe.py" omnigent codex
+  wait_for_state "$SESSION:omni-decoy" ambiguous || fail 'a later Omnigent mention must not imply an agent'
+  pass 'tmux Omnigent liveness survives blind process names and rejects unrelated Python'
+else
+  echo 'skip: python3 absent; real interpreter liveness unverified'
+fi
+
 # --- an idle shell is still confidently dead --------------------------------
 
 wait_for_state "$SESSION:idle" dead \

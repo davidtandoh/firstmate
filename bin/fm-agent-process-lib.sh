@@ -26,6 +26,18 @@
 # about what a given name means.
 fm_agent_process_classify_name() {  # <path> [argv0] [args] -> agent|shell|other
   local path=$1 argv0=${2:-} args=${3:-} base kiro_root kiro_script
+  # Omnigent's native CLI remains the foreground Python process while a
+  # tmux client attaches the daemon-owned harness. Require the interpreter,
+  # entrypoint, and native subcommand in order; server/host and later mentions
+  # of an agent are not liveness evidence (docs/verification/omnigent.md).
+  case "${path##*/}" in
+    python|python[0-9]*|Python)
+      if [[ "$args" =~ ^([^[:space:]]*/)?python[0-9.]*[[:space:]]+[^[:space:]]*/omnigent[[:space:]]+(claude|codex|kiro|agy|antigravity)([[:space:]]|$) ]]; then
+        printf 'agent'
+        return 0
+      fi
+      ;;
+  esac
   # Kiro V3 uses its bundled bun with an adjacent tui.js. Keep the exact
   # executable/script relationship, including spaces in macOS install paths.
   # A bare bun, a different script, or a later mention of tui.js is not proof.

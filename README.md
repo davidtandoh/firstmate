@@ -143,6 +143,7 @@ Pi's `/supervision-model` command pins a cheaper model and a shallower reasoning
 ### More backends
 
 Setup guides for tmux (the default) and every other supported backend (herdr, zellij, Orca, cmux) are linked in [Documentation](#documentation) below.
+To launch a session through Omnigent and propagate that mode to its workers, see [Omnigent launch mode](docs/configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent) and its current verification limits.
 
 ## How It Works
 
