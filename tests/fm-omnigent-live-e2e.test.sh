@@ -4,6 +4,7 @@
 # No prompt is submitted. Busy/turn-end and MLflow export require separate
 # model-turn acceptance; this guard does not claim either from a live wrapper.
 set -euo pipefail
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/tests/herdr-test-safety.sh"
 . "$ROOT/tests/harness-live-helpers.sh"
@@ -79,11 +80,42 @@ for harness in claude codex kiro agy; do
   done
   [ "$state" = alive ] || fail "Herdr $version + Omnigent $harness $native_version: expected alive, got $state"
   # Require the wrapper itself, so a native descendant cannot hide drift.
-  info=$(lab pane process-info --pane "$pane")
-  wrapper=$(printf '%s' "$info" | jq -r '.result.process_info.foreground_processes[] | select(.name | startswith("python")) | .cmdline' | head -1)
-  [ -n "$wrapper" ] && [ "$(fm_agent_process_classify python3 python3 "$wrapper")" = agent ] \
-    || fail "$harness $native_version: no attributable Python Omnigent foreground wrapper"
+  # Herdr 0.9.1 on macOS supplies name, argv0, and pid, but no full argv.
+  # Read that exact process through ps, as the backend's descendant walk does.
+  # Shell startup/version and launch preflight processes are not the session.
+  wrapper_state=other
+  for _ in $(seq 1 100); do
+    info=$(lab pane process-info --pane "$pane")
+    wrapper=$(printf '%s' "$info" | jq -c '.result.process_info.foreground_processes[] | select(.name | test("^(python[0-9.]*|Python)$"))' | head -1)
+    if [ -n "$wrapper" ]; then
+      wrapper_pid=$(printf '%s' "$wrapper" | jq -er .pid)
+      wrapper_args=$(LC_ALL=C ps -o command= -p "$wrapper_pid" 2>/dev/null) || wrapper_args=''
+      case "$wrapper_args" in
+        *" $harness --server "*)
+          wrapper_state=$(fm_agent_process_classify \
+            "$(printf '%s' "$wrapper" | jq -r .name)" \
+            "$(printf '%s' "$wrapper" | jq -r '.argv[0] // .argv0 // empty')" \
+            "$wrapper_args" "$wrapper_pid")
+          [ "$wrapper_state" != agent ] || break
+          ;;
+      esac
+    fi
+    sleep 0.2
+  done
+  [ "$wrapper_state" = agent ] || fail "$harness $native_version: no attributable Python Omnigent foreground wrapper"
   printf '# Herdr %s + Omnigent %s %s: alive; wrapper classified from ordered argv\n' "$version" "$harness" "$native_version"
+  # Native startup follows wrapper startup. Let the shared composer reader
+  # prove readiness before the control plane attempts a native exit command.
+  composer=unknown
+  for _ in $(seq 1 100); do
+    composer=$(fm_backend_herdr_composer_state "$HERDR_LAB_SESSION:$pane")
+    [ "$composer" != empty ] || break
+    sleep 0.2
+  done
+  if [ "$composer" != empty ]; then
+    lab pane read "$pane" --source recent --lines 30 >&2
+    fail "$harness $native_version: native composer is $composer after startup"
+  fi
   cat > "$TMP_ROOT/home/state/probe.meta" <<META
 window=$HERDR_LAB_SESSION:$pane
 endpoint_task_id=probe

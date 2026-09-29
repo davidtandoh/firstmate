@@ -310,6 +310,18 @@ if command -v python3 >/dev/null 2>&1; then
   wait_for_state "$SESSION:omni-server" ambiguous || fail 'Omnigent server must not be an agent'
   new_window omni-decoy python3 "$LAB/bin/probe.py" omnigent codex
   wait_for_state "$SESSION:omni-decoy" ambiguous || fail 'a later Omnigent mention must not imply an agent'
+  if python3 -P -c 'pass' >/dev/null 2>&1; then
+    mkdir -p "$LAB/python/omnigent"
+    cp "$LAB/bin/omnigent" "$LAB/python/omnigent/cli.py"
+    new_window omni-module env "PYTHONPATH=$LAB/python" python3 -P -m omnigent.cli claude --server http://127.0.0.1:6767
+    wait_for_state "$SESSION:omni-module" alive || fail 'the exact Omnigent CLI module must classify alive'
+    title_classifies_agent "$SESSION:omni-module" && fail 'module Python title must be blind'
+    comms_classify_agent "$SESSION:omni-module" && fail 'module Python comm/argv0 must be blind'
+    new_window omni-module-server env "PYTHONPATH=$LAB/python" python3 -P -m omnigent.cli server
+    wait_for_state "$SESSION:omni-module-server" ambiguous || fail 'the Omnigent CLI server module must not be an agent'
+  else
+    echo 'skip: python3 lacks -P; real module wrapper unverified'
+  fi
   pass 'tmux Omnigent liveness survives blind process names and rejects unrelated Python'
 else
   echo 'skip: python3 absent; real interpreter liveness unverified'

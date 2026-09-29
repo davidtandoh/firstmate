@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 # Contracts for the Omnigent launch boundary and its observed process shapes.
 set -euo pipefail
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/bin/fm-agent-process-lib.sh"
 
 for harness in claude codex kiro agy antigravity; do
   got=$(fm_agent_process_classify_name python3.12 python3 "/home/user/serve/runtime/bin/python3 /home/user/serve/runtime/bin/omnigent $harness --server http://127.0.0.1:6767")
   [ "$got" = agent ] || fail "Omnigent $harness Python wrapper should be an agent, got $got"
+  got=$(fm_agent_process_classify_name python3.12 python3 "/home/user/serve/runtime/bin/python3 -P -m omnigent.cli $harness --server http://127.0.0.1:6767")
+  [ "$got" = agent ] || fail "Omnigent $harness module wrapper should be an agent, got $got"
 done
 for args in \
+  'python3 -P -m omnigent.cli server' \
+  'python3 -P -m omnigent.cli --version' \
+  'python3 -P -m omnigent.host._daemon_entry --local' \
+  'python3 -P -m omnigent.cli codex-helper' \
+  'python3 -P -m omnigent.client codex' \
+  'python3 /tmp/probe.py -P -m omnigent.cli codex' \
   'python3 /home/user/bin/omnigent server' \
   'python3 /home/user/bin/omnigent host' \
   'python3 /tmp/probe.py omnigent codex' \
