@@ -2366,6 +2366,28 @@ ok - under the away-posture record the wake carries the verbatim read-back tail,
 
 The merge suite and the security suite dominate the wall time.
 
+### Pi 0.99 stock rendering and export boundary
+
+Verified on 2026-10-01 with Pi 0.99.2 and Node v26.3.0 on macOS.
+Set `FM_PI_PACKAGE_DIR` to the installed Pi package directory and put its executable on `PATH` to exercise the real terminal and export checks.
+Use an installed UTF-8 locale; this macOS verification used `LC_ALL=en_US.UTF-8`.
+Refresh the evidence with:
+
+```sh
+bin/fm-test-run.sh tests/fm-pi-branch-extension.test.sh tests/fm-calm-pi-extension.test.sh
+```
+
+The branch suite passed, including these real-stock and version-fixture assertions:
+
+```text
+ok - fm_branch_outcomes and fm_branch_processed call headers match stock on Pi before and from 0.99
+ok - fm_branch_outcomes hides through ToolExecutionComponent while Calm-off and HTML export stay stock
+```
+
+The Calm suite also passed with the real Pi executable, tmux, and Chrome available, including the rendered export boundary.
+The current export guard and its browser fixtures are described in [Calm regression coverage](../calm-mode-feasibility.md#regression-coverage).
+This verifies Pi 0.99.2, not future Pi releases.
+
 ## Native Codex through Pi
 
 Verified on 2026-09-08 with Pi 0.85.1 and the installed `pi-codex-native` 0.2.1 adapter.
