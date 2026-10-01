@@ -99,8 +99,8 @@ The current acceptance above confirms a fresh native launch and control exit fro
 | Codex turn-end notification and control exit | Passed on the current runtime above. |
 | Codex interrupt and recovery | The replacement launch path passed on an agent-free endpoint; interrupt and replacement of a running worker remain unverified. |
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
-| Claude native supervision | Follow-up gated on the operator's [manual consent procedure](../configuration.md#claude-external-import-consent). |
-| Kiro and Antigravity wrappers | Complete live matrix remains pending. |
+| Claude native exit | Passed on `2.1.286` in the live guard below; busy hooks and steering were not exercised. |
+| Kiro and Antigravity wrappers | Passed in the live guard below; Kiro exited natively, while Antigravity control safely refused its unknown composer. |
 | Remote secondmate | Propagation and destination service selection have portable coverage; no live remote-host acceptance is claimed. |
 
 These results do not establish complete wrapped supervision.
@@ -133,9 +133,16 @@ FM_OMNIGENT_LIVE=1 bin/fm-test-run.sh tests/fm-omnigent-live-e2e.test.sh
 
 The guard uses a named non-default lab for every Herdr call, including control subprocesses, and tears it down through the same helper.
 It checks installed Claude, Codex, Kiro, and Antigravity wrappers and reports absent optional harnesses explicitly.
-It requires the actual Python wrapper to classify as an agent, then exercises the native exit through `fm-control`.
+It requires the actual Python wrapper to classify as an agent, then exercises native exit through `fm-control` for Claude, Codex, and Kiro.
+Antigravity's shell-style composer remains `unknown`; the guard requires `fm-control` to refuse exit and leave the wrapper alive.
+This verifies safe refusal, not Antigravity native exit or steering readiness.
+Cleanup records the conversation from each test-owned pane and deletes only that conversation's terminal resources before removing the lab, including on failure.
+Each conversation's terminal list must then be empty.
 It submits no prompt and therefore makes no claim about busy hooks or export.
 The token-free guard runs by default when its required tools are installed; `FM_OMNIGENT_LIVE=0` disables it.
 An explicit `FM_OMNIGENT_LIVE=1` requires those tools and a healthy observation service.
-The latest run passed Claude wrapper attribution, then failed at its external-import consent dialog before native exit.
-Its first complete matrix run remains pending.
+On 2026-10-01, the guard passed with Claude `2.1.286`, Codex `0.159.2`, Kiro `2.26.1`, and Antigravity `1.2.14` on the managed runtime recorded above.
+The command above, run under `LC_ALL=C LC_CTYPE=C` with `FM_TEST_SKIP_ORPHAN_REAP=1`, returned `exit=0` and `failed=0`.
+Antigravity reported `liveness and safe exit refusal (native exit unverified)`; all four conversations reported `no terminal resources remain`.
+With `FM_COMPOSER_CAPTURE_LINES=1`, the same guard deliberately failed Claude readiness with `exit=1`, then reported `no terminal resources remain` for its conversation.
+Both runs removed their named labs and preserved the running default session.
