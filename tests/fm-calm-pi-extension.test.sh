@@ -3927,8 +3927,117 @@ SH
   pass "the rendered-export-DOM guard renders in one pass, retries a bounded number of Chrome start-up failures, and reports the Chrome binary, Chrome version, Pi version, exit status, and Chrome diagnostic when every attempt fails"
 }
 
+assert_export_conversation() {
+  local chrome=$1 source_file=$2 out_file=$3 pi_version=$4
+  local probe="$TMP_ROOT/conversation-probe.html" report
+  node - "$source_file" "$probe" <<'JS' || return 1
+const fs = require("node:fs");
+function checkConversation() {
+  const result = document.createElement("script");
+  result.id = "fm-export-visibility";
+  result.type = "application/json";
+  try {
+    const messages = document.getElementById("messages");
+    const tree = document.getElementById("tree-container");
+    const visible = (element) => element.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+    if (!messages || !tree || !visible(messages)) {
+      throw new Error("export DOM is missing the visible messages column or the session tree");
+    }
+    for (const [selector, text] of [
+      [".user-message", "Show a deterministic tool example."],
+      [".assistant-message", "The deterministic tool example is complete."],
+    ]) {
+      if (![...messages.querySelectorAll(selector)].some((row) => visible(row) && row.innerText.includes(text))) {
+        throw new Error(`genuine message is missing from the visible conversation: ${text}`);
+      }
+    }
+    if (document.body.classList.contains("show-hidden-messages")) {
+      throw new Error("export opened with hidden messages shown");
+    }
+    if ([...messages.querySelectorAll(".hook-message, .hook-message *")].some(visible)) {
+      throw new Error("a visible hook message leaked into the conversation column");
+    }
+    const conversation = messages.innerText;
+    if (conversation.includes("[firstmate-synthetic-input]") || conversation.includes("/tmp/probe.status")) {
+      throw new Error("a synthetic Firstmate row is visible in the conversation column");
+    }
+    for (const current of ["CURRENT_WATCHER_E2E", "CURRENT_TURN_END_E2E", "CURRENT_AWAY_E2E", "CURRENT_FROM_FIRSTMATE_E2E", "CURRENT_LAUNCH_BRIEF_E2E"]) {
+      if (!conversation.includes(current)) throw new Error(`operational input ${current} is missing from the conversation column`);
+    }
+    if (!tree.innerHTML.includes("firstmate-synthetic-input") || !tree.innerHTML.includes("/tmp/probe.status")) {
+      throw new Error("the session tree lost the synthetic row");
+    }
+    result.textContent = JSON.stringify({ ok: true });
+  } catch (error) {
+    result.textContent = JSON.stringify({ ok: false, error: String(error) }).replaceAll("<", "\\u003c");
+  }
+  document.body.append(result);
+}
+const html = fs.readFileSync(process.argv[2], "utf8");
+if (!html.includes("</body>")) throw new Error("export is missing its body closing tag");
+const probe = `<script>window.addEventListener("load", ${checkConversation.toString()});</script>`;
+fs.writeFileSync(process.argv[3], html.replace("</body>", `${probe}</body>`));
+JS
+  report=$(render_export_dom "$chrome" "$probe" "$out_file" "$pi_version") || {
+    printf 'could not render export visibility probe: %s\n' "$report" >&2
+    return 1
+  }
+  node - "$out_file" <<'JS'
+const dom = require("node:fs").readFileSync(process.argv[2], "utf8");
+const report = dom.match(/<script id="fm-export-visibility" type="application\/json">([^<]+)<\/script>/);
+if (!report) throw new Error("Chrome did not complete the export visibility assertions");
+const result = JSON.parse(report[1]);
+if (result.ok !== true) throw new Error(result.error ?? "invalid export visibility result");
+JS
+}
+
+test_export_conversation_visibility_guard() {
+  local chrome variant status out
+  chrome=$(find_chrome) || fail "Chrome or Chromium is required for export visibility assertions"
+  for variant in hidden omitted commented overridden hidden-user hidden-assistant missing-operational missing-tree; do
+    node - "$TMP_ROOT/visibility-fixture.html" "$variant" <<'JS'
+const fs = require("node:fs");
+const variant = process.argv[3];
+const hide = "body:not(.show-hidden-messages) .hook-message-hidden { display: none; }";
+const css = variant === "commented" ? `/* ${hide} */`
+  : variant === "overridden" ? `${hide} body .hook-message-hidden { display: block !important; }`
+  : variant === "hidden-user" ? `${hide} .user-message { display: none; }`
+  : variant === "hidden-assistant" ? `${hide} .assistant-message { visibility: hidden; }`
+  : hide;
+const synthetic = "[firstmate-synthetic-input] /tmp/probe.status";
+const operational = ["CURRENT_WATCHER_E2E", "CURRENT_TURN_END_E2E", "CURRENT_AWAY_E2E", "CURRENT_FROM_FIRSTMATE_E2E", "CURRENT_LAUNCH_BRIEF_E2E"];
+fs.writeFileSync(process.argv[2], `<!doctype html><html><head><style>${css}</style></head><body>
+<main><div id="messages">
+<div class="user-message">Show a deterministic tool example.</div>
+<div class="assistant-message">The deterministic tool example is complete.</div>
+${variant === "omitted" ? "" : `<div class="hook-message hook-message-hidden"><div>${synthetic}</div></div>`}
+<div>${variant === "missing-operational" ? "" : operational.join(" ")}</div>
+</div></main>
+<div id="tree-container">${variant === "missing-tree" ? "" : synthetic}</div>
+</body></html>`);
+JS
+    out=$(assert_export_conversation "$chrome" "$TMP_ROOT/visibility-fixture.html" "$TMP_ROOT/visibility-dom.html" fixture 2>&1)
+    status=$?
+    case "$variant" in
+      hidden|omitted)
+        expect_code 0 "$status" "export visibility guard rejected $variant synthetic rows: $out"
+        ;;
+      *)
+        [ "$status" -ne 0 ] || fail "export visibility guard accepted $variant"
+        case "$variant" in
+          commented|overridden) assert_contains "$out" "a visible hook message leaked" "wrong failure for $variant: $out" ;;
+          hidden-user|hidden-assistant) assert_contains "$out" "genuine message is missing" "wrong failure for $variant: $out" ;;
+          missing-operational) assert_contains "$out" "operational input CURRENT_WATCHER_E2E is missing" "wrong failure for $variant: $out" ;;
+          missing-tree) assert_contains "$out" "the session tree lost the synthetic row" "wrong failure for $variant: $out" ;;
+        esac
+        ;;
+    esac
+  done
+  pass "Chrome enforces export visibility despite commented or overridden CSS and preserves genuine messages, operational input, and the session tree"
+}
+
 test_interactive_terminal_e2e() {
-  local project config home session_file export_file export_dom default_snapshot expanded_snapshot hidden_snapshot active_before_snapshot active_hidden_snapshot export_snapshot export_settled_snapshot restored_snapshot working_snapshot working_response_snapshot restarted_snapshot resumed_restored_snapshot hash_before hash_after now version chrome chrome_report active_wait active_screen_wait boat_frame_one boat_frame_two boat_resized_snapshot boat_focus_snapshot boat_cleared_snapshot boat_hull_line boat_sail_line boat_column_one boat_column_two boat_line boat_color_snapshot boat_color_line boat_water_snapshot boat_water_line boat_water_first boat_water_changed boat_narrow_snapshot boat_freeze_snapshot boat_resume_snapshot boat_freeze_column boat_freeze_sail boat_resume_column boat_resume_sail
+  local project config home session_file export_file export_dom default_snapshot expanded_snapshot hidden_snapshot active_before_snapshot active_hidden_snapshot export_snapshot export_settled_snapshot restored_snapshot working_snapshot working_response_snapshot restarted_snapshot resumed_restored_snapshot hash_before hash_after now version chrome active_wait active_screen_wait boat_frame_one boat_frame_two boat_resized_snapshot boat_focus_snapshot boat_cleared_snapshot boat_hull_line boat_sail_line boat_column_one boat_column_two boat_line boat_color_snapshot boat_color_line boat_water_snapshot boat_water_line boat_water_first boat_water_changed boat_narrow_snapshot boat_freeze_snapshot boat_resume_snapshot boat_freeze_column boat_freeze_sail boat_resume_column boat_resume_sail
   if ! command -v pi >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then
     echo "skip: pi or tmux not found for Pi calm interactive E2E"
     return 0
@@ -4380,82 +4489,8 @@ if (!synthetic || synthetic.display) process.exit(1);
 JS
   chrome=$(find_chrome) \
     || fail "Chrome or Chromium is required for rendered export DOM assertions; set FM_CHROME_BIN to one"
-  chrome_report=$(render_export_dom "$chrome" "$export_file" "$export_dom" "$version") \
-    || fail "could not render calm-mode HTML export DOM: $chrome_report"
-  # Pi 0.99 renders display:false custom messages into the conversation
-  # column as hook-message-hidden and hides them with CSS until the viewer
-  # asks to show hidden messages. Pi 0.87 omitted those rows from the column
-  # entirely. The boundary is the visible conversation: a synthetic row may
-  # sit in a hidden hook message, and nowhere a reader sees by default.
-  node - "$export_dom" <<'JS' || fail "rendered export DOM violated the Calm conversation boundary"
-const dom = require("node:fs").readFileSync(process.argv[2], "utf8");
-const messages = dom.match(/<div id="messages">([\s\S]*?)<\/main>/)?.[1];
-const tree = dom.match(/<div[^>]*id="tree-container"[^>]*>([\s\S]*?)<div[^>]*id="tree-status"/)?.[1];
-if (!messages || !tree) throw new Error("export DOM is missing the messages column or the session tree");
-if (!/<div class="user-message"[^>]*>[\s\S]*Show a deterministic tool example\./.test(messages)) {
-  throw new Error("genuine user prompt is missing from the conversation column");
-}
-if (!/<div class="assistant-message"[^>]*>[\s\S]*The deterministic tool example is complete\./.test(messages)) {
-  throw new Error("genuine assistant reply is missing from the conversation column");
-}
-if (/<body[^>]*show-hidden-messages/.test(dom)) {
-  throw new Error("export opened with hidden messages shown");
-}
-const rendersHiddenRows = /<div[^>]*class="[^"]*\bhook-message-hidden\b/.test(messages);
-if (rendersHiddenRows && !/body:not\(\.show-hidden-messages\)\s+\.hook-message-hidden\s*\{[^}]*display:\s*none/.test(dom)) {
-  throw new Error("export no longer hides terminal-hidden custom messages by default");
-}
-function stripHiddenHookMessages(html) {
-  const marker = "<div";
-  let out = "";
-  let i = 0;
-  while (i < html.length) {
-    const start = html.indexOf(marker, i);
-    if (start < 0) { out += html.slice(i); break; }
-    const tagEnd = html.indexOf(">", start);
-    if (tagEnd < 0) throw new Error("unclosed tag in the conversation column");
-    const tag = html.slice(start, tagEnd + 1);
-    const classes = tag.match(/class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
-    const hiddenHook = classes.includes("hook-message") && classes.includes("hook-message-hidden");
-    if (!hiddenHook) {
-      out += html.slice(i, start + marker.length);
-      i = start + marker.length;
-      continue;
-    }
-    out += html.slice(i, start);
-    let depth = 0;
-    let j = start;
-    while (j < html.length) {
-      const nextOpen = html.indexOf("<div", j);
-      const nextClose = html.indexOf("</div>", j);
-      if (nextClose < 0) throw new Error("unclosed hidden hook message");
-      if (nextOpen >= 0 && nextOpen < nextClose) {
-        depth += 1;
-        j = nextOpen + 4;
-      } else {
-        depth -= 1;
-        j = nextClose + 6;
-        if (depth === 0) break;
-      }
-    }
-    i = j;
-  }
-  return out;
-}
-const visible = stripHiddenHookMessages(messages);
-if (visible.includes('<div class="hook-message"') || visible.includes("hook-message")) {
-  throw new Error("a visible hook message leaked into the conversation column");
-}
-if (visible.includes("[firstmate-synthetic-input]") || visible.includes("/tmp/probe.status")) {
-  throw new Error("a synthetic Firstmate row is visible in the conversation column");
-}
-for (const current of ["CURRENT_WATCHER_E2E", "CURRENT_TURN_END_E2E", "CURRENT_AWAY_E2E", "CURRENT_FROM_FIRSTMATE_E2E", "CURRENT_LAUNCH_BRIEF_E2E"]) {
-  if (!visible.includes(current)) throw new Error(`operational input ${current} is missing from the conversation column`);
-}
-if (!tree.includes("firstmate-synthetic-input") || !tree.includes("/tmp/probe.status")) {
-  throw new Error("the session tree lost the synthetic row");
-}
-JS
+  assert_export_conversation "$chrome" "$export_file" "$export_dom" "$version" \
+    || fail "rendered export DOM violated the Calm conversation boundary"
   # Calm returns the transcript to its own presentation once the export has been
   # rendered. That repaint runs on the macrotask right after Pi prints the export
   # confirmation, so it must not overwrite it: the captain has to keep seeing where
@@ -4892,4 +4927,5 @@ test_queued_operational_escape_e2e
 test_hidden_block_geometry_e2e
 test_working_ship_geometry_and_lifecycle
 test_export_dom_render_guard
+test_export_conversation_visibility_guard
 test_interactive_terminal_e2e
