@@ -1,0 +1,42 @@
+{
+  "baseline": [
+    {
+      "duration_ms": 1213,
+      "exit": 1,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/.test-pi-baseline.test.sh"
+    }
+  ],
+  "branch": [
+    {
+      "duration_ms": 103044,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-pi-branch-extension.test.sh"
+    }
+  ],
+  "calm": [
+    {
+      "duration_ms": 70701,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-calm-pi-extension.test.sh"
+    }
+  ],
+  "chrome": "Google Chrome 154.0.8037.58",
+  "export_visibility": {
+    "ok": true
+  },
+  "node": "v26.3.0",
+  "pi": "0.99.2",
+  "scope": "Pi compatibility prerequisite only. Target does not contain Omnigent launch implementation. Deterministic fixtures do not prove remote provider or Omnigent acceptance."
+}
