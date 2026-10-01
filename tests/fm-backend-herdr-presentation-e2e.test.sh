@@ -421,6 +421,19 @@ finish_concurrent_spawn() {  # <id> <status> <stdout> <stderr>
     || fail "projected spawn $id retry failed after task-set publication completed: $(cat "$err")"
 }
 
+# Recovery has an existing journal and must refuse when its bounded session
+# lock wait expires. Retry only that refusal, after both concurrent attempts
+# have exited; every other error remains a failure.
+finish_concurrent_recovery() {  # <id> <home> <status> <stdout> <stderr>
+  local id=$1 home=$2 status=$3 out=$4 err=$5
+  [ "$status" -ne 0 ] || return 0
+  grep -Fx "error: herdr presentation recovery could not acquire its session lock; refusing a concurrent resume" "$err" >/dev/null 2>&1 \
+    || fail "concurrent recovery $id failed unexpectedly: $(cat "$err")"
+  printf 'note: retrying recovery %s after bounded session-lock refusal\n' "$id"
+  spawn_task "$id" "$home" "$RECOVERY_PROJECT_DIR" > "$out" 2> "$err" \
+    || fail "recovery $id retry failed after concurrent attempts completed: $(cat "$err")"
+}
+
 finish_concurrent_expected_abort() {  # <id> <status> <stdout> <stderr>
   local id=$1 status=$2 out=$3 err=$4
   [ "$status" -ne 0 ] || fail "post-create abort fixture $id unexpectedly succeeded"
@@ -1322,8 +1335,18 @@ spawn_task "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/p
 PRIMARY_WAVE_PID=$!
 spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-resume.out" 2> "$TMP_ROOT/bravo-wave-resume.err" &
 BRAVO_WAVE_PID=$!
-wait "$PRIMARY_WAVE_PID" || fail "concurrent primary recovery failed: $(cat "$TMP_ROOT/primary-wave-resume.err")"
-wait "$BRAVO_WAVE_PID" || fail "concurrent secondmate recovery failed: $(cat "$TMP_ROOT/bravo-wave-resume.err")"
+# Reap both attempts before retrying a bounded lock refusal. Instrumented
+# recovery can hold the lock longer than the other caller's wait on a busy host.
+PRIMARY_WAVE_STATUS=0
+BRAVO_WAVE_STATUS=0
+wait "$PRIMARY_WAVE_PID" || PRIMARY_WAVE_STATUS=$?
+wait "$BRAVO_WAVE_PID" || BRAVO_WAVE_STATUS=$?
+[ "$PRIMARY_WAVE_STATUS" -eq 0 ] || [ "$BRAVO_WAVE_STATUS" -eq 0 ] \
+  || fail "both concurrent recoveries failed: $(cat "$TMP_ROOT/primary-wave-resume.err" "$TMP_ROOT/bravo-wave-resume.err")"
+finish_concurrent_recovery "$PRIMARY_WAVE_ID" "$HOME_DIR" "$PRIMARY_WAVE_STATUS" \
+  "$TMP_ROOT/primary-wave-resume.out" "$TMP_ROOT/primary-wave-resume.err"
+finish_concurrent_recovery "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$BRAVO_WAVE_STATUS" \
+  "$TMP_ROOT/bravo-wave-resume.out" "$TMP_ROOT/bravo-wave-resume.err"
 PRIMARY_WAVE_NEW_WT=$(remember_meta_worktree "$PRIMARY_WAVE_META")
 BRAVO_WAVE_NEW_WT=$(remember_meta_worktree "$BRAVO_WAVE_META")
 PRIMARY_WAVE_NEW_PANE=$(grep '^herdr_pane_id=' "$PRIMARY_WAVE_META" | cut -d= -f2-)
