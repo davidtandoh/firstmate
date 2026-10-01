@@ -2385,7 +2385,7 @@ ok - fm_branch_outcomes hides through ToolExecutionComponent while Calm-off and 
 ```
 
 The Calm suite also passed with the real Pi executable, tmux, and Chrome available, including the rendered export boundary.
-The export check rejects visible synthetic rows while accepting Pi's default-hidden hook rows.
+The current export guard and its browser fixtures are described in [Calm regression coverage](../calm-mode-feasibility.md#regression-coverage).
 This verifies Pi 0.99.2, not future Pi releases.
 
 ## Native Codex through Pi
