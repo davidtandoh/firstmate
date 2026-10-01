@@ -285,7 +285,7 @@ family_for_basename() {
     fm-composer-ghost.test.sh|fm-composer-lib.test.sh|\
     fm-crew-state.test.sh|fm-captain-hold-lifecycle.test.sh|\
     fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-forge-detect.test.sh|fm-grok-harness.test.sh|\
-    fm-harness-precedence.test.sh|\
+    fm-harness-precedence.test.sh|fm-omnigent.test.sh|\
     fm-kimi-harness.test.sh|fm-devin-harness.test.sh|fm-muse-harness.test.sh|fm-rovo-harness.test.sh|fm-agy-harness.test.sh|fm-kiro-harness.test.sh|fm-omp-harness.test.sh|fm-herdr-lab.test.sh|fm-lint.test.sh|\
     fm-lint-workflows.test.sh|\
     fm-operational-input.test.sh|fm-pi-primary-types.test.sh|\
@@ -357,7 +357,7 @@ family_for_basename() {
     fm-devin-signals-live-e2e.test.sh|fm-muse-signals-live-e2e.test.sh|fm-rovo-signals-live-e2e.test.sh|fm-agy-signals-live-e2e.test.sh|\
     fm-launch-prompt-signals-live-e2e.test.sh|\
     fm-kiro-signals-live-e2e.test.sh|\
-    fm-herdr-version-floor-live-e2e.test.sh|fm-herdr-agent-liveness-live-e2e.test.sh|\
+    fm-herdr-version-floor-live-e2e.test.sh|fm-herdr-agent-liveness-live-e2e.test.sh|fm-omnigent-live-e2e.test.sh|\
     fm-herdr-pi-stale-registration-live-e2e.test.sh|\
     fm-worker-account-live-e2e.test.sh|\
     fm-opencode-primary-live-e2e.test.sh|fm-pi-branch-live-e2e.test.sh|\
@@ -1420,7 +1420,7 @@ families_for_changed_path() {
       printf '%s\n' backend-dispatch
       printf '%s\n' real-herdr-gated
       ;;
-    bin/fm-agent-process-lib.sh)
+    bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh)
       # The shared harness-process classifier feeds both the tmux and Herdr
       # liveness verdicts, so a change to it is proven by both backends' suites.
       printf '%s\n' backend-dispatch

@@ -1186,3 +1186,24 @@ test_queued_enter_verdict_idle_pending_stays_pending
 test_queued_enter_verdict_does_not_convert_other_states
 test_near_gray_ghost_is_stripped_and_real_text_survives
 test_palette_gray_ghost_is_stripped_and_chromatic_indexes_survive
+
+# Codex 0.157.1 through Omnigent's tmux attach on Herdr 0.9.1. The ASCII
+# client replaces the native glyph with an underscore. Never accept that
+# ambiguous row: the launch boundary must preserve UTF-8 instead.
+test_omnigent_codex_requires_preserved_glyph() {
+  local screen glyph expected out content
+  for glyph in '›' '_'; do
+    expected=empty
+    [ "$glyph" != '_' ] || expected=unknown
+    screen=$(printf '\033[0m\033[1m%s \033[0m\033[2mAsk Codex to do anything\033[0m\n\n  GPT-6-Sol low · ~/workspace/project · Task\n  ? for shortcuts\nOmnigent: http://127.0.0.1:6767/c/0123456789abcdef0123456789abcdef\n' "$glyph")
+    out=$(fm_composer_classify_screen $'styled=1\ncursor=0\nidentity=1' "$screen")
+    [ "$out" = "$expected" ] || fail "Omnigent Codex glyph '$glyph': expected $expected, got $out"
+  done
+  for content in 'unsubmitted draft' 'Ask Codex to do anything'; do
+    screen=$(printf '\033[0m\033[1m› \033[0m%s\n\n  GPT-6-Sol low · ~/workspace/project · Task\n  ? for shortcuts\nOmnigent: http://127.0.0.1:6767/c/0123456789abcdef0123456789abcdef\n' "$content")
+    out=$(fm_composer_classify_screen $'styled=1\ncursor=0\nidentity=1' "$screen")
+    [ "$out" = pending ] || fail "Omnigent Codex draft must remain pending, got $out"
+  done
+  pass 'Omnigent Codex needs its native glyph and retains real drafts'
+}
+test_omnigent_codex_requires_preserved_glyph

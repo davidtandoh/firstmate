@@ -2450,3 +2450,7 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 6. `bin/fm-control.sh <id> exit` stopped the agent and `bin/fm-teardown.sh` returned the worktree and closed the item.
 
 `FM_OMP_LIVE_E2E=1 tests/fm-omp-primary-live-e2e.test.sh` refreshes the primary evidence; the worker path above is refreshed by repeating the scout dispatch after any omp upgrade.
+
+## Omnigent wrapper process boundary
+
+The [Omnigent verification record](omnigent.md) owns wrapper attribution, native control and trace-export evidence, remaining live boundaries, and the live guard refresh command.

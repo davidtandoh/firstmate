@@ -514,7 +514,7 @@ test_remote_mate_restarts_over_the_transport_hop() {
   # copy of config/secondmate-harness is a different home's file.
   printf 'codex big-model high\n' > "$dir/home/config/secondmate-harness"
 
-  out=$(run_restart "$dir" fm-sm2); rc=$?
+  out=$(OMNIGENT=1 run_restart "$dir" fm-sm2); rc=$?
   unset FM_FAKE_ANSWER_STATUS
 
   expect_code 0 "$rc" "a remote mate should restart over its transport hop"$'\n'"$out"
@@ -522,8 +522,8 @@ test_remote_mate_restarts_over_the_transport_hop() {
     "a remote restart should be reported with its host and the parent's pinned runtime"
   relaunch_line=$(grep '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log" | head -1)
   [ -n "$relaunch_line" ] || fail "no relaunch crossed the transport hop"$'\n'"$(cat "$dir/ssh.log")"
-  [ "$relaunch_line" = "fm-remote-secondmate-control.sh relaunch sm2 codex big-model high" ] \
-    || fail "the host-local relaunch did not carry the parent's resolved profile: $relaunch_line"
+  [ "$relaunch_line" = "fm-remote-secondmate-control.sh relaunch sm2 codex big-model high on" ] \
+    || fail "the host-local relaunch did not carry the parent's resolved profile and Omnigent mode: $relaunch_line"
   # The persist request crossed the SAME hop before the restart did.
   [ "$(grep -n '^fm-remote-secondmate-control.sh send' "$dir/ssh.log" | head -1 | cut -d: -f1)" \
      -lt "$(grep -n '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log" | head -1 | cut -d: -f1)" ] \
@@ -588,7 +588,7 @@ test_native_ultra_restart_keeps_local_and_remote_profiles() {
   unset FM_FAKE_ANSWER_STATUS
   expect_code 0 "$rc" "native remote restart failed: $out"
   relaunch_line=$(grep '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log" | head -1)
-  [ "$relaunch_line" = "fm-remote-secondmate-control.sh relaunch sm2 pi-signed codex-native/gpt-6-astra ultra" ] \
+  [ "$relaunch_line" = "fm-remote-secondmate-control.sh relaunch sm2 pi-signed codex-native/gpt-6-astra ultra off" ] \
     || fail "remote restart dropped native profile: $relaunch_line"
   pass "native Ultra survives local restart and the remote restart transport"
 }

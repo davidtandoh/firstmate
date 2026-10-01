@@ -33,7 +33,7 @@ TMUX_LOG="$TMP_ROOT/remote-tmux.log"
 TMUX_STATE="$TMP_ROOT/remote-tmux.state"
 CLAIMS="$TMP_ROOT/claims"
 mkdir -p "$PARENT/data" "$PARENT/state" "$PARENT/config" "$PARENT/projects" "$REMOTE_ROOT" "$CLAIMS"
-trap 'FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true; if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then kill "$(cat "$TMP_ROOT/remote-jobs/worker.pid")" 2>/dev/null || true; fi; rm -rf -- "$TMP_ROOT"' EXIT
+trap 'FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true; if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then kill "$(cat "$TMP_ROOT/remote-jobs/worker.pid")" 2>/dev/null || true; fi; fm_test_cleanup' EXIT
 
 # The remote host's tracked code root is this branch, as a real git repository:
 # fm-on and the remote entrypoint both require the dispatched command to be
@@ -312,5 +312,83 @@ try_flag 'requires a non-empty value' \
   "an empty carrier must be refused rather than silently ignored" \
   --secondmate --traceparent=
 pass "delivery: a parent-supplied carrier is accepted only for a secondmate launch and only as a strict W3C value"
+
+# Omnigent crosses the same SSH boundary as an explicit mode only. Service
+# coordinates and client environment must be resolved by the destination host.
+. "$ROOT/tests/omnigent-fixture.sh"
+fm_test_omnigent_service "$TMP_ROOT/remote-serve" "$REMOTE_ROOT/bin"
+reset_remote_herdr_fixture "$HERDR_STATE"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "native remote setup failed: $(cat "$TMP_ROOT/omni-output")"
+assert_absent "$PARENT/config/omnigent" 'parent mode must come from session detection'
+assert_absent "$REMOTE_HOME/config/omnigent" 'remote mode must come from the relaunch request'
+assert_no_grep '^omnigent=' "$PARENT/state/ios.meta" 'parent setup must record a native secondmate'
+assert_no_grep '^omnigent=' "$REMOTE_HOME/state/parent-route/ios.meta" 'remote setup must record a native secondmate'
+jq '.typed={} | .working={}' "$HERDR_STATE" > "$HERDR_STATE.tmp"
+mv "$HERDR_STATE.tmp" "$HERDR_STATE"
+: > "$HERDR_LOG"
+if remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh relaunch ios codex - - typo > "$TMP_ROOT/omni-output" 2>&1; then
+  fail 'remote relaunch accepted an invalid Omnigent mode'
+fi
+grep -q 'invalid Omnigent launch mode' "$TMP_ROOT/omni-output" || fail 'invalid relaunch mode did not report its cause'
+if remote_staged_launch >/dev/null; then fail 'invalid relaunch mode delivered a launch'; fi
+OMNIGENT=1 remote_env "$ROOT/bin/fm-remote-secondmate-relaunch.sh" ios codex - - > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "wrapped parent relaunch failed: $(cat "$TMP_ROOT/omni-output")"
+remote_staged_launch > "$TMP_ROOT/remote-launch.sh"
+env -i HOME="$TMP_ROOT/pane-home" PATH="$REMOTE_ROOT/bin:$PATH" /bin/sh "$TMP_ROOT/remote-launch.sh" \
+  || fail 'previously native remote secondmate did not launch through Omnigent'
+jq -e --arg home "$REMOTE_HOME" --arg config "$TMP_ROOT/remote-serve/config" \
+  '.argv[0] == "codex" and .config_home == $config and .environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on"' \
+  "$TMP_ROOT/remote-serve/result.json" >/dev/null || fail 'remote relaunch lost parent mode or destination service'
+grep -qx 'omnigent=on' "$PARENT/state/ios.meta" || fail 'parent did not record wrapped replacement'
+grep -qx 'omnigent=on' "$REMOTE_HOME/state/parent-route/ios.meta" || fail 'remote replacement remained native'
+pass 'wrapped parent relaunch upgrades a native remote secondmate without a policy file'
+
+reset_remote_herdr_fixture "$HERDR_STATE"
+: > "$HERDR_LOG"
+FM_OMNIGENT=on remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "wrapped remote spawn failed: $(cat "$TMP_ROOT/omni-output")"
+remote_staged_launch > "$TMP_ROOT/remote-launch.sh"
+env -i HOME="$TMP_ROOT/pane-home" PATH="$REMOTE_ROOT/bin:$PATH" /bin/sh "$TMP_ROOT/remote-launch.sh" \
+  || fail 'remote staged Omnigent launch failed'
+jq -e --arg home "$REMOTE_HOME" --arg config "$TMP_ROOT/remote-serve/config" \
+  '.config_home == $config and .environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on"' \
+  "$TMP_ROOT/remote-serve/result.json" >/dev/null || fail 'remote launch lost mode/home or used a foreign service environment'
+grep -qx 'omnigent=on' "$PARENT/state/ios.meta" || fail 'parent route did not record the remote Omnigent mode'
+[ "$(env -u OMNIGENT FM_OMNIGENT=on "$ROOT/bin/fm-omnigent.sh" mode "$REMOTE_HOME/config")" = on ] \
+  || fail 'remote child cannot pass wrapping to its own workers'
+pass 'Omnigent remote launch resolves the destination service and passes mode to child workers'
+
+# The automatic liveness path creates a fresh secondmate endpoint, rather than
+# passing --relaunch. It must preserve the same recorded mode.
+reset_remote_herdr_fixture "$HERDR_STATE"
+: > "$HERDR_LOG"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "automatic wrapped recovery failed: $(cat "$TMP_ROOT/omni-output")"
+grep -qx 'omnigent=on' "$REMOTE_HOME/state/parent-route/ios.meta" || fail 'automatic recovery lost tracing'
+pass 'automatic secondmate recovery keeps the recorded Omnigent mode'
+
+# No ancestor marker reaches this recovery command. Its durable launch record
+# must retain tracing when the native process has exited.
+jq '.typed={} | .working={}' "$HERDR_STATE" > "$HERDR_STATE.tmp"
+mv "$HERDR_STATE.tmp" "$HERDR_STATE"
+: > "$HERDR_LOG"
+remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh relaunch ios codex - - > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "remote wrapped recovery failed: $(cat "$TMP_ROOT/omni-output")"
+remote_staged_launch > "$TMP_ROOT/remote-launch.sh"
+env -i HOME="$TMP_ROOT/pane-home" PATH="$REMOTE_ROOT/bin:$PATH" /bin/sh "$TMP_ROOT/remote-launch.sh" \
+  || fail 'recovered remote launch failed'
+grep -qx 'omnigent=on' "$REMOTE_HOME/state/parent-route/ios.meta" || fail 'recovery silently dropped tracing'
+pass 'remote recovery preserves the recorded Omnigent launch mode without ambient markers'
+
+reset_remote_herdr_fixture "$HERDR_STATE"
+: > "$HERDR_LOG"
+printf '{"status":"stopped","reason":"remote_serve_missing"}\n' > "$TMP_ROOT/remote-serve/status.json"
+if remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1; then
+  fail 'remote missing service silently launched a worker'
+fi
+grep -q remote_serve_missing "$TMP_ROOT/omni-output" || fail 'remote service refusal lost its concrete reason'
+if remote_staged_launch >/dev/null; then fail 'remote refusal still delivered a launch command'; fi
+pass 'remote service unavailability refuses without falling back to a native launch'
 
 echo "ALL TESTS PASSED"

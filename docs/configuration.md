@@ -562,6 +562,73 @@ A Secondmate on a remote route is covered the same way: the primary resolves and
 The presence flag is session-scoped enablement, so it transfers at launch and is left unchanged by live convergence into a running home.
 See [`trace-context.md`](trace-context.md) for carrier semantics, supported routes, the manual fleet-restart requirement, the session boundary, and safety limits; `bin/fm-trace-context-lib.sh`'s header owns the exact mechanics, and [`verification/trace-context.md`](verification/trace-context.md) records repeatable evidence.
 
+## Omnigent launch mode (config/omnigent / FM_OMNIGENT)
+
+Omnigent mode wraps Firstmate's resolved native harness in the host's Personal Agent Kit observation service.
+The underlying harness still determines model, effort, quota, hooks, and control commands.
+The integration currently admits Claude, Codex, Kiro, and Antigravity workers, and Claude or Codex secondmates.
+Live acceptance remains incomplete; consult the [verification record](verification/omnigent.md) before using this mode for supervised work.
+Other harnesses and raw launch commands refuse while this mode is enabled.
+
+### Start a primary
+
+The Personal Agent Kit service must already be running on each participating host.
+Firstmate does not start or repair that service.
+From the Firstmate checkout, run:
+
+```sh
+agent-kit observe serve status --json
+bin/fm-omnigent.sh start claude
+# Or: bin/fm-omnigent.sh start codex
+```
+
+The launcher resolves the Kit-managed Omnigent executable, server URL, and client environment from the host's status response.
+It runs the equivalent of `omnigent claude --server <server_url>` with that environment and explicit native environment propagation.
+A separately launched `omnigent claude` or `omnigent codex` session is also detected through the native `OMNIGENT=1` marker, provided it uses the same working service and native environment interface.
+A missing executable, unsupported interface, stopped service, invalid status, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
+The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
+Firstmate never retries the launch without tracing.
+
+### Claude external-import consent
+
+If Claude presents an external-import dialog, verification for that checkout must wait for the operator's decision.
+Agents must leave that dialog unanswered; the [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md#workspace-trust) owns consent persistence and its scope.
+
+1. In an interactive terminal, open the original project checkout used by the workers, for example `cd ~/workspace/firstmate`.
+2. Run `bin/fm-omnigent.sh start claude` with the healthy Kit service already running.
+3. When Claude asks to allow external `CLAUDE.md` imports, review the listed files.
+   If you approve those imports, use the terminal's arrow keys to select **Yes, allow external imports**, then press Enter yourself.
+   If you decline, leave Claude verification gated.
+4. After the normal composer appears, enter `/exit`.
+5. Rerun the Claude worker canary and the [live verification](verification/omnigent.md#live-herdr-guard).
+   A different project or another consent prompt requires its own review; a prior approval is not permission for an agent to rewrite Claude's trust store.
+
+### Select the home policy
+
+The optional local, gitignored `config/omnigent` file contains one token:
+
+| Value | Behavior |
+| --- | --- |
+| `auto` or absent | Detect `OMNIGENT=1`, otherwise use inherited `FM_OMNIGENT=on\|off`; ordinary sessions launch directly. |
+| `on` | Require Omnigent for new launches even when detection is unavailable. |
+
+Neither the file nor the inherited mode can disable a detected Omnigent session.
+Invalid values refuse a spawn.
+The process marker applies to the current session; enabling one session does not enable other homes or future native sessions.
+An explicit file change applies to the next launch.
+
+Secondmate homes inherit the policy file, and each secondmate receives the resolved session mode in its native environment.
+Remote launch and relaunch requests carry the resolved mode; the remote host resolves its own service and client environment.
+Relaunching or restarting a previously native remote secondmate from a wrapped parent enables wrapping for the replacement.
+A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
+An already-running native remote secondmate must exit before an Omnigent launch can replace it.
+
+Omnigent's native environment interface is additive.
+Firstmate refuses wrapped launches when `config/launch-env-allowlist` is enabled or when a Claude launch has `config/claude-account`, because those contracts require removal of inherited credentials or variables.
+Do not remove a required account pin to bypass this refusal.
+The Kit owns content capture, redaction, export, and MLflow availability.
+The [launch architecture](omnigent.md) describes the boundary; `bin/fm-omnigent.sh --help` owns exact command mechanics.
+
 ## Fleet activity ledger (config/fleet-ledger)
 
 See [`fleet-ledger.md`](fleet-ledger.md) for the opt-in setup, record contract, and limits.
