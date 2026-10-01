@@ -2431,9 +2431,4 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 ## Omnigent wrapper process boundary
 
-On 2026-09-29, Herdr 0.9.1 reported Omnigent 0.16.0.dev0 (d8208e80) as a Python foreground wrapper around Codex 0.157.1.
-Named Herdr labs verified wrapper attribution and a Codex primary-to-worker launch with durable steering acknowledgement.
-On 2026-10-01, Omnigent 0.16.0.dev0 (dc4f1ffa) with Codex 0.159.2 passed a fresh native launch from an ASCII supervisor locale, automatic turn-end notification, native `fm-control` exit, and redacted request/final-response export to MLflow.
-The backend reported dead after exit, the native terminal list was empty, and helper teardown passed the unchanged-default-fleet tripwire.
-Complete wrapped supervision across the admitted harness matrix remains unverified.
-The [Omnigent verification record](omnigent.md) owns the exact evidence, incomplete harness matrix, and `tests/fm-omnigent-live-e2e.test.sh` refresh command.
+The [Omnigent verification record](omnigent.md) owns wrapper attribution, native control and trace-export evidence, remaining live boundaries, and the live guard refresh command.

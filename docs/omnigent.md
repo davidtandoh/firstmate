@@ -25,7 +25,7 @@ A failure never executes the original native command as a fallback.
 
 The service starts native terminals in a different process tree.
 Shell inheritance into the CLI alone does not reach those terminals.
-The launcher therefore sends the Firstmate-owned environment through Omnigent's explicit native `--env` interface, including secondmate home isolation and the inherited session mode.
+The launcher therefore sends the Firstmate-owned environment through Omnigent's explicit native `--env` interface, including `FM_BACKEND`, secondmate home isolation, and the inherited session mode.
 It clears foreign harness markers and absent Firstmate routing variables, and leaves Omnigent's managed Codex home intact.
 The launcher does not copy arbitrary ambient credentials.
 

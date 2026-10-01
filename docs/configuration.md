@@ -591,7 +591,7 @@ Firstmate never retries the launch without tracing.
 
 ### Claude external-import consent
 
-Claude-under-Omnigent acceptance is a follow-up until the operator reviews and answers Claude's external-import dialog.
+If Claude presents an external-import dialog, verification for that checkout must wait for the operator's decision.
 Agents must leave that dialog unanswered; the [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md#workspace-trust) owns consent persistence and its scope.
 
 1. In an interactive terminal, open the original project checkout used by the workers, for example `cd ~/workspace/firstmate`.
@@ -609,7 +609,7 @@ The optional local, gitignored `config/omnigent` file contains one token:
 
 | Value | Behavior |
 | --- | --- |
-| `auto` or absent | Detect `OMNIGENT=1`, otherwise use inherited `FM_OMNIGENT=on|off`; ordinary sessions launch directly. |
+| `auto` or absent | Detect `OMNIGENT=1`, otherwise use inherited `FM_OMNIGENT=on\|off`; ordinary sessions launch directly. |
 | `on` | Require Omnigent for new launches even when detection is unavailable. |
 
 Neither the file nor the inherited mode can disable a detected Omnigent session.
@@ -618,7 +618,8 @@ The process marker applies to the current session; enabling one session does not
 An explicit file change applies to the next launch.
 
 Secondmate homes inherit the policy file, and each secondmate receives the resolved session mode in its native environment.
-Remote launch requests carry only that mode; the remote host resolves its own service and client environment.
+Remote launch and relaunch requests carry the resolved mode; the remote host resolves its own service and client environment.
+Relaunching or restarting a previously native remote secondmate from a wrapped parent enables wrapping for the replacement.
 A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
 An already-running native remote secondmate must exit before an Omnigent launch can replace it.
 

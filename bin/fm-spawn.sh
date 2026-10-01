@@ -303,8 +303,8 @@
 #   service preflight, and native argv/environment adaptation. This script
 #   keeps the underlying harness as dispatch, quota, hook, and control identity.
 #   Wrapped records add omnigent=on. Explicit relaunch and automatic secondmate
-#   recovery retain it unless the home's policy opts out. Remote launch carries
-#   on/off as an argument; no local service coordinates cross the SSH boundary.
+#   recovery retain it. Remote launch carries on/off as an argument; no local
+#   service coordinates cross the SSH boundary.
 #   See docs/configuration.md for setup and unsupported environment contracts.
 # Claude permission mode (config/claude-permission-mode):
 #   One token selecting the permission flag every claude launch (ship, scout,

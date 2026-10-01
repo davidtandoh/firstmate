@@ -3,7 +3,7 @@
 This record separates launch propagation, process liveness, native supervision, and trace export.
 [Configuration](../configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent) owns setup and limits; [architecture](../omnigent.md) owns component boundaries.
 
-## Current Codex acceptance
+## Codex final-response acceptance
 
 Observed on 2026-10-01 on macOS with Kit-managed Omnigent `0.16.0.dev0 (dc4f1ffa, built 2026-10-01T07:40:01Z)`, Codex `0.159.2`, Herdr `0.9.1`, and MLflow SDK `3.15.2`.
 `agent-kit observe serve status --json` reported `running` with `server_url=http://127.0.0.1:6767`.
@@ -57,6 +57,8 @@ client.search_traces(
 The verifier bounded pagination to ten pages and selected the `agent:` span with a matching `session.id`.
 The successful query returned 46 traces, including terminal transport traces; checking only the ten newest traces would miss the agent result.
 This proves final-response export for the tested worker and runtime versions; the Kit owns the export implementation.
+It does not prove continuous observation-service availability: the Kit redactor has also safe-stopped with `transcript-not-settled` after MLflow forwarding timeouts.
+That external Kit availability issue is tracked separately from Firstmate's launch integration.
 
 ## Codex primary-to-crewmate acceptance
 
@@ -101,7 +103,7 @@ The current acceptance above confirms a fresh native launch and control exit fro
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
 | Claude native exit | Passed on `2.1.286` in the live guard below; busy hooks and steering were not exercised. |
 | Kiro and Antigravity wrappers | Passed in the live guard below; Kiro exited natively, while Antigravity control safely refused its unknown composer. |
-| Remote secondmate | Propagation and destination service selection have portable coverage; no live remote-host acceptance is claimed. |
+| Remote secondmate | Local fixtures cover propagation, destination service selection, and a wrapped parent relaunching a previously native secondmate; no live remote-host acceptance is claimed. |
 
 These results do not establish complete wrapped supervision.
 The existing Codex semantic busy-state boundary also remains `unknown`; wrapping does not supply a verified busy source.
@@ -115,12 +117,15 @@ LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
   tests/fm-omnigent.test.sh \
   tests/fm-composer-lib.test.sh \
   tests/fm-remote-secondmate-trace-context.test.sh \
+  tests/fm-remote-secondmate-relaunch.test.sh \
+  tests/fm-secondmate-restart.test.sh \
   tests/fm-tmux-agent-liveness.test.sh
 ```
 
 The local contract test executes the launch delivered to ship, scout, and secondmate panes and observes the explicit native arguments and environment at a service double.
 It checks marker detection, home policy, malformed settings, service refusal before metadata publication, ordinary native launches, backend propagation, dispatch preservation, and the attaching client's UTF-8 locale.
-The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises recovery without an inherited marker.
+The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises both a wrapped parent's relaunch of a previously native secondmate and recovery without an inherited marker.
+The relaunch metadata regression checks the destination-confirmed mode, and the restart regression checks that the parent's mode crosses the transport with its resolved profile.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.
 
