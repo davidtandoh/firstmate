@@ -3,7 +3,7 @@
 #
 # Usage:
 #   fm-remote-secondmate-control.sh launch <id> <harness> <model|-> <effort|-> herdr [traceparent [omnigent-mode]]
-#   fm-remote-secondmate-control.sh relaunch <id> <harness> <model|default|-> <effort|default|->
+#   fm-remote-secondmate-control.sh relaunch <id> <harness> <model|default|-> <effort|default|-> [omnigent-mode]
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [fire-and-forget]
@@ -237,10 +237,11 @@ cmd_launch() {
 # re-resolve it here would silently drift the mate onto another runtime. `default`
 # explicitly clears an absent parent pin; `-` remains its compatibility spelling.
 cmd_relaunch() {
-  local id=$1 harness=$2 model=$3 effort=$4
+  local id=$1 harness=$2 model=$3 effort=$4 omnigent_mode=${5:-}
   local -a control_args
 
   validate_id "$id"
+  case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor) ;;
@@ -262,7 +263,7 @@ cmd_relaunch() {
   HERDR_SESSION="$REMOTE_HERDR_SESSION" FM_HOME="$FM_ROOT" FM_ROOT_OVERRIDE="$FM_ROOT" \
     FM_STATE_OVERRIDE="$CONTROL_STATE" FM_DATA_OVERRIDE="$CONTROL_DATA" \
     FM_CONFIG_OVERRIDE="$TARGET_HOME/config" FM_SKIP_SECONDMATE_INHERIT=1 \
-    FM_SKIP_SECONDMATE_SYNC=1 \
+    FM_SKIP_SECONDMATE_SYNC=1 FM_OMNIGENT="$omnigent_mode" \
     "$SCRIPT_DIR/fm-control.sh" "${control_args[@]}"
   # A parent tracking this route needs the identity the relaunch actually
   # produced, not the one it asked for, so it can republish its own record the
@@ -441,7 +442,7 @@ cmd_retire() {
 
 case "${1:-}" in
   launch) shift; [ "$#" -ge 5 ] && [ "$#" -le 7 ] || usage; cmd_launch "$@" ;;
-  relaunch) shift; [ "$#" -eq 4 ] || usage; cmd_relaunch "$@" ;;
+  relaunch) shift; [ "$#" -ge 4 ] && [ "$#" -le 5 ] || usage; cmd_relaunch "$@" ;;
   state) shift; [ "$#" -eq 1 ] || usage; validate_id "$1"; validate_home "$1"; state_value "$1" ;;
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_send "$@" ;;

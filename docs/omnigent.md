@@ -30,7 +30,7 @@ It clears foreign harness markers and absent Firstmate routing variables, and le
 The launcher does not copy arbitrary ambient credentials.
 
 Remote launch and recovery retain the existing SSH control boundary.
-The parent sends a mode, and the destination resolves its own Kit service.
+The parent sends its resolved mode for launch and relaunch, including secondmate restarts, and the destination resolves its own Kit service.
 The remote endpoint reports its actual mode to the parent, alongside its native profile.
 A recorded wrapped task remains wrapped through recovery.
 

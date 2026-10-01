@@ -318,6 +318,33 @@ pass "delivery: a parent-supplied carrier is accepted only for a secondmate laun
 . "$ROOT/tests/omnigent-fixture.sh"
 fm_test_omnigent_service "$TMP_ROOT/remote-serve" "$REMOTE_ROOT/bin"
 reset_remote_herdr_fixture "$HERDR_STATE"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "native remote setup failed: $(cat "$TMP_ROOT/omni-output")"
+assert_absent "$PARENT/config/omnigent" 'parent mode must come from session detection'
+assert_absent "$REMOTE_HOME/config/omnigent" 'remote mode must come from the relaunch request'
+assert_no_grep '^omnigent=' "$PARENT/state/ios.meta" 'parent setup must record a native secondmate'
+assert_no_grep '^omnigent=' "$REMOTE_HOME/state/parent-route/ios.meta" 'remote setup must record a native secondmate'
+jq '.typed={} | .working={}' "$HERDR_STATE" > "$HERDR_STATE.tmp"
+mv "$HERDR_STATE.tmp" "$HERDR_STATE"
+: > "$HERDR_LOG"
+if remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh relaunch ios codex - - typo > "$TMP_ROOT/omni-output" 2>&1; then
+  fail 'remote relaunch accepted an invalid Omnigent mode'
+fi
+grep -q 'invalid Omnigent launch mode' "$TMP_ROOT/omni-output" || fail 'invalid relaunch mode did not report its cause'
+if remote_staged_launch >/dev/null; then fail 'invalid relaunch mode delivered a launch'; fi
+OMNIGENT=1 remote_env "$ROOT/bin/fm-remote-secondmate-relaunch.sh" ios codex - - > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "wrapped parent relaunch failed: $(cat "$TMP_ROOT/omni-output")"
+remote_staged_launch > "$TMP_ROOT/remote-launch.sh"
+env -i HOME="$TMP_ROOT/pane-home" PATH="$REMOTE_ROOT/bin:$PATH" /bin/sh "$TMP_ROOT/remote-launch.sh" \
+  || fail 'previously native remote secondmate did not launch through Omnigent'
+jq -e --arg home "$REMOTE_HOME" --arg config "$TMP_ROOT/remote-serve/config" \
+  '.argv[0] == "codex" and .config_home == $config and .environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on"' \
+  "$TMP_ROOT/remote-serve/result.json" >/dev/null || fail 'remote relaunch lost parent mode or destination service'
+grep -qx 'omnigent=on' "$PARENT/state/ios.meta" || fail 'parent did not record wrapped replacement'
+grep -qx 'omnigent=on' "$REMOTE_HOME/state/parent-route/ios.meta" || fail 'remote replacement remained native'
+pass 'wrapped parent relaunch upgrades a native remote secondmate without a policy file'
+
+reset_remote_herdr_fixture "$HERDR_STATE"
 : > "$HERDR_LOG"
 FM_OMNIGENT=on remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
   || fail "wrapped remote spawn failed: $(cat "$TMP_ROOT/omni-output")"

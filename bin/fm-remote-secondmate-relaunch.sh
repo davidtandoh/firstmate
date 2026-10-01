@@ -46,8 +46,9 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
 [ -n "$REMOTE_HOST" ] \
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
+OMNIGENT_MODE=$("$SCRIPT_DIR/fm-omnigent.sh" mode "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}") || exit 1
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" </dev/null 2>&1) || {
+  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "$OMNIGENT_MODE" </dev/null 2>&1) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"
