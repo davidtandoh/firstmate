@@ -1,0 +1,16 @@
+{
+  "authority": "Retain earlier Omnigent evidence; revalidate only the merged CI repair. Hosted CI remains owned by outer executor.",
+  "changed_since_previous_head": [
+    ".pi/extensions/fm-branch-supervision.ts",
+    "docs/calm-mode-feasibility.md",
+    "docs/verification/runtime-backends.md",
+    "tests/fm-backend-herdr-presentation-e2e.test.sh",
+    "tests/fm-calm-pi-extension.test.sh",
+    "tests/fm-pi-branch-extension.test.sh"
+  ],
+  "fixed_main": "6ce9cf55c00edd56dfa28ddd59529f74b7f56ebb",
+  "fixed_main_is_ancestor": true,
+  "head": "a9ad4f871295de355925f1dcda9aeb8861da4463",
+  "new_model_turns": 0,
+  "previously_published_head": "35805472918f92ecbf708d08fad8f6cb1fea7655"
+}

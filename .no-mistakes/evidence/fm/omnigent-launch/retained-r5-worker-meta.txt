@@ -1,0 +1,16 @@
+window=fm-lab-omni-round5-96751-12285:w1:p4
+endpoint_task_id=probe-worker
+worktree=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/.nm-omni-r5-xrt6g659/worker
+project=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/.nm-omni-r5-xrt6g659/project
+harness=codex
+omnigent=on
+kind=scout
+tasktmp=/tmp/fm-probe-worker
+model=gpt-6-sol
+effort=low
+spawn_gen=s1790863818.58017.7355
+backend=herdr
+herdr_session=fm-lab-omni-round5-96751-12285
+herdr_workspace_id=w1
+herdr_tab_id=w1:t4
+herdr_pane_id=w1:p4

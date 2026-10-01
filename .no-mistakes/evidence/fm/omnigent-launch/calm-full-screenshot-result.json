@@ -1,0 +1,18 @@
+{
+  "capture_complete": true,
+  "command": [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "--headless=new",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-background-networking",
+    "--no-first-run",
+    "--hide-scrollbars",
+    "--window-size=1440,2800",
+    "--virtual-time-budget=2000",
+    "--user-data-dir=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3WCFT8R30R2X0FSK9FRFHFY/.test-pi-validation/chrome-full",
+    "--screenshot=/Users/davidtandoh/.no-mistakes/evidence/01M3WCFT8R30R2X0FSK9FRFHFY/calm-export-full.png",
+    "file:///Users/davidtandoh/.no-mistakes/evidence/01M3WCFT8R30R2X0FSK9FRFHFY/calm-export.html"
+  ],
+  "exit_after_owned_browser_cleanup": 0
+}

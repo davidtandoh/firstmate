@@ -1,0 +1,11 @@
+{
+  "lab_present": false,
+  "default": [
+    {
+      "name": "default",
+      "default": true,
+      "running": true,
+      "socket_path": "/Users/davidtandoh/.config/herdr/herdr.sock"
+    }
+  ]
+}

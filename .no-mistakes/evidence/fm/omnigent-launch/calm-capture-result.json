@@ -1,0 +1,24 @@
+{
+  "captured": [
+    "calm-export-dom.html",
+    "calm-export.html",
+    "calm-session.jsonl",
+    "default.txt",
+    "export.txt",
+    "hidden.txt"
+  ],
+  "command": [
+    "bin/fm-test-run.sh",
+    "tests/fm-calm-pi-extension.test.sh",
+    "--jobs",
+    "1",
+    "--per-script-timeout-secs",
+    "240",
+    "--max-wall-ms",
+    "260000",
+    "--json",
+    "/Users/davidtandoh/.no-mistakes/evidence/01M3WCFT8R30R2X0FSK9FRFHFY/calm-timing.json"
+  ],
+  "exit": 0,
+  "provider": "offline deterministic fixture; no remote model calls"
+}

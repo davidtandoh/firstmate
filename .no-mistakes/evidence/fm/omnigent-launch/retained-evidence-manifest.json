@@ -1,0 +1,96 @@
+{
+  "additional_model_turns_authorized": false,
+  "artifacts": [
+    {
+      "live_this_run": false,
+      "retained_as": "retained-round5-single-attempt.json",
+      "sha256": "fbab756befbb0acd4d935a2a2bd4bda00342d97f010e2436639331ff7ca6d985",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/round5-single-attempt.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-round5-single-result.json",
+      "sha256": "57b227ff63a103f6c2e0c134795a17465fc5677b8ab80876fa37bcdd50559998",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/round5-single-result.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-round5-test-result.json",
+      "sha256": "42b5ecd7b00b877a4da2891d14d64da451a8ef28ed5144a1a7891e29ffa920c5",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/round5-test-result.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-round5-mlflow.json",
+      "sha256": "5b85377a2e452c7d0bc539ab76c54112c532da6c42be6d7baf1cbcc07e75ae19",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/round5-mlflow.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-start-env.txt",
+      "sha256": "9c4008b6987bab202552fb12d96178cc171d9ecec33482a12aa716953aeda108",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-start-env.txt"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-primary-worker-result.json",
+      "sha256": "f72f0d6de677bcf3864f368f1565911fd8b7d99fdd18b9f448bcee8c93884d99",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-primary-worker-result.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-primary-env.txt",
+      "sha256": "97769f27b08241f5bd772c41b2f19245481aef9b548b7f24a7c819f1b6c7cc7e",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-primary-env.txt"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-worker-env.txt",
+      "sha256": "6266ede2282078824eee97767cd6e3441eb66f73e933340c49955b3c9c43835f",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-worker-env.txt"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-worker-meta.txt",
+      "sha256": "7cbd0aecb2a7860c205b914d9158e5a2debc09255195987800cd9ea686243adf",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-worker-meta.txt"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-live.log",
+      "sha256": "4d12259aed118aa0f0260d7de428e22a8c1a19fa733b94e190383ecf2138fe0e",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-live.log"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-live-timing.json",
+      "sha256": "7d52fcdcef6f0a5f6ec59d33e54e0adf3579ec4036f2cd44581692a94f0cdc0b",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-live-timing.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-remote.log",
+      "sha256": "64df010ac80cc9687ba7685aee52353ced183d9b07ab3a20a3d5c55f634128f4",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-remote.log"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-r5-remote-timing.json",
+      "sha256": "d8f758e4cea4387135f33be134621c036d6f522b0ba219c3aac05c9ba25f494e",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-remote-timing.json"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-omnigent-contract.log",
+      "sha256": "300eb40731e160b1d035b09ba5f652484573c8ef81b4f4636771213ca55f239c",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/omnigent-contract.log"
+    },
+    {
+      "live_this_run": false,
+      "retained_as": "retained-omnigent-timing.json",
+      "sha256": "dbe58f984adc0647f1ff35f78e35015c6c0af85c2ca78aa0541679734a729db5",
+      "source": "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/omnigent-timing.json"
+    }
+  ],
+  "authority": "Latest test and CI decisions require retaining prior acceptance; no additional model turns authorized."
+}

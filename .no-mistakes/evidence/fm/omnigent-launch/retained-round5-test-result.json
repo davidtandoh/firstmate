@@ -1,0 +1,98 @@
+{
+  "boundaries": "No full suite, linter, formatter, static analysis, pipeline controls, publication, shared service changes, real remote secondmate actions, or real home changes.",
+  "changes_applied": false,
+  "cleanup": "owned terminals empty; lab removed; default fleet tripwire unchanged; temporary worktree files removed",
+  "evidence": [
+    "round5-single-worker.py",
+    "round5-single-worker.log",
+    "round5-service-before.json",
+    "round5-service-latest.json",
+    "round5-cleanup.json"
+  ],
+  "known_external_issue": "Personal Agent Kit redactor safe-stop availability is tracked separately by Firstmate and is outside this task. It did not block this attempt.",
+  "one_attempt_policy": {
+    "additional_model_turns_authorized": false,
+    "attempt_exhausted": true,
+    "authorized_turns": 1,
+    "authorized_workers": 1,
+    "claim": "round5-single-attempt.json",
+    "instruction": "Subsequent validation must reuse this evidence and must not launch additional model turns for this finding",
+    "prompts_submitted": 1,
+    "workers_launched": 1
+  },
+  "prior_accepted_trace": {
+    "fallback_used": false,
+    "omnigent": "dc4f1ffa",
+    "pak": "802a74d",
+    "trace_id": "tr-9c4e2a47c104c2c4d10ea55381125437"
+  },
+  "root_cause_classification": "Earlier failure was shared observation service availability; service restored externally; focused live reproduction now passes without a repository code change",
+  "scenarios": [
+    {
+      "detail": "Real fm-omnigent.sh start codex; native shell asserts OMNIGENT=1, FM_OMNIGENT=on, FM_BACKEND=herdr.",
+      "evidence": [
+        "r5-start-env.txt",
+        "r5-start-pane.txt"
+      ],
+      "evidence_origin": "Retained from preceding authorized validation; not rerun",
+      "live": true,
+      "name": "Wrapped primary start preserves backend",
+      "result": "pass"
+    },
+    {
+      "detail": "Real wrapped Codex primary executes fm-spawn --relaunch into preallocated agent-free lab endpoint with FM_OMNIGENT removed. Worker completes environment probe; recorded harness codex, model gpt-6-sol, effort low, isolated home and worktree; native turn-end marker observed. Does not prove fresh shared worktree allocation or full watcher lifecycle.",
+      "evidence": [
+        "r5-primary-worker-result.json",
+        "r5-primary-env.txt",
+        "r5-worker-env.txt",
+        "r5-worker-meta.txt",
+        "r5-primary-pane.txt",
+        "r5-worker-pane.txt"
+      ],
+      "evidence_origin": "Retained from preceding authorized validation; not rerun",
+      "live": true,
+      "name": "Wrapped primary dispatches wrapped worker",
+      "result": "pass"
+    },
+    {
+      "classification": "fixture-proven",
+      "detail": "Existing regression executes actual remote entrypoint and spawn against local SSH/Herdr/observation doubles. Exact native-to-wrapped relaunch assertion passes. Complete focused script passes in 254 seconds. No real remote home accessed.",
+      "evidence": [
+        "r5-remote.log",
+        "r5-remote-timing.json"
+      ],
+      "evidence_origin": "Retained from preceding authorized validation; not rerun",
+      "live": false,
+      "name": "Remote native secondmate relaunch inherits wrapping",
+      "result": "pass"
+    },
+    {
+      "detail": "Focused live guard passes in 55 seconds for Claude 2.1.286, Codex 0.159.2, Kiro 2.26.1 and Antigravity 1.2.14. Antigravity safe refusal proven; native exit remains unverified. Four conversation terminal lists empty.",
+      "evidence": [
+        "r5-live.log",
+        "r5-live-timing.json"
+      ],
+      "evidence_origin": "Retained from preceding authorized validation; not rerun",
+      "live": true,
+      "name": "ASCII locale liveness, safe control and cleanup",
+      "result": "pass"
+    },
+    {
+      "detail": "One Codex worker and one prompt through fm-omnigent.sh run in a named isolated Herdr lab. Exact final response appears in trace.data.response and matching agent span output.value. This attempt does not rerun primary dispatch or remote lifecycle.",
+      "evidence": [
+        "round5-mlflow.json",
+        "round5-single-result.json",
+        "round5-worker-pane.txt"
+      ],
+      "live": true,
+      "name": "Session-matched final-response retrieval from MLflow",
+      "result": "pass",
+      "session": "92e1a220b59d48a7bf6d871871d0cf30",
+      "trace_id": "tr-007416f90fe15fac8dde57750bac232d"
+    }
+  ],
+  "selected_finding": "test-2",
+  "summary": "Verify session-matched MLflow final-response export",
+  "tested_head_sha": "cd639e039e986e1e657fa4b9df41e65df3eb2c7b",
+  "verdict": "pass"
+}
