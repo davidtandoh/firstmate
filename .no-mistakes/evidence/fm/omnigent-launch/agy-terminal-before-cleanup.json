@@ -1,0 +1,11 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "terminal_antigravity_main",
+      "type": "terminal",
+      "running": true
+    }
+  ],
+  "has_more": false
+}

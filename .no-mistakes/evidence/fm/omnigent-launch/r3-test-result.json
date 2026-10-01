@@ -1,0 +1,12 @@
+{
+  "changes": [],
+  "classification": "environment_blocker",
+  "git_status": "",
+  "initiating_cause": "Not established",
+  "matching_agent_traces": 0,
+  "next_action": "Restore the managed observation service outside this restricted phase, then rerun live wrapped Codex final-response acceptance.",
+  "redaction_health": "connection refused on 127.0.0.1:5052",
+  "reproduction_error": "AssertionError: No session-matched final-response trace found",
+  "reproduction_exit_code": 1,
+  "service_reason": "serve_processes_partial"
+}

@@ -1,0 +1,81 @@
+{
+  "boundaries": "No linters, formatters, static analysis, full suite, pipeline control, publication, shared service changes, or real secondmate lifecycle actions.",
+  "changes_applied": false,
+  "cleanup": {
+    "detail": "Owned Herdr lab teardown returned 0; exact three model-test sessions have empty terminal lists. Initial test-driver attempt truncated a long inline shell launch; replaced with a short launch-file command and reran. Final driver cleanup encountered a read-only test-owned git-hooks directory; made that directory writable and removed the remaining fixture. Primary/worker driver exit 1 reflects cleanup error, not claimed full-script success.",
+    "evidence": [
+      "r5-final-terminal-cleanup.json",
+      "r5-primary-worker.log"
+    ],
+    "worktree": "clean; no source changes or remaining transient artifacts"
+  },
+  "findings": [
+    {
+      "description": "Session-matched MLflow final-response acceptance remains unverified. Shared serve degraded after the model turns; status exits 2 with serve_processes_partial. Redactor tail contains transcript-not-settled and redaction-failed. Validation stopped without repairing or restarting shared services, as instructed.",
+      "id": "test-2",
+      "severity": "warning"
+    }
+  ],
+  "root_cause_classification": "Shared observation environment failure; no confirmed product regression",
+  "scenarios": [
+    {
+      "detail": "Real fm-omnigent.sh start codex; native shell asserts OMNIGENT=1, FM_OMNIGENT=on, FM_BACKEND=herdr.",
+      "evidence": [
+        "r5-start-env.txt",
+        "r5-start-pane.txt"
+      ],
+      "live": true,
+      "name": "Wrapped primary start preserves backend",
+      "result": "pass"
+    },
+    {
+      "detail": "Real wrapped Codex primary executes fm-spawn --relaunch into preallocated agent-free lab endpoint with FM_OMNIGENT removed. Worker completes environment probe; recorded harness codex, model gpt-6-sol, effort low, isolated home and worktree; native turn-end marker observed. Does not prove fresh shared worktree allocation or full watcher lifecycle.",
+      "evidence": [
+        "r5-primary-worker-result.json",
+        "r5-primary-env.txt",
+        "r5-worker-env.txt",
+        "r5-worker-meta.txt",
+        "r5-primary-pane.txt",
+        "r5-worker-pane.txt"
+      ],
+      "live": true,
+      "name": "Wrapped primary dispatches wrapped worker",
+      "result": "pass"
+    },
+    {
+      "classification": "fixture-proven",
+      "detail": "Existing regression executes actual remote entrypoint and spawn against local SSH/Herdr/observation doubles. Exact native-to-wrapped relaunch assertion passes. Complete focused script passes in 254 seconds. No real remote home accessed.",
+      "evidence": [
+        "r5-remote.log",
+        "r5-remote-timing.json"
+      ],
+      "live": false,
+      "name": "Remote native secondmate relaunch inherits wrapping",
+      "result": "pass"
+    },
+    {
+      "detail": "Focused live guard passes in 55 seconds for Claude 2.1.286, Codex 0.159.2, Kiro 2.26.1 and Antigravity 1.2.14. Antigravity safe refusal proven; native exit remains unverified. Four conversation terminal lists empty.",
+      "evidence": [
+        "r5-live.log",
+        "r5-live-timing.json"
+      ],
+      "live": true,
+      "name": "ASCII locale liveness, safe control and cleanup",
+      "result": "pass"
+    },
+    {
+      "detail": "Worker session f78d2d9130c046b18f38786fc0e0f134 completed its turn. Before trace retrieval, service preflight returned degraded; stopped immediately. Visible worker final response is not MLflow evidence.",
+      "evidence": [
+        "r5-mlflow.log",
+        "r5-service-after.json",
+        "r5-redactor-tail.log"
+      ],
+      "live": false,
+      "name": "MLflow session-matched worker final response",
+      "result": "untested"
+    }
+  ],
+  "summary": "Launch validated; MLflow blocked by redactor safe-stop",
+  "tested_head_sha": "cd639e039e986e1e657fa4b9df41e65df3eb2c7b",
+  "verdict": "inconclusive"
+}

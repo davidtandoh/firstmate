@@ -1,0 +1,72 @@
+[
+  {
+    "exit_code": 0,
+    "markers": {},
+    "name": "native without opt-in",
+    "pass": true,
+    "policy": null,
+    "stderr": "",
+    "stdout": "off\n"
+  },
+  {
+    "exit_code": 0,
+    "markers": {
+      "FM_OMNIGENT": "off",
+      "OMNIGENT": "1"
+    },
+    "name": "detected wrapped session cannot be disabled",
+    "pass": true,
+    "policy": "auto",
+    "stderr": "",
+    "stdout": "on\n"
+  },
+  {
+    "exit_code": 0,
+    "markers": {},
+    "name": "home fallback force-enables wrapping",
+    "pass": true,
+    "policy": "on",
+    "stderr": "",
+    "stdout": "on\n"
+  },
+  {
+    "exit_code": 0,
+    "markers": {
+      "FM_OMNIGENT": "on"
+    },
+    "name": "inherited mode survives missing marker",
+    "pass": true,
+    "policy": null,
+    "stderr": "",
+    "stdout": "on\n"
+  },
+  {
+    "exit_code": 1,
+    "markers": {
+      "OMNIGENT": "1"
+    },
+    "name": "removed off policy is refused",
+    "pass": true,
+    "policy": "off",
+    "stderr": "error: Omnigent launch: expected auto or on in /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/.omni-test-mode-pd90w90o/omnigent\n",
+    "stdout": ""
+  },
+  {
+    "exit_code": 1,
+    "markers": {
+      "FM_OMNIGENT": "invalid"
+    },
+    "name": "malformed inherited mode is refused",
+    "pass": true,
+    "policy": null,
+    "stderr": "error: Omnigent launch: FM_OMNIGENT must be on or off\n",
+    "stdout": ""
+  },
+  {
+    "exit_code": 1,
+    "name": "unsupported wrapper refuses before launch",
+    "pass": true,
+    "stderr": "error: Omnigent launch: unverified wrapped harness: pi\n",
+    "stdout": ""
+  }
+]

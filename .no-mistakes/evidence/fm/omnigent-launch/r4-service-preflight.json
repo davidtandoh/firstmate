@@ -1,0 +1,44 @@
+{
+  "launch": {
+    "command": [
+      "bin/fm-omnigent.sh",
+      "start",
+      "codex"
+    ],
+    "exit_code": 1,
+    "stderr": "perl: warning: Setting locale failed.\nperl: warning: Please check that your locale settings:\n\tLC_ALL = \"C.UTF-8\",\n\tLC_CTYPE = \"C.UTF-8\",\n\tLANG = \"C.UTF-8\"\n    are supported and installed on your system.\nperl: warning: Falling back to the standard locale (\"C\").\nerror: Omnigent launch: agent-kit observe serve is unavailable: serve_processes_partial\n",
+    "stdout": ""
+  },
+  "live_guard": {
+    "command": [
+      "bin/fm-test-run.sh",
+      "tests/fm-omnigent-live-e2e.test.sh",
+      "--jobs",
+      "1",
+      "--per-script-timeout-secs",
+      "90",
+      "--max-wall-ms",
+      "120000",
+      "--json",
+      "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r4-live-timing.json"
+    ],
+    "exit_code": 1,
+    "stderr": "perl: warning: Setting locale failed.\nperl: warning: Please check that your locale settings:\n\tLC_ALL = \"C.UTF-8\",\n\tLC_CTYPE = \"C.UTF-8\",\n\tLANG = \"C.UTF-8\"\n    are supported and installed on your system.\nperl: warning: Falling back to the standard locale (\"C\").\nfm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r4-live-timing.json\n",
+    "stdout": "FM_TEST_BEGIN 2026-10-01T13:55:25Z tests/fm-omnigent-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability\nperl: warning: Setting locale failed.\nperl: warning: Please check that your locale settings:\n\tLC_ALL = \"C.UTF-8\",\n\tLC_CTYPE = \"C.UTF-8\",\n\tLANG = \"C.UTF-8\"\n    are supported and installed on your system.\nperl: warning: Falling back to the standard locale (\"C\").\nerror: Omnigent launch: agent-kit observe serve is unavailable: serve_processes_partial\nFM_TEST_END 2026-10-01T13:55:26Z tests/fm-omnigent-live-e2e.test.sh exit=4 duration_ms=629 gate_skip=false\nFM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=766\nFM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=629 failed=1\nFM_TEST_SLOWEST rank=1 script=tests/fm-omnigent-live-e2e.test.sh duration_ms=629\nFM_TEST_BUDGET max_wall_ms=120000 duration_ms=766\n"
+  },
+  "redactor_health": {
+    "error": "<urlopen error [Errno 61] Connection refused>"
+  },
+  "service": {
+    "command": [
+      "agent-kit",
+      "observe",
+      "serve",
+      "status",
+      "--json"
+    ],
+    "exit_code": 2,
+    "stderr": "",
+    "stdout": "{\"client_environment\":{},\"experiment_id\":null,\"mlflow\":{\"version\":\"3.15.2\"},\"mlflow_url\":null,\"omnigent\":{\"commit\":\"dc4f1ffa334dd5e85454360706f3e1f8ccbd495f\",\"repository\":\"https://github.com/davidtandoh/omnigent.git\",\"version\":\"0.16.0.dev0\"},\"reason\":\"serve_processes_partial\",\"redaction_url\":null,\"redactor_log\":\"/Users/davidtandoh/.agents/state/observation/serve/redactor.stderr.log\",\"redactor_sha256\":\"009e968930b5ee707867ded01cb104da9a0106ed61654b26e90d83b03212ce27\",\"schema_version\":\"1\",\"serve_id\":\"caa84cfb823d77bf2a9e2f91f4afbfe9\",\"server_url\":null,\"session_scope\":\"personal\",\"state_file\":\"/Users/davidtandoh/.agents/state/observation/serve/serve.json\",\"status\":\"degraded\",\"work_session_policy\":null}\n"
+  }
+}

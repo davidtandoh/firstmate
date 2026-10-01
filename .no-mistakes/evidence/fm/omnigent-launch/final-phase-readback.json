@@ -1,0 +1,19 @@
+{
+  "agent_outputs": [
+    {
+      "name": "agent:codex-native-ui",
+      "output.value": "OMNI_SINGLE_FINAL_20261001"
+    }
+  ],
+  "attempt_exhausted": true,
+  "attempt_limit": 1,
+  "checked_at": "2026-10-01T14:23:05.489474+00:00",
+  "head": "cd639e039e986e1e657fa4b9df41e65df3eb2c7b",
+  "live_readback": "pass",
+  "new_model_turns": 0,
+  "new_workers": 0,
+  "prior_result": "pass",
+  "response": "\"OMNI_SINGLE_FINAL_20261001\"",
+  "session": "92e1a220b59d48a7bf6d871871d0cf30",
+  "trace_id": "tr-007416f90fe15fac8dde57750bac232d"
+}

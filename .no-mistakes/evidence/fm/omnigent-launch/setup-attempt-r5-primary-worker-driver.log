@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r5-primary-worker.py", line 72, in <module>
+    else: raise RuntimeError('Start primary did not reach composer')
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Start primary did not reach composer

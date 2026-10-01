@@ -1,0 +1,10 @@
+{
+  "default_running": true,
+  "owned_labs": [
+    "fm-lab-omnigent-launch-96000-6348",
+    "fm-lab-omni-round2-56347-30232",
+    "fm-lab-omni-round2-99101-30342",
+    "fm-lab-omni-round2-84823-14382"
+  ],
+  "remaining": []
+}

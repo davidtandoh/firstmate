@@ -1,0 +1,22 @@
+[
+  {
+    "session": "a7499f45db584648aaddb3b7542eecc9",
+    "terminals": {
+      "data": [],
+      "first_id": null,
+      "has_more": false,
+      "last_id": null,
+      "object": "list"
+    }
+  },
+  {
+    "session": "3a8cdf666377447797c167133b82a33b",
+    "terminals": {
+      "data": [],
+      "first_id": null,
+      "has_more": false,
+      "last_id": null,
+      "object": "list"
+    }
+  }
+]

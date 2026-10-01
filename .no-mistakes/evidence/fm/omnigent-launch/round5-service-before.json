@@ -1,0 +1,37 @@
+{
+  "client_environment": {
+    "OMNIGENT_CONFIG_HOME": "/Users/davidtandoh/.agents/state/observation/serve/omnigent/config",
+    "OMNIGENT_DATA_DIR": "/Users/davidtandoh/.agents/state/observation/serve/omnigent/data",
+    "OMNIGENT_OTEL_CAPTURE_CONTENT": "true",
+    "OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION": "false",
+    "OMNIGENT_TELEMETRY_ENABLED": "true",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:5052",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://127.0.0.1:5052/v1/traces",
+    "OTEL_EXPORTER_OTLP_TRACES_HEADERS": "x-mlflow-experiment-id=1",
+    "OTEL_LOGS_EXPORTER": "none",
+    "OTEL_METRICS_EXPORTER": "none",
+    "OTEL_RESOURCE_ATTRIBUTES": "agent.kit.capture.decision=redacted-full-content,agent.kit.serve.id=f061670eb121a9832d892a5a07c82d4b,agent.kit.session.scope=personal"
+  },
+  "experiment_id": "1",
+  "mlflow": {
+    "version": "3.15.2"
+  },
+  "mlflow_url": "http://127.0.0.1:5051",
+  "omnigent": {
+    "commit": "dc4f1ffa334dd5e85454360706f3e1f8ccbd495f",
+    "repository": "https://github.com/davidtandoh/omnigent.git",
+    "version": "0.16.0.dev0"
+  },
+  "reason": null,
+  "redaction_url": "http://127.0.0.1:5052",
+  "redactor_log": "/Users/davidtandoh/.agents/state/observation/serve/redactor.stderr.log",
+  "redactor_sha256": "009e968930b5ee707867ded01cb104da9a0106ed61654b26e90d83b03212ce27",
+  "schema_version": "1",
+  "serve_id": "f061670eb121a9832d892a5a07c82d4b",
+  "server_url": "http://127.0.0.1:6767",
+  "session_scope": "personal",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json",
+  "status": "running",
+  "work_session_policy": null
+}

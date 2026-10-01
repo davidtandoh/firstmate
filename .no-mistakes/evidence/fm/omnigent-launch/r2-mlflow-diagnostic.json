@@ -1,0 +1,1422 @@
+{
+  "count": 40,
+  "next_page": false,
+  "traces": [
+    {
+      "id": "tr-c0b1216a43b9c14ae8317c078130e16c",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-2467ef9f6c303062b800c74b4ad3a602",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-75617d7a372c391f35b52b11b4b01fa9",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-40bce9901540f2d9e61315a953ad5a0c",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-6ccb50ada19ff5d0bcd786b1355c6c54",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-9a4b390b4b388de0ad21813a0a2e789e",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-7c16c0a2b9d3e7b4e7f582243d451e9b",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-3995458b4b28874f05febf3153159094",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-de02b0ba85794bd9055ba703a4574d92",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-7ee2e2fa6a5c1aad9410b0ee30854145",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-198c71d0dbb6bf21b21d30ea953e7af1",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-86754ce234116b10f6591eda23674276",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-fe8afdae05d18146a2f178b287b71b32",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-67865be4d94a57eb6cafa6ef32351bd2",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-5cac9408537fe347b510a63871addf73",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/background-title",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/background-title http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/background-title http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/background-title http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/background-title http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-66b324d5405024ccdc5afa131ed6155b",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-831cd20340c347eda46d8cad70e01d72",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-2aaa605066ad7ee2b56df13ca32c3d43",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/labels",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-1e60ad1a33756e93d1d044a618c2b45a",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-1542500af73d88b04442b4375a1e44d9",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-d991539aae02b42ea63e074149178bb9",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-bc727127690c0943ac697b07135cb443",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-6841dd960c1745402e632a25c0a3243c",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-05cceeaaf9215a982579a201c9cbc5d3",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-e57953514288a209b4bd7868aa4aefbf",
+      "response": null,
+      "spans": [
+        {
+          "name": "PATCH /v1/sessions/{session_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-772f34f193ba65f194376935122e7ffc",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-02da86f58f3975cc71ac3d5f0c8d62e2",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/labels",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-a8b5d6ad66d26c6b83773d89c632f3a2",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/items",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-a56cee5b7273401df0f4cc2a1b1dd6a9",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "policy.evaluate",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{conversation_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/events http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-e86a321582b8cd0eea7a0a0f66e9f15e",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/labels",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-1d16d4c7e23c0e3d1ceec6eda73d6684",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/resources/terminals/{terminal_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-971d42cc0e708205503c0ba7623cab90",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions/{session_id}/resources/terminals http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-22e1429a7359c089854c55881e0df317",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/items",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/items http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-4525dc77475d5e860f78f325974f586c",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/labels",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-6cb4cb74748c12a1aa89ea844fe550a5",
+      "response": null,
+      "spans": [
+        {
+          "name": "PATCH /v1/sessions/{session_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http receive",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http receive",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "PATCH /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/stream http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-84db7e63499afaf9bb6bddfdfb2d92c6",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/labels",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/labels http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-7d2961f25d273f8ed6fa02ccf9c2240b",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/child_sessions",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/child_sessions http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/child_sessions http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/child_sessions http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-262a7b0e3f8b342a6a971fdebf8d3e42",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id} http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/model-options http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-a67b75540f514a7b66888ec36da2cc80",
+      "response": null,
+      "spans": [
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "GET /v1/sessions/{session_id}/agent/contents http send",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        }
+      ],
+      "status": "TraceStatus.OK"
+    },
+    {
+      "id": "tr-f575d2aea2483e37a213bc393a3be015",
+      "response": null,
+      "spans": [
+        {
+          "name": "POST /v1/sessions",
+          "session.id": "3a8cdf666377447797c167133b82a33b"
+        },
+        {
+          "name": "POST /v1/sessions http receive",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        },
+        {
+          "name": "POST /v1/sessions http send",
+          "session.id": null
+        }
+      ],
+      "status": "TraceStatus.OK"
+    }
+  ]
+}

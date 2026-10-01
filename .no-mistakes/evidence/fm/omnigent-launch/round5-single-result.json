@@ -1,0 +1,13 @@
+{
+  "additional_model_turns_authorized": false,
+  "attempt_limit": 1,
+  "cleanup": "owned terminals empty; lab removed; default fleet tripwire unchanged; temporary worktree files removed",
+  "evidence": "round5-mlflow.json",
+  "lab_session": "fm-lab-omni-single-46453-18589",
+  "pane_id": "w1:p2",
+  "prompts_submitted": 1,
+  "result": "pass",
+  "tested_head_sha": "cd639e039e986e1e657fa4b9df41e65df3eb2c7b",
+  "worker_session": "92e1a220b59d48a7bf6d871871d0cf30",
+  "workers_launched": 1
+}

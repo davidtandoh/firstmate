@@ -1,0 +1,32 @@
+[
+  {
+    "exit": 0,
+    "name": "ordinary-native",
+    "output": "off\n",
+    "pass": true
+  },
+  {
+    "exit": 0,
+    "name": "detected-session",
+    "output": "on\n",
+    "pass": true
+  },
+  {
+    "exit": 0,
+    "name": "marker-outranks-inherited-off",
+    "output": "on\n",
+    "pass": true
+  },
+  {
+    "exit": 0,
+    "name": "fallback-opt-in",
+    "output": "on\n",
+    "pass": true
+  },
+  {
+    "exit": 1,
+    "name": "removed-off-refused",
+    "output": "error: Omnigent launch: expected auto or on in /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/.nm-mode-r2-2larz_l5/omnigent\n",
+    "pass": true
+  }
+]

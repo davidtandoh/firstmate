@@ -1,0 +1,8 @@
+{
+  "experiment_id": null,
+  "mlflow_url": null,
+  "reason": "serve_processes_partial",
+  "redaction_url": null,
+  "server_url": null,
+  "status": "degraded"
+}

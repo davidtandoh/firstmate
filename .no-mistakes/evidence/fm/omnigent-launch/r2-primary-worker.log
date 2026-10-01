@@ -1,0 +1,8 @@
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/bin/fm-herdr-lab.sh name omni-round2
+fm-lab-omni-round2-2067-31178
+
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/bin/fm-omnigent.sh run --dry-run codex
+error: Omnigent launch: agent-kit observe serve is unavailable: serve_processes_partial
+
+exit=1

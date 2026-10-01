@@ -1,0 +1,38 @@
+{
+  "git_status": "",
+  "launch_preflight": {
+    "exit_code": 1,
+    "stderr": "perl: warning: Setting locale failed.\nperl: warning: Please check that your locale settings:\n\tLC_ALL = \"C.UTF-8\",\n\tLC_CTYPE = \"C.UTF-8\",\n\tLANG = \"C.UTF-8\"\n    are supported and installed on your system.\nperl: warning: Falling back to the standard locale (\"C\").\nerror: Omnigent launch: agent-kit observe serve is unavailable: serve_processes_partial\n",
+    "stdout": ""
+  },
+  "redaction_health": {
+    "error": "<urlopen error [Errno 61] Connection refused>"
+  },
+  "service": {
+    "exit_code": 2,
+    "status": {
+      "client_environment": {},
+      "experiment_id": null,
+      "mlflow": {
+        "version": "3.15.2"
+      },
+      "mlflow_url": null,
+      "omnigent": {
+        "commit": "dc4f1ffa334dd5e85454360706f3e1f8ccbd495f",
+        "repository": "https://github.com/davidtandoh/omnigent.git",
+        "version": "0.16.0.dev0"
+      },
+      "reason": "serve_processes_partial",
+      "redaction_url": null,
+      "redactor_log": "/Users/davidtandoh/.agents/state/observation/serve/redactor.stderr.log",
+      "redactor_sha256": "009e968930b5ee707867ded01cb104da9a0106ed61654b26e90d83b03212ce27",
+      "schema_version": "1",
+      "serve_id": "caa84cfb823d77bf2a9e2f91f4afbfe9",
+      "server_url": null,
+      "session_scope": "personal",
+      "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json",
+      "status": "degraded",
+      "work_session_policy": null
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "command": "agent-kit observe serve status --json",
+  "exit_code": 0,
+  "gate_skip": false,
+  "recorded_at": "2026-10-01T14:14:41.867809+00:00",
+  "result": "Stopped at initial preflight under the explicit user stop condition. No lab provisioned and no shared service mutation attempted.",
+  "status_response": {
+    "client_environment": {},
+    "experiment_id": null,
+    "mlflow": {
+      "version": "3.15.2"
+    },
+    "mlflow_url": null,
+    "omnigent": {
+      "commit": "dc4f1ffa334dd5e85454360706f3e1f8ccbd495f",
+      "repository": "https://github.com/davidtandoh/omnigent.git",
+      "version": "0.16.0.dev0"
+    },
+    "reason": "serve_processes_partial",
+    "redaction_url": null,
+    "redactor_log": "/Users/davidtandoh/.agents/state/observation/serve/redactor.stderr.log",
+    "redactor_sha256": "009e968930b5ee707867ded01cb104da9a0106ed61654b26e90d83b03212ce27",
+    "schema_version": "1",
+    "serve_id": "37df712221b5e238d504e3f160744ac4",
+    "server_url": null,
+    "session_scope": "personal",
+    "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json",
+    "status": "degraded",
+    "work_session_policy": null
+  }
+}

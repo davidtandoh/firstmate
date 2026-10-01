@@ -1,0 +1,20 @@
+FM_TEST_BEGIN 2026-10-01T13:43:04Z tests/fm-omnigent.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - only native Omnigent launch commands identify an agent
+ok - session detection, explicit home policy, and inherited mode fail closed
+ok - Omnigent attach uses UTF-8 or refuses before native launch
+ok - managed executable receives exact arguments and explicit worker environment
+ok - missing, unreachable, malformed service and unverified harness refuse
+ok - spawn refuses before endpoint publication when tracing is unavailable
+ok - ship and scout pane launches preserve dispatch, notify, and explicit session environment
+ok - local secondmate receives its isolated home and passes mode to its own workers
+ok - ordinary sessions preserve direct launch while serve is unavailable
+ok - wrapped launches refuse guarantees the additive daemon environment cannot enforce
+ok - service coordinates and client environment are validated as data
+ok - native wrapper argument contracts and primary start preserve exact boundaries
+ok - primary starts preserve backend overrides and clear stale daemon selection
+FM_TEST_END 2026-10-01T13:43:23Z tests/fm-omnigent.test.sh exit=0 duration_ms=19036 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=19150
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=19036 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent.test.sh duration_ms=19036
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r2-contract-timing.json
+FM_TEST_BUDGET max_wall_ms=210000 duration_ms=19150

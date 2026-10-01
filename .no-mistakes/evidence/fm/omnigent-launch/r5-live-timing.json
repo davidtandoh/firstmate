@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 54900,
+      "failed": 0,
+      "name": "live-harness-optin"
+    }
+  ],
+  "finished_at": "2026-10-01T14:07:06Z",
+  "run_id": "fm-test-run-1790863572026-59191",
+  "scripts": [
+    {
+      "duration_ms": 54900,
+      "exit": 0,
+      "expected_gate_skip": "live-capability",
+      "family": "live-harness-optin",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-omnigent-live-e2e.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-10-01T14:06:12Z",
+  "summary": {
+    "duration_ms": 54979,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}

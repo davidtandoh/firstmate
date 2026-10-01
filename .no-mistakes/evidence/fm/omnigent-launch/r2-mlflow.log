@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r2-mlflow.py", line 23, in <module>
+    assert any('OMNI_R2_WORKER_FINAL' in str(t['response']) and any('OMNI_R2_WORKER_FINAL' in str(s['output.value']) for s in t['agent_spans']) for t in found), 'No session-matched final-response trace found'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: No session-matched final-response trace found

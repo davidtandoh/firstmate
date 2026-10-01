@@ -1,0 +1,15 @@
+[
+  {
+    "agent_spans": [
+      {
+        "name": "agent:codex-native-ui",
+        "output.value": "OMNI_SINGLE_FINAL_20261001"
+      }
+    ],
+    "request": "\"This is the only turn in an authorized trace-export canary. Do not use tools, read files, start agents, or change anything. Return exactly OMNI_SINGLE_FINAL_20261001 as your final response and end the turn.\"",
+    "response": "\"OMNI_SINGLE_FINAL_20261001\"",
+    "session": "92e1a220b59d48a7bf6d871871d0cf30",
+    "status": "TraceStatus.OK",
+    "trace_id": "tr-007416f90fe15fac8dde57750bac232d"
+  }
+]

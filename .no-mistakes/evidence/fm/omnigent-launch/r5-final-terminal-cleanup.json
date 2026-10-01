@@ -1,0 +1,32 @@
+[
+  {
+    "resources": {
+      "data": [],
+      "first_id": null,
+      "has_more": false,
+      "last_id": null,
+      "object": "list"
+    },
+    "session": "42e784232bc0460ab01e167b2940d557"
+  },
+  {
+    "resources": {
+      "data": [],
+      "first_id": null,
+      "has_more": false,
+      "last_id": null,
+      "object": "list"
+    },
+    "session": "828d3d50032b4737831ed8412b6a22d1"
+  },
+  {
+    "resources": {
+      "data": [],
+      "first_id": null,
+      "has_more": false,
+      "last_id": null,
+      "object": "list"
+    },
+    "session": "f78d2d9130c046b18f38786fc0e0f134"
+  }
+]

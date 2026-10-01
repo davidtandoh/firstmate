@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r2-primary-worker.py", line 85, in <module>
+    if not all(observations[k] for k in ('spawn_complete','worker_environment','turn_end')): raise RuntimeError('Primary/worker journey incomplete; inspect panes and spawn output')
+                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Primary/worker journey incomplete; inspect panes and spawn output
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/r2-primary-worker.py", line 104, in <module>
+    shutil.rmtree(base)
+  File "/Users/davidtandoh/miniconda3/lib/python3.12/shutil.py", line 759, in rmtree
+    _rmtree_safe_fd(stack, onexc)
+  File "/Users/davidtandoh/miniconda3/lib/python3.12/shutil.py", line 703, in _rmtree_safe_fd
+    onexc(func, path, err)
+  File "/Users/davidtandoh/miniconda3/lib/python3.12/shutil.py", line 700, in _rmtree_safe_fd
+    onexc(os.unlink, fullname, err)
+  File "/Users/davidtandoh/miniconda3/lib/python3.12/shutil.py", line 698, in _rmtree_safe_fd
+    os.unlink(entry.name, dir_fd=topfd)
+PermissionError: [Errno 13] Permission denied: '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/.nm-omni-r2-1lxf2llw/home/state/probe-worker.git-hooks'

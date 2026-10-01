@@ -1,0 +1,7 @@
+env -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE LC_ALL=C /Users/davidt
+andoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/bin/fm-omnigent.sh run agy --dangerously-skip-permi
+ssions
+(base) davidtandoh@Davids-MacBook-Pro cwd % env -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRID
+E -u FM_DATA_OVERRIDE LC_ALL=C /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M3VQQ8KSX5QDVVFHY221R9G7/bin/fm-
+omnigent.sh run agy --dangerously-skip-permissions
+⠹ Waiting for runner...

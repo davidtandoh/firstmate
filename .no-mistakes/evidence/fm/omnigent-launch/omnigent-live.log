@@ -1,0 +1,108 @@
+FM_TEST_BEGIN 2026-10-01T13:08:57Z tests/fm-omnigent-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+# Herdr 0.9.1 + Omnigent claude 2.1.286 (Claude Code): alive; wrapper classified from ordered argv
+stopped probe harness=claude backend=herdr endpoint=fm-lab-omnigent-launch-99399-8070:w1:p2 worktree=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-omnigent-live.JK0tKx/cwd
+ok - Omnigent claude 2.1.286 (Claude Code): liveness and native exit
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+# Herdr 0.9.1 + Omnigent codex codex-cli 0.159.2: alive; wrapper classified from ordered argv
+stopped probe harness=codex backend=herdr endpoint=fm-lab-omnigent-launch-99399-8070:w1:p3 worktree=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-omnigent-live.JK0tKx/cwd
+ok - Omnigent codex codex-cli 0.159.2: liveness and native exit
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+# Herdr 0.9.1 + Omnigent kiro kiro-cli 2.26.1: alive; wrapper classified from ordered argv
+                             ⠈⠻⠿⠿⠟⠁⠀⠀⠀⠈⠻⠿⠿⠟⠁    ⠈⠻⠿⠿⠟⠁   ⠈⠻⠿⠿⠟⠁⠀⠀⠀⠈⠻⠿⠿⠟⠁     ⠀⠀⠈⠙⠻⠿⠿⠿⠿⠟⠋⠁
+
+                                                Welcome to Kiro CLI V3!
+                             Upgrade your V2 agent configurations to V3 with /upgrade-agent
+                                             https://kiro.dev/docs/cli/v3/
+                               Prefer the previous experience? Launch with kiro-cli --v2
+
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Warning: Kiro is running in trust all tools mode
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ In this mode, Kiro will execute all tool calls — including shell commands, file operations, and MCP tools — without
+ asking for your approval.
+
+ This mode is intended for sandboxed or disposable environments only. Do not use it on a machine with access to
+ sensitive data or production systems.
+
+ By proceeding, you confirm that you understand the risks and accept responsibility for all actions taken during this
+ session.
+
+ ❯ No, exit
+   Yes, I accept
+   Yes, and don't ask again
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  esc to cancel · ↑↓ to navigate · ↵ to select
+
+
+
+
+Omnigent: http://127.0.0.1:6767/c/20299b4b515442448fd8abe62a9829a2
+not ok - kiro kiro-cli 2.26.1: native composer is unknown after startup
+FM_TEST_END 2026-10-01T13:10:11Z tests/fm-omnigent-live-e2e.test.sh exit=1 duration_ms=73147 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=73370
+FM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=73147 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent-live-e2e.test.sh duration_ms=73147
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M3VQQ8KSX5QDVVFHY221R9G7/omnigent-live-timing.json
+FM_TEST_BUDGET max_wall_ms=270000 duration_ms=73370
