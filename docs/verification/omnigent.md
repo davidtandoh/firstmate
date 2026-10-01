@@ -3,33 +3,60 @@
 This record separates launch propagation, process liveness, native supervision, and trace export.
 [Configuration](../configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent) owns setup and limits; [architecture](../omnigent.md) owns component boundaries.
 
-## Current empirical boundary
+## Current Codex acceptance
 
-Observed on 2026-09-29 on macOS with the Kit-managed Omnigent `0.16.0.dev0 (d8208e80)`, commit `d8208e80779f442612cbeaaaa512a788914e2de5`, Codex `0.157.1`, and Herdr `0.9.1`.
-The runtime was selected from the `state_file` returned by `agent-kit observe serve status --json`, under that file's parent directory at `runtime/bin/omnigent`.
+Observed on 2026-10-01 on macOS with Kit-managed Omnigent `0.16.0.dev0 (dc4f1ffa, built 2026-10-01T07:40:01Z)`, Codex `0.159.2`, Herdr `0.9.1`, and MLflow SDK `3.15.2`.
+`agent-kit observe serve status --json` reported `running` with `server_url=http://127.0.0.1:6767`.
+The launcher selected the managed runtime from the status response's `state_file` and used its `client_environment`.
 
-A real Codex launch used `omnigent codex --server http://127.0.0.1:6767 --env FM_OMNIGENT_PROBE=launch-sentinel --env COMPACT_ADVISER_DISABLE=1 --prompt <probe> -- --disable hooks --dangerously-bypass-approvals-and-sandbox` with the status response's `client_environment`.
-The probe ran this command in the native session:
+An isolated home and preallocated, agent-free endpoint in a named Herdr lab ran:
 
 ```sh
-printf 'OMNIGENT=%s FM_OMNIGENT_PROBE=%s COMPACT_ADVISER_DISABLE=%s\n' \
-  "$OMNIGENT" "$FM_OMNIGENT_PROBE" "$COMPACT_ADVISER_DISABLE"
+FM_OMNIGENT=on bin/fm-spawn.sh omni-codex-proof --relaunch \
+  --harness codex --model gpt-6-sol --effort low
 ```
 
+The launch started with `LC_ALL=C LC_CTYPE=C` and used the existing isolated worktree without allocating or changing a shared worktree-pool slot.
+The worker ran a bounded environment probe, sent `OMNI_WORKING_013` as commentary, and returned a distinct `OMNI_FINAL_013` final reply.
 The native tool output was:
 
 ```text
-OMNIGENT=1 FM_OMNIGENT_PROBE=launch-sentinel COMPACT_ADVISER_DISABLE=1
+OMNIGENT=1 FM_OMNIGENT=on FM_TASK_ID=omni-codex-proof
 ```
 
-Herdr `pane process-info` reported a `python3.12` foreground process.
-On macOS, that response contains the process name, `argv0`, and PID but omits the full arguments.
-Reading that exact PID with `ps -o command= -p <pid>` showed the managed `python3`, the managed `omnigent` entrypoint, and `codex --server` in order.
-After the shared classifier recognized that ordered shape, `bin/fm-control.sh probe exit` returned `stopped probe harness=codex backend=herdr` with the isolated endpoint and worktree.
+The task's turn-end hook created `state/omni-codex-proof.turn-ended` automatically.
+Neither the probe nor the worker wrote that marker directly.
+`bin/fm-control.sh omni-codex-proof exit` returned `stopped omni-codex-proof harness=codex backend=herdr` with the isolated endpoint and worktree.
+The backend then reported `dead`, and the conversation's terminal resource list was empty.
 The named lab helper completed teardown and verified the unchanged running default fleet.
 
-This proves the native marker, explicit environment delivery, and one Codex control exit.
-The later acceptance below extends launch and export evidence but exposes unresolved supervision failures.
+MLflow at `http://127.0.0.1:5051` retained trace `tr-9c4e2a47c104c2c4d10ea55381125437`, status `OK`, with an `agent:codex-native-ui` span for conversation `0877157ea5174f0fa580781a779c7d64`.
+
+| Field | Observed value |
+|---|---|
+| `trace.data.request` | Contains `OMNI_REQUEST_013` and `password=[REDACTED]`. |
+| `trace.data.response` | JSON string `"OMNI_FINAL_013 password=[REDACTED]"`. |
+| Agent span `output.value` | Native final reply `OMNI_FINAL_013 password=[REDACTED]`. |
+| Agent span `agent.kit.session.transcript` | Separate user request and assistant final-reply items, with synthetic password redaction. |
+
+The working-note marker was absent from both response fields.
+The original synthetic password value was absent from the request, response, and agent span attributes.
+The check read the actual response fields and role-separated transcript items; a requested reply quoted inside a user prompt cannot satisfy it.
+
+The verification used `MlflowClient(tracking_uri='http://127.0.0.1:5051')` with this session-scoped query:
+
+```python
+client.search_traces(
+    locations=['1'],
+    filter_string="metadata.`mlflow.trace.session` = '0877157ea5174f0fa580781a779c7d64'",
+    max_results=100,
+    page_token=page_token,
+)
+```
+
+The verifier bounded pagination to ten pages and selected the `agent:` span with a matching `session.id`.
+The successful query returned 46 traces, including terminal transport traces; checking only the ten newest traces would miss the agent result.
+This proves final-response export for the tested worker and runtime versions; the Kit owns the export implementation.
 
 ## Codex primary-to-crewmate acceptance
 
@@ -47,17 +74,15 @@ OMNIGENT=1 FM_OMNIGENT=on FM_TASK_ID=omni-codex-proof
 Worker metadata recorded `harness=codex`, `omnigent=on`, `model=gpt-6-sol`, and `effort=low`.
 The worker completed its initial request, then read and acknowledged a durable `fm-send` message by moving it into `handled/` and returning `OMNI_STEER_009_ACK`.
 
-MLflow 3.15.2 stored an `agent:codex-native-ui` span with status `OK` for the worker.
-The `agent.kit.session.transcript` attribute contained the actual user request and actual assistant response, distinguished by their `role` fields.
-Both retained their respective `OMNI_REQUEST_009_CREW` and `OMNI_RESPONSE_009_CREW` markers and contained `[REDACTED]` in place of the synthetic password value.
-The original synthetic value was absent from the span attributes.
-The primary's trace contained its redacted request and an assistant commentary message; its final response marker was not present in the inspected transcript.
-Presence of a requested response string inside a user prompt is not assistant-response evidence.
+This run used Omnigent `0.16.0.dev0 (d8208e80)` and Codex `0.157.1`.
+The current acceptance above verifies the later runtime's turn-end, exit, and final-response boundaries with one worker; it does not repeat the primary's watcher lifecycle.
 
-The verification used `MlflowClient.search_traces` scoped to experiment `1`, ``metadata.`mlflow.trace.session` = '<conversation-id>'``, and `span.name LIKE 'agent:%'`, then `MlflowClient.get_trace` for the matching trace.
-It checked user and assistant items separately and retained counts and safe markers instead of raw exported transcripts.
+## Wrapper attribution and composer boundary
 
-## Codex composer and notification diagnosis
+On 2026-09-29, Herdr `pane process-info` reported a `python3.12` foreground wrapper.
+On macOS, that response contains the process name, `argv0`, and PID but omits the full arguments.
+Reading that exact PID with `ps -o command= -p <pid>` showed the managed `python3`, the managed `omnigent` entrypoint, and `codex --server` in order.
+The shared classifier recognized that ordered shape.
 
 A paired capture on 2026-09-29 found the native `›` glyph in Codex's own tmux screen and an underscore in the outer Herdr screen.
 The attaching tmux client reported `client_utf8=0` under `LC_ALL=C`.
@@ -65,27 +90,14 @@ Reattaching that same terminal with `LC_ALL=en_US.UTF-8` restored the glyph; the
 Firstmate now selects an installed UTF-8 locale for the attaching client.
 The portable fixture keeps an underscore composer `unknown` and proves that real drafts remain `pending` beside the Omnigent footer.
 The live guard deliberately launches from an ASCII supervisor locale.
-A fresh launch of the corrected entrypoint stopped before native startup because the host daemon did not become available within 30 seconds, so that complete launch still needs verification.
-
-The worker's terminal argv contained its task-specific `notify` override, but the paired native Codex app-server argv did not.
-The app-server's private config retained the ambient notification command instead of Firstmate's task marker.
-The app-server environment did contain the expected `FM_TASK_ID`, `FM_OMNIGENT=on`, and `OMNIGENT=1`.
-A direct Codex launch with the same notification flags created its turn-end marker; the wrapped launch did not.
-The installed Omnigent server builder consumes the terminal arguments for profile selection but does not propagate the task's notification override to the app-server configuration.
-This boundary needs an Omnigent correction; adding more Firstmate environment variables does not supply the missing configuration.
-
-A second primary-to-worker run reproduced the primary's missing final response in MLflow while its final response existed in Omnigent's transcript store.
-An isolated fixture against the installed PAK redactor reproduced acceptance of assistant commentary before the expected final response, returning in less than one millisecond despite its 10-second settle budget.
-The earlier `mlflow-forward-failed` diagnostic lacks the status, exception cause, size, and timing needed to attribute that specific failure.
-A separate 147-byte synthetic forwarding probe returned HTTP 200 in 31 milliseconds; it does not explain the historical failure.
+The current acceptance above confirms a fresh native launch and control exit from that ASCII supervisor locale.
 
 ## Remaining live boundaries
 
 | Check | Observed result |
 |---|---|
-| Codex turn-end notification | Native control passed; the wrapped app-server lacks the task notification override. |
-| Codex control exit | Passed after restoring UTF-8 on the existing terminal attach; a fresh corrected launch remains blocked before native startup. |
-| Codex interrupt and relaunch | Not proven after the later composer refusal. |
+| Codex turn-end notification and control exit | Passed on the current runtime above. |
+| Codex interrupt and recovery | The replacement launch path passed on an agent-free endpoint; interrupt and replacement of a running worker remain unverified. |
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
 | Claude native supervision | Follow-up gated on the operator's [manual consent procedure](../configuration.md#claude-external-import-consent). |
 | Kiro and Antigravity wrappers | Complete live matrix remains pending. |
@@ -93,15 +105,15 @@ A separate 147-byte synthetic forwarding probe returned HTTP 200 in 31 milliseco
 
 These results do not establish complete wrapped supervision.
 The existing Codex semantic busy-state boundary also remains `unknown`; wrapping does not supply a verified busy source.
-Test terminals were closed through Omnigent's session-scoped terminal resource API after control refusal, with empty terminal-list read-backs.
-The named Herdr lab then passed helper teardown without a default-session tripwire failure.
-That cleanup is not native `fm-control` exit evidence.
+The earlier Claude test terminal was closed through Omnigent's session-scoped terminal resource API with an empty terminal-list read-back.
+That cleanup is not Claude native `fm-control` exit evidence.
 
 ## Portable regression commands
 
 ```sh
 LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
   tests/fm-omnigent.test.sh \
+  tests/fm-composer-lib.test.sh \
   tests/fm-remote-secondmate-trace-context.test.sh \
   tests/fm-tmux-agent-liveness.test.sh
 ```
