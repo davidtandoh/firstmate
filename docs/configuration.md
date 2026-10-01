@@ -609,18 +609,17 @@ The optional local, gitignored `config/omnigent` file contains one token:
 
 | Value | Behavior |
 | --- | --- |
-| `auto` or absent | Use inherited `FM_OMNIGENT=on|off`, otherwise detect `OMNIGENT=1`; ordinary sessions launch directly. |
+| `auto` or absent | Detect `OMNIGENT=1`, otherwise use inherited `FM_OMNIGENT=on|off`; ordinary sessions launch directly. |
 | `on` | Require Omnigent for new launches even when detection is unavailable. |
-| `off` | Launch directly even inside an Omnigent session. |
 
-The file overrides detection and the inherited mode.
+Neither the file nor the inherited mode can disable a detected Omnigent session.
 Invalid values refuse a spawn.
 The process marker applies to the current session; enabling one session does not enable other homes or future native sessions.
 An explicit file change applies to the next launch.
 
 Secondmate homes inherit the policy file, and each secondmate receives the resolved session mode in its native environment.
 Remote launch requests carry only that mode; the remote host resolves its own service and client environment.
-A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker, unless the home explicitly selects `off`.
+A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
 An already-running native remote secondmate must exit before an Omnigent launch can replace it.
 
 Omnigent's native environment interface is additive.

@@ -32,7 +32,7 @@ The launcher does not copy arbitrary ambient credentials.
 Remote launch and recovery retain the existing SSH control boundary.
 The parent sends a mode, and the destination resolves its own Kit service.
 The remote endpoint reports its actual mode to the parent, alongside its native profile.
-A recorded wrapped task remains wrapped through recovery unless the home's explicit policy disables it.
+A recorded wrapped task remains wrapped through recovery.
 
 `bin/fm-agent-process-lib.sh` recognizes the observed Python interpreter, Omnigent entrypoint, and native subcommand in order.
 A Python process merely mentioning Omnigent, or running its server, is not an agent.

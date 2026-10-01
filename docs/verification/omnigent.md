@@ -119,7 +119,7 @@ LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
 ```
 
 The local contract test executes the launch delivered to ship, scout, and secondmate panes and observes the explicit native arguments and environment at a service double.
-It checks marker detection, home policy, malformed settings, service refusal before metadata publication, native opt-out, dispatch preservation, and the attaching client's UTF-8 locale.
+It checks marker detection, home policy, malformed settings, service refusal before metadata publication, ordinary native launches, backend propagation, dispatch preservation, and the attaching client's UTF-8 locale.
 The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises recovery without an inherited marker.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.

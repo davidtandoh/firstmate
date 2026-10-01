@@ -4,8 +4,9 @@
 #        fm-omnigent.sh check <claude|codex|kiro|agy>
 #        fm-omnigent.sh run [--dry-run] <harness> <Firstmate native arguments...>
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
-# mode: config/omnigent (auto|on|off, absent=auto), then inherited FM_OMNIGENT
-# (on|off), then the verified native OMNIGENT=1 marker. Invalid input refuses.
+# mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
+# OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
+# Invalid input refuses.
 # check/run/start resolve the local Kit's serve status afresh. The client is
 # <state_file parent>/runtime/bin/omnigent, never a possibly stale PATH install.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
@@ -32,9 +33,9 @@ mode() {
     [ "${#value}" -le 64 ] || fail "oversized policy file: $file"
   fi
   case "$value" in
-    on|off) printf '%s\n' "$value" ;;
-    auto) if [ -n "$inherited" ]; then printf '%s\n' "$inherited"; elif [ "${OMNIGENT:-}" = 1 ]; then echo on; else echo off; fi ;;
-    *) fail "expected auto, on, or off in $file" ;;
+    on) echo on ;;
+    auto) if [ "${OMNIGENT:-}" = 1 ]; then echo on; elif [ -n "$inherited" ]; then printf '%s\n' "$inherited"; else echo off; fi ;;
+    *) fail "expected auto or on in $file" ;;
   esac
 }
 
@@ -94,7 +95,7 @@ ARGS=("$HARNESS" --server "$SERVER")
 [ "$HARNESS" != claude ] || ARGS+=(--use-native-config)
 # These names belong to Firstmate's existing launch contract. Never forward
 # arbitrary ambient provider credentials, HOME, or the Omnigent-owned CODEX_HOME.
-ENV_NAMES='FM_OMNIGENT FM_HOME FM_ROOT_OVERRIDE FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_TRACE_CONTEXT FM_SUPERVISION_MODEL FM_TASK_ID COMPACT_ADVISER_DISABLE LAVISH_AXI_HOST TRACEPARENT GOTMPDIR TMPDIR PATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 CLAUDE_CONFIG_DIR CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION CLAUDE_CODE_SEND_FEEDBACK KIRO_HOME HERDR_ENV HERDR_SESSION HERDR_PANE_ID HERDR_SOCKET_PATH'
+ENV_NAMES='FM_OMNIGENT FM_BACKEND FM_HOME FM_ROOT_OVERRIDE FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_TRACE_CONTEXT FM_SUPERVISION_MODEL FM_TASK_ID COMPACT_ADVISER_DISABLE LAVISH_AXI_HOST TRACEPARENT GOTMPDIR TMPDIR PATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 CLAUDE_CONFIG_DIR CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION CLAUDE_CODE_SEND_FEEDBACK KIRO_HOME HERDR_ENV HERDR_SESSION HERDR_PANE_ID HERDR_SOCKET_PATH'
 export FM_OMNIGENT=on
 for name in $ENV_NAMES; do
   case "$name" in

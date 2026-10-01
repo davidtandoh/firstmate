@@ -36,11 +36,15 @@ mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
 printf 'off\n' > "$TMP_ROOT/config/omnigent"
-[ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = off ] || fail 'home opt-out must override detection'
+for marker in 0 1; do
+  if OMNIGENT="$marker" "$OMNI" mode "$TMP_ROOT/config" > "$TMP_ROOT/error" 2>&1; then fail 'removed home opt-out accepted'; fi
+done
 printf 'on\n' > "$TMP_ROOT/config/omnigent"
 [ "$(mode)" = on ] || fail 'home opt-in must work without detection'
 printf 'auto\n' > "$TMP_ROOT/config/omnigent"
 [ "$(FM_OMNIGENT=on "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'inherited session mode must reach a secondmate'
+[ "$(FM_OMNIGENT=off OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'inherited native mode disabled detection'
+[ "$(env -u OMNIGENT FM_OMNIGENT=off "$OMNI" mode "$TMP_ROOT/config")" = off ] || fail 'ordinary inherited native mode changed'
 if FM_OMNIGENT=typo "$OMNI" mode "$TMP_ROOT/config" > "$TMP_ROOT/error" 2>&1; then fail 'invalid inherited mode accepted'; fi
 printf 'typo\n' > "$TMP_ROOT/config/omnigent"
 if mode > "$TMP_ROOT/error" 2>&1; then fail 'invalid home policy accepted'; fi
@@ -163,18 +167,17 @@ child_mode=$(jq -r .environment.FM_OMNIGENT "$OMNI_RESULT")
 [ "$(env -u OMNIGENT FM_OMNIGENT="$child_mode" "$OMNI" mode "$sm/config")" = on ] || fail 'secondmate cannot propagate to its own workers'
 pass 'local secondmate receives its isolated home and passes mode to its own workers'
 
-# Native opt-out must work even while serve is down; no preflight or wrapper.
-printf 'off\n' > "$spawn_home/config/omnigent"
+printf 'auto\n' > "$spawn_home/config/omnigent"
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
 fm_test_spawn_brief "$spawn_home" omni-native
-OMNIGENT=1 spawn omni-native "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/output" 2>&1 || fail 'explicit native opt-out refused with stopped serve'
+spawn omni-native "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/output" 2>&1 || fail 'ordinary native launch refused with stopped serve'
 cat > "$spawn_tools/codex" <<'PROBE'
 #!/bin/sh
 printf 'native-codex\n'
 PROBE
 chmod +x "$spawn_tools/codex"
-[ "$(execute_launch)" = native-codex ] || fail 'native opt-out did not execute the original harness'
-pass 'native opt-out preserves direct launch while serve is unavailable'
+[ "$(execute_launch)" = native-codex ] || fail 'ordinary native launch did not execute the original harness'
+pass 'ordinary sessions preserve direct launch while serve is unavailable'
 
 # Restrictions must refuse before launching and must not weaken either policy.
 printf 'on\n' > "$spawn_home/config/omnigent"
@@ -217,3 +220,34 @@ jq -e '.harness == "codex" and .server_url == "http://127.0.0.1:6767"' "$TMP_ROO
 "$OMNI" start codex
 jq -e '.argv[-1] == "--" and .environment.FM_OMNIGENT == "on"' "$OMNI_RESULT" >/dev/null || fail 'primary start did not carry native mode or added an empty argument'
 pass 'native wrapper argument contracts and primary start preserve exact boundaries'
+
+for harness in claude codex; do
+  for backend in herdr unset empty; do
+    backend_env=("FM_BACKEND=$backend")
+    expected_backend=$backend
+    if [ "$backend" = unset ]; then backend_env=(-u FM_BACKEND); expected_backend=tmux; fi
+    if [ "$backend" = empty ]; then backend_env=('FM_BACKEND='); expected_backend=tmux; fi
+    env "${backend_env[@]}" FM_HOME="$TMP_ROOT/home" "$OMNI" start "$harness"
+    python3 - "$OMNI_RESULT" "$ROOT/bin/fm-backend.sh" "$expected_backend" <<'PY'
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as result:
+    native = json.load(result)["environment"]
+expected = sys.argv[3]
+assert native["FM_BACKEND"] == ("" if expected == "tmux" else expected), native
+daemon = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"],
+          "FM_BACKEND": "orca", "TMUX": "/fixture/omnigent-tmux,1,0"}
+daemon.update(native)
+selected = subprocess.check_output(
+    ["bash", "-c", '. "$1"; fm_backend_name', "_", sys.argv[2]],
+    env=daemon, text=True).strip()
+assert selected == expected, (selected, expected)
+PY
+  done
+done
+pass 'primary starts preserve backend overrides and clear stale daemon selection'
