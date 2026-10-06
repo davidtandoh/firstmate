@@ -1,0 +1,30 @@
+{
+  "beats": [
+    {
+      "elapsed_seconds": 0.639,
+      "mtime_ns": 1791326983745258323
+    },
+    {
+      "elapsed_seconds": 2.626,
+      "mtime_ns": 1791326985709897000
+    }
+  ],
+  "budget": null,
+  "elapsed_seconds": 2.626,
+  "hashes_after": {
+    "data/secondmates.md": "a37fedcf10ffc7795904240a647bc0cfb5a9f2e57510cb23744baf7634b29948",
+    "state/rsm1.meta": "b2c72f58868b9697811e5e0d95b1c954cb6fd3c7bfb6fad050524012b19c5e7c"
+  },
+  "hashes_before": {
+    "data/secondmates.md": "a37fedcf10ffc7795904240a647bc0cfb5a9f2e57510cb23744baf7634b29948",
+    "state/rsm1.meta": "b2c72f58868b9697811e5e0d95b1c954cb6fd3c7bfb6fad050524012b19c5e7c"
+  },
+  "name": "live-unreachable",
+  "pass": true,
+  "recovery_ledger_exists": false,
+  "ssh_transport": "OpenSSH_9.9p2, LibreSSL 3.3.6\r\ndebug1: Reading configuration data /dev/null\r\ndebug2: resolve_canonicalize: hostname 127.0.0.1 is address\r\ndebug1: Authenticator provider $SSH_SK_PROVIDER did not resolve; disabling\r\ndebug1: Connecting to 127.0.0.1 [127.0.0.1] port 50395.\r\ndebug2: fd 4 setting O_NONBLOCK\r\ndebug1: connect to address 127.0.0.1 port 50395: Connection refused\r\nssh: connect to host 127.0.0.1 port 50395: Connection refused\r\n",
+  "stalled_real_sshd": false,
+  "triage": "[2026-10-06T23:49:44+0100] secondmate rsm1 liveness: remote host unavailable or endpoint state unknown; route preserved on lab-only\n",
+  "wake_queue": "",
+  "watcher_running": true
+}

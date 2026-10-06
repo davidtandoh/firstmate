@@ -1,0 +1,36 @@
+FM_TEST_BEGIN 2026-10-06T22:46:03Z tests/fm-secondmate-liveness.test.sh family=secondmate expected_gate_skip=none
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+ok - poll probe: timeout is bounded, unknown, and preserves the remote route
+ok - remote probe: unset and invalid budgets cannot disable the default timeout
+ok - fm_backend_tmux_agent_state: separates live, dead, missing, ambiguous, and unreadable
+ok - fm_backend_tmux_agent_state: rejects malformed targets before probing tmux
+ok - fm_backend_herdr_agent_state: preserves missing/no-agent/live/unknown husk behavior
+ok - fm_backend_agent_state: routes tmux/Herdr and keeps Zellij unverified
+ok - sweep: a confirmed-dead secondmate endpoint is killed and respawned
+ok - sweep: an already-live secondmate is untouched and distinguishable in verbose diagnostics
+ok - sweep: an authoritatively missing Pi secondmate window is relaunched
+ok - sweep: an authoritatively missing pi-signed secondmate window is relaunched
+ok - sweep: an existing ambiguous Pi process prevents duplicate recovery
+ok - sweep: transient target unreadability never licenses recovery
+ok - sweep: failed relaunch diagnostics distinguish a confidently missing endpoint
+ok - sweep: an unverified harness blocks recovery with a concrete diagnostic
+ok - sweep: idempotent by construction - a live secondmate is never re-touched on a later run
+ok - sweep: skipped entirely under FM_BOOTSTRAP_DETECT_ONLY=1, exactly like the other mutating sweeps
+ok - sweep: a silent no-op with no kind=secondmate meta present (a secondmate home's own natural scoping)
+ok - sweep: a mate mid-episode under the shared liveness lock is skipped entirely
+ok - sweep: an unreadable or unwritable relaunch ledger refuses to kill or spawn
+ok - poll probe: remote states map to the same contract as local, one call each
+ok - poll probe: unreachable or inconclusive remote reads preserve the route
+# all fm-secondmate-liveness tests passed
+FM_TEST_END 2026-10-06T22:47:38Z tests/fm-secondmate-liveness.test.sh exit=0 duration_ms=95046 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=95135
+FM_TEST_SUMMARY_FAMILY family=secondmate count=1 duration_ms=95046 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-secondmate-liveness.test.sh duration_ms=95046
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M49P3393ZD1YVEKM3V80APS9/liveness-timing.json
+FM_TEST_BUDGET max_wall_ms=200000 duration_ms=95135

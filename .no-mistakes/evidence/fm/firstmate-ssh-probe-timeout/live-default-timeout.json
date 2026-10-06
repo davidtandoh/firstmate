@@ -1,0 +1,30 @@
+{
+  "beats": [
+    {
+      "elapsed_seconds": 0.41,
+      "mtime_ns": 1791326961922405772
+    },
+    {
+      "elapsed_seconds": 8.053,
+      "mtime_ns": 1791326969361585000
+    }
+  ],
+  "budget": null,
+  "elapsed_seconds": 8.054,
+  "hashes_after": {
+    "data/secondmates.md": "69fb373cf48e504bad61ca7da511027bf60b30fbfe213fcb09e442b12b8bd132",
+    "state/rsm1.meta": "d8cde000222c7835b3aecfd8ba7ae3ff61838182b627ca4573a3feb629587c0a"
+  },
+  "hashes_before": {
+    "data/secondmates.md": "69fb373cf48e504bad61ca7da511027bf60b30fbfe213fcb09e442b12b8bd132",
+    "state/rsm1.meta": "d8cde000222c7835b3aecfd8ba7ae3ff61838182b627ca4573a3feb629587c0a"
+  },
+  "name": "live-default-timeout",
+  "pass": true,
+  "recovery_ledger_exists": false,
+  "ssh_transport": "OpenSSH_9.9p2, LibreSSL 3.3.6\r\ndebug1: Reading configuration data /dev/null\r\ndebug2: resolve_canonicalize: hostname 127.0.0.1 is address\r\ndebug1: Authenticator provider $SSH_SK_PROVIDER did not resolve; disabling\r\ndebug1: Connecting to 127.0.0.1 [127.0.0.1] port 50380.\r\ndebug2: fd 4 setting O_NONBLOCK\r\ndebug1: fd 4 clearing O_NONBLOCK\r\ndebug1: Connection established.\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_rsa type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_rsa-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ecdsa type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ecdsa-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ecdsa_sk type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ecdsa_sk-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ed25519 type 3\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ed25519-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ed25519_sk type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_ed25519_sk-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_xmss type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_xmss-cert type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_dsa type -1\r\ndebug1: identity file /Users/davidtandoh/.ssh/id_dsa-cert type -1\r\ndebug1: Local version string SSH-2.0-OpenSSH_9.9\r\n",
+  "stalled_real_sshd": true,
+  "triage": "[2026-10-06T23:49:27+0100] secondmate rsm1 liveness: remote endpoint state probe timed out after 5s; route preserved on lab-only\n",
+  "wake_queue": "",
+  "watcher_running": true
+}

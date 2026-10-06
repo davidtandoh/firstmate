@@ -1,0 +1,23 @@
+{
+  "assertion_repair": "An existing grep -Fx assertion failed on macOS for a 20KB literal even with identical input. An exact-line awk comparison retains rejection of truncation, extra bytes, and omission.",
+  "baseline": {
+    "driver_exit": 1,
+    "expected_regression_failure": true,
+    "library_commit": "a52b5894f00d806c1443c5fc17189ffce68bacb0",
+    "observation": "Only one beacon in an 18-second observation window; SSH connection established; no timeout diagnostic."
+  },
+  "candidate": {
+    "cases": [
+      "live-default-timeout.json",
+      "live-one-second-timeout.json",
+      "live-invalid-timeout.json",
+      "live-unreachable.json"
+    ],
+    "commit": "45aefe327220a8d971b7e94f593853609cf6ec3b",
+    "driver_exit": 0,
+    "gate_skip": false
+  },
+  "cleanup": "Every owned watcher and sshd was stopped; generated host keys and disposable homes were removed from the worktree.",
+  "fixture_boundary": "The two repository test scripts use fake SSH/backend responses. They are not remote acceptance.",
+  "live_boundary": "Real fm-watch.sh and fm-on.sh use OpenSSH against a disposable localhost sshd paused before authentication. No authenticated remote state command or Herdr lifecycle was driven."
+}

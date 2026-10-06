@@ -1,0 +1,7 @@
+{
+  "command": "/usr/bin/grep -Fx <exact 20090-byte literal>",
+  "exit": 2,
+  "matching_input_bytes": 20093,
+  "stderr": "grep: out of memory\n",
+  "stdout_bytes": 0
+}
