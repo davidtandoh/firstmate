@@ -3379,7 +3379,7 @@ test_secondmate_liveness_tick_skips_mate_whose_lock_is_held() {
 }
 
 test_secondmate_liveness_tick_preserves_unreachable_remote() {
-  local dir state
+  local dir state pid i
   dir=$(make_secondmate_liveness_case liveness-remote-down)
   state="$dir/state"
   rm -f "$state/sm1.meta"
@@ -3419,6 +3419,45 @@ SH
     || fail "an unreachable remote probe ledgered a relaunch attempt"
   [ ! -s "$dir/tmux.log" ] || fail "an unreachable remote probe touched a local endpoint"
   pass "watch liveness: an unreachable remote secondmate is probed, preserved, and never failed over"
+
+  # A hung command can print a misleading state before it stalls. The next
+  # watcher poll must still advance its beacon without attempting recovery.
+  cp "$dir/data/secondmates.md" "$dir/registry.before"
+  cat > "$dir/fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+printf 'started\n' >> "$FM_FAKE_SSH_LOG"
+printf 'dead\n'
+sleep 30
+SH
+  : > "$dir/ssh.log"
+  # The prior leg's cadence marker must be old enough for this leg to probe.
+  rm -f "$state/.secondmate-liveness-tick"
+  # Acknowledge that deliberate stop so restart reporting cannot end this poll.
+  run_liveness_leg "$dir" timeout FM_SSH_BIN="$dir/fakebin/ssh" FM_FAKE_SSH_LOG="$dir/ssh.log" \
+    FM_WATCH_HANDLING_SUCCESSOR=1 FM_SECONDMATE_LIVENESS_SECS=60 FM_SECONDMATE_LIVENESS_PROBE_TIMEOUT=1
+  pid=$LIVENESS_PID
+  for ((i = 0; i < 300; i++)); do
+    [ ! -s "$dir/ssh.log" ] || break
+    is_live_non_zombie "$pid" || break
+    sleep 0.1
+  done
+  [ -s "$dir/ssh.log" ] || { kill_liveness_leg "$pid"; fail "watcher never reached the hung remote probe"; }
+  cp -p "$state/.last-watcher-beat" "$dir/beat.before"
+  for ((i = 0; i < 100; i++)); do
+    [ ! "$state/.last-watcher-beat" -nt "$dir/beat.before" ] || break
+    is_live_non_zombie "$pid" || break
+    sleep 0.1
+  done
+  kill_liveness_leg "$pid"
+  [ "$state/.last-watcher-beat" -nt "$dir/beat.before" ] || fail "hung remote probe prevented the next watcher beacon"
+  assert_grep 'remote endpoint state probe timed out after 1s; route preserved on lab-host' \
+    "$state/.watch-triage.log" "watcher did not report an inconclusive timeout"
+  cmp -s "$dir/rsm1.meta.before" "$state/rsm1.meta" || fail "timeout changed endpoint metadata"
+  cmp -s "$dir/registry.before" "$dir/data/secondmates.md" || fail "timeout changed the remote route"
+  [ ! -e "$state/.secondmate-relaunch-rsm1" ] || fail "timeout caused a relaunch attempt"
+  [ ! -s "$state/.wake-queue" ] || fail "timeout queued a recovery wake"
+  [ ! -s "$dir/tmux.log" ] || fail "timeout touched a local endpoint"
+  pass "watch liveness: timed-out remote probe preserves the route and lets the beacon advance"
 }
 
 test_self_held_lock_reclaims_instead_of_deadlocking

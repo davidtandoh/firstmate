@@ -635,6 +635,7 @@ EOF
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${FM_FAKE_SSH_LOG:?}"
 [ -z "${FM_FAKE_REMOTE_REPLY:-}" ] || printf '%s\n' "$FM_FAKE_REMOTE_REPLY"
+sleep "${FM_FAKE_REMOTE_DELAY:-0}"
 exit "${FM_FAKE_REMOTE_RC:-0}"
 SH
   chmod +x "$fakebin/ssh"
@@ -702,6 +703,38 @@ test_remote_poll_probe_unreachable_preserves_route() {
   pass "poll probe: unreachable or inconclusive remote reads preserve the route"
 }
 
+test_remote_poll_probe_timeout_preserves_route() {
+  local w out started elapsed
+  w=$(make_remote_probe_world probe-timeout)
+  cp "$w/home/state/rsm1.meta" "$w/meta.before"
+  cp "$w/home/data/secondmates.md" "$w/registry.before"
+  started=$(date +%s)
+  # Partial output must not authorize recovery when the command never completes.
+  out=$(probe_remote "$w" poll FM_SECONDMATE_LIVENESS_PROBE_TIMEOUT=1 \
+    FM_FAKE_REMOTE_REPLY=dead FM_FAKE_REMOTE_DELAY=8)
+  elapsed=$(( $(date +%s) - started ))
+  [ "$elapsed" -lt 6 ] || fail "remote probe exceeded its 1s budget (${elapsed}s)"
+  [ "$out" = 'skipped|unknown|0|||remote endpoint state probe timed out after 1s; route preserved on lab-host' ] \
+    || fail "a timed-out probe must ignore partial dead output, got: $out"
+  cmp -s "$w/meta.before" "$w/home/state/rsm1.meta" || fail "timeout changed endpoint metadata"
+  cmp -s "$w/registry.before" "$w/home/data/secondmates.md" || fail "timeout changed the route registry"
+  pass "poll probe: timeout is bounded, unknown, and preserves the remote route"
+}
+
+test_remote_probe_invalid_budget_stays_bounded() {
+  local w out budget
+  w=$(make_remote_probe_world probe-invalid-budget)
+  for budget in '' 0 00 invalid; do
+    out=$(probe_remote "$w" poll "FM_SECONDMATE_LIVENESS_PROBE_TIMEOUT=$budget" \
+      FM_FAKE_REMOTE_REPLY=alive FM_FAKE_REMOTE_DELAY=8)
+    [ "$out" = 'skipped|unknown|0|||remote endpoint state probe timed out after 5s; route preserved on lab-host' ] \
+      || fail "unset/invalid budget '$budget' must retain the positive default, got: $out"
+  done
+  pass "remote probe: unset and invalid budgets cannot disable the default timeout"
+}
+
+test_remote_poll_probe_timeout_preserves_route
+test_remote_probe_invalid_budget_stays_bounded
 test_tmux_agent_state_classifies
 test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier

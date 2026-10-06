@@ -40,6 +40,11 @@
 #   poll - watcher tick: remote routes take one read-only state probe per
 #          check; repair still happens, but inside fm-spawn's launch gate only
 #          when a relaunch is actually authorized.
+# The read-only remote state call in either mode has a 5-second execution
+# budget (FM_SECONDMATE_LIVENESS_PROBE_TIMEOUT, positive integer seconds;
+# unset, zero, leading-zero, or invalid values use 5). A timeout leaves the
+# state unknown and skips recovery, preserving the remote route. Readiness,
+# route validation, and other fm-on.sh operations retain their own lifecycles.
 #
 # Concurrency: fm_secondmate_liveness_lock serializes probe+kill+relaunch per
 # task across the bootstrap sweep and the watcher tick, so a concurrent
@@ -133,7 +138,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
   local meta=$1 id=$2 mode=$3
   FM_SM_LIVE_STATUS=skipped FM_SM_LIVE_STATE=unknown FM_SM_LIVE_KILL=0
   FM_SM_LIVE_CAUSE='' FM_SM_LIVE_WHERE='' FM_SM_LIVE_REASON='' FM_SM_LIVE_LINE=''
-  local window harness remote_host remote_rc out agent_state readiness_reason route_out remote_backend
+  local window harness remote_host remote_rc out agent_state readiness_reason route_out remote_backend probe_timeout
   window=$(fm_meta_get "$meta" window)
   [ -n "$window" ] || { FM_SM_LIVE_STATUS=silent; return 0; }
   harness=$(fm_meta_get "$meta" harness)
@@ -155,10 +160,16 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
         return 0
       fi
     fi
-    if out=$("$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    probe_timeout=${FM_SECONDMATE_LIVENESS_PROBE_TIMEOUT:-}
+    case "$probe_timeout" in ''|0*|*[!0-9]*) probe_timeout=5 ;; esac
+    if out=$(fm_run_timed "$probe_timeout" "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
+    fi
+    if fm_timed_out "$remote_rc"; then
+      FM_SM_LIVE_REASON="remote endpoint state probe timed out after ${probe_timeout}s; route preserved on $remote_host"
+      return 0
     fi
     if [ "$remote_rc" -eq 255 ]; then
       FM_SM_LIVE_REASON="remote host unavailable or endpoint state unknown; route preserved on $remote_host"
