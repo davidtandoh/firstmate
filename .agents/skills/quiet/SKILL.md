@@ -17,7 +17,7 @@ watching the session, and does not want to exit the mode just by chatting.
 
 Where a daemon runs, this skill is a thin wrapper.
 The `afk` skill owns the daemon's injection, busy/composer guards, and reliability properties; quiet mode uses that machinery while the captain remains present.
-For captain-held rechecks under quiet, see [architecture](../../../docs/architecture.md).
+For the daemon's captain-held rechecks under quiet, see the [afk classification policy](../afk/SKILL.md#classification-policy).
 
 ## What it does
 
