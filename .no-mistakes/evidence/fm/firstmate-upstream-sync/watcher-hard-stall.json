@@ -1,0 +1,28 @@
+{
+  "attached_exit_at_stall": 1,
+  "commands": [
+    {
+      "argv": [
+        "fm-lab-home.sh",
+        "create",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-s_4z_n4q"
+      ],
+      "exit_code": 0,
+      "output": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-s_4z_n4q\n"
+    },
+    {
+      "argv": [
+        "fm-watch-arm.sh",
+        "--stop"
+      ],
+      "exit_code": 0,
+      "output": "watcher: stopped pid=68927\n"
+    }
+  ],
+  "hard_stall_seconds": 5,
+  "lab": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-s_4z_n4q",
+  "lab_removed": true,
+  "live": true,
+  "result": "pass",
+  "scenario": "watcher-hard-stall"
+}

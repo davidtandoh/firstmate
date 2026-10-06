@@ -1,0 +1,2 @@
+watcher: attached pid=68927 (beacon 1s)
+watcher: FAILED - attached watcher pid=68927 stalled (beacon 5s at or past hard bound 5s)

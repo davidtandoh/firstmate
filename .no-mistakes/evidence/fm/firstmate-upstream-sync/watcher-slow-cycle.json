@@ -1,0 +1,56 @@
+{
+  "attached_exit_while_frozen": null,
+  "commands": [
+    {
+      "argv": [
+        "fm-lab-home.sh",
+        "create",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-ihpcws5f"
+      ],
+      "exit_code": 0,
+      "output": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-ihpcws5f\n"
+    },
+    {
+      "argv": [
+        "fm-inbox.sh",
+        "note",
+        "--request-id",
+        "live-slow-cycle",
+        "--json",
+        "Wake after the delayed watcher resumes"
+      ],
+      "exit_code": 0,
+      "output": "{\"schema\":\"fm-inbox-note.v1\",\"outcome\":\"created\",\"id\":\"1791321619-OuELJm\",\"request_id\":\"live-slow-cycle\",\"saved\":true,\"announced\":true,\"acknowledged\":false,\"path\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-ihpcws5f/state/inbox/1791321619-OuELJm.note\"}\n"
+    },
+    {
+      "argv": [
+        "fm-inbox.sh",
+        "list"
+      ],
+      "exit_code": 0,
+      "output": "1791321619-OuELJm\n    Wake after the delayed watcher resumes\n"
+    },
+    {
+      "argv": [
+        "fm-wake-drain.sh"
+      ],
+      "exit_code": 0,
+      "output": "1791321619\t1\tcheck\tinbox:1791321619-OuELJm\tcheck: captain inbox note 1791321619-OuELJm - Wake after the delayed watcher resumes\nWAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 66506.1791321619.QFNJQE\n"
+    },
+    {
+      "argv": [
+        "fm-watch-arm.sh",
+        "--stop"
+      ],
+      "exit_code": 0,
+      "output": "watcher: none running\n"
+    }
+  ],
+  "hard_stall_seconds": 60,
+  "lab": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M49GR5XDASFZZ5JK8HARH36F/.fm-watcher-live-ihpcws5f",
+  "lab_removed": true,
+  "live": true,
+  "result": "pass",
+  "scenario": "watcher-slow-cycle",
+  "suspended_seconds": 7.13
+}
