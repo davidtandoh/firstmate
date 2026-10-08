@@ -551,7 +551,7 @@ inbox_steer_check() {  # <window> <task>
   esac
   watcher_capture fm_backend_capture "$backend" "$w" 40 "$(window_label "$w")" || WATCHER_CAPTURE=
   tail40=$WATCHER_CAPTURE
-  if window_is_busy "$w" "$tail40"; then
+  if watcher_capture window_is_busy "$w" "$tail40"; then
     [ "$verb" != retry ] || return 0
     if ! count=$(fm_task_inbox_record_busy "$STATE" "$task" "$rec"); then
       [ -f "$rec" ] || return 0
@@ -741,7 +741,7 @@ signal_turnend_panes_churned() {  # <file> ...
   done
   for ((i = 0; i < ${#signal_tasks[@]}; i++)); do
     task=${signal_tasks[$i]}
-    crew_is_provably_working "$task" && continue
+    watcher_capture crew_is_provably_working "$task" && continue
     task_index=${signal_indexes[$i]}
     churn_indexes+=("$task_index")
   done
@@ -873,7 +873,7 @@ secondmate_in_active_turn() {  # <window> <idle>
   [ "$idle" -lt "$BUSY_TURN_MAX_SECS" ] || return 1
   watcher_capture fm_backend_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 1
   tail40=$WATCHER_CAPTURE
-  window_is_busy "$w" "$tail40"
+  watcher_capture window_is_busy "$w" "$tail40"
 }
 
 # Set SECONDMATE_BUSY_CLASS to the first token of the semantic busy
@@ -892,7 +892,8 @@ secondmate_busy_class() {  # <window>
   fi
   watcher_capture fm_backend_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 0
   tail40=$WATCHER_CAPTURE
-  verdict=$(fm_busy_classify_meta "$meta" "$task" "$STATE" "$tail40")
+  watcher_capture fm_busy_classify_meta "$meta" "$task" "$STATE" "$tail40" || true
+  verdict=$WATCHER_CAPTURE
   SECONDMATE_BUSY_CLASS=${verdict%% *}
 }
 
@@ -2151,6 +2152,14 @@ fm_active_check_stop() {
 watcher_stop_signals() {
   trap - HUP TERM
   trap 'exit 1' INT
+  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || kill -s "$FM_CHECK_SIGNAL_PENDING" "$$"
+}
+
+watcher_defer_stop_signals() {
+  FM_CHECK_SIGNAL_PENDING=
+  trap 'FM_CHECK_SIGNAL_PENDING=${FM_CHECK_SIGNAL_PENDING:-HUP}' HUP
+  trap 'FM_CHECK_SIGNAL_PENDING=${FM_CHECK_SIGNAL_PENDING:-INT}' INT
+  trap 'FM_CHECK_SIGNAL_PENDING=${FM_CHECK_SIGNAL_PENDING:-TERM}' TERM
 }
 
 run_check_capture() {
@@ -2159,18 +2168,16 @@ run_check_capture() {
   FM_CHECK_RESULT=
   FM_CHECK_OUTPUT=$(mktemp "$STATE/.fm-check-output.XXXXXX") || return 1
   chmod 0600 "$FM_CHECK_OUTPUT" || { fm_check_output_cleanup; return 1; }
-  FM_CHECK_SIGNAL_PENDING=
   # Defer stop signals only until the check's process group is recorded for
   # watcher_cleanup. Keep command substitutions out of this window: bash 5.2
   # can drop a trap that is pending when one is parsed (watcher_stop_signals).
-  trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
+  watcher_defer_stop_signals
   set -m
   ( FM_CHECK_OWNED_GROUP=1 run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
   watcher_stop_signals
-  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit 1
   pgid=$(ps -o pgid= -p "$FM_ACTIVE_CHECK_PID" 2>/dev/null | tr -d '[:space:]')
   if [ -n "$pgid" ] && [ "$pgid" != "$FM_ACTIVE_CHECK_PGID" ]; then
     fm_active_check_stop || true
@@ -2201,8 +2208,7 @@ watcher_capture() {  # <command> [args...]
   fm_capture_output_cleanup
   WATCHER_CAPTURE=
   FM_CAPTURE_OUTPUT=$(mktemp "$STATE/.fm-capture-output.XXXXXX") || return 1
-  FM_CHECK_SIGNAL_PENDING=
-  trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
+  watcher_defer_stop_signals
   # The group's stderr is redirected before the fork: bash 3.2 on macOS can
   # print a harmless "child setpgid ... Operation not permitted" race from the
   # child before the command's own redirections apply.
@@ -2212,7 +2218,6 @@ watcher_capture() {  # <command> [args...]
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
   watcher_stop_signals
-  [ -z "$FM_CHECK_SIGNAL_PENDING" ] || exit 1
   pgid=$(ps -o pgid= -p "$FM_ACTIVE_CHECK_PID" 2>/dev/null | tr -d '[:space:]')
   if [ -n "$pgid" ] && [ "$pgid" != "$FM_ACTIVE_CHECK_PGID" ]; then
     fm_active_check_stop || true
@@ -2981,7 +2986,7 @@ EOF
     # bin/fm-supervise-daemon.sh).
     # shellcheck disable=SC2086  # same space-separated status-path list
     if afk_present || [ "$signal_actionable" -eq 0 ] \
-      || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
+      || { ! watcher_capture signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
         file_reason="$reason"
@@ -3084,7 +3089,7 @@ EOF
     # harness renders its busy indicator) so busy-looking strings in displayed
     # content cannot suppress stale detection. Read once per window per poll and
     # reused below so a busy verdict is consistent within one cycle.
-    if window_is_busy "$w" "$tail40"; then busy_now=0; else busy_now=1; fi
+    if watcher_capture window_is_busy "$w" "$tail40"; then busy_now=0; else busy_now=1; fi
     if [ "$h" = "$prev" ]; then
       n=$(( $(cat "$cf" 2>/dev/null || echo 0) + 1 ))
       echo "$n" > "$cf"
@@ -3092,7 +3097,8 @@ EOF
         # The pane is idle/stale at hash $h. Triage decides whether this wakes
         # firstmate. Detection itself is unchanged from above.
         if [ "$kind" = secondmate ]; then
-          case "$(pause_state_class "$w" "$task")" in
+          watcher_capture pause_state_class "$w" "$task" || true
+          case "$WATCHER_CAPTURE" in
             paused) handle_paused_stale "$w" "$task" "$h" ;;
             *)      clear_pause_tracking "$key" ;;
           esac
@@ -3124,7 +3130,7 @@ EOF
           # authoritative source fm-crew-state.sh itself already prioritizes
           # over the log) a chance to override before trusting the log.
           if [ "$(cat "$sf" 2>/dev/null || true)" != "$h" ]; then
-            if crew_is_provably_working "$(window_to_task "$w" "$STATE")"; then
+            if watcher_capture crew_is_provably_working "$(window_to_task "$w" "$STATE")"; then
               printf '%s' "$h" > "$sf"
               date +%s > "$ssf"
               clear_write_tracking "$key"
@@ -3183,7 +3189,8 @@ EOF
           #     wait out the timer.
           if [ "$(cat "$sf" 2>/dev/null || true)" != "$h" ]; then
             task=$(window_to_task "$w" "$STATE")
-            case "$(pause_state_class "$w" "$task")" in
+            watcher_capture pause_state_class "$w" "$task" || true
+            case "$WATCHER_CAPTURE" in
               working)
                 clear_pause_tracking "$key"
                 printf '%s' "$h" > "$sf"
@@ -3200,7 +3207,8 @@ EOF
           else
             task=$(window_to_task "$w" "$STATE")
             if [ -e "$pf" ] || status_is_paused_or_captain_held "$(status_declared_wait_line "$STATE/$task.status")"; then
-              case "$(pause_state_class "$w" "$task")" in
+              watcher_capture pause_state_class "$w" "$task" || true
+              case "$WATCHER_CAPTURE" in
                 paused)  handle_paused_stale "$w" "$task" "$h" ;;
                 working) clear_pause_state "$key"
                          printf '%s' "$h" > "$sf"
@@ -3245,7 +3253,8 @@ EOF
       fi
       task=$(window_to_task "$w" "$STATE")
       if ! afk_present && status_is_paused_or_captain_held "$(status_declared_wait_line "$STATE/$task.status")" && [ "$busy_now" -ne 0 ]; then
-        case "$(pause_state_class "$w" "$task")" in
+        watcher_capture pause_state_class "$w" "$task" || true
+        case "$WATCHER_CAPTURE" in
           paused) handle_paused_stale "$w" "$task" "$h" ;;
           # Inconclusive, but the declared wait itself still stands, so only the
           # per-hash bookkeeping resets. The re-surface throttle bounds the

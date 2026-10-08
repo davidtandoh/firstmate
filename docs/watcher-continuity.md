@@ -405,6 +405,8 @@ An arm whose own script path sits under a disposable no-mistakes validation chec
 Once per poll the watcher checks that its home, its state directory, and its own code root still exist, and exits with a logged reason when one is gone, scoped to itself alone, so a torn-down temporary home or a discarded checkout never leaves an orphan watcher behind.
 The watcher uses bash's native fatal handling for HUP and TERM during blocked checks, pane reads, and composer reads, including reads during an inbox ring.
 Both signals run its EXIT cleanup and stop the blocked operation.
+Signals received while a child process group starts retain their identity when termination resumes after ownership is recorded.
+The same interruptible boundary covers watcher-owned busy and crew-state classification, including indirect pane reads.
 `watcher_stop_signals` in `bin/fm-watch.sh` owns the signal-handling rationale.
 The EXIT cleanup bounds its wait for `state/.watcher-down.lock` while persisting recovery state with `FM_WATCHER_CLEANUP_LOCK_BOUND` (default 2 seconds).
 Only positive decimal integers are accepted, including leading-zero forms such as `08`; empty, non-numeric, and zero values (including `00`) fall back to 2 seconds.
@@ -469,6 +471,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - A handling successor that must surface a real crew event instead of going blind.
 
 `tests/fm-watch-triage.test.sh` proves TERM stops a watcher blocked inside a poll's pane capture and still releases its lock and records an acknowledgeable stop.
+It checks deferred HUP and TERM during capture and check startup, and blocked turn-end, stale, paused, and rendered-busy classification reads.
 It also exercises a single TERM with a live foreign downtime-marker lock holder, retained stale singleton and subsequent arm-style recovery, including decimal `08` and zero `00` cleanup bounds.
 It checks that a newly appended keyed decision is classified without rereading earlier status bytes, so signal handling can return to the watcher's beacon refresh even when the status history is long.
 `tests/fm-wake-queue.test.sh` proves TERM likewise stops a watcher blocked in the drain-ring idle check's pane capture, its composer check, or the inbox ring's composer check.
