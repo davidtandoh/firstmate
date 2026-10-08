@@ -1,0 +1,32 @@
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/.fm-gate-live-vtnp298h EXIT 0
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/.fm-gate-live-vtnp298h
+watcher: started pid=92909 (beacon fresh)
+COMMAND /bin/bash -c . "$1"; fm_wake_append check gate-live "check: handled live validation event" _ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-wake-lib.sh EXIT 0
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-wake-drain.sh EXIT 0
+1791479051	1	check	gate-live	check: handled live validation event
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 93571.1791479051.yYA8Dm
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 93571.1791479051.yYA8Dm EXIT 0
+ACKNOWLEDGED acked:handling:93571.1791479051.yYA8Dm
+watcher: started pid=94829 (beacon fresh)
+TAKEOVER 1 acknowledgement unchanged; queue empty; no repeated recovery wake
+watcher: started pid=96347 (beacon fresh)
+TAKEOVER 2 acknowledgement unchanged; queue empty; no repeated recovery wake
+watcher: started pid=97661 (beacon fresh)
+TAKEOVER 3 acknowledgement unchanged; queue empty; no repeated recovery wake
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-check-register.sh blocked EXIT 0
+registered: state/blocked.check.sh
+watcher: started pid=99163 (beacon fresh)
+BLOCKED CHECK TAKEOVER preserved acknowledgement in 1.18s
+STATUS APPEND done: later real work
+watcher: started pid=99163 (beacon fresh)
+signal: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/.fm-gate-live-vtnp298h/state/later.status
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-wake-drain.sh EXIT 0
+1791479070	3	signal	later.status	signal: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/.fm-gate-live-vtnp298h/state/later.status
+wake annotation: latest wake-EVENT observed at drain, not current state: later.status: done: later real work
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+later done: later real work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 99163.1791479070.34AxFJ
+LATER WORK delivered
+COMMAND /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4E5D5B81Z67HBHTVJ53VAJP/bin/fm-watch-arm.sh --stop EXIT 0
+watcher: none running
+LAB REMOVED

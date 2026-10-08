@@ -1,0 +1,107 @@
+{
+  "checks": [
+    {
+      "expected_failure": false,
+      "label": "watch-arm",
+      "scripts": [
+        {
+          "duration_ms": 168940,
+          "exit": 0,
+          "expected_gate_skip": "none",
+          "family": "watcher-wake-lock",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-watch-arm.test.sh"
+        }
+      ]
+    },
+    {
+      "expected_failure": false,
+      "label": "triage",
+      "scripts": [
+        {
+          "duration_ms": 28061,
+          "exit": 0,
+          "expected_gate_skip": "none",
+          "family": "unclassified",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-gate-triage-selected.test.sh"
+        }
+      ]
+    },
+    {
+      "expected_failure": false,
+      "label": "composer",
+      "scripts": [
+        {
+          "duration_ms": 21207,
+          "exit": 0,
+          "expected_gate_skip": "none",
+          "family": "unclassified",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-gate-composer-selected.test.sh"
+        }
+      ]
+    },
+    {
+      "expected_failure": false,
+      "label": "autoarm",
+      "scripts": [
+        {
+          "duration_ms": 70218,
+          "exit": 0,
+          "expected_gate_skip": "none",
+          "family": "standalone",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-claude-stop-autoarm.test.sh"
+        }
+      ]
+    },
+    {
+      "expected_failure": true,
+      "label": "before-startup",
+      "scripts": [
+        {
+          "duration_ms": 1276,
+          "exit": 1,
+          "expected_gate_skip": "none",
+          "family": "watcher-wake-lock",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-watch-triage.test.sh"
+        }
+      ]
+    },
+    {
+      "expected_failure": true,
+      "label": "before-classification",
+      "scripts": [
+        {
+          "duration_ms": 14531,
+          "exit": 1,
+          "expected_gate_skip": "none",
+          "family": "watcher-wake-lock",
+          "gate_skip": false,
+          "gate_skip_reason": "",
+          "path": "tests/fm-watch-triage.test.sh"
+        }
+      ]
+    }
+  ],
+  "comparison_revision": "5533969",
+  "limits": [
+    "Terminal/composer stalls and startup signals used deterministic fixtures, not native stalled terminals.",
+    "The real Claude turn-end flow and original live primary home were not driven.",
+    "No Herdr lifecycle, full suite, lint, publication, or pipeline control was performed."
+  ],
+  "live_cli": {
+    "blocked_check_takeover_seconds": 1.18,
+    "lab_removed": true,
+    "later_work_delivered": true,
+    "quiet_takeovers": 3
+  },
+  "target": "8d25fb578e61249881d94c636378564eb79b2de3"
+}
