@@ -405,7 +405,7 @@ An arm whose own script path sits under a disposable no-mistakes validation chec
 Once per poll the watcher checks that its home, its state directory, and its own code root still exist, and exits with a logged reason when one is gone, scoped to itself alone, so a torn-down temporary home or a discarded checkout never leaves an orphan watcher behind.
 The watcher uses bash's native fatal handling for HUP and TERM during blocked checks, pane reads, and composer reads, including reads during an inbox ring.
 Both signals run its EXIT cleanup and stop the blocked operation.
-Signals received while a child process group starts retain their identity when termination resumes after ownership is recorded.
+HUP and TERM received while a child process group starts retain their identity when termination resumes after ownership is recorded.
 The same interruptible boundary covers watcher-owned busy and crew-state classification, including indirect pane reads.
 `watcher_stop_signals` in `bin/fm-watch.sh` owns the signal-handling rationale.
 The EXIT cleanup bounds its wait for `state/.watcher-down.lock` while persisting recovery state with `FM_WATCHER_CLEANUP_LOCK_BOUND` (default 2 seconds).

@@ -879,8 +879,8 @@ secondmate_in_active_turn() {  # <window> <idle>
 # Set SECONDMATE_BUSY_CLASS to the first token of the semantic busy
 # classification for <window>: busy, idle, unknown, or dead. Capture failure and
 # a missing window are unknown, never idle. Empty inbox and a fresh watcher
-# beacon are not consulted. Call it directly, never in $(...), so its pane
-# capture runs in the watcher's own shell.
+# beacon are not consulted. Call it directly, never in $(...), so the watcher
+# retains cleanup ownership of the child process group used by watcher_capture.
 SECONDMATE_BUSY_CLASS=
 secondmate_busy_class() {  # <window>
   local w=$1 task meta tail40 verdict
