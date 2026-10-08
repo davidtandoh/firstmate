@@ -549,7 +549,7 @@ inbox_steer_check() {  # <window> <task>
       return 0
       ;;
   esac
-  watcher_capture "$backend" "$w" 40 "$(window_label "$w")" || WATCHER_CAPTURE=
+  watcher_capture fm_backend_capture "$backend" "$w" 40 "$(window_label "$w")" || WATCHER_CAPTURE=
   tail40=$WATCHER_CAPTURE
   if window_is_busy "$w" "$tail40"; then
     [ "$verb" != retry ] || return 0
@@ -569,7 +569,7 @@ inbox_steer_check() {  # <window> <task>
   case "$verb" in
     ring)
       ring_rc=0
-      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      watcher_capture fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
       if [ "$ring_rc" -eq 3 ]; then
         inbox_steer_escalate_unavailable "$w" "$task" "$rec"
         return 0
@@ -589,7 +589,7 @@ inbox_steer_check() {  # <window> <task>
       ;;
     retry)
       ring_rc=0
-      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      watcher_capture fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
       if ! fm_task_inbox_clear_retry "$STATE" "$task" "$rec" && [ -f "$rec" ]; then
         reason="stale: $w (steering-inbox retry mark unremovable: ${rec%/*}/.retry-ring cannot be removed, so $rec would ring on every poll - inspect the inbox directory)"
         fm_wake_append stale "$w" "$reason" || exit 1
@@ -764,7 +764,7 @@ signal_turnend_panes_churned() {  # <file> ...
     [ "$hash_bytes" = 32 ] || return 1
     prev=$(cat "$hash_file" 2>/dev/null) || return 1
     [[ $prev =~ ^[0-9a-f]{32}$ ]] || return 1
-    watcher_capture "$backend" "$w" 40 "$label" || return 1
+    watcher_capture fm_backend_capture "$backend" "$w" 40 "$label" || return 1
     now=$WATCHER_CAPTURE
     [ -n "$now" ] || return 1
     [ "$(printf '%s' "$now" | hash_pane)" != "$prev" ] || return 1
@@ -871,7 +871,7 @@ secondmate_in_active_turn() {  # <window> <idle>
   local w=$1 idle=$2 tail40
   [ -n "$w" ] || return 1
   [ "$idle" -lt "$BUSY_TURN_MAX_SECS" ] || return 1
-  watcher_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 1
+  watcher_capture fm_backend_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 1
   tail40=$WATCHER_CAPTURE
   window_is_busy "$w" "$tail40"
 }
@@ -890,7 +890,7 @@ secondmate_busy_class() {  # <window>
   if [ -z "$w" ] || [ -z "$task" ] || [ ! -f "$meta" ]; then
     return 0
   fi
-  watcher_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 0
+  watcher_capture fm_backend_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || return 0
   tail40=$WATCHER_CAPTURE
   verdict=$(fm_busy_classify_meta "$meta" "$task" "$STATE" "$tail40")
   SECONDMATE_BUSY_CLASS=${verdict%% *}
@@ -908,7 +908,8 @@ secondmate_idle_ring_safe() {  # <window>
   backend=$(window_backend "$w")
   agent_state=$(fm_backend_agent_state "$backend" "$w" 2>/dev/null || true)
   [ "$agent_state" = alive ] || return 1
-  cstate=$(fm_backend_composer_state "$backend" "$w" "$(window_label "$w")" 2>/dev/null) || cstate=unknown
+  watcher_capture fm_backend_composer_state "$backend" "$w" "$(window_label "$w")" || WATCHER_CAPTURE=unknown
+  cstate=$WATCHER_CAPTURE
   [ "$cstate" != pending ] || return 1
   return 0
 }
@@ -929,7 +930,7 @@ secondmate_ring_to_drain() {  # <task> <window>
   rec=$(fm_task_inbox_write "$STATE" "$task" \
     "${FM_FROMFIRST_MARK}delivery=${delivery_id} Drain pending rows in this home's wake queue, then resume idle supervision." \
     fire-and-forget) || return 1
-  fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")"
+  watcher_capture fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")"
 }
 
 # Surface one durable parent check when the foreign queue's drain position has
@@ -2191,11 +2192,11 @@ fm_capture_output_cleanup() {
   FM_CAPTURE_OUTPUT=
 }
 
-# watcher_capture: fm_backend_capture into WATCHER_CAPTURE with its exit status.
+# watcher_capture: command output into WATCHER_CAPTURE with its exit status.
 # The read runs as a waited background process group rather than inside $(...),
 # so a stop is not held for a blocked read (watcher_stop_signals). The group is
 # recorded like a check's, so watcher_cleanup stops a read still in flight.
-watcher_capture() {  # <backend> <target> <lines> [expected-label]
+watcher_capture() {  # <command> [args...]
   local rc pgid
   fm_capture_output_cleanup
   WATCHER_CAPTURE=
@@ -2206,7 +2207,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
   # print a harmless "child setpgid ... Operation not permitted" race from the
   # child before the command's own redirections apply.
   set -m
-  { fm_backend_capture "$@" < /dev/null > "$FM_CAPTURE_OUTPUT" & } 2>/dev/null
+  { "$@" < /dev/null > "$FM_CAPTURE_OUTPUT" & } 2>/dev/null
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
@@ -3068,7 +3069,7 @@ EOF
     if [ "$kind" = secondmate ] && ! status_is_paused_or_captain_held "$last"; then
       continue
     fi
-    watcher_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || continue
+    watcher_capture fm_backend_capture "$(window_backend "$w")" "$w" 40 "$(window_label "$w")" || continue
     tail40=$WATCHER_CAPTURE
     h=$(printf '%s' "$tail40" | hash_pane)
     hf="$STATE/.hash-$key"
