@@ -4623,6 +4623,7 @@ SH
   chmod +x "$fakebin/tmux"
   touch "$state/.inactive-outcome-reconcile"
   (
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$state/.home-summary-refresh.lock" || exit 1
     : > "$dir/summary-held"
