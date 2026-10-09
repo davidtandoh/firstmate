@@ -22,7 +22,7 @@ set -u
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-classify-lib.sh"
 
-WATCH="$ROOT/bin/fm-watch.sh"
+WATCH="${FM_TEST_WATCH_BIN:-$ROOT/bin/fm-watch.sh}"
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-watch-triage-tests)
@@ -4577,20 +4577,75 @@ test_wedge_escalation_resets_when_pane_becomes_active() {
 # watcher inside the bound; the released lock and acknowledgeable stop record
 # prove its cleanup still ran.
 test_term_stops_a_watcher_blocked_inside_a_poll() {
-  local dir state fakebin out fifo window sig pid holder i rc
-  dir=$(make_case term-blocked-poll); state="$dir/state"; fakebin="$dir/fakebin"
+  local dir state fakebin out fifo window pid holder i rc orphan
+  local mode=${FM_TEST_CAPTURE_MODE:-pane} block_at=1 harness=claude first='idle prompt' key
+  dir=$(make_case "term-blocked-$mode"); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; fifo="$dir/pane.fifo"; window="test:fm-blocked-capture"
+  case "$mode" in
+    stale|paused) block_at=2 ;;
+    grok|rovo|agy) block_at=2; harness=$mode; first= ;;
+  esac
   mkfifo "$fifo"
-  printf 'window=%s\nkind=ship\n' "$window" > "$state/blocked.meta"
+  printf 'window=%s\nkind=ship\nharness=%s\nworktree=%s\n' "$window" "$harness" "$dir" > "$state/blocked.meta"
   printf 'working: implementing\n' > "$state/blocked.status"
-  sig=$(seen_sig "$state/blocked.status"); printf '%s' "$sig" > "$state/.seen-blocked_status"
-  # Opening the write end waits for the capture to open the read end, and the
-  # holder then keeps it open without writing, so that capture blocks mid-poll.
-  ( exec 3> "$fifo"; : > "$dir/capture-blocked"; exec sleep 30 ) &
+  case "$mode" in
+    turnend) touch "$state/blocked.turn-ended" ;;
+    stale|paused)
+      if [ "$mode" = stale ]; then
+        printf 'done: implemented\n' > "$state/blocked.status"
+      else
+        printf 'paused: waiting for a dependency\n' > "$state/blocked.status"
+      fi
+      key=$(printf '%s' "$window" | tr ':/.' '___')
+      hash_text "$first" > "$state/.hash-$key"
+      printf '1\n' > "$state/.count-$key"
+      ;;
+  esac
+  prime_status_seen "$state" "$state/blocked.status"
+  mv "$fakebin/tmux" "$fakebin/tmux-original"
+  cat > "$fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+set -eu
+case "${1:-}" in
+  capture-pane)
+    n=$(( $(cat "$FM_FAKE_CAPTURE_COUNT" 2>/dev/null || echo 0) + 1 ))
+    printf '%s\n' "$n" > "$FM_FAKE_CAPTURE_COUNT"
+    if [ "$n" -lt "$FM_FAKE_BLOCK_AT" ]; then
+      printf '%s' "$FM_FAKE_FIRST_CAPTURE"
+      exit 0
+    fi
+    exec cat "$FM_FAKE_TMUX_CAPTURE"
+    ;;
+  display-message) printf 'claude\n'; exit 0 ;;
+esac
+exec "$(dirname "$0")/tmux-original" "$@"
+SH
+  chmod +x "$fakebin/tmux"
+  touch "$state/.inactive-outcome-reconcile"
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-wake-lib.sh"
+    fm_lock_try_acquire "$state/.home-summary-refresh.lock" || exit 1
+    : > "$dir/summary-held"
+    exec 3> "$fifo"
+    : > "$dir/capture-blocked"
+    exec sleep 30
+  ) &
   holder=$!
-  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$fifo" \
-    FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=1 \
-    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  i=0
+  while [ ! -e "$dir/summary-held" ] && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if [ ! -e "$dir/summary-held" ]; then
+    kill "$holder" 2>/dev/null || true
+    wait "$holder" 2>/dev/null || true
+    fail "could not isolate the $mode classification from summary refresh"
+  fi
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$fifo" \
+    FM_FAKE_CAPTURE_COUNT="$dir/captures" FM_FAKE_BLOCK_AT="$block_at" FM_FAKE_FIRST_CAPTURE="$first" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$ROOT/bin/fm-crew-state.sh" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" 2>&1 &
   pid=$!
   i=0
   while [ ! -e "$dir/capture-blocked" ] && [ "$i" -lt 300 ]; do
@@ -4599,18 +4654,67 @@ test_term_stops_a_watcher_blocked_inside_a_poll() {
   done
   if [ ! -e "$dir/capture-blocked" ] || ! is_live_non_zombie "$pid"; then
     kill "$holder" 2>/dev/null || true; reap "$pid"
-    fail "the watcher never blocked inside its pane capture: $(cat "$out")"
+    fail "the watcher never blocked inside its $mode capture: $(cat "$out")"
   fi
   kill "$pid" 2>/dev/null || true
-  wait_for_exit "$pid" 100
+  wait_for_exit "$pid" 30
   rc=$?
+  orphan=$(pgrep -f "cat $fifo" || true)
+  [ -z "$orphan" ] || pkill -f "cat $fifo" 2>/dev/null || true
   kill "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
-  [ "$rc" -ne 124 ] || fail "TERM did not stop a watcher blocked inside a poll"
-  [ ! -e "$state/.watch.lock" ] || fail "a watcher stopped mid-poll kept its singleton lock, so its cleanup did not run"
-  ack_stopped_cycle "$state" || fail "could not acknowledge the stop of a watcher blocked inside a poll"
-  pass "TERM stops a watcher blocked inside a poll and still runs its cleanup"
+  [ "$rc" -ne 124 ] || fail "TERM did not stop a watcher blocked in $mode classification"
+  [ "$rc" -eq 143 ] || fail "TERM lost its exit status in $mode classification: $rc"
+  [ -z "$orphan" ] || fail "the $mode capture survived watcher cleanup"
+  [ "$(cat "$dir/captures")" = "$block_at" ] || fail "the watcher blocked in the wrong $mode capture"
+  [ ! -e "$state/.watch.lock" ] || fail "the stopped watcher kept its singleton lock"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the stop during $mode classification"
+  pass "TERM stops the $mode capture with its signal status and cleanup intact"
 }
+
+test_term_stops_blocked_classification_reads() {
+  local mode
+  for mode in turnend stale paused grok rovo agy; do
+    FM_TEST_CAPTURE_MODE=$mode test_term_stops_a_watcher_blocked_inside_a_poll
+  done
+}
+
+test_deferred_startup_signal_retains_termination_status() {
+  local dir state fakebin signal=${FM_TEST_START_SIGNAL:-TERM} operation=${FM_TEST_START_OPERATION:-capture}
+  local pid rc expected=143
+  [ "$signal" != HUP ] || expected=129
+  dir=$(make_case "startup-$signal-$operation"); state="$dir/state"; fakebin="$dir/fakebin"
+  if [ "$operation" = check ]; then
+    printf '#!/usr/bin/env bash\nexec sleep 30\n' > "$state/task.check.sh"
+    chmod 0700 "$state/task.check.sh"
+    FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" task >/dev/null || fail "could not register startup check"
+  else
+    printf 'window=test:fm-startup\nkind=ship\n' > "$state/startup.meta"
+  fi
+  cat > "$dir/bash-env" <<'SH'
+unset BASH_ENV
+set() {
+  builtin set "$@"
+  if [ "$#" -eq 1 ] && [ "$1" = -m ]; then
+    printf '%s\n' "$FM_TEST_START_SIGNAL" > "$FM_STATE_OVERRIDE/startup-signal"
+    kill -s "$FM_TEST_START_SIGNAL" "$$"
+  fi
+}
+SH
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    BASH_ENV="$dir/bash-env" FM_TEST_WATCH_BIN="$WATCH" FM_TEST_START_SIGNAL="$signal" \
+    FM_FAKE_TMUX_WINDOW=test:fm-startup FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 "$WATCH" > "$dir/watch.out" 2>&1 &
+  pid=$!
+  wait_for_exit "$pid" 100
+  rc=$?
+  [ -s "$state/startup-signal" ] || fail "the $operation startup signal was not delivered: $(cat "$dir/watch.out")"
+  [ "$rc" -eq "$expected" ] || fail "$operation startup lost $signal termination status: $rc instead of $expected"
+  [ ! -e "$state/.watch.lock" ] || fail "$operation startup signal left the singleton lock"
+  [ -e "$state/.watcher-down" ] || fail "$operation startup signal skipped recovery cleanup"
+  pass "$operation startup preserves $signal termination status and cleanup"
+}
+
 
 # --- held downtime-marker lock must not wedge a TERM'd watcher -------------
 # fm-watch-triage-r1 flake (serial-1 CI): the EXIT cleanup publishes the
@@ -6684,6 +6788,11 @@ test_gone_report_rearms_when_the_endpoint_comes_back
 test_second_death_after_a_same_window_relaunch_reports_in_full
 test_identical_dead_display_of_a_successor_still_reports
 test_term_stops_a_watcher_blocked_inside_a_poll
+test_term_stops_blocked_classification_reads
+FM_TEST_START_SIGNAL=TERM FM_TEST_START_OPERATION=capture test_deferred_startup_signal_retains_termination_status
+FM_TEST_START_SIGNAL=HUP FM_TEST_START_OPERATION=capture test_deferred_startup_signal_retains_termination_status
+FM_TEST_START_SIGNAL=TERM FM_TEST_START_OPERATION=check test_deferred_startup_signal_retains_termination_status
+FM_TEST_START_SIGNAL=HUP FM_TEST_START_OPERATION=check test_deferred_startup_signal_retains_termination_status
 test_term_stops_a_watcher_whose_cleanup_marker_lock_is_held
 test_cleanup_marker_lock_bound_is_decimal_with_zero_default
 test_busy_pane_below_turn_age_bound_is_absorbed

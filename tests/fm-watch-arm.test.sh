@@ -1196,6 +1196,70 @@ test_take_over_owns_a_fresh_cycle_and_keeps_queued_work_surfacing() {
   pass "watch-arm: --take-over owns a fresh cycle without a recovery wake and still surfaces queued work"
 }
 
+# A blocked pane read must not turn the next park into empty recovery turns.
+test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet() {
+  local dir state fakebin owner watcher holder fifo window acknowledged i
+  dir=$(make_case take-over-blocked-capture)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  fifo="$dir/pane.fifo"
+  window="test:fm-blocked"
+  mkfifo "$fifo"
+  # The handling successor covers main's acknowledgement, then blocks in a
+  # pane read. The next park must take ownership without reopening recovery.
+  FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$fifo" \
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/owner.out" "$$"
+  owner=$ARM_PID
+  watcher=$(cat "$state/.watch.lock/pid")
+  append_wake "$state" signal take-over 'signal: handled before next park'
+  ack_wakes "$state" >/dev/null || fail "could not acknowledge the fixture wake"
+  acknowledged=$(cat "$state/.watcher-down")
+  [ ! -s "$state/.wake-queue" ] || fail "acknowledgement left queued work"
+  printf 'window=%s\nkind=ship\n' "$window" > "$state/blocked.meta"
+  ( exec 3> "$fifo"; : > "$dir/capture-blocked"; exec sleep 15 ) &
+  holder=$!
+  i=0
+  while [ ! -e "$dir/capture-blocked" ] && [ "$i" -lt 300 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if [ ! -e "$dir/capture-blocked" ]; then
+    kill "$holder" 2>/dev/null || true
+    fail "the handling successor never entered its pane read"
+  fi
+  # Retire the fixture worker while its read is blocked, so the replacement
+  # cycle has no independently stale worker to report.
+  rm "$state/blocked.meta"
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    "$WATCH_ARM" --take-over "$owner" > "$dir/next-arm.out" &
+  ARM_PID=$!
+  i=0
+  while [ "$i" -lt 300 ] && is_live_non_zombie "$ARM_PID"; do
+    grep -q '^watcher: started pid=' "$dir/next-arm.out" && break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  grep -q '^watcher: started pid=' "$dir/next-arm.out" \
+    || fail "blocked capture prevented quiet takeover: $(cat "$dir/next-arm.out")"
+  ! is_live_non_zombie "$watcher" || fail "takeover left the old watcher alive"
+  wait "$owner" 2>/dev/null || true
+  sleep 3
+  is_live_non_zombie "$ARM_PID" \
+    || fail "the replacement arm exited without new work: $(cat "$dir/next-arm.out"); marker=$(cat "$state/.watcher-down"); ledger=$(cat "$state/.watch-cycle-exits.log")"
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] \
+    || fail "takeover reopened the acknowledged recovery episode"
+  [ ! -s "$state/.wake-queue" ] || fail "takeover manufactured queued work"
+  ! grep -F 'check: rearm-resurface' "$dir/next-arm.out" >/dev/null \
+    || fail "takeover resurfaced an acknowledged empty queue"
+  printf 'done: later real work\n' > "$state/later.status"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "replacement arm missed new work"
+  grep -q '^signal:' "$dir/next-arm.out" || fail "replacement arm did not deliver new work"
+  pass "watch-arm: takeover during a blocked capture preserves acknowledgement and later wakes"
+}
+
 # Pause just after handover releases its snapshot locks, then fail the old
 # watcher's secondmate tick write so it exits through cleanup before TERM lands.
 # The ledger and recovery wake are public output contracts, not source probes.
@@ -1613,4 +1677,5 @@ test_handling_delivered_accepts_already_acked_generation
 test_handling_delivered_rejects_a_superseded_generation
 test_take_over_attaches_to_a_cycle_the_named_arm_does_not_own
 test_take_over_owns_a_fresh_cycle_and_keeps_queued_work_surfacing
+test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet
 test_take_over_preserves_downtime_from_watcher_self_exit
