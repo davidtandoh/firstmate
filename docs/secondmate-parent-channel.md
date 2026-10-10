@@ -46,19 +46,14 @@ A missed-reply escalation includes the complete first sighting path and line num
 ## Lock refusal and unanswered requests
 
 A lock-refused secondmate reports `blocked [key=secondmate-readonly]` through its bound parent channel.
-The publisher uses the optional open-decision key on `fm_parent_channel_report` to suppress retries while that decision remains open.
+The publisher uses the [parent-channel library's keyed retry contract](../bin/fm-parent-channel-lib.sh).
 When session start verifies restored lock ownership, it closes the episode on the same source channel.
 For a remote mate, this writes the resolution to its own `parent-replies.status`, which the parent mirror then carries upstream.
 A parent-local decision close alone does not update that remote source log.
 A later refusal opens a new episode, even when the report text is identical; repeated healthy starts publish no extra resolution.
-Other publishers retain their existing event deduplication.
 A main home publishes nothing upward.
 
-The parent pending-reply guard retains the completed-turn recovery and escalation grace.
-When no completion has been observed, a delivered request or delivered recovery escalates after one hour without a correlated reply.
-Each wait uses its own delivery timestamp.
-A remote escalation requires the reply-channel mirror watermark to cover that wait's one-hour deadline.
-The guard rechecks for a correlated reply before publishing and closes its keyed escalation when a reply arrives.
+[`bin/fm-pending-reply-lib.sh`](../bin/fm-pending-reply-lib.sh) owns the unanswered-request deadlines, completion grace, remote mirror evidence, and late-reply closure contract.
 This is a parent-owned escalation path: it runs independently of the mate's watcher and can escalate an unanswered steer during a gap in the mate's supervision.
 
 ### Cause of the recurring supervision gaps

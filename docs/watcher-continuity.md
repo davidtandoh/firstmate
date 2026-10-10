@@ -533,8 +533,7 @@ The other harnesses rely on these mechanisms:
 - Cursor depends on its awaited stop-hook park.
 - Grok retains native background-completion notifications.
 - Codex retains bounded foreground checkpoints.
-  `bin/fm-watch-checkpoint.sh` uses the shared `fm_exec_timed` runner from `bin/fm-timeout-lib.sh` for both the watcher and the optional supervision host.
-  The runner allows five seconds after TERM for the watcher to stop its capture process groups and release its lock before enforcing KILL.
+  The [checkpoint header](../bin/fm-watch-checkpoint.sh) owns the deadline cleanup allowance for the watcher and the optional supervision host.
   `tests/fm-watch-checkpoint.test.sh` exercises both a TERM-resistant watcher and a TERM-resistant capture in a separate process group through the checkpoint command.
 
 [`verification/supervision.md`](verification/supervision.md#watcher-continuity) records the current cross-harness live evidence, the dated Stop-owned Claude auto-arm results, and exact opt-in commands.

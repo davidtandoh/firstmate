@@ -26,8 +26,9 @@
 # ORDERING, and why LOCK now runs before BOOTSTRAP (the old AGENTS.md order
 # was bootstrap-then-lock):
 #
-#   1. lock          - acquire the per-home session lock FIRST, before any
-#                       mutating step runs.
+#   1. lock          - acquire the per-home session lock FIRST, before fleet
+#                       mutation; the parent-channel reporting exception is
+#                       owned by docs/secondmate-parent-channel.md.
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
 #                       diagnostics always run. Bootstrap's six MUTATING sweeps

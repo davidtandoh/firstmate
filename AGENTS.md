@@ -80,6 +80,7 @@ An `ABSENT` captain, shared-captain, secondmate, or learnings file means the fir
 
 If the session lock cannot be acquired and verified, report its exact diagnostic and remain read-only; another active session is only one possible cause.
 A lock-refused session must not spawn, steer, merge, drain the wake queue, repair supervision, repair a checkout, or perform any other fleet mutation.
+Session start's automatic [parent-channel lock-refusal report](docs/secondmate-parent-channel.md#lock-refusal-and-unanswered-requests) is the sole reporting exception; it grants no authority to service routed requests.
 
 When the digest's `NETWORK CHECKS` section reports checks still in progress, treat none of the named checks as passed until `bin/fm-startup-network.sh report` returns the finished result; a failed or otherwise actionable result also arrives as a `check: startup-network` wake.
 Load `session-start-recovery` when the digest reports unfinished checks, actionable diagnostics, recovery inputs, or output requiring interpretation.

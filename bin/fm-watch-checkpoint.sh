@@ -16,6 +16,11 @@
 # "supervision-host:" line other than the park boundary passes through as a
 # wake; the boundary alone is the ordinary quiet checkpoint. On a home that
 # does not run the host nothing below changes.
+#
+# DEADLINE CLEANUP. Both paths use fm_exec_timed from fm-timeout-lib.sh.
+# After the outer deadline, allow five seconds between TERM and KILL so the
+# watcher can stop captures in separate process groups and release its lock.
+# The cleanup allowance is additional to the outer deadline.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

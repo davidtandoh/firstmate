@@ -15,7 +15,15 @@
 # (held back, when config/wait-no-turns is present, while the mate waits on its
 # own open decision or blocker), and
 # escalate once if the recovery turn also completes without a correlated
-# report. Never loop, never repeatedly inject, never silently expire unresolved
+# report after its completion grace.
+# If no completion is observed for a delivered request or recovery, escalate
+# on the first eligible parent poll at least 3600 seconds after that wait's
+# delivery (delivered_epoch or recovery_sent_epoch respectively).
+# This backstop publishes pending-reply-unacknowledged without sending another
+# recovery request and does not depend on the secondmate's watcher.
+# Observed completion retains the completion-based grace and recovery path.
+# Remote evidence must satisfy the reply-channel freshness rule below.
+# Never loop, never repeatedly inject, never silently expire unresolved
 # records, and never treat wrong-home or structured-home heuristics as
 # acknowledgement. A same-basename restatement-copy of the mate home's
 # state/<task_id>.status onto the parent channel is a repair of the
@@ -865,8 +873,9 @@ fm_pending_reply_mark_turn_completed() {  # <state-dir> <corr_id> [which: reques
 # state/<id>.status, so an absent correlated line there is immediate evidence
 # that no report was written. A REMOTE mate's reports reach that same file only
 # through the asynchronous mirror in bin/fm-procevent-remote-reply.sh, so the
-# same absence proves nothing until that mirror has actually been read past the
-# turn that should have produced the report. Without this distinction the guard
+# same absence proves nothing until the mirror watermark reaches the relevant
+# turn's completion, or the delivery-based deadline when no completion exists.
+# Without this distinction the guard
 # nags a REPOST REQUIRED for a reply the mate did write and the parent simply
 # had not received yet - the common case, because the mirror's poll window is
 # comparable to the recovery grace.
