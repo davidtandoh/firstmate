@@ -1,0 +1,4 @@
+ok - an unacknowledged delivered request escalates once past the ack timeout, never before
+real 0.95
+user 0.21
+sys 0.44

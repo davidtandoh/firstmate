@@ -1,0 +1,4 @@
+ok - a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest
+real 4.80
+user 0.45
+sys 0.91

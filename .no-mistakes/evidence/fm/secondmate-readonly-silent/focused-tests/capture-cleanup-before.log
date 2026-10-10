@@ -1,0 +1,4 @@
+ok - checkpoint gives the watcher time to reap a separate TERM-resistant capture group
+real 10.96
+user 0.84
+sys 1.95

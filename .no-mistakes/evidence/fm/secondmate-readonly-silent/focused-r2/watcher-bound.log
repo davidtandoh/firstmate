@@ -1,0 +1,233 @@
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
++ set -u
+++ dirname tests/fm-watch-checkpoint.test.sh
++ . tests/wake-helpers.sh
++++ dirname tests/wake-helpers.sh
+++ . tests/lib.sh
++++ '[' -n '' ']'
++++ FM_TEST_LIB_SOURCED=1
++++ umask 022
+++++ dirname tests/lib.sh
++++ . tests/git-config-helpers.sh
+++++ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+++++ GIT_CONFIG_GLOBAL=/dev/null
+++++ GIT_CONFIG_NOSYSTEM=1
++++ export FM_GATE_REFUSE_BYPASS=1
++++ FM_GATE_REFUSE_BYPASS=1
++++ export FM_TEST_SEAM=1
++++ FM_TEST_SEAM=1
++++ unset FM_TASK_ID
++++ unset OMNIGENT FM_OMNIGENT
++++ unset TASKS_AXI_FILE TASKS_AXI_BACKEND
++++++ dirname tests/lib.sh
+++++ cd tests/..
+++++ pwd
++++ ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++++ fm_test_tmpdir
+++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
+++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
+++++ case "$base" in
++++++ CDPATH=
++++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++++ pwd -P
+++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
+++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ FM_TEST_TMPDIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ FM_TEST_CLEANUP_DIRS=()
+++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.48884.XXXXXX
++++ FM_TEST_CLEANUP_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.48884.5NIozk
+++++ fm_test_pid_identity 48884
+++++ local pid=48884
+++++ FM_STATE_OVERRIDE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ bash -c '. "$1"; fm_pid_identity "$2"' _ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh 48884
++++ FM_TEST_OWNER_IDENTITY='Sat Oct 10 11:49:31 2026     bash -x tests/fm-watch-checkpoint.test.sh'
+++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.48884.XXXXXX
++++ FM_TEST_PROCEVENT_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.48884.OAoAFV
+++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.48884.XXXXXX
++++ FM_TEST_WATCHER_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.48884.9yxbAS
++++ FM_TEST_STUB_MAX_BLOCK_SECONDS=120
++++ export FM_TEST_STUB_MAX_BLOCK_SECONDS
++++ trap fm_test_cleanup EXIT
++++ trap 'fm_test_cleanup; exit 130' INT
++++ trap 'fm_test_cleanup; exit 143' TERM
++++ trap 'fm_test_cleanup; exit 129' HUP
++++ trap 'fm_test_cleanup; exit 131' QUIT
++++ FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
++++ '[' 1 '!=' 1 ']'
+++ '[' -z '' ']'
++++ fm_test_tmproot fm-wake-tangle-root
++++ local prefix=fm-wake-tangle-root root tmp_base
+++++ fm_test_tmpdir
+++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
+++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
+++++ case "$base" in
++++++ CDPATH=
++++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++++ pwd -P
+++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
+++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.XXXXXX
++++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
+++++ cd -P -- /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
+++++ pwd -P
++++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
++++ printf '%s\n%s\n' 48884 'Sat Oct 10 11:49:31 2026     bash -x tests/fm-watch-checkpoint.test.sh'
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
+++ FM_ROOT_OVERRIDE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
+++ export FM_ROOT_OVERRIDE
++++ fm_test_tmproot fm-wedge-rec
++++ local prefix=fm-wedge-rec root tmp_base
+++++ fm_test_tmpdir
+++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
+++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
+++++ case "$base" in
++++++ CDPATH=
++++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++++ pwd -P
+++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
+++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.XXXXXX
++++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
+++++ cd -P -- /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
+++++ pwd -P
++++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
++++ printf '%s\n%s\n' 48884 'Sat Oct 10 11:49:31 2026     bash -x tests/fm-watch-checkpoint.test.sh'
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
+++ _fm_wedge_rec_dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
+++ cat
+++ chmod +x /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH/rec
+++ export FM_WEDGE_ALARM_EXEC=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH/rec
+++ FM_WEDGE_ALARM_EXEC=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH/rec
++ CHECKPOINT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-watch-checkpoint.sh
+++ fm_test_tmproot fm-watch-checkpoint
+++ local prefix=fm-watch-checkpoint root tmp_base
++++ fm_test_tmpdir
++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ pwd -P
++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.XXXXXX
+++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++++ cd -P -- /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++++ pwd -P
+++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
+++ printf '%s\n%s\n' 48884 'Sat Oct 10 11:49:31 2026     bash -x tests/fm-watch-checkpoint.test.sh'
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++ TMP_ROOT=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++ '[' -n test_checkpoint_stops_a_term_resistant_watcher ']'
++ test_checkpoint_stops_a_term_resistant_watcher
++ local home status started elapsed mode=native test_path=/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path:/Users/davidtandoh/.local/bin:/Users/davidtandoh/.moon/bin:/Users/davidtandoh/.local/bin:/Users/davidtandoh/.antigravity/antigravity/bin:/opt/homebrew/opt/openjdk@17/bin:/Users/davidtandoh/.jenv/shims:/Users/davidtandoh/.jenv/bin:/opt/homebrew/opt/openjdk/bin:/Users/davidtandoh/miniconda3/bin:/Users/davidtandoh/miniconda3/condabin:/Users/davidtandoh/.gem/ruby/3.3.3/bin:/Users/davidtandoh/.rubies/ruby-3.3.3/lib/ruby/gems/3.3.0/bin:/Users/davidtandoh/.rubies/ruby-3.3.3/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/homebrew/bin:/opt/homebrew/bin:/Users/davidtandoh/flutter/bin
++ '[' native = external ']'
+++ make_home term-resistant-native
+++ local name=term-resistant-native home
+++ home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/state /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/data /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/config
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native
++ home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native
++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/root/bin
++ cp /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-watch-checkpoint.sh /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-timeout-lib.sh /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-supervision-engine-lib.sh /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/root/bin/
++ cat
++ chmod +x /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/root/bin/fm-watch.sh
++ status=0
++ started=0
++ PATH=/opt/homebrew/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path:/Users/davidtandoh/.local/bin:/Users/davidtandoh/.moon/bin:/Users/davidtandoh/.local/bin:/Users/davidtandoh/.antigravity/antigravity/bin:/opt/homebrew/opt/openjdk@17/bin:/Users/davidtandoh/.jenv/shims:/Users/davidtandoh/.jenv/bin:/opt/homebrew/opt/openjdk/bin:/Users/davidtandoh/miniconda3/bin:/Users/davidtandoh/miniconda3/condabin:/Users/davidtandoh/.gem/ruby/3.3.3/bin:/Users/davidtandoh/.rubies/ruby-3.3.3/lib/ruby/gems/3.3.0/bin:/Users/davidtandoh/.rubies/ruby-3.3.3/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/homebrew/bin:/opt/homebrew/bin:/Users/davidtandoh/flutter/bin
++ FM_HOME=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native
++ /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/root/bin/fm-watch-checkpoint.sh --seconds 1
++ status=124
++ elapsed=7
++ expect_code 124 124 'TERM-resistant watcher must hit the checkpoint bound'
++ local expected=124 actual=124 'label=TERM-resistant watcher must hit the checkpoint bound'
++ '[' 124 = 124 ']'
++ '[' 7 -lt 9 ']'
++ '[' '!' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/escaped ']'
++ '[' -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/watcher-pid ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/watcher-pid
++ kill -0 48956
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL/term-resistant-native/out
++ assert_contains 'checkpoint: no actionable wake within 1s' 'checkpoint: no actionable wake within 1s' 'timeout did not return control'
++ case "$1" in
++ :
++ pass 'checkpoint stops a TERM-resistant watcher within a fixed cleanup bound (native)'
++ printf 'ok - %s\n' 'checkpoint stops a TERM-resistant watcher within a fixed cleanup bound (native)'
+ok - checkpoint stops a TERM-resistant watcher within a fixed cleanup bound (native)
++ exit 0
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.48884.9yxbAS ']'
++ IFS=
++ read -r state
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.48884.9yxbAS
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.48884.OAoAFV ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.48884.OAoAFV
++ for d in '"${FM_TEST_CLEANUP_DIRS[@]:-}"'
++ '[' -n '' ']'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.48884.5NIozk ']'
++ IFS=
++ read -r d
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz ']'
++ fm_test_remove_tree /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
++ local dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
++ '[' -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz ']'
++ '[' '!' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz ']'
++ find /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz -type d -exec chmod u+rwx '{}' +
++ rm -rf /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wake-tangle-root.TyTwZz
++ IFS=
++ read -r d
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH ']'
++ fm_test_remove_tree /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
++ local dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
++ '[' -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH ']'
++ '[' '!' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH ']'
++ find /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH -type d -exec chmod u+rwx '{}' +
++ rm -rf /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-wedge-rec.QifDFH
++ IFS=
++ read -r d
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL ']'
++ fm_test_remove_tree /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++ local dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++ '[' -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL ']'
++ '[' '!' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL ']'
++ find /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL -type d -exec chmod u+rwx '{}' +
++ rm -rf /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-watch-checkpoint.umV8FL
++ IFS=
++ read -r d
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.48884.5NIozk

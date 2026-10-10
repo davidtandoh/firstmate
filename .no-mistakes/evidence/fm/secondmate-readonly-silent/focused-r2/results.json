@@ -1,0 +1,223 @@
+[
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-watch-checkpoint.test.sh"
+    ],
+    "duration_ms": 19420,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/capture-cleanup.log",
+    "selector": "test_checkpoint_cleans_up_a_term_resistant_capture"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-pending-reply.test.sh"
+    ],
+    "duration_ms": 3737,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/completion-grace.log",
+    "selector": "test_backstop_preserves_completed_turn_grace"
+  },
+  {
+    "args": [
+      "recovery_sent"
+    ],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-pending-reply.test.sh",
+      "recovery_sent"
+    ],
+    "duration_ms": 2018,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/mirror-recovery.log",
+    "selector": "test_backstop_waits_for_current_remote_evidence"
+  },
+  {
+    "args": [
+      "awaiting_report"
+    ],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-pending-reply.test.sh",
+      "awaiting_report"
+    ],
+    "duration_ms": 4013,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/mirror-request.log",
+    "selector": "test_backstop_waits_for_current_remote_evidence"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-session-start.test.sh"
+    ],
+    "duration_ms": 1767,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/readonly-safety.log",
+    "selector": "test_lock_refusal_read_only_path"
+  },
+  {
+    "args": [
+      "local"
+    ],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-session-start.test.sh",
+      "local"
+    ],
+    "duration_ms": 10405,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/refusal-local.log",
+    "selector": "test_lock_refusal_secondmate_reports_to_parent"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-session-start.test.sh"
+    ],
+    "duration_ms": 1223,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/refusal-main.log",
+    "selector": "test_lock_refusal_main_home_reports_nothing_upward"
+  },
+  {
+    "args": [
+      "remote"
+    ],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-session-start.test.sh",
+      "remote"
+    ],
+    "duration_ms": 22740,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/refusal-remote.log",
+    "selector": "test_lock_refusal_secondmate_reports_to_parent"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-pending-reply.test.sh"
+    ],
+    "duration_ms": 1565,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/reply-resolves.log",
+    "selector": "test_normal_correlated_reply_resolves_once"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-pending-reply.test.sh"
+    ],
+    "duration_ms": 2000,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/request-deadline.log",
+    "selector": "test_unacknowledged_backstop_escalates_past_ack_timeout"
+  },
+  {
+    "args": [],
+    "command": [
+      "bash",
+      "-c",
+      ". bin/fm-timeout-lib.sh; fm_exec_timed 60 5 \"$@\"",
+      "_",
+      "bash",
+      "-x",
+      "tests/fm-watch-checkpoint.test.sh"
+    ],
+    "duration_ms": 6754,
+    "exit": 0,
+    "gate_skip": false,
+    "gate_skip_reason": "",
+    "live": false,
+    "log": "/Users/davidtandoh/.no-mistakes/evidence/01M4JM42HNVEZ5DY2788J32D2V/focused-r2/watcher-bound.log",
+    "selector": "test_checkpoint_stops_a_term_resistant_watcher"
+  }
+]

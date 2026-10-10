@@ -1,0 +1,4 @@
+ok - read-only reports deduplicate open incidents and reopen resolved ones
+real 8.74
+user 2.25
+sys 3.51

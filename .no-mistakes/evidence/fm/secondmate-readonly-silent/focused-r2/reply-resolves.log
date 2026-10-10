@@ -1,0 +1,2252 @@
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LC_ALL = "C.UTF-8",
+	LC_CTYPE = "C.UTF-8",
+	LANG = "C.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
++ set -u
+++ dirname tests/fm-pending-reply.test.sh
++ . tests/lib.sh
+++ '[' -n '' ']'
+++ FM_TEST_LIB_SOURCED=1
+++ umask 022
++++ dirname tests/lib.sh
+++ . tests/git-config-helpers.sh
++++ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
++++ GIT_CONFIG_GLOBAL=/dev/null
++++ GIT_CONFIG_NOSYSTEM=1
+++ export FM_GATE_REFUSE_BYPASS=1
+++ FM_GATE_REFUSE_BYPASS=1
+++ export FM_TEST_SEAM=1
+++ FM_TEST_SEAM=1
+++ unset FM_TASK_ID
+++ unset OMNIGENT FM_OMNIGENT
+++ unset TASKS_AXI_FILE TASKS_AXI_BACKEND
+++++ dirname tests/lib.sh
++++ cd tests/..
++++ pwd
+++ ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
++++ fm_test_tmpdir
++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ pwd -P
++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ FM_TEST_TMPDIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ FM_TEST_CLEANUP_DIRS=()
++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.3561.XXXXXX
+++ FM_TEST_CLEANUP_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.3561.t0SyeK
++++ fm_test_pid_identity 3561
++++ local pid=3561
++++ FM_STATE_OVERRIDE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ bash -c '. "$1"; fm_pid_identity "$2"' _ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh 3561
+++ FM_TEST_OWNER_IDENTITY='Sat Oct 10 11:47:10 2026     bash -x tests/fm-pending-reply.test.sh'
++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.3561.XXXXXX
+++ FM_TEST_PROCEVENT_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.3561.HMpK79
++++ mktemp /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.3561.XXXXXX
+++ FM_TEST_WATCHER_REGISTRY=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.3561.bGhB4d
+++ FM_TEST_STUB_MAX_BLOCK_SECONDS=120
+++ export FM_TEST_STUB_MAX_BLOCK_SECONDS
+++ trap fm_test_cleanup EXIT
+++ trap 'fm_test_cleanup; exit 130' INT
+++ trap 'fm_test_cleanup; exit 143' TERM
+++ trap 'fm_test_cleanup; exit 129' HUP
+++ trap 'fm_test_cleanup; exit 131' QUIT
+++ FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
+++ '[' 1 '!=' 1 ']'
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-marker-lib.sh
+++++ dirname /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-marker-lib.sh
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ _FM_MARKER_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-operational-input.sh
++++ FM_OPERATIONAL_MARK=$'\342\201\243'
++++ FM_OPERATIONAL_PREFIX='⁣FIRSTMATE_OP: '
++++ FM_OPERATIONAL_VERSION=v1
++++ FM_OPERATIONAL_HEADER_PREFIX='⁣FIRSTMATE_OP: v1 '
++++ FM_OPERATIONAL_KINDS='session-start watcher turn-end-guard away-supervisor launch-brief branch-outcome'
++++ FM_INJECT_MARK=$'\342\201\243'
++++ FM_FROMFIRST_LABEL='[fm-from-firstmate]'
++++ FM_FROMFIRST_SEPARATOR=$'\342\201\243'
++++ FM_FROMFIRST_MARK='[fm-from-firstmate]⁣'
++++ FM_LEGACY_SESSIONSTART='Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.'
++++ FM_LEGACY_WATCHER_PREFIX='FIRSTMATE WATCHER WAKE: '
++++ FM_LEGACY_WATCHER_SUFFIX='
+
+Run bin/fm-wake-drain.sh first and handle the queued wake. Watcher continuity is extension-owned.'
++++ FM_LEGACY_TURNEND_PREFIX='TURN WOULD END BLIND - supervision is off. The watcher cycle is missing, failed, or unhealthy. Follow the harness recovery instruction below before ending the turn.
+
+'
++++ FM_LEGACY_AWAY_PREFIX='⁣Supervisor escalate ('
++++ FM_OPERATIONAL_RECORD_HARNESSES=claude
++++ FM_OPERATIONAL_RECORD_DIRNAME=operational-inbox
++++ FM_OPERATIONAL_DOORBELL_PREFIX=': Firstmate operational input waiting: read '\'''
++++ FM_OPERATIONAL_DOORBELL_SUFFIX=''\'' and handle its contents as Firstmate operational input.'
++++ FM_OPERATIONAL_RECORD_RETENTION_DAYS=7
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-operational-input.sh = tests/fm-pending-reply.test.sh ']'
+++ unset _FM_MARKER_LIB_DIR
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-pending-reply-lib.sh
+++++ dirname /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-pending-reply-lib.sh
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ _FM_PENDING_REPLY_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-marker-lib.sh
++++++ dirname /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-marker-lib.sh
+++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++++ pwd
++++ _FM_MARKER_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-operational-input.sh
+++++ FM_OPERATIONAL_MARK=$'\342\201\243'
+++++ FM_OPERATIONAL_PREFIX='⁣FIRSTMATE_OP: '
+++++ FM_OPERATIONAL_VERSION=v1
+++++ FM_OPERATIONAL_HEADER_PREFIX='⁣FIRSTMATE_OP: v1 '
+++++ FM_OPERATIONAL_KINDS='session-start watcher turn-end-guard away-supervisor launch-brief branch-outcome'
+++++ FM_INJECT_MARK=$'\342\201\243'
+++++ FM_FROMFIRST_LABEL='[fm-from-firstmate]'
+++++ FM_FROMFIRST_SEPARATOR=$'\342\201\243'
+++++ FM_FROMFIRST_MARK='[fm-from-firstmate]⁣'
+++++ FM_LEGACY_SESSIONSTART='Run `bin/fm-session-start.sh` now, exactly once, before executing any other instructions.'
+++++ FM_LEGACY_WATCHER_PREFIX='FIRSTMATE WATCHER WAKE: '
+++++ FM_LEGACY_WATCHER_SUFFIX='
+
+Run bin/fm-wake-drain.sh first and handle the queued wake. Watcher continuity is extension-owned.'
+++++ FM_LEGACY_TURNEND_PREFIX='TURN WOULD END BLIND - supervision is off. The watcher cycle is missing, failed, or unhealthy. Follow the harness recovery instruction below before ending the turn.
+
+'
+++++ FM_LEGACY_AWAY_PREFIX='⁣Supervisor escalate ('
+++++ FM_OPERATIONAL_RECORD_HARNESSES=claude
+++++ FM_OPERATIONAL_RECORD_DIRNAME=operational-inbox
+++++ FM_OPERATIONAL_DOORBELL_PREFIX=': Firstmate operational input waiting: read '\'''
+++++ FM_OPERATIONAL_DOORBELL_SUFFIX=''\'' and handle its contents as Firstmate operational input.'
+++++ FM_OPERATIONAL_RECORD_RETENTION_DAYS=7
+++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-operational-input.sh = tests/fm-pending-reply.test.sh ']'
++++ unset _FM_MARKER_LIB_DIR
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-backend.sh
++++ FM_BACKEND_SCRIPT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-backend.sh
++++++ dirname /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-backend.sh
+++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++++ pwd
++++ FM_BACKEND_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ unset FM_BACKEND_SCRIPT
+++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
+++++ pwd
++++ FM_BACKEND_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
++++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
++++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
++++ FM_BACKEND_CONFIG_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/config
++++ FM_BACKEND_KNOWN='tmux herdr zellij orca cmux'
++++ FM_BACKEND_SPAWN='tmux herdr zellij orca cmux'
++++ FM_BACKEND_CMUX_BUNDLE_ID=com.cmuxterm.app
++++ FM_BACKEND_VISIBLE_CAPTURE='tmux herdr zellij'
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-tmux-lib.sh
++++ _FM_TMUX_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-tmux-lib.sh ']'
++++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-composer-lib.sh
+++++ FM_COMPOSER_UNICODE_SPACES=()
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0302\0205'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0302\0240'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0341\0232\0200'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0200'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0201'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0202'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0203'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0204'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0205'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0206'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0207'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0210'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0211'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0212'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0250'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0251'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0200\0257'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0342\0201\0237'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ for _fm_composer_space_octal in ''\''\0302\0205'\''' ''\''\0302\0240'\''' ''\''\0341\0232\0200'\''' ''\''\0342\0200\0200'\''' ''\''\0342\0200\0201'\''' ''\''\0342\0200\0202'\''' ''\''\0342\0200\0203'\''' ''\''\0342\0200\0204'\''' ''\''\0342\0200\0205'\''' ''\''\0342\0200\0206'\''' ''\''\0342\0200\0207'\''' ''\''\0342\0200\0210'\''' ''\''\0342\0200\0211'\''' ''\''\0342\0200\0212'\''' ''\''\0342\0200\0250'\''' ''\''\0342\0200\0251'\''' ''\''\0342\0200\0257'\''' ''\''\0342\0201\0237'\''' ''\''\0343\0200\0200'\'''
+++++ printf -v _fm_composer_space_utf8 %b '\0343\0200\0200'
+++++ FM_COMPOSER_UNICODE_SPACES+=("$_fm_composer_space_utf8")
+++++ unset -v _fm_composer_space_octal _fm_composer_space_utf8
+++++ FM_DELIVERY_BUSY_REGEX_DEFAULT='esc (to )?interrupt|Working(\.\.\.|…)|Ctrl\+c:cancel|ctrl\+c to stop|esc[[:space:]]+to[[:space:]]+cancel|esc twice to interrupt|^[[:space:]]*❭ Guide Devin while it works$|Kiro is working[[:space:]]+(·|\.)'
+++++ FM_DELIVERY_CLAUDE_BUSY_REGEX_DEFAULT='esc to interrupt|…[[:space:]]+\([0-9]+[smh]'
+++++ FM_DELIVERY_DEVIN_BUSY_REGEX_DEFAULT='esc twice to interrupt|^[[:space:]]*❭ Guide Devin while it works$'
+++++ FM_DELIVERY_CODEX_BUSY_REGEX_DEFAULT='esc to interrupt'
+++++ FM_DELIVERY_OPENCODE_BUSY_REGEX_DEFAULT='esc interrupt'
+++++ FM_DELIVERY_PI_BUSY_REGEX_DEFAULT='Working\.\.\.'
+++++ FM_OMP_SPINNER_FRAMES_RE='(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)'
+++++ FM_DELIVERY_OMP_BUSY_REGEX_DEFAULT='Working…|^[[:space:]]*(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)[[:space:]]+[0-9]+[smh]'
+++++ FM_DELIVERY_GROK_BUSY_REGEX_DEFAULT='Ctrl\+c:cancel'
+++++ FM_DELIVERY_CURSOR_BUSY_REGEX_DEFAULT='ctrl\+c to stop'
+++++ FM_DELIVERY_AGY_BUSY_REGEX_DEFAULT='esc[[:space:]]+to[[:space:]]+cancel'
+++++ FM_DELIVERY_KIMI_BUSY_REGEX_DEFAULT='^[[:space:]]*(🌑|🌒|🌓|🌔|🌕|🌖|🌗|🌘)[[:space:]]+·[[:space:]]+'
++++++ printf '%s\n' $'\342\235\257' $'\342\200\272' $'\342\237\251' $'\342\206\222' $'\342\235\255'
+++++ FM_COMPOSER_AGENT_PROMPT_GLYPHS='❯
+›
+⟩
+→
+❭'
++++++ printf '%s\n' '>' '$' % '#'
+++++ FM_COMPOSER_SHELL_PROMPT_GLYPHS='>
+$
+%
+#'
+++++ FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything(\.\.\.|…)|^Plan, search, build anything$|^Add a follow-up$|^Ask Devin to build features, fix bugs, or work on your code$'
+++++ FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT='^(Build|Plan)[[:space:]]+·[[:space:]]+'
+++++ FM_COMPOSER_MODE_HINT_RE_DEFAULT='^[[:space:]]*(⏵|⏸)'
+++++ FM_COMPOSER_OMP_STATUS_RE_DEFAULT='^[[:space:]]*(π|󰵗)[[:space:]]+·[[:space:]]|^[[:space:]]*(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏|⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷)[[:space:]]+[0-9]+[smh]([[:space:]]|$)|[[:space:]]·[[:space:]].*[0-9]+(\.[0-9]+)?%/[0-9]+K'
+++++ FM_COMPOSER_PI_STATUS_RE_DEFAULT='^\$[0-9]+(\.[0-9]+)?([[:space:]]|$)'
+++++ FM_COMPOSER_CAPTURE_LINES=20
+++++ FM_COMPOSER_PI_MAX_LINES=8
+++++ FM_COMPOSER_GROK_TITLE_OVERHANG=3
++++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-cursor-lib.sh
+++++ FM_CURSOR_PROBE_TIMEOUT=10
++++ unset _FM_TMUX_LIB_DIR
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-classify-lib.sh
+++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-classify-lib.sh ']'
+++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++++ pwd
++++ _FM_CLASSIFY_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
+++++ uname -s
++++ _FM_CLASSIFY_UNAME_S=Darwin
++++ FM_CREW_STATE_BIN=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-crew-state.sh
++++ case $- in
++++ _fm_classify_nounset=on
++++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-timeout-lib.sh
+++++ set -u
++++ '[' on = on ']'
++++ unset _fm_classify_nounset
++++ FM_CLASSIFY_CAPTAIN_RE_DEFAULT='done:|needs-decision:|blocked:|failed:|PR ready|checks green|ready in branch|merged'
++++ FM_CLASSIFY_PAUSED_VERB_DEFAULT=paused
++++ FM_PAUSE_RESURFACE_SECS_DEFAULT=14400
++++ FM_CLASSIFY_RESOLVE_VERB_DEFAULT=resolved
++++ FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT=captain-held
++++ FM_CLASSIFY_EVENT_WINDOW_LINES=200
++++ FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT=pending-reply-
++++ FM_OPEN_DECISIONS_FOLD_VERSION=9
++++ FM_STATUS_SNAPSHOT_EVENT_LINE=
++++ FM_STATUS_SNAPSHOT_EVENT_MTIME=
++++ FM_STATUS_SNAPSHOT_EVENT_ENDPOINT=
++++ STATUS_PRESENTATION_REPORTED=
++++ STATUS_PRESENTATION_CLASSIFIED=
++++ _FM_CLASSIFY_KEYLESS_PHASE=$'\036default'
++++ FM_GATE_HUMAN_DECISION='ask-user: authority decision'
++++ FM_WORKTREE_WRITE_PRUNE='.git node_modules .venv venv __pycache__ .mypy_cache .pytest_cache .ruff_cache .tox target dist build .next .cache vendor'
++++ FM_WORKTREE_WRITE_MAXDEPTH=6
++++ FM_WORKTREE_WRITE_TIMEOUT=10
+++ FM_PENDING_REPLY_SCHEMA=fm-pending-reply.v1
+++ FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
+++ FM_PENDING_REPLY_GRACE_DEFAULT=120
+++ FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT=3600
++ SEND=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-send.sh
++ REPORT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-secondmate-report.sh
+++ fm_test_tmproot fm-pending-reply
+++ local prefix=fm-pending-reply root tmp_base
++++ fm_test_tmpdir
++++ local base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/ physical
++++ base=/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -n /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- /var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++++ pwd -P
++++ physical=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.git ']'
++++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
+++ tmp_base=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T
++++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.XXXXXX
+++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++++ cd -P -- /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++++ pwd -P
+++ root=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
+++ printf '%s\n%s\n' 3561 'Sat Oct 10 11:47:10 2026     bash -x tests/fm-pending-reply.test.sh'
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++ TMP_ROOT=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++ export FM_PENDING_REPLY_GRACE_SECS=0
++ FM_PENDING_REPLY_GRACE_SECS=0
++ export FM_SEND_SETTLE=0
++ FM_SEND_SETTLE=0
++ '[' -n test_normal_correlated_reply_resolves_once ']'
++ test_normal_correlated_reply_resolves_once
++ local home state corr status rec
+++ setup_parent resolve-once
+++ local home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf '%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ export FM_PENDING_REPLY_NOW=1000
++ FM_PENDING_REPLY_NOW=1000
+++ fm_pending_reply_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state hibit 'audit the ledger'
+++ local parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291 state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state task_id=hibit 'request_text=audit the ledger'
+++ local dir rec corr now summary status_path tmp
+++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291 ']'
+++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
+++ '[' -n hibit ']'
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ chmod 700 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
++++ fm_pending_reply_new_id
++++ local raw hex
++++ command -v openssl
+++++ openssl rand -hex 8
++++ raw=4b15c860df8bbb51
++++ '[' -z 4b15c860df8bbb51 ']'
+++++ printf %s 4b15c860df8bbb51
+++++ tr A-F a-f
+++++ tr -cd a-f0-9
+++++ cut -c1-16
++++ printf %s 4b15c860df8bbb51
+++ corr=4b15c860df8bbb51
+++ '[' 16 -eq 16 ']'
++++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
+++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ '[' -n '' ']'
+++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
+++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
++++ fm_pending_reply_now
++++ '[' -n 1000 ']'
++++ printf %s 1000
++++ return 0
+++ now=1000
++++ fm_pending_reply_summarize 'audit the ledger'
++++ local 'text=audit the ledger' cleaned
+++++ printf %s 'audit the ledger'
+++++ tr '\t\r\n' '   '
+++++ tr -cd '\11\12\15\40-\176'
+++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
++++ cleaned='audit the ledger'
++++ cleaned='audit the ledger'
+++++ printf %s 'audit the ledger'
+++++ sed -E 's/^corr=[A-Fa-f0-9]{16}[[:space:]]*//'
++++ cleaned='audit the ledger'
++++ '[' 16 -gt 120 ']'
++++ printf %s 'audit the ledger'
+++ summary='audit the ledger'
+++ status_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
+++ case "$status_path" in
+++ case "$parent_home" in
+++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
+++ cat
++++ fm_pending_reply_grace_secs
++++ local g=0
++++ case "$g" in
++++ printf %s 0
+++ chmod 600 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
+++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ printf %s 4b15c860df8bbb51
++ corr=4b15c860df8bbb51
++ fm_pending_reply_mark_delivered /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 confirmed_epoch= rec phase delivered now
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ phase=awaiting_report
++ case "$phase" in
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^delivered_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ delivered=
++ '[' -z '' ']'
+++ fm_pending_reply_now
+++ '[' -n 1000 ']'
+++ printf %s 1000
+++ return 0
++ now=1000
++ fm_pending_reply_set /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch 1000
++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch value=1000 dir base tmp line
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ dirname /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ basename /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ base=4b15c860df8bbb51
++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
++ :
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' schema=fm-pending-reply.v1
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' corr_id=4b15c860df8bbb51
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' task_id=hibit
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' 'request_summary=audit the ledger'
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' created_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ continue
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' phase=awaiting_report
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' request_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_attempted_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_pid=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_identity=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sent_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_delivery_outcome=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' escalated_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_via=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_hits=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_first_sighting=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_sightings=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' grace_secs=0
++ IFS=
++ read -r line
++ '[' -n '' ']'
++ printf '%s=%s\n' delivered_epoch 1000
++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' awaiting_report = delivery_unknown ']'
++ return 0
++ status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ fm_pending_reply_try_resolve /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 lock rc=0
++ local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ lock=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh
++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh ']'
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ FM_WAKE_QUEUE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ '[' 3 -gt 4 ']'
+++ '[' 3 -eq 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_acquire_wait /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_try_acquire /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock lock_abs
++++ fm_lock_abs_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock dir base
++++ fm_dirname_to dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state '!=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ printf -v dir %s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_basename_to base /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ fm_path=.pending-reply-4b15c860df8bbb51.lock
++++ '[' .pending-reply-4b15c860df8bbb51.lock '!=' .pending-reply-4b15c860df8bbb51.lock ']'
++++ printf -v base %s .pending-reply-4b15c860df8bbb51.lock
+++++ cd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ pwd -P
++++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf '%s/%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state .pending-reply-4b15c860df8bbb51.lock
+++ lock_abs=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.XXXXXX
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ fm_lock_prepare_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
++ printf '%s\n' 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/pid
++ back=3561
++ '[' 3561 = 3561 ']'
++ ln -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ']'
++ fm_lock_claim /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/pid
++ back=3561
++ '[' 3561 '!=' 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ']'
++ fm_lock_claim_blocked_by_steal /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= steal
++ steal=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ return 0
++ return 0
++ _fm_pending_reply_try_resolve_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 status_override=
++ local rec phase delivered marker delivery_entry delivery_state status_file signature previous line via now
++ local unconfirmed=0
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ phase=awaiting_report
++ '[' awaiting_report = resolved ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^delivered_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ delivered=1000
++ '[' -z 1000 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 parent_status
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=parent_status
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^parent_status=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ status_file=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ '[' -z '' ']'
++ '[' 0 = 0 ']'
+++ fm_pending_reply_file_signature /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
+++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status ']'
+++ printf missing
+++ return 0
++ signature=missing
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 parent_status_scan_signature
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=parent_status_scan_signature
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^parent_status_scan_signature=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ previous=
++ '[' missing '!=' '' ']'
+++ fm_pending_reply_find_resolve_line /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status 4b15c860df8bbb51
+++ local status_file=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status corr=4b15c860df8bbb51 line
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status ']'
+++ return 0
++ line=
++ '[' -z '' ']'
++ '[' -z '' ']'
++ '[' 0 = 0 ']'
++ fm_pending_reply_set /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 parent_status_scan_signature missing
++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=parent_status_scan_signature value=missing dir base tmp line
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ dirname /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ basename /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ base=4b15c860df8bbb51
++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
++ :
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' schema=fm-pending-reply.v1
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' corr_id=4b15c860df8bbb51
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' task_id=hibit
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ IFS=
++ read -r line
++ case "$line" in
++ continue
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' 'request_summary=audit the ledger'
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' created_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' phase=awaiting_report
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' request_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_attempted_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_pid=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_identity=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sent_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_delivery_outcome=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' escalated_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_via=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_hits=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_first_sighting=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_sightings=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' grace_secs=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' delivered_epoch=1000
++ IFS=
++ read -r line
++ '[' -n '' ']'
++ printf '%s=%s\n' parent_status_scan_signature missing
++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ return 1
++ rc=1
++ fm_lock_release /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid current ownerdir
++ fm_current_pid current
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v current %s 3561
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
+++ fm_lock_link_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/pid
++ pid=3561
++ '[' 3561 = 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_discard_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd ']'
++ fm_lock_clean_known_files /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/pid /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/fm-home /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/pid-identity /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/role /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd/watcher-path
++ rmdir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.QbYXLd
++ return 0
++ return 1
++ printf 'done [corr=%s]: ledger clean\n' 4b15c860df8bbb51
++ fm_pending_reply_try_resolve /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 lock rc=0
++ local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ lock=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh
++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh ']'
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ FM_WAKE_QUEUE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ '[' 3 -gt 4 ']'
+++ '[' 3 -eq 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_acquire_wait /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_try_acquire /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock lock_abs
++++ fm_lock_abs_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock dir base
++++ fm_dirname_to dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state '!=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ printf -v dir %s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_basename_to base /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ fm_path=.pending-reply-4b15c860df8bbb51.lock
++++ '[' .pending-reply-4b15c860df8bbb51.lock '!=' .pending-reply-4b15c860df8bbb51.lock ']'
++++ printf -v base %s .pending-reply-4b15c860df8bbb51.lock
+++++ cd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ pwd -P
++++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf '%s/%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state .pending-reply-4b15c860df8bbb51.lock
+++ lock_abs=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.XXXXXX
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ fm_lock_prepare_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
++ printf '%s\n' 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/pid
++ back=3561
++ '[' 3561 = 3561 ']'
++ ln -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ']'
++ fm_lock_claim /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/pid
++ back=3561
++ '[' 3561 '!=' 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ']'
++ fm_lock_claim_blocked_by_steal /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= steal
++ steal=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ return 0
++ return 0
++ _fm_pending_reply_try_resolve_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 status_override=
++ local rec phase delivered marker delivery_entry delivery_state status_file signature previous line via now
++ local unconfirmed=0
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ phase=awaiting_report
++ '[' awaiting_report = resolved ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^delivered_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ delivered=1000
++ '[' -z 1000 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 parent_status
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=parent_status
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ tail -1
+++ cut -d= -f2-
+++ grep '^parent_status=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ status_file=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ '[' -z '' ']'
++ '[' 0 = 0 ']'
+++ fm_pending_reply_file_signature /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
+++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status ']'
++++ uname -s
+++ '[' Darwin = Darwin ']'
+++ LC_ALL=C
+++ /usr/bin/stat -f %d:%i:%z:%m:%c /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ signature=16777232:239216125:43:1791629230:1791629230
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 parent_status_scan_signature
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=parent_status_scan_signature
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^parent_status_scan_signature=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ cut -d= -f2-
+++ tail -1
++ previous=missing
++ '[' 16777232:239216125:43:1791629230:1791629230 '!=' missing ']'
+++ fm_pending_reply_find_resolve_line /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status 4b15c860df8bbb51
+++ local status_file=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status corr=4b15c860df8bbb51 line
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status ']'
+++ IFS=
+++ read -r line
+++ '[' -n 'done [corr=4b15c860df8bbb51]: ledger clean' ']'
+++ fm_pending_reply_line_resolves 'done [corr=4b15c860df8bbb51]: ledger clean' 4b15c860df8bbb51
+++ local 'line=done [corr=4b15c860df8bbb51]: ledger clean' corr=4b15c860df8bbb51
+++ '[' -n 'done [corr=4b15c860df8bbb51]: ledger clean' ']'
+++ '[' -n 4b15c860df8bbb51 ']'
+++ case "$line" in
+++ fm_pending_reply_text_has_corr 'done [corr=4b15c860df8bbb51]: ledger clean' 4b15c860df8bbb51
+++ local 'text=done [corr=4b15c860df8bbb51]: ledger clean' corr=4b15c860df8bbb51 token
++++ fm_pending_reply_corr_token 4b15c860df8bbb51
++++ printf corr=%s 4b15c860df8bbb51
+++ token=corr=4b15c860df8bbb51
+++ case "$text" in
+++ return 0
+++ printf %s 'done [corr=4b15c860df8bbb51]: ledger clean'
+++ return 0
++ line='done [corr=4b15c860df8bbb51]: ledger clean'
++ '[' -z 'done [corr=4b15c860df8bbb51]: ledger clean' ']'
+++ fm_pending_reply_resolve_via_of_line 'done [corr=4b15c860df8bbb51]: ledger clean'
+++ local 'line=done [corr=4b15c860df8bbb51]: ledger clean'
+++ case "$line" in
+++ printf status
++ via=status
+++ fm_pending_reply_now
+++ '[' -n 1000 ']'
+++ printf %s 1000
+++ return 0
++ now=1000
++ fm_pending_reply_set /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase resolved
++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase value=resolved dir base tmp line
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ dirname /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ basename /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ base=4b15c860df8bbb51
++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
++ :
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' schema=fm-pending-reply.v1
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' corr_id=4b15c860df8bbb51
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' task_id=hibit
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' 'request_summary=audit the ledger'
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' created_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ continue
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' request_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_attempted_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_pid=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_identity=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sent_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_delivery_outcome=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' escalated_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_via=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_hits=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_first_sighting=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_sightings=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' grace_secs=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' delivered_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status_scan_signature=missing
++ IFS=
++ read -r line
++ '[' -n '' ']'
++ printf '%s=%s\n' phase resolved
++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -z 1000 ']'
++ fm_pending_reply_set /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 resolved_epoch 1000
++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=resolved_epoch value=1000 dir base tmp line
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ dirname /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ basename /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ base=4b15c860df8bbb51
++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
++ :
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' schema=fm-pending-reply.v1
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' corr_id=4b15c860df8bbb51
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' task_id=hibit
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' 'request_summary=audit the ledger'
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' created_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' request_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_attempted_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_pid=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_identity=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sent_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_delivery_outcome=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' escalated_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ continue
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_via=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_hits=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_first_sighting=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_sightings=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' grace_secs=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' delivered_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status_scan_signature=missing
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' phase=resolved
++ IFS=
++ read -r line
++ '[' -n '' ']'
++ printf '%s=%s\n' resolved_epoch 1000
++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ fm_pending_reply_set /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 resolved_via status
++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=resolved_via value=status dir base tmp line
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ dirname /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies
+++ basename /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ base=4b15c860df8bbb51
++ tmp=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561
++ :
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' schema=fm-pending-reply.v1
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' corr_id=4b15c860df8bbb51
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' task_id=hibit
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_home=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/hibit.status
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' 'request_summary=audit the ledger'
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' created_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' request_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_attempted_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_pid=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sender_identity=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_sent_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_delivery_outcome=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_seen_busy=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' recovery_turn_completed_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' escalated_epoch=
++ IFS=
++ read -r line
++ case "$line" in
++ continue
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_hits=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_first_sighting=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_sightings=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' wrong_home_scan_signature=
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' grace_secs=0
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' delivered_epoch=1000
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' parent_status_scan_signature=missing
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' phase=resolved
++ IFS=
++ read -r line
++ case "$line" in
++ printf '%s\n' resolved_epoch=1000
++ IFS=
++ read -r line
++ '[' -n '' ']'
++ printf '%s=%s\n' resolved_via status
++ mv -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.4b15c860df8bbb51.tmp.3561 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ _fm_pending_reply_close_escalation_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 rec escalated closed parent_status escalation key note
++ local open_line open_key open_note now close_line close_rc _task _via
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 escalated_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=escalated_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^escalated_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ escalated=
++ '[' -n '' ']'
++ return 0
++ return 0
++ fm_lock_release /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid current ownerdir
++ fm_current_pid current
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v current %s 3561
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
+++ fm_lock_link_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/pid
++ pid=3561
++ '[' 3561 = 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_discard_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE ']'
++ fm_lock_clean_known_files /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/pid /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/fm-home /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/pid-identity /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/role /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE/watcher-path
++ rmdir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.TcqpFE
++ return 0
++ return 0
+++ phase_of /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
+++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ '[' -n '' ']'
+++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
++ fm_pending_reply_try_resolve /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 lock rc=0
++ local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ lock=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh
++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh ']'
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ FM_WAKE_QUEUE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ '[' 3 -gt 4 ']'
+++ '[' 3 -eq 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_acquire_wait /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_try_acquire /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock lock_abs
++++ fm_lock_abs_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock dir base
++++ fm_dirname_to dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state '!=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ printf -v dir %s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_basename_to base /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ fm_path=.pending-reply-4b15c860df8bbb51.lock
++++ '[' .pending-reply-4b15c860df8bbb51.lock '!=' .pending-reply-4b15c860df8bbb51.lock ']'
++++ printf -v base %s .pending-reply-4b15c860df8bbb51.lock
+++++ cd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ pwd -P
++++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf '%s/%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state .pending-reply-4b15c860df8bbb51.lock
+++ lock_abs=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.XXXXXX
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ fm_lock_prepare_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
++ printf '%s\n' 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/pid
++ back=3561
++ '[' 3561 = 3561 ']'
++ ln -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ']'
++ fm_lock_claim /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/pid
++ back=3561
++ '[' 3561 '!=' 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ']'
++ fm_lock_claim_blocked_by_steal /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= steal
++ steal=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ return 0
++ return 0
++ _fm_pending_reply_try_resolve_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 status_override=
++ local rec phase delivered marker delivery_entry delivery_state status_file signature previous line via now
++ local unconfirmed=0
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ phase=resolved
++ '[' resolved = resolved ']'
++ _fm_pending_reply_close_escalation_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 rec escalated closed parent_status escalation key note
++ local open_line open_key open_note now close_line close_rc _task _via
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 escalated_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=escalated_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^escalated_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ escalated=
++ '[' -n '' ']'
++ return 0
++ return 0
++ fm_lock_release /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid current ownerdir
++ fm_current_pid current
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v current %s 3561
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
+++ fm_lock_link_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/pid
++ pid=3561
++ '[' 3561 = 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_discard_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL ']'
++ fm_lock_clean_known_files /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/pid /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/fm-home /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/pid-identity /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/role /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL/watcher-path
++ rmdir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.YIEWUL
++ return 0
++ return 0
+++ phase_of /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
+++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ '[' -n '' ']'
+++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 resolved_via
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=resolved_via
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^resolved_via=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' status = status ']'
++ export FM_PENDING_REPLY_NOW=4600
++ FM_PENDING_REPLY_NOW=4600
++ fm_pending_reply_tick_one /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51 unknown
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 busy_state=unknown sm_home=
++ local rec phase delivered
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
++ fm_pending_reply_reconcile_delivery /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 lock rc=0
++ local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ lock=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh
++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh ']'
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ FM_WAKE_QUEUE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ '[' 3 -gt 4 ']'
+++ '[' 3 -eq 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_acquire_wait /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_try_acquire /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock lock_abs
++++ fm_lock_abs_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock dir base
++++ fm_dirname_to dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state '!=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ printf -v dir %s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_basename_to base /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ fm_path=.pending-reply-4b15c860df8bbb51.lock
++++ '[' .pending-reply-4b15c860df8bbb51.lock '!=' .pending-reply-4b15c860df8bbb51.lock ']'
++++ printf -v base %s .pending-reply-4b15c860df8bbb51.lock
+++++ cd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ pwd -P
++++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf '%s/%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state .pending-reply-4b15c860df8bbb51.lock
+++ lock_abs=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.XXXXXX
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ fm_lock_prepare_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
++ printf '%s\n' 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/pid
++ back=3561
++ '[' 3561 = 3561 ']'
++ ln -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ']'
++ fm_lock_claim /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/pid
++ back=3561
++ '[' 3561 '!=' 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ']'
++ fm_lock_claim_blocked_by_steal /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= steal
++ steal=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ return 0
++ return 0
++ _fm_pending_reply_reconcile_delivery_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 rec delivered marker entry delivery_state value epoch
++ local grace now age phase
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_delivery_confirmation_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/.delivery-confirmed-%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ marker=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.delivery-confirmed-4b15c860df8bbb51
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^delivered_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ delivered=1000
++ '[' -n 1000 ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/.delivery-confirmed-4b15c860df8bbb51
++ return 0
++ fm_lock_release /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid current ownerdir
++ fm_current_pid current
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v current %s 3561
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
+++ fm_lock_link_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/pid
++ pid=3561
++ '[' 3561 = 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_discard_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7 ']'
++ fm_lock_clean_known_files /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/pid /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/fm-home /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/pid-identity /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/role /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7/watcher-path
++ rmdir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.I1vMO7
++ return 0
++ return 0
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ cut -d= -f2-
+++ tail -1
++ phase=resolved
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 delivered_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=delivered_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^delivered_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ delivered=1000
++ '[' -z 1000 ']'
++ fm_pending_reply_try_resolve /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 lock rc=0
++ local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++ lock=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh
++++ d=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ '[' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin '!=' /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-wake-lib.sh ']'
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ pwd
+++ FM_WAKE_LIB_DIR=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin
++++ cd /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/..
++++ pwd
+++ FM_WAKE_DEFAULT_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_ROOT=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ FM_HOME=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V
+++ STATE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ FM_WAKE_QUEUE=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue
+++ FM_WAKE_QUEUE_LOCK=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.wake-queue.lock
+++ FM_LOCK_STALE_AFTER=2
+++ . /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4JM42HNVEZ5DY2788J32D2V/bin/fm-path-lib.sh
++++ uname
+++ _FM_UNAME=Darwin
+++ mkdir -p /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ '[' 3 -gt 4 ']'
+++ '[' 3 -eq 4 ']'
+++ FM_WATCHER_MATCHED_IDENTITY=
+++ FM_WATCHER_HEALTHY_PID=
+++ FM_WATCHER_HEALTHY_IDENTITY=
+++ FM_WATCHER_VERDICT_OK=false
+++ FM_WATCHER_VERDICT_REASON=stale-beacon
+++ FM_RECOVERY_MARKER_TOKEN=
+++ FM_RECOVERY_MARKER_ACTION=none
+++ FM_RECOVERY_MARKER_WRITTEN_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
+++ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
+++ FM_RECOVERY_HANDOVER_TOKEN=
+++ FM_RECOVERY_HANDOVER_SEQ=
+++ FM_WAKE_STATUS_KEY=
+++ FM_WAKE_STATUS_HISTORICAL=false
+++ FM_WAKE_EVENT_LINE=
+++ FM_WAKE_UNREAD_LINES=
++ fm_lock_acquire_wait /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_try_acquire /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid steal cur rc steal_owner primary_owner current
++ FM_LOCK_HELD_PID=
++ FM_LOCK_OWNER_DIR=
++ FM_LOCK_RECOVERED_PID=
++ fm_lock_try_create /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= ownerdir
++ FM_LOCK_OWNER_DIR=
+++ fm_lock_owner_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock lock_abs
++++ fm_lock_abs_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock dir base
++++ fm_dirname_to dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state '!=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state ']'
++++ printf -v dir %s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ fm_basename_to base /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ local fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ case "$fm_path" in
++++ fm_path=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++++ fm_path=.pending-reply-4b15c860df8bbb51.lock
++++ '[' .pending-reply-4b15c860df8bbb51.lock '!=' .pending-reply-4b15c860df8bbb51.lock ']'
++++ printf -v base %s .pending-reply-4b15c860df8bbb51.lock
+++++ cd /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ pwd -P
++++ dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf '%s/%s\n' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state .pending-reply-4b15c860df8bbb51.lock
+++ lock_abs=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
+++ mktemp -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.XXXXXX
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
++ fm_lock_prepare_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
++ printf '%s\n' 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/pid
++ back=3561
++ '[' 3561 = 3561 ']'
++ ln -s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ']'
++ fm_lock_claim /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la allowed_steal_owner= mypid back
++ fm_current_pid mypid
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v mypid %s 3561
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/pid
++ back=3561
++ '[' 3561 '!=' 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ']'
++ fm_lock_claim_blocked_by_steal /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ''
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock allowed_steal_owner= steal
++ steal=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal
++ '[' -e /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.steal ']'
++ return 1
++ return 0
++ FM_LOCK_OWNER_DIR=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ return 0
++ return 0
++ _fm_pending_reply_try_resolve_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 status_override=
++ local rec phase delivered marker delivery_entry delivery_state status_file signature previous line via now
++ local unconfirmed=0
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ phase=resolved
++ '[' resolved = resolved ']'
++ _fm_pending_reply_close_escalation_locked /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state corr=4b15c860df8bbb51 rec escalated closed parent_status escalation key note
++ local open_line open_key open_note now close_line close_rc _task _via
+++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ '[' -n '' ']'
++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
++ rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 escalated_epoch
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=escalated_epoch
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^escalated_epoch=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ escalated=
++ '[' -n '' ']'
++ return 0
++ return 0
++ fm_lock_release /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock pid current ownerdir
++ fm_current_pid current
++ local fm_pid
+++ exec sh -c 'printf "%s\n" "$PPID"'
++ fm_pid=3561
++ case "$fm_pid" in
++ '[' 1 -gt 0 ']'
++ printf -v current %s 3561
++ '[' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ']'
+++ fm_lock_link_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ']'
+++ cat /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/pid
++ pid=3561
++ '[' 3561 = 3561 ']'
++ fm_lock_points_to_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la actual
+++ readlink /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ actual=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la = /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ']'
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock
++ fm_lock_discard_owner /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local ownerdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la ']'
++ fm_lock_clean_known_files /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ local lockdir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/pid /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/fm-home /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/pid-identity /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/role /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la/watcher-path
++ rmdir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/.pending-reply-4b15c860df8bbb51.lock.owner.Ujg9la
++ return 0
++ return 0
++ return 0
+++ phase_of /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
++++ fm_pending_reply_path /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state 4b15c860df8bbb51
+++++ fm_pending_reply_dir /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ local state=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
+++++ '[' -n '' ']'
+++++ printf %s/pending-replies /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state
++++ printf %s/%s /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies 4b15c860df8bbb51
+++ fm_pending_reply_get /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 phase
+++ local rec=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 key=phase
+++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51 ']'
+++ grep '^phase=' /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK/resolve-once-19291/state/pending-replies/4b15c860df8bbb51
+++ tail -1
+++ cut -d= -f2-
++ '[' resolved = resolved ']'
+++ wc -l
+++ tr -d ' '
++ '[' 1 = 1 ']'
++ unset FM_PENDING_REPLY_NOW
++ pass 'normal correlated reply resolves once (idempotent)'
++ printf 'ok - %s\n' 'normal correlated reply resolves once (idempotent)'
+ok - normal correlated reply resolves once (idempotent)
++ exit 0
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.3561.bGhB4d ']'
++ IFS=
++ read -r state
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-watcher.3561.bGhB4d
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.3561.HMpK79 ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-procevent.3561.HMpK79
++ for d in '"${FM_TEST_CLEANUP_DIRS[@]:-}"'
++ '[' -n '' ']'
++ '[' -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.3561.t0SyeK ']'
++ IFS=
++ read -r d
++ '[' -n /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK ']'
++ fm_test_remove_tree /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++ local dir=/private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++ '[' -d /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK ']'
++ '[' '!' -L /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK ']'
++ find /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK -type d -exec chmod u+rwx '{}' +
++ rm -rf /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/fm-pending-reply.CURNiK
++ IFS=
++ read -r d
++ rm -f /private/var/folders/wj/q35z6lgs5zx716wvy69ctcy80000gn/T/.fm-test-cleanup.3561.t0SyeK
