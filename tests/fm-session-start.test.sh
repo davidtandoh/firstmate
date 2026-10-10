@@ -8,6 +8,9 @@
 #   - the lock-refusal read-only path: banner leads, every mutating step is
 #     skipped (including bootstrap's seven mutating sweeps, verified by their
 #     ABSENCE), the digest still completes
+#   - the lock-refusal read-only path for a secondmate reports its read-only
+#     state once to the parent channel (idempotent), while a main home reports
+#     nothing upward
 #   - output section ordering: the safety preamble leads unchanged, live fleet
 #     state precedes the curated memory a truncated tail may take, and the
 #     read-once contract precedes both
@@ -891,6 +894,86 @@ EOF
   assert_contains "$out" "NEXT STEP" "closing reminder missing on the read-only path"
 
   pass "a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest"
+}
+
+# A read-only secondmate reports that state once to its parent channel, because
+# nobody reads a secondmate's own chat. A main home publishes nothing
+# (fm/secondmate-readonly-silent).
+test_lock_refusal_secondmate_reports_to_parent() {
+  local rec root home fakebin parent holder_pid out status channel id=sm-readonly
+  rec=$(new_world lock-refusal-sm)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  # Bind this home as a local secondmate of a sibling parent home.
+  parent="$TMP_ROOT/lock-refusal-sm-parent"
+  mkdir -p "$parent/state"
+  printf '%s\n' "$id" > "$home/.fm-secondmate-home"
+  cat > "$home/.fm-secondmate-parent" <<EOF
+schema=fm-secondmate-parent.v1
+route=local
+parent_home=$parent
+EOF
+  channel="$parent/state/$id.status"
+
+  sleep 300 &
+  holder_pid=$!
+  printf '%s\n' "$holder_pid" > "$home/state/.lock"
+
+  status=0
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
+  kill "$holder_pid" 2>/dev/null || true
+  wait "$holder_pid" 2>/dev/null || true
+
+  expect_code 0 "$status" "fm-session-start.sh must exit 0 even on a secondmate lock refusal"
+  assert_contains "$out" "READ-ONLY SESSION" "read-only banner missing on a secondmate lock refusal"
+  [ -f "$channel" ] || fail "the parent channel must receive the read-only report, but $channel was not written"
+  assert_contains "$(cat "$channel")" "operating read-only" "parent channel did not carry the read-only state"
+  assert_contains "$(cat "$channel")" "blocked" "parent channel line was not a blocked-class report"
+
+  # Idempotent: a re-run in the same read-only state does not append a second
+  # identical line.
+  sleep 300 &
+  holder_pid=$!
+  printf '%s\n' "$holder_pid" > "$home/state/.lock"
+  run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null 2>&1 || true
+  kill "$holder_pid" 2>/dev/null || true
+  wait "$holder_pid" 2>/dev/null || true
+  [ "$(grep -c 'operating read-only' "$channel")" = 1 ] \
+    || fail "a re-run in the same read-only state must not spam the parent channel"
+
+  pass "a read-only secondmate reports its state once to the parent channel"
+}
+
+# A read-only MAIN home has no parent channel, so nothing is published there.
+test_lock_refusal_main_home_reports_nothing_upward() {
+  local rec root home fakebin holder_pid out status
+  rec=$(new_world lock-refusal-main)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  # No .fm-secondmate-home marker: this is a main home.
+
+  sleep 300 &
+  holder_pid=$!
+  printf '%s\n' "$holder_pid" > "$home/state/.lock"
+
+  status=0
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
+  kill "$holder_pid" 2>/dev/null || true
+  wait "$holder_pid" 2>/dev/null || true
+
+  expect_code 0 "$status" "fm-session-start.sh must exit 0 on a main-home lock refusal"
+  assert_contains "$out" "READ-ONLY SESSION" "read-only banner missing on a main-home lock refusal"
+  # A main home writes no secondmate parent-channel file anywhere.
+  [ -z "$(find "$home" -name 'parent-replies.status' 2>/dev/null)" ] \
+    || fail "a main home must not write a parent channel on the read-only path"
+
+  pass "a read-only main home reports nothing upward"
 }
 
 test_lock_write_failure_read_only_path() {
@@ -3032,6 +3115,8 @@ EOF
 
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
+test_lock_refusal_secondmate_reports_to_parent
+test_lock_refusal_main_home_reports_nothing_upward
 test_lock_write_failure_read_only_path
 test_trace_context_effective_state_is_frozen_after_lock
 test_session_lock_concurrent_single_winner

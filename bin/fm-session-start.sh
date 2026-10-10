@@ -373,6 +373,10 @@ PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 . "$SCRIPT_DIR/fm-line-cap-lib.sh"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# Lets a read-only secondmate report that state to its parent, since nobody
+# reads a secondmate's own chat (the read-only branch below).
+# shellcheck source=bin/fm-parent-channel-lib.sh
+. "$SCRIPT_DIR/fm-parent-channel-lib.sh"
 
 # One tasks-axi compatibility verdict per session start. The probe costs three
 # tasks-axi subprocesses and this digest needs the same answer twice - here for
@@ -699,6 +703,17 @@ if [ "$LOCK_RC" -ne 0 ]; then
     printf '●  otherwise mutate fleet state from this session.\n'
     printf '%s\n' "$BAR"
   }
+  # Nobody reads a secondmate's own chat, so the banner above never reaches the
+  # parent (docs/secondmate-parent-channel.md). Report the read-only state once
+  # on the parent channel so a routed request is not left silently unserviced.
+  # fm_parent_channel_report is a no-op on a main home (return 1, no marker) and
+  # dedups an identical line, so a restart in the same read-only state does not
+  # spam the parent. The line is deliberately stable (no volatile holder pid or
+  # timestamp from $LOCK_OUT), so the dedup actually holds across restarts; the
+  # concrete diagnostic stays in this session's own digest above.
+  fm_parent_channel_report "$FM_HOME" "$STATE" \
+    "blocked: this secondmate could not verify fleet-lock ownership and is operating read-only, so routed requests are not being serviced until this resolves" \
+    >/dev/null 2>&1 || true
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"

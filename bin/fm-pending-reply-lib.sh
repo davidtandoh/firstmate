@@ -21,6 +21,19 @@
 # state/<task_id>.status onto the parent channel is a repair of the
 # FM_HOME-relative mixup, not acknowledgement of an arbitrary mate-home file.
 #
+# Turn-completion-independent backstop (fm/secondmate-readonly-silent): the
+# recovery and escalation above are anchored to a completed turn, so a mate that
+# never completes one - a read-only session that could not verify its lock, or a
+# session stalled inside one never-ending turn - leaves the record in
+# awaiting_report forever and never escalates. The backstop escalates a
+# delivered record still in awaiting_report once its age since DELIVERY exceeds
+# FM_PENDING_REPLY_ACK_TIMEOUT_SECS, as the `unacknowledged` kind. Delivery is
+# the only timestamp available when no turn ever completes, and the bound is far
+# larger than the grace so an ordinary long turn is not falsely escalated. It
+# obeys the same reply-channel-mirror evidence rule as the turn-driven paths and
+# reuses the same per-request escalation key and decision lifecycle, so it opens
+# exactly one decision and closes the same way.
+#
 # Record location (parent FM_HOME):
 #   state/pending-replies/<corr_id>
 # One more durable input, owned by bin/fm-procevent-remote-reply.sh and read
@@ -113,6 +126,12 @@
 #                                 completion for the recovery repost, and from
 #                                 the recovery turn's completion for the
 #                                 missed-report escalation - never from delivery
+#   FM_PENDING_REPLY_ACK_TIMEOUT_SECS default 3600; the turn-completion-independent
+#                                 backstop, counted from delivery. A record that
+#                                 never completes a turn (read-only or stalled
+#                                 mate) escalates once past this bound. Far larger
+#                                 than the grace so an ordinary long turn is not
+#                                 falsely escalated
 #   FM_PENDING_REPLY_DIR_OVERRIDE override the pending-replies directory (tests)
 #   FM_PENDING_REPLY_SEND_HOOK    optional command template for recovery delivery
 #                                 (tests); receives task_id and full message as args
@@ -139,6 +158,14 @@ _FM_PENDING_REPLY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/n
 FM_PENDING_REPLY_SCHEMA='fm-pending-reply.v1'
 FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
 FM_PENDING_REPLY_GRACE_DEFAULT=120
+# Turn-completion-independent backstop. The ordinary grace is measured from the
+# request turn's completion, so a mate that never completes a turn (read-only,
+# or stalled inside one never-ending turn) never advances the clock and never
+# escalates. This bound is measured from delivery instead - the only timestamp
+# available when no turn ever completes - and is deliberately far larger than
+# the grace so a mate that is simply taking a long turn is not falsely
+# escalated. Default 3600s (one hour).
+FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT=3600
 
 fm_pending_reply_now() {
   if [ -n "${FM_PENDING_REPLY_NOW:-}" ]; then
@@ -154,6 +181,14 @@ fm_pending_reply_grace_secs() {
     ''|*[!0-9]*) g=$FM_PENDING_REPLY_GRACE_DEFAULT ;;
   esac
   printf '%s' "$g"
+}
+
+fm_pending_reply_ack_timeout_secs() {
+  local t=${FM_PENDING_REPLY_ACK_TIMEOUT_SECS:-$FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT}
+  case "$t" in
+    ''|*[!0-9]*) t=$FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT ;;
+  esac
+  printf '%s' "$t"
 }
 
 # Directory holding durable pending-reply records for <state-dir>.
@@ -1129,6 +1164,9 @@ fm_pending_reply_escalation_payload() {  # <record-path> <kind>
     missed)
       token=pending-reply-missed
       ;;
+    unacknowledged)
+      token=pending-reply-unacknowledged
+      ;;
     delivery-unknown)
       token=pending-reply-delivery-unknown
       ;;
@@ -1154,7 +1192,7 @@ fm_pending_reply_escalation_line() {  # <status-file> <record-path> <corr_id>
   while IFS= read -r line || [ -n "$line" ]; do
     [ "$(status_line_verb "$line")" = blocked ] || continue
     _fm_status_untimed "$line" untimed
-    for kind in missed delivery-unknown recovery-delivery; do
+    for kind in missed unacknowledged delivery-unknown recovery-delivery; do
       payload=$(fm_pending_reply_escalation_payload "$rec" "$kind") || continue
       case "$untimed" in
         "blocked [key=$own_key]: $payload"|"blocked: $payload") found=$line; break ;;
@@ -1263,6 +1301,7 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2
   local rec phase completed now payload parent_status line kind first display
   local delivered task_id meta sm_home remote_host grace age key new_episode
+  local ack_timeout backstop_kind=
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
@@ -1272,6 +1311,26 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     [ "$phase" = delivery_unknown ] || return 0
   fi
   case "$phase" in
+    awaiting_report)
+      # Turn-completion-independent backstop. A record stays in awaiting_report
+      # until the mate completes its request turn, so a read-only or stalled
+      # mate that never takes a turn never advances to recovery or escalation.
+      # Escalate once the delivered request has gone unacknowledged for the ack
+      # timeout, measured from delivery (the only timestamp available when no
+      # turn ever completes). A record with no delivered_epoch has not reached
+      # the mate yet and is left to the delivery-unknown path.
+      delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+      [ -n "$delivered" ] || return 1
+      ack_timeout=$(fm_pending_reply_ack_timeout_secs)
+      now=$(fm_pending_reply_now)
+      age=$((now - delivered))
+      [ "$age" -ge "$ack_timeout" ] || return 1
+      # Same reply-channel evidence rule the turn-driven paths obey: a missing
+      # correlated report is not evidence until the remote mirror caught up.
+      fm_pending_reply_missing_report_is_evidence "$state" \
+        "$(fm_pending_reply_get "$rec" task_id)" "$delivered" || return 1
+      backstop_kind=unacknowledged
+      ;;
     recovery_sent)
       completed=$(fm_pending_reply_get "$rec" recovery_turn_completed_epoch)
       [ -n "$completed" ] || return 1
@@ -1312,6 +1371,7 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   case "$phase" in
     delivery_unknown) kind=delivery-unknown ;;
     recovery_failed|recovery_unknown) kind='recovery-delivery' ;;
+    awaiting_report) kind=$backstop_kind ;;
     *) kind=missed ;;
   esac
   payload=$(fm_pending_reply_escalation_payload "$rec" "$kind") || return 1
@@ -1502,6 +1562,14 @@ fm_pending_reply_tick_one() {  # <state-dir> <corr_id> <busy_state> [secondmate-
   phase=$(fm_pending_reply_get "$rec" phase)
   case "$phase" in
     recovery_sent|recovery_failed|recovery_unknown)
+      fm_pending_reply_maybe_escalate "$state" "$corr" 2>/dev/null || true
+      ;;
+    awaiting_report)
+      # Turn-completion-independent backstop: a record still awaiting a report
+      # (no turn ever completed, so recovery never fired) escalates once the
+      # delivered request has gone unacknowledged past the ack timeout. The
+      # escalate call itself enforces that bound and the reply-channel evidence
+      # rule, so a mate merely taking a long turn is not falsely escalated.
       fm_pending_reply_maybe_escalate "$state" "$corr" 2>/dev/null || true
       ;;
   esac

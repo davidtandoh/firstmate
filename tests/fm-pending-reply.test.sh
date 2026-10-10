@@ -9,6 +9,9 @@
 # Coverage:
 #   1. Normal correlated reply resolves once
 #   2. Completed turn with no report triggers one recovery only
+#   2b. A delivered request whose mate never completes a turn (read-only or
+#      stalled) escalates once past the delivery-anchored ack timeout, never
+#      before - the turn-completion-independent backstop
 #   3. Recovery reply resolves the original expectation
 #   4. Second missed turn escalates once and remains durable
 #   5. Transport success cannot masquerade as reply success
@@ -201,6 +204,58 @@ test_completed_turn_no_report_triggers_one_recovery() {
     *) fail "recovery message must ask for a repost"$'\n'"$(cat "$hook_log")" ;;
   esac
   pass "completed turn with no report triggers exactly one recovery"
+}
+
+# A delivered request whose mate never completes a turn (read-only or stalled)
+# stays in awaiting_report, so the turn-driven recovery/escalation never fires.
+# The delivery-anchored backstop escalates it once past the ack timeout, and
+# never before. This is the parent-side guard for a silent read-only secondmate
+# and a stalled one (fm/secondmate-readonly-silent).
+test_unacknowledged_backstop_escalates_past_ack_timeout() {
+  local home state corr rec status_line escalations
+  home=$(setup_parent ack-backstop)
+  state="$home/state"
+  # No turn is ever completed and no recovery hook is needed: the backstop must
+  # fire without any turn observation at all.
+  export FM_PENDING_REPLY_ACK_TIMEOUT_SECS=3600
+  unset FM_PENDING_REPLY_SEND_HOOK 2>/dev/null || true
+
+  corr=$(fm_pending_reply_create "$home" "$state" "agent-station" "status of the readonly fix")
+  export FM_PENDING_REPLY_NOW=1000
+  fm_pending_reply_mark_delivered "$state" "$corr"
+  [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
+    || fail "a freshly delivered record should be awaiting_report"
+
+  # Well within the ack timeout: a mate simply taking a long turn is not a miss.
+  export FM_PENDING_REPLY_NOW=2000
+  fm_pending_reply_tick_one "$state" "$corr" unknown || fail "early tick failed"
+  [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
+    || fail "within the ack timeout the record must stay awaiting_report, not escalate"
+  [ ! -f "$state/agent-station.status" ] || [ ! -s "$state/agent-station.status" ] \
+    || fail "no escalation line may be published before the ack timeout"
+
+  # Past the ack timeout: the backstop escalates once, through the full tick.
+  export FM_PENDING_REPLY_NOW=5000
+  fm_pending_reply_tick_one "$state" "$corr" unknown || fail "backstop tick failed"
+  [ "$(phase_of "$state" "$corr")" = escalated ] \
+    || fail "past the ack timeout the backstop must escalate, got $(phase_of "$state" "$corr")"
+  status_line=$(tail -1 "$state/agent-station.status")
+  case "$status_line" in
+    "blocked [key=pending-reply-$corr]"*pending-reply-unacknowledged:*pending-reply-id=$corr*) : ;;
+    *) fail "backstop must publish one unacknowledged line"$'\n'"$status_line" ;;
+  esac
+
+  # Idempotent while the decision stays open: a later tick appends nothing.
+  export FM_PENDING_REPLY_NOW=9000
+  fm_pending_reply_tick_one "$state" "$corr" unknown || fail "post-escalation tick failed"
+  escalations=$(grep -Fc "blocked [key=pending-reply-$corr]" "$state/agent-station.status")
+  [ "$escalations" = 1 ] \
+    || fail "the backstop must escalate exactly once while open, got $escalations"
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  [ -f "$rec" ] || fail "escalated record must remain on disk"
+
+  unset FM_PENDING_REPLY_NOW FM_PENDING_REPLY_ACK_TIMEOUT_SECS
+  pass "an unacknowledged delivered request escalates once past the ack timeout, never before"
 }
 
 # A mate waiting on its own open decision is never poked by the recovery; the
@@ -2072,6 +2127,7 @@ test_same_kind_escalation_reopens_after_operator_close() {
 
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
+test_unacknowledged_backstop_escalates_past_ack_timeout
 test_recovery_waits_while_the_mate_has_an_open_decision
 test_recovery_sends_during_an_open_decision_without_the_flag
 test_recovery_grace_measures_from_turn_completion
