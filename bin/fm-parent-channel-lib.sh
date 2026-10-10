@@ -154,7 +154,7 @@ fm_parent_channel_clean_note() {  # <text>
 # Append <line> once, using fm-classify-lib.sh's retry contract. Time-insensitive:
 # the caller declaring a new event is the one that stamps it.
 fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
-  local path=$1 line=$2 key=${3-}
+  local path=$1 line=$2 key=${3-} open=0
   if [ -e "$path" ] || [ -L "$path" ]; then
     [ -f "$path" ] && [ ! -L "$path" ] || return 1
   else
@@ -162,7 +162,12 @@ fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
   fi
   if [ -n "$key" ]; then
     case $'\n'"$(status_open_decisions "$path")" in
-      *$'\n'"$key"$'\t'*) return 0 ;;
+      *$'\n'"$key"$'\t'*) open=1 ;;
+    esac
+    case "$(status_line_verb "$line")" in
+      blocked) [ "$open" = 0 ] || return 0 ;;
+      resolved) [ "$open" = 1 ] || return 0 ;;
+      *) return 1 ;;
     esac
   elif status_event_recorded "$path" "$line"; then
     return 0

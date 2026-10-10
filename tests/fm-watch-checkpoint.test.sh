@@ -2,8 +2,8 @@
 # Tests for bounded foreground watcher checkpoints used by Codex supervision.
 set -u
 
-# shellcheck source=tests/lib.sh
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/wake-helpers.sh
+. "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
 
 CHECKPOINT="$ROOT/bin/fm-watch-checkpoint.sh"
 TMP_ROOT=$(fm_test_tmproot fm-watch-checkpoint)
@@ -29,32 +29,80 @@ test_quiet_checkpoint_exits_124_cleanly() {
 }
 
 test_checkpoint_stops_a_term_resistant_watcher() {
-  local home status started elapsed
-  home=$(make_home term-resistant)
+  local home status started elapsed mode=${1:-native} test_path=$PATH
+  if [ "$mode" = external ]; then
+    if ! command -v timeout >/dev/null 2>&1 && ! command -v gtimeout >/dev/null 2>&1; then
+      printf 'skip - external checkpoint runner is unavailable\n'
+      return 0
+    fi
+    test_path=$(fm_test_base_path_sans "$PATH" perl)
+  fi
+  home=$(make_home "term-resistant-$mode")
   mkdir -p "$home/root/bin"
   cp "$CHECKPOINT" "$ROOT/bin/fm-timeout-lib.sh" "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/"
   cat > "$home/root/bin/fm-watch.sh" <<'SH'
 #!/usr/bin/env bash
 trap '' TERM
 printf '%s\n' "$$" > "$FM_HOME/watcher-pid"
-sleep 8
+sleep 30
 printf 'outlived checkpoint\n' > "$FM_HOME/escaped"
 SH
   chmod +x "$home/root/bin/fm-watch.sh"
   status=0
   started=$SECONDS
-  FM_HOME="$home" "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out" 2>"$home/err" || status=$?
+  PATH="$test_path" FM_HOME="$home" "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out" 2>"$home/err" || status=$?
   elapsed=$((SECONDS - started))
   expect_code 124 "$status" "TERM-resistant watcher must hit the checkpoint bound"
-  [ "$elapsed" -lt 6 ] || fail "checkpoint exceeded its deadline and cleanup allowance: ${elapsed}s"
+  [ "$elapsed" -lt 9 ] || fail "checkpoint exceeded its deadline and cleanup allowance: ${elapsed}s"
   [ ! -f "$home/escaped" ] || fail "watcher continued after its checkpoint deadline"
   [ -s "$home/watcher-pid" ] || fail "watcher never started"
   if kill -0 "$(cat "$home/watcher-pid")" 2>/dev/null; then
     fail "checkpoint returned with its watcher still alive"
   fi
   assert_contains "$(cat "$home/out")" 'checkpoint: no actionable wake within 1s' "timeout did not return control"
-  pass "checkpoint stops a TERM-resistant watcher within a fixed cleanup bound"
+  pass "checkpoint stops a TERM-resistant watcher within a fixed cleanup bound ($mode)"
 }
+
+test_checkpoint_cleans_up_a_term_resistant_capture() (
+  local home fakebin base_path status capture_pid capture_pgid watcher_pgid orphan=0
+  home=$(make_case capture-cleanup)
+  fakebin="$home/fakebin"
+  base_path=$(fm_test_base_path_sans "$PATH" timeout gtimeout)
+  mv "$fakebin/tmux" "$fakebin/tmux-default"
+  cat > "$fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = capture-pane ]; then
+  trap '' TERM
+  ps -o pgid= -p "$$" | tr -d '[:space:]' > "$FM_HOME/capture-pgid"
+  cat "$FM_HOME/state/.watch.lock/pid" > "$FM_HOME/watcher-pid"
+  ps -o pgid= -p "$(cat "$FM_HOME/watcher-pid")" | tr -d '[:space:]' > "$FM_HOME/watcher-pgid"
+  printf '%s\n' "$$" > "$FM_HOME/capture-pid"
+  exec sleep 30
+fi
+exec "$(dirname "$0")/tmux-default" "$@"
+SH
+  chmod +x "$fakebin/tmux"
+  printf 'window=test:fm-capture\nkind=ship\nbackend=tmux\n' > "$home/state/capture.meta"
+  status=0
+  PATH="$fakebin:$base_path" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    FM_FAKE_TMUX_WINDOW=test:fm-capture FM_POLL=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    "$CHECKPOINT" --seconds 5 >"$home/out" 2>"$home/err" || status=$?
+  [ -s "$home/capture-pid" ] || fail "checkpoint never entered backend capture: $(cat "$home/out" "$home/err")"
+  capture_pid=$(cat "$home/capture-pid")
+  capture_pgid=$(cat "$home/capture-pgid")
+  watcher_pgid=$(cat "$home/watcher-pgid")
+  if is_live_non_zombie "$capture_pid"; then
+    orphan=1
+    kill -KILL -- "-$capture_pgid" 2>/dev/null || true
+  fi
+  [ -n "$capture_pgid" ] && [ "$capture_pgid" != "$watcher_pgid" ] \
+    || fail "fixture capture did not run in a separate process group"
+  expect_code 124 "$status" "checkpoint did not report its deadline"
+  [ "$orphan" = 0 ] || fail "checkpoint orphaned its TERM-resistant capture"
+  assert_absent "$home/state/.watch.lock" "checkpoint killed the watcher before lock cleanup"
+  [ -z "$(find "$home/state" -name '.fm-capture-output.*' -print)" ] || fail "capture output survived checkpoint cleanup"
+  pass "checkpoint gives the watcher time to reap a separate TERM-resistant capture group"
+)
 
 test_signal_passes_through_and_exits_zero() {
   local home out err status drained
@@ -227,6 +275,8 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 
 test_quiet_checkpoint_exits_124_cleanly
 test_checkpoint_stops_a_term_resistant_watcher
+test_checkpoint_stops_a_term_resistant_watcher external
+test_checkpoint_cleans_up_a_term_resistant_capture
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success

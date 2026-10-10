@@ -706,6 +706,10 @@ if [ "$LOCK_RC" -ne 0 ]; then
   fm_parent_channel_report "$FM_HOME" "$STATE" \
     "blocked [key=secondmate-readonly]: this secondmate could not verify fleet-lock ownership and is operating read-only, so routed requests are not being serviced until this resolves" \
     secondmate-readonly >/dev/null 2>&1 || true
+else
+  fm_parent_channel_report "$FM_HOME" "$STATE" \
+    "resolved [key=secondmate-readonly]: this secondmate verified fleet-lock ownership and resumed normal operation" \
+    secondmate-readonly >/dev/null 2>&1 || true
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"

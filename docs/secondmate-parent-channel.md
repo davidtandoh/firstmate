@@ -47,7 +47,10 @@ A missed-reply escalation includes the complete first sighting path and line num
 
 A lock-refused secondmate reports `blocked [key=secondmate-readonly]` through its bound parent channel.
 The publisher uses the optional open-decision key on `fm_parent_channel_report` to suppress retries while that decision remains open.
-After the decision is resolved, a later refusal opens it again, even when the report text is identical.
+When session start verifies restored lock ownership, it closes the episode on the same source channel.
+For a remote mate, this writes the resolution to its own `parent-replies.status`, which the parent mirror then carries upstream.
+A parent-local decision close alone does not update that remote source log.
+A later refusal opens a new episode, even when the report text is identical; repeated healthy starts publish no extra resolution.
 Other publishers retain their existing event deduplication.
 A main home publishes nothing upward.
 
@@ -56,7 +59,22 @@ When no completion has been observed, a delivered request or delivered recovery 
 Each wait uses its own delivery timestamp.
 A remote escalation requires the reply-channel mirror watermark to cover that wait's one-hour deadline.
 The guard rechecks for a correlated reply before publishing and closes its keyed escalation when a reply arrives.
-This reports an unanswered request; it does not establish why a turn stalled or why a watcher stopped.
+This is a parent-owned escalation path: it runs independently of the mate's watcher and can escalate an unanswered steer during a gap in the mate's supervision.
+
+### Cause of the recurring supervision gaps
+
+The read-only investigation of agent-station established that its Codex home had the supervision host disabled.
+Each bounded 180-second checkpoint ran a one-shot watcher, which ended normally rather than crashing.
+Watcher liveness therefore depended on the model issuing the next checkpoint.
+During long work outside a checkpoint, no watcher polled the fleet, while queued steering messages remained unread until the model returned to handling them.
+The remote triage-log gaps and watcher-down markers confirmed those blind intervals.
+The parent-owned escalation above addresses the unacknowledged steering requests without depending on that missing mate-side polling.
+
+The recommended operational follow-up is to enable `config/supervision-host` for Codex secondmates, using the [supported engine and opt-out rules](configuration.md#supervision-host-configsupervision-host).
+The host manages successor watcher cycles during wake handling, so that re-arm no longer waits for the model's next checkpoint.
+The host's [Codex park boundary](supervision-host.md#codex-checkpoint-bound) still applies.
+This recommendation requires the captain's decision; this change does not enable the host or alter any home's configuration.
+Codex's inability to reason during a foreground tool call remains an upstream checkpoint-design constraint, outside this change.
 
 ## What is deliberately not built
 
@@ -72,7 +90,7 @@ This reports an unanswered request; it does not establish why a turn stalled or 
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
-`tests/fm-session-start.test.sh` covers local and remote lock-refusal episodes, repeat suppression, reopening after resolution, and main-home silence.
+`tests/fm-session-start.test.sh` covers local and remote lock-refusal episodes, repeat suppression, source closure on verified recovery, reopening across repeated recovery cycles, and main-home silence.
 `tests/fm-pending-reply.test.sh` covers request and recovery backstops, completion grace, deadline-based mirror evidence, late-reply closure, and helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 

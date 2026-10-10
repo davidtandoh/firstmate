@@ -900,7 +900,7 @@ EOF
 # nobody reads a secondmate's own chat. A main home publishes nothing
 # (fm/secondmate-readonly-silent).
 test_lock_refusal_secondmate_reports_to_parent() {
-  local rec root home fakebin parent holder_pid out status channel route=${1:-local} id=sm-readonly
+  local rec root home fakebin parent holder_pid out status channel cycle route=${1:-local} id=sm-readonly
   rec=$(new_world "lock-refusal-sm-$route")
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -952,16 +952,31 @@ EOF
   [ "$(grep -c 'operating read-only' "$channel")" = 1 ] \
     || fail "a re-run in the same read-only state must not spam the parent channel"
 
-  printf 'resolved [key=secondmate-readonly]: lock issue resolved\n' >> "$channel"
-  sleep 300 &
-  holder_pid=$!
-  printf '%s\n' "$holder_pid" > "$home/state/.lock"
-  run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null 2>&1 || true
-  kill "$holder_pid" 2>/dev/null || true
-  wait "$holder_pid" 2>/dev/null || true
-  [ "$(grep -c 'operating read-only' "$channel")" = 2 ] \
-    || fail "a later refusal must reopen the resolved incident"
-  assert_contains "$(bash -c '. "$1"; status_open_decisions "$2"' _ "$ROOT/bin/fm-classify-lib.sh" "$channel")" $'secondmate-readonly\tblocked\t' "new refusal did not reopen the decision"
+  for cycle in 1 2; do
+    rm -f "$home/state/.lock"
+    status=0
+    out=$(FM_FAKE_HARNESS_PID="$SESSION_START_TEST_HARNESS_PID" run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
+    expect_code 0 "$status" "restored lock startup failed"
+    assert_not_contains "$out" 'READ-ONLY SESSION' "fixture did not restore ownership"
+    [ "$(cat "$home/state/.lock")" = "$SESSION_START_TEST_HARNESS_PID" ] || fail "recovery did not verify the lock owner"
+    [ -z "$(bash -c '. "$1"; status_open_decisions "$2"' _ "$ROOT/bin/fm-classify-lib.sh" "$channel")" ] \
+      || fail "verified recovery did not close the source read-only episode"
+    [ "$(grep -c 'resolved .*key=secondmate-readonly' "$channel")" = "$cycle" ] \
+      || fail "each recovered episode must publish its own resolution"
+    FM_FAKE_HARNESS_PID="$SESSION_START_TEST_HARNESS_PID" run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null 2>&1 || fail "healthy restart failed"
+    [ "$(grep -c 'resolved .*key=secondmate-readonly' "$channel")" = "$cycle" ] \
+      || fail "a healthy restart repeated the resolution"
+
+    sleep 300 &
+    holder_pid=$!
+    printf '%s\n' "$holder_pid" > "$home/state/.lock"
+    run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null 2>&1 || true
+    kill "$holder_pid" 2>/dev/null || true
+    wait "$holder_pid" 2>/dev/null || true
+    [ "$(grep -c 'operating read-only' "$channel")" = "$((cycle + 1))" ] \
+      || fail "a later refusal must reopen the recovered incident"
+    assert_contains "$(bash -c '. "$1"; status_open_decisions "$2"' _ "$ROOT/bin/fm-classify-lib.sh" "$channel")" $'secondmate-readonly\tblocked\t' "new refusal did not reopen the decision"
+  done
 
   pass "read-only reports deduplicate open incidents and reopen resolved ones"
 }
