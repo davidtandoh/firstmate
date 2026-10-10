@@ -3147,6 +3147,11 @@ EOF
   pass "session start rejects Pi loaded markers from previous sessions"
 }
 
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY" "$@"
+  exit $?
+fi
+
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
 test_lock_refusal_secondmate_reports_to_parent local

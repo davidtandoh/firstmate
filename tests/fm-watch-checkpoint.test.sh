@@ -65,6 +65,7 @@ SH
 
 test_checkpoint_cleans_up_a_term_resistant_capture() (
   local home fakebin base_path status capture_pid capture_pgid watcher_pgid orphan=0
+  local started elapsed
   home=$(make_case capture-cleanup)
   fakebin="$home/fakebin"
   base_path=$(fm_test_base_path_sans "$PATH" timeout gtimeout)
@@ -84,9 +85,11 @@ SH
   chmod +x "$fakebin/tmux"
   printf 'window=test:fm-capture\nkind=ship\nbackend=tmux\n' > "$home/state/capture.meta"
   status=0
+  started=$SECONDS
   PATH="$fakebin:$base_path" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_FAKE_TMUX_WINDOW=test:fm-capture FM_POLL=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     "$CHECKPOINT" --seconds 5 >"$home/out" 2>"$home/err" || status=$?
+  elapsed=$((SECONDS - started))
   [ -s "$home/capture-pid" ] || fail "checkpoint never entered backend capture: $(cat "$home/out" "$home/err")"
   capture_pid=$(cat "$home/capture-pid")
   capture_pgid=$(cat "$home/capture-pgid")
@@ -98,7 +101,11 @@ SH
   [ -n "$capture_pgid" ] && [ "$capture_pgid" != "$watcher_pgid" ] \
     || fail "fixture capture did not run in a separate process group"
   expect_code 124 "$status" "checkpoint did not report its deadline"
+  [ "$elapsed" -le 12 ] || fail "checkpoint exceeded its deadline and cleanup allowance: ${elapsed}s"
   [ "$orphan" = 0 ] || fail "checkpoint orphaned its TERM-resistant capture"
+  if is_live_non_zombie "$(cat "$home/watcher-pid")"; then
+    fail "checkpoint returned with its watcher still alive"
+  fi
   assert_absent "$home/state/.watch.lock" "checkpoint killed the watcher before lock cleanup"
   [ -z "$(find "$home/state" -name '.fm-capture-output.*' -print)" ] || fail "capture output survived checkpoint cleanup"
   pass "checkpoint gives the watcher time to reap a separate TERM-resistant capture group"
@@ -272,6 +279,11 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
   fi
   pass "checkpoint: the real host ends its park at the checkpoint bound as a quiet checkpoint"
 }
+
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY" "$@"
+  exit $?
+fi
 
 test_quiet_checkpoint_exits_124_cleanly
 test_checkpoint_stops_a_term_resistant_watcher

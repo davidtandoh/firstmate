@@ -158,6 +158,11 @@ test_normal_correlated_reply_resolves_once() {
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ "$(fm_pending_reply_get "$rec" resolved_via)" = status ] \
     || fail "resolved_via should be status"
+  export FM_PENDING_REPLY_NOW=4600
+  fm_pending_reply_tick_one "$state" "$corr" unknown || fail "resolved request tick failed"
+  [ "$(phase_of "$state" "$corr")" = resolved ] || fail "resolved request escalated at its deadline"
+  [ "$(wc -l < "$status" | tr -d ' ')" = 1 ] || fail "resolved request published an extra status event"
+  unset FM_PENDING_REPLY_NOW
   pass "normal correlated reply resolves once (idempotent)"
 }
 
@@ -2194,6 +2199,11 @@ test_same_kind_escalation_reopens_after_operator_close() {
 }
 
 # --- run --------------------------------------------------------------------
+
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY" "$@"
+  exit $?
+fi
 
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
