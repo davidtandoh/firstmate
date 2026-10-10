@@ -30,6 +30,7 @@ Every captain-facing outcome that leaves durable evidence in the mate home is pu
 | Child leaving the home | its final ledger line | `bin/fm-teardown.sh`, which refuses to remove the child while that line is undelivered |
 | Child ended silently | terminal current state with a silent ledger | the existing inactive-outcome scan in `bin/fm-inactive-reconcile.sh` |
 | Answer to a marked request | a correlated line guarded by the pending-reply record | `bin/fm-secondmate-report.sh`, which resolves the parent channel from the mate home; the pending-reply guard repairs a line stranded in the local mate's same-basename status file before recovery or escalation |
+| Session lock refusal | a keyed blocker on the parent channel | `bin/fm-session-start.sh` through `bin/fm-parent-channel-lib.sh` |
 | An outcome that exists only in the mate's reasoning | none | the charter and the `AGENTS.md` carve-outs only |
 
 The ledger delivery reads files, plus a local git reachability check on a ship `done:` with no delivery record yet (`bin/fm-dod-lib.sh`): it calls no harness, no forge, and no current-state reader, so it is identical for every harness and runtime backend.
@@ -41,6 +42,21 @@ Other correlated mate-home status lines remain wrong-home evidence, while a remo
 The mate home's own status scans treat that remote channel the same way: `status_scan_parent_channel_exclude` in `bin/fm-classify-lib.sh` resolves the outbound path through the same `bin/fm-parent-channel-lib.sh` binding, and the watcher's signal scan and heartbeat backstop, the away-mode daemon's catch-all scan, and the fleet-wide folds skip exactly that resolved path, never a file name.
 The remote reply adapter already mirrors every channel line into the parent home, so folding the channel again here would only spin spurious wakes and a phantom `parent-replies` task, while a `parent-replies.status` in a main home or in a local mate is an ordinary task log that keeps folding and waking.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
+
+## Lock refusal and unanswered requests
+
+A lock-refused secondmate reports `blocked [key=secondmate-readonly]` through its bound parent channel.
+The publisher uses the optional open-decision key on `fm_parent_channel_report` to suppress retries while that decision remains open.
+After the decision is resolved, a later refusal opens it again, even when the report text is identical.
+Other publishers retain their existing event deduplication.
+A main home publishes nothing upward.
+
+The parent pending-reply guard retains the completed-turn recovery and escalation grace.
+When no completion has been observed, a delivered request or delivered recovery escalates after one hour without a correlated reply.
+Each wait uses its own delivery timestamp.
+A remote escalation requires the reply-channel mirror watermark to cover that wait's one-hour deadline.
+The guard rechecks for a correlated reply before publishing and closes its keyed escalation when a reply arrives.
+This reports an unanswered request; it does not establish why a turn stalled or why a watcher stopped.
 
 ## What is deliberately not built
 
@@ -56,7 +72,8 @@ A missed-reply escalation includes the complete first sighting path and line num
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
-`tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
+`tests/fm-session-start.test.sh` covers local and remote lock-refusal episodes, repeat suppression, reopening after resolution, and main-home silence.
+`tests/fm-pending-reply.test.sh` covers request and recovery backstops, completion grace, deadline-based mirror evidence, late-reply closure, and helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 
 ## Live verification

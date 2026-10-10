@@ -153,23 +153,27 @@ fm_parent_channel_clean_note() {  # <text>
 
 # Append <line> once, using fm-classify-lib.sh's retry contract. Time-insensitive:
 # the caller declaring a new event is the one that stamps it.
-fm_parent_channel_append_once() {  # <path> <line>
-  local path=$1 line=$2
+fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
+  local path=$1 line=$2 key=${3-}
   if [ -e "$path" ] || [ -L "$path" ]; then
     [ -f "$path" ] && [ ! -L "$path" ] || return 1
   else
     mkdir -p "$(dirname "$path")" || return 1
   fi
-  if status_event_recorded "$path" "$line"; then
+  if [ -n "$key" ]; then
+    case $'\n'"$(status_open_decisions "$path")" in
+      *$'\n'"$key"$'\t'*) return 0 ;;
+    esac
+  elif status_event_recorded "$path" "$line"; then
     return 0
   fi
   printf '%s\n' "$line" >> "$path"
 }
 
 # Publish one parent-facing line from <home>. See the return codes above.
-fm_parent_channel_report() {  # <home> <state> <line>
-  local home=$1 state=$2 line=$3 destination rc=0
+fm_parent_channel_report() {  # <home> <state> <line> [open-decision-key]
+  local home=$1 state=$2 line=$3 key=${4-} destination rc=0
   destination=$(fm_parent_channel_destination "$home" "$state") || rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || return 4
+  fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" "$key" || return 4
 }

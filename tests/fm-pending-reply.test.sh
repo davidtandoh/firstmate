@@ -217,7 +217,6 @@ test_unacknowledged_backstop_escalates_past_ack_timeout() {
   state="$home/state"
   # No turn is ever completed and no recovery hook is needed: the backstop must
   # fire without any turn observation at all.
-  export FM_PENDING_REPLY_ACK_TIMEOUT_SECS=3600
   unset FM_PENDING_REPLY_SEND_HOOK 2>/dev/null || true
 
   corr=$(fm_pending_reply_create "$home" "$state" "agent-station" "status of the readonly fix")
@@ -227,15 +226,15 @@ test_unacknowledged_backstop_escalates_past_ack_timeout() {
     || fail "a freshly delivered record should be awaiting_report"
 
   # Well within the ack timeout: a mate simply taking a long turn is not a miss.
-  export FM_PENDING_REPLY_NOW=2000
-  fm_pending_reply_tick_one "$state" "$corr" unknown || fail "early tick failed"
+  export FM_PENDING_REPLY_NOW=4599
+  fm_pending_reply_tick_one "$state" "$corr" busy || fail "early tick failed"
   [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
     || fail "within the ack timeout the record must stay awaiting_report, not escalate"
   [ ! -f "$state/agent-station.status" ] || [ ! -s "$state/agent-station.status" ] \
     || fail "no escalation line may be published before the ack timeout"
 
   # Past the ack timeout: the backstop escalates once, through the full tick.
-  export FM_PENDING_REPLY_NOW=5000
+  export FM_PENDING_REPLY_NOW=4600
   fm_pending_reply_tick_one "$state" "$corr" unknown || fail "backstop tick failed"
   [ "$(phase_of "$state" "$corr")" = escalated ] \
     || fail "past the ack timeout the backstop must escalate, got $(phase_of "$state" "$corr")"
@@ -254,9 +253,80 @@ test_unacknowledged_backstop_escalates_past_ack_timeout() {
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || fail "escalated record must remain on disk"
 
-  unset FM_PENDING_REPLY_NOW FM_PENDING_REPLY_ACK_TIMEOUT_SECS
+  unset FM_PENDING_REPLY_NOW
   pass "an unacknowledged delivered request escalates once past the ack timeout, never before"
 }
+
+test_backstop_preserves_completed_turn_grace() (
+  local home state corr
+  home=$(setup_parent backstop-grace)
+  state="$home/state"
+  export FM_PENDING_REPLY_GRACE_SECS=120 FM_PENDING_REPLY_NOW=1000
+  export FM_PENDING_REPLY_SEND_HOOK=true
+  corr=$(fm_pending_reply_create "$home" "$state" station "status")
+  fm_pending_reply_mark_delivered "$state" "$corr"
+  export FM_PENDING_REPLY_NOW=4590
+  fm_pending_reply_observe_busy "$state" "$corr" idle
+  export FM_PENDING_REPLY_NOW=4600
+  fm_pending_reply_tick_one "$state" "$corr" unknown
+  [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "request completion grace was bypassed"
+  [ ! -s "$state/station.status" ] || fail "request grace published a blocker"
+  export FM_PENDING_REPLY_NOW=4710
+  fm_pending_reply_tick_one "$state" "$corr" unknown
+  [ "$(phase_of "$state" "$corr")" = recovery_sent ] || fail "request must recover after completion grace"
+  export FM_PENDING_REPLY_NOW=8300
+  fm_pending_reply_observe_busy "$state" "$corr" idle
+  export FM_PENDING_REPLY_NOW=8310
+  fm_pending_reply_tick_one "$state" "$corr" unknown
+  [ "$(phase_of "$state" "$corr")" = recovery_sent ] || fail "recovery completion grace was bypassed"
+  export FM_PENDING_REPLY_NOW=8420
+  fm_pending_reply_tick_one "$state" "$corr" unknown
+  [ "$(phase_of "$state" "$corr")" = escalated ] || fail "completed recovery must escalate after grace"
+  assert_contains "$(cat "$state/station.status")" 'pending-reply-missed:' "completed recovery used the wrong escalation"
+  pass "backstop preserves completion grace for request and recovery"
+)
+
+test_backstop_waits_for_current_remote_evidence() (
+  local home state corr phase start watermark
+  for phase in "$@"; do
+    home=$(setup_parent "remote-backstop-$phase")
+    state="$home/state"
+    export FM_PENDING_REPLY_GRACE_SECS=120 FM_PENDING_REPLY_NOW=1000
+    export FM_PENDING_REPLY_SEND_HOOK=true
+    fm_write_meta "$state/station.meta" "kind=secondmate" "remote_host=remote-mac"
+    corr=$(fm_pending_reply_create "$home" "$state" station "status")
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    start=1000
+    if [ "$phase" = recovery_sent ]; then
+      export FM_PENDING_REPLY_NOW=1100
+      fm_pending_reply_observe_busy "$state" "$corr" idle
+      fm_pending_reply_note_remote_channel_caught_up "$state" station 1100
+      export FM_PENDING_REPLY_NOW=1220
+      fm_pending_reply_tick_one "$state" "$corr" unknown
+      [ "$(phase_of "$state" "$corr")" = recovery_sent ] || fail "fixture did not send recovery"
+      start=1220
+    fi
+    export FM_PENDING_REPLY_NOW=$((start + 3599))
+    fm_pending_reply_tick_one "$state" "$corr" busy
+    [ "$(phase_of "$state" "$corr")" = "$phase" ] || fail "backstop used the wrong delivery timestamp"
+    export FM_PENDING_REPLY_NOW=$((start + 3600))
+    for watermark in "$((start + 1))" "$((start + 3599))"; do
+      fm_pending_reply_note_remote_channel_caught_up "$state" station "$watermark"
+      fm_pending_reply_tick_one "$state" "$corr" unknown
+      [ "$(phase_of "$state" "$corr")" = "$phase" ] || fail "stale mirror licensed $phase escalation"
+      [ ! -s "$state/station.status" ] || fail "stale mirror published a blocker"
+    done
+    fm_pending_reply_note_remote_channel_caught_up "$state" station "$((start + 3600))"
+    fm_pending_reply_tick_one "$state" "$corr" unknown
+    [ "$(phase_of "$state" "$corr")" = escalated ] || fail "caught-up mirror did not release $phase escalation"
+    assert_contains "$(cat "$state/station.status")" 'pending-reply-unacknowledged:' "incomplete turn used the wrong escalation"
+    printf 'working: corr=%s acknowledgement arrived\n' "$corr" >> "$state/station.status"
+    fm_pending_reply_tick_one "$state" "$corr" unknown
+    [ "$(phase_of "$state" "$corr")" = resolved ] || fail "late reply did not resolve $phase"
+    [ -z "$(status_open_decisions "$state/station.status")" ] || fail "late reply left the backstop decision open"
+  done
+  pass "request and recovery backstops require a mirror through their own deadline"
+)
 
 # A mate waiting on its own open decision is never poked by the recovery; the
 # recovery stays unattempted and runs once the decision closes.
@@ -2128,6 +2198,8 @@ test_same_kind_escalation_reopens_after_operator_close() {
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_unacknowledged_backstop_escalates_past_ack_timeout
+test_backstop_preserves_completed_turn_grace
+test_backstop_waits_for_current_remote_evidence awaiting_report recovery_sent
 test_recovery_waits_while_the_mate_has_an_open_decision
 test_recovery_sends_during_an_open_decision_without_the_flag
 test_recovery_grace_measures_from_turn_completion

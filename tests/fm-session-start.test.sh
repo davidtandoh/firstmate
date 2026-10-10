@@ -900,23 +900,31 @@ EOF
 # nobody reads a secondmate's own chat. A main home publishes nothing
 # (fm/secondmate-readonly-silent).
 test_lock_refusal_secondmate_reports_to_parent() {
-  local rec root home fakebin parent holder_pid out status channel id=sm-readonly
-  rec=$(new_world lock-refusal-sm)
+  local rec root home fakebin parent holder_pid out status channel route=${1:-local} id=sm-readonly
+  rec=$(new_world "lock-refusal-sm-$route")
   IFS='|' read -r root home fakebin <<EOF
 $rec
 EOF
   make_fake_toolchain "$fakebin"
   make_fake_ps_claude "$fakebin"
   # Bind this home as a local secondmate of a sibling parent home.
-  parent="$TMP_ROOT/lock-refusal-sm-parent"
+  parent="$TMP_ROOT/lock-refusal-sm-parent-$route"
   mkdir -p "$parent/state"
   printf '%s\n' "$id" > "$home/.fm-secondmate-home"
   cat > "$home/.fm-secondmate-parent" <<EOF
 schema=fm-secondmate-parent.v1
-route=local
+route=$route
 parent_home=$parent
 EOF
   channel="$parent/state/$id.status"
+  if [ "$route" = remote ]; then
+    cat > "$home/.fm-secondmate-parent" <<EOF
+schema=fm-secondmate-parent.v1
+route=remote
+parent_host=parent-host
+EOF
+    channel="$home/state/parent-replies.status"
+  fi
 
   sleep 300 &
   holder_pid=$!
@@ -944,7 +952,18 @@ EOF
   [ "$(grep -c 'operating read-only' "$channel")" = 1 ] \
     || fail "a re-run in the same read-only state must not spam the parent channel"
 
-  pass "a read-only secondmate reports its state once to the parent channel"
+  printf 'resolved [key=secondmate-readonly]: lock issue resolved\n' >> "$channel"
+  sleep 300 &
+  holder_pid=$!
+  printf '%s\n' "$holder_pid" > "$home/state/.lock"
+  run_session_start "$home" "$root" "$fakebin:$BASE_PATH" >/dev/null 2>&1 || true
+  kill "$holder_pid" 2>/dev/null || true
+  wait "$holder_pid" 2>/dev/null || true
+  [ "$(grep -c 'operating read-only' "$channel")" = 2 ] \
+    || fail "a later refusal must reopen the resolved incident"
+  assert_contains "$(bash -c '. "$1"; status_open_decisions "$2"' _ "$ROOT/bin/fm-classify-lib.sh" "$channel")" $'secondmate-readonly\tblocked\t' "new refusal did not reopen the decision"
+
+  pass "read-only reports deduplicate open incidents and reopen resolved ones"
 }
 
 # A read-only MAIN home has no parent channel, so nothing is published there.
@@ -3115,7 +3134,8 @@ EOF
 
 test_context_digest_absent_empty_present
 test_lock_refusal_read_only_path
-test_lock_refusal_secondmate_reports_to_parent
+test_lock_refusal_secondmate_reports_to_parent local
+test_lock_refusal_secondmate_reports_to_parent remote
 test_lock_refusal_main_home_reports_nothing_upward
 test_lock_write_failure_read_only_path
 test_trace_context_effective_state_is_frozen_after_lock

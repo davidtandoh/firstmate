@@ -28,6 +28,34 @@ test_quiet_checkpoint_exits_124_cleanly() {
   pass "quiet checkpoint exits 124 with a clean checkpoint line and no live lock"
 }
 
+test_checkpoint_stops_a_term_resistant_watcher() {
+  local home status started elapsed
+  home=$(make_home term-resistant)
+  mkdir -p "$home/root/bin"
+  cp "$CHECKPOINT" "$ROOT/bin/fm-timeout-lib.sh" "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/"
+  cat > "$home/root/bin/fm-watch.sh" <<'SH'
+#!/usr/bin/env bash
+trap '' TERM
+printf '%s\n' "$$" > "$FM_HOME/watcher-pid"
+sleep 8
+printf 'outlived checkpoint\n' > "$FM_HOME/escaped"
+SH
+  chmod +x "$home/root/bin/fm-watch.sh"
+  status=0
+  started=$SECONDS
+  FM_HOME="$home" "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out" 2>"$home/err" || status=$?
+  elapsed=$((SECONDS - started))
+  expect_code 124 "$status" "TERM-resistant watcher must hit the checkpoint bound"
+  [ "$elapsed" -lt 6 ] || fail "checkpoint exceeded its deadline and cleanup allowance: ${elapsed}s"
+  [ ! -f "$home/escaped" ] || fail "watcher continued after its checkpoint deadline"
+  [ -s "$home/watcher-pid" ] || fail "watcher never started"
+  if kill -0 "$(cat "$home/watcher-pid")" 2>/dev/null; then
+    fail "checkpoint returned with its watcher still alive"
+  fi
+  assert_contains "$(cat "$home/out")" 'checkpoint: no actionable wake within 1s' "timeout did not return control"
+  pass "checkpoint stops a TERM-resistant watcher within a fixed cleanup bound"
+}
+
 test_signal_passes_through_and_exits_zero() {
   local home out err status drained
   home=$(make_home signal)
@@ -89,6 +117,7 @@ make_host_home() {  # <name>
   home=$(make_home "$1")
   mkdir -p "$home/root/bin"
   cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
+  cp "$ROOT/bin/fm-timeout-lib.sh" "$home/root/bin/fm-timeout-lib.sh"
   cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/fm-supervision-engine-lib.sh"
   cat > "$home/root/bin/fm-supervision-host.sh" <<'SH'
 #!/usr/bin/env bash
@@ -197,6 +226,7 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
+test_checkpoint_stops_a_term_resistant_watcher
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success
