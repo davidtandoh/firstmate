@@ -26,8 +26,9 @@
 # ORDERING, and why LOCK now runs before BOOTSTRAP (the old AGENTS.md order
 # was bootstrap-then-lock):
 #
-#   1. lock          - acquire the per-home session lock FIRST, before any
-#                       mutating step runs.
+#   1. lock          - acquire the per-home session lock FIRST, before fleet
+#                       mutation; the parent-channel reporting exception is
+#                       owned by docs/secondmate-parent-channel.md.
 #   2. bootstrap      - home-local stale Herdr projection cleanup runs only
 #                       when this session actually holds the lock. Detect-only
 #                       diagnostics always run. Bootstrap's six MUTATING sweeps
@@ -373,6 +374,10 @@ PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 . "$SCRIPT_DIR/fm-line-cap-lib.sh"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# Lets a read-only secondmate report that state to its parent, since nobody
+# reads a secondmate's own chat (the read-only branch below).
+# shellcheck source=bin/fm-parent-channel-lib.sh
+. "$SCRIPT_DIR/fm-parent-channel-lib.sh"
 
 # One tasks-axi compatibility verdict per session start. The probe costs three
 # tasks-axi subprocesses and this digest needs the same answer twice - here for
@@ -699,6 +704,13 @@ if [ "$LOCK_RC" -ne 0 ]; then
     printf '●  otherwise mutate fleet state from this session.\n'
     printf '%s\n' "$BAR"
   }
+  fm_parent_channel_report "$FM_HOME" "$STATE" \
+    "blocked [key=secondmate-readonly]: this secondmate could not verify fleet-lock ownership and is operating read-only, so routed requests are not being serviced until this resolves" \
+    secondmate-readonly >/dev/null 2>&1 || true
+else
+  fm_parent_channel_report "$FM_HOME" "$STATE" \
+    "resolved [key=secondmate-readonly]: this secondmate verified fleet-lock ownership and resumed normal operation" \
+    secondmate-readonly >/dev/null 2>&1 || true
 fi
 REBUILDING_SESSION_PID=$(fm_harness_ancestry_pid 2>/dev/null || true)
 print_agents_refresh_if_required "$REBUILDING_SESSION_PID"

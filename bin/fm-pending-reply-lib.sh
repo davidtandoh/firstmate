@@ -15,7 +15,15 @@
 # (held back, when config/wait-no-turns is present, while the mate waits on its
 # own open decision or blocker), and
 # escalate once if the recovery turn also completes without a correlated
-# report. Never loop, never repeatedly inject, never silently expire unresolved
+# report after its completion grace.
+# If no completion is observed for a delivered request or recovery, escalate
+# on the first eligible parent poll at least 3600 seconds after that wait's
+# delivery (delivered_epoch or recovery_sent_epoch respectively).
+# This backstop publishes pending-reply-unacknowledged without sending another
+# recovery request and does not depend on the secondmate's watcher.
+# Observed completion retains the completion-based grace and recovery path.
+# Remote evidence must satisfy the reply-channel freshness rule below.
+# Never loop, never repeatedly inject, never silently expire unresolved
 # records, and never treat wrong-home or structured-home heuristics as
 # acknowledgement. A same-basename restatement-copy of the mate home's
 # state/<task_id>.status onto the parent channel is a repair of the
@@ -139,6 +147,7 @@ _FM_PENDING_REPLY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/n
 FM_PENDING_REPLY_SCHEMA='fm-pending-reply.v1'
 FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
 FM_PENDING_REPLY_GRACE_DEFAULT=120
+FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT=3600
 
 fm_pending_reply_now() {
   if [ -n "${FM_PENDING_REPLY_NOW:-}" ]; then
@@ -864,8 +873,9 @@ fm_pending_reply_mark_turn_completed() {  # <state-dir> <corr_id> [which: reques
 # state/<id>.status, so an absent correlated line there is immediate evidence
 # that no report was written. A REMOTE mate's reports reach that same file only
 # through the asynchronous mirror in bin/fm-procevent-remote-reply.sh, so the
-# same absence proves nothing until that mirror has actually been read past the
-# turn that should have produced the report. Without this distinction the guard
+# same absence proves nothing until the mirror watermark reaches the relevant
+# turn's completion, or the delivery-based deadline when no completion exists.
+# Without this distinction the guard
 # nags a REPOST REQUIRED for a reply the mate did write and the parent simply
 # had not received yet - the common case, because the mirror's poll window is
 # comparable to the recovery grace.
@@ -1129,6 +1139,9 @@ fm_pending_reply_escalation_payload() {  # <record-path> <kind>
     missed)
       token=pending-reply-missed
       ;;
+    unacknowledged)
+      token=pending-reply-unacknowledged
+      ;;
     delivery-unknown)
       token=pending-reply-delivery-unknown
       ;;
@@ -1154,7 +1167,7 @@ fm_pending_reply_escalation_line() {  # <status-file> <record-path> <corr_id>
   while IFS= read -r line || [ -n "$line" ]; do
     [ "$(status_line_verb "$line")" = blocked ] || continue
     _fm_status_untimed "$line" untimed
-    for kind in missed delivery-unknown recovery-delivery; do
+    for kind in missed unacknowledged delivery-unknown recovery-delivery; do
       payload=$(fm_pending_reply_escalation_payload "$rec" "$kind") || continue
       case "$untimed" in
         "blocked [key=$own_key]: $payload"|"blocked: $payload") found=$line; break ;;
@@ -1262,7 +1275,8 @@ fm_pending_reply_maybe_escalate() {  # <state-dir> <corr_id>
 _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2
   local rec phase completed now payload parent_status line kind first display
-  local delivered task_id meta sm_home remote_host grace age key new_episode
+  local delivered task_id meta sm_home remote_host grace key new_episode
+  local deadline
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
@@ -1272,22 +1286,32 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     [ "$phase" = delivery_unknown ] || return 0
   fi
   case "$phase" in
-    recovery_sent)
-      completed=$(fm_pending_reply_get "$rec" recovery_turn_completed_epoch)
-      [ -n "$completed" ] || return 1
-      # Grace runs from the recovery turn's completion, the same anchor the
-      # recovery repost itself uses (never from delivery or send time).
-      grace=$(fm_pending_reply_get "$rec" grace_secs)
-      case "$grace" in ''|*[!0-9]*) grace=$(fm_pending_reply_grace_secs) ;; esac
+    awaiting_report|recovery_sent)
+      if [ "$phase" = awaiting_report ]; then
+        completed=$(fm_pending_reply_get "$rec" request_turn_completed_epoch)
+        [ -z "$completed" ] || return 1
+        delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+      else
+        completed=$(fm_pending_reply_get "$rec" recovery_turn_completed_epoch)
+        delivered=$(fm_pending_reply_get "$rec" recovery_sent_epoch)
+      fi
+      if [ -n "$completed" ]; then
+        grace=$(fm_pending_reply_get "$rec" grace_secs)
+        case "$grace" in ''|*[!0-9]*) grace=$(fm_pending_reply_grace_secs) ;; esac
+        deadline=$((completed + grace))
+        kind=missed
+      else
+        [ -n "$delivered" ] || return 1
+        deadline=$((delivered + FM_PENDING_REPLY_ACK_TIMEOUT_DEFAULT))
+        kind=unacknowledged
+      fi
       now=$(fm_pending_reply_now)
-      age=$((now - completed))
-      [ "$age" -ge "$grace" ] || return 1
-      # Same reply-channel evidence rule the recovery repost obeys: a missing
-      # correlated report is not a missed report until the mirror caught up.
+      [ "$now" -ge "$deadline" ] || return 1
       fm_pending_reply_missing_report_is_evidence "$state" \
-        "$(fm_pending_reply_get "$rec" task_id)" "$completed" || return 1
+        "$(fm_pending_reply_get "$rec" task_id)" "${completed:-$deadline}" || return 1
       ;;
-    delivery_unknown|recovery_failed|recovery_unknown) ;;
+    delivery_unknown) kind=delivery-unknown ;;
+    recovery_failed|recovery_unknown) kind=recovery-delivery ;;
     *) return 1 ;;
   esac
   delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
@@ -1309,11 +1333,6 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   fi
   # A resolve that failed on a later field write has still committed resolved.
   [ "$(fm_pending_reply_get "$rec" phase)" = "$phase" ] || return 1
-  case "$phase" in
-    delivery_unknown) kind=delivery-unknown ;;
-    recovery_failed|recovery_unknown) kind='recovery-delivery' ;;
-    *) kind=missed ;;
-  esac
   payload=$(fm_pending_reply_escalation_payload "$rec" "$kind") || return 1
   if [ "$kind" = missed ]; then
     first=$(fm_pending_reply_get "$rec" wrong_home_first_sighting)
@@ -1501,7 +1520,7 @@ fm_pending_reply_tick_one() {  # <state-dir> <corr_id> <busy_state> [secondmate-
   fi
   phase=$(fm_pending_reply_get "$rec" phase)
   case "$phase" in
-    recovery_sent|recovery_failed|recovery_unknown)
+    awaiting_report|recovery_sent|recovery_failed|recovery_unknown)
       fm_pending_reply_maybe_escalate "$state" "$corr" 2>/dev/null || true
       ;;
   esac
