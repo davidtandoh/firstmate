@@ -262,6 +262,8 @@ test_unacknowledged_backstop_escalates_past_ack_timeout() {
   pass "an unacknowledged delivered request escalates once past the ack timeout, never before"
 }
 
+# Fixture environment changes intentionally stay in each test's subshell.
+# shellcheck disable=SC2030,SC2031
 test_backstop_preserves_completed_turn_grace() (
   local home state corr
   home=$(setup_parent backstop-grace)
@@ -291,6 +293,7 @@ test_backstop_preserves_completed_turn_grace() (
   pass "backstop preserves completion grace for request and recovery"
 )
 
+# shellcheck disable=SC2030,SC2031
 test_backstop_waits_for_current_remote_evidence() (
   local home state corr phase start watermark
   for phase in "$@"; do
@@ -341,6 +344,8 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
   state="$home/state"
   hook_log="$TMP_ROOT/decision-wait-hook.log"
   : > "$hook_log"
+  # Prior subshell fixtures intentionally do not supply this test's environment.
+  # shellcheck disable=SC2031
   export FM_PENDING_REPLY_NOW=2500
   mkdir -p "$home/config"
   : > "$home/config/wait-no-turns"
@@ -351,6 +356,7 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
     printf '%s\n' "$1" >> "$hook_log"
   }
   export -f decision_wait_hook
+  # shellcheck disable=SC2031
   export FM_PENDING_REPLY_SEND_HOOK=decision_wait_hook
 
   corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of phase 8")
@@ -413,6 +419,8 @@ test_recovery_grace_measures_from_turn_completion() {
   recovery_hook() { printf '%s\n' ok >> "$hook_log"; }
   export -f recovery_hook
   export FM_PENDING_REPLY_SEND_HOOK='recovery_hook'
+  # Prior subshell fixtures intentionally do not supply this test's grace.
+  # shellcheck disable=SC2031
   export FM_PENDING_REPLY_GRACE_SECS=120
 
   export FM_PENDING_REPLY_NOW=20000
