@@ -580,19 +580,21 @@ Other harnesses and raw launch commands refuse while this mode is enabled.
 ### Start a primary
 
 The Personal Agent Kit service must already be running on each participating host.
+The installed Kit must support schema-version `1` readiness reports; a running status alone is insufficient.
 Firstmate does not start or repair that service.
 From the Firstmate checkout, run:
 
 ```sh
 agent-kit observe serve status --json
+agent-kit observe serve status --readiness --json
 bin/fm-omnigent.sh start claude
 # Or: bin/fm-omnigent.sh start codex
 ```
 
-The launcher resolves the Kit-managed Omnigent executable, server URL, and client environment from the host's status response.
-It runs the equivalent of `omnigent claude --server <server_url>` with that environment and explicit native environment propagation.
+The [launch boundary](omnigent.md) owns runtime selection from the host's status and readiness reports, including activation and headless rollback.
+The launcher runs the equivalent of `omnigent claude --server <server_url>` with the service's client environment and explicit native environment propagation.
 A separately launched `omnigent claude` or `omnigent codex` session is also detected through the native `OMNIGENT=1` marker, provided it uses the same working service and native environment interface.
-A missing executable, unsupported interface, stopped service, invalid status, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
+A missing executable, unsupported interface, stopped service, invalid status or readiness report, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
 The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
 Firstmate never retries the launch without tracing.
 
