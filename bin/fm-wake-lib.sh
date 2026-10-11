@@ -714,7 +714,7 @@ _fm_recovery_marker_publish() {
   local marker=$1 kind=${2:-downtime} bound=${3:-} source=${4:-watcher}
   local lock saved_token generation='' status=pending previous_append_token=''
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|append) ;; *) return 1 ;; esac
+  case "$source" in watcher|append|clean-close) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
@@ -739,6 +739,13 @@ _fm_recovery_marker_publish() {
         previous_append_token=$FM_RECOVERY_MARKER_TOKEN
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
+        acked:*)
+          if [ "$source" = clean-close ]; then
+            FM_RECOVERY_MARKER_TOKEN=$saved_token
+            fm_lock_release "$lock"
+            return 0
+          fi
+          ;;
         pending:handling:*|pending:downtime:*)
           generation=${FM_RECOVERY_MARKER_TOKEN##*:}
           status=pending
@@ -748,7 +755,7 @@ _fm_recovery_marker_publish() {
           status=pending
           ;;
         announced:downtime:*)
-          if [ "$source" = watcher ]; then
+          if [ "$source" != append ]; then
             generation=${FM_RECOVERY_MARKER_TOKEN##*:}
             status=announced
           fi
@@ -1052,9 +1059,11 @@ fm_recovery_transition() {
     reopen-announced)
       _fm_recovery_marker_reopen_announced "$marker"
       ;;
-    release-lock)
+    release-lock|release-lock-clean)
       [ -n "$target" ] || return 1
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
+      local source=watcher
+      [ "$action" != release-lock-clean ] || source=clean-close
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" "$source" || return 1
       fm_lock_release "$target"
       ;;
     release-lock-existing)

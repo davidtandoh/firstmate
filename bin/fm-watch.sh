@@ -2584,7 +2584,7 @@ pr_poll_publish_release() {
 }
 
 watcher_cleanup() {
-  local cleanup_status=0 owns_lock=0 transition=release-lock
+  local exit_status=$? cleanup_status=0 owns_lock=0 transition=release-lock
   pr_poll_publish_release || cleanup_status=1
   pr_poll_control_release || cleanup_status=1
   if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
@@ -2598,6 +2598,12 @@ watcher_cleanup() {
   fm_check_output_cleanup
   fm_capture_output_cleanup
   fm_custom_check_snapshot_cleanup
+  # Native HUP/TERM EXIT traps can see zero or the interrupted wait's status.
+  # Preserve an acknowledged episode only on a clean close; explicit failures
+  # still publish downtime. The marker owner serializes this with new appends.
+  if [ "$cleanup_status" -eq 0 ] && [ "$transition" = release-lock ]; then
+    case "$exit_status" in 0|129|143) transition=release-lock-clean ;; esac
+  fi
   if [ "$owns_lock" -eq 1 ] \
     && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
       downtime "$CLEANUP_LOCK_BOUND"; then

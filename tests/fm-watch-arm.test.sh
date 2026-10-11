@@ -463,9 +463,10 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/recovery-successor-arm.out"
   is_live_non_zombie "$ARM_PID" || fail "recovery successor did not stay live after the drain"
 
-  # A later down interval can have no new queue rows at all. The unchanged
-  # remote decision must still trigger a recovery wake and be folded again.
-  kill "$ARM_PID" 2>/dev/null || true
+  # A later crash can have no new queue rows at all. Unlike a clean stop of
+  # an acknowledged cycle, its downtime must surface the unchanged decision.
+  watcher_pid=$(cat "$state/.watch.lock/pid")
+  kill -KILL "$watcher_pid" 2>/dev/null || fail "could not crash the acknowledged watcher"
   wait "$ARM_PID" 2>/dev/null || true
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/decision-only-arm.out"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "decision-only re-arm did not surface the open decision"
@@ -1260,6 +1261,50 @@ test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet() {
   pass "watch-arm: takeover during a blocked capture preserves acknowledgement and later wakes"
 }
 
+# A stopped acknowledged cycle must not create work for the next empty arm.
+test_acknowledged_cycle_stop_keeps_next_arm_quiet() {
+  local mode dir state fakebin owner watcher acknowledged target status signal expected
+  for mode in watcher arm hup; do
+    dir=$(make_case "acknowledged-stop-$mode")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/owner.out" "$$"
+    owner=$ARM_PID
+    watcher=$(cat "$state/.watch.lock/pid")
+    append_wake "$state" signal handled "signal: fixture handled by main"
+    ack_wakes "$state" >/dev/null || fail "fixture: could not acknowledge wake"
+    acknowledged=$(cat "$state/.watcher-down")
+    case "$acknowledged" in acked:*) ;; *) fail "fixture: wake was not acknowledged" ;; esac
+    target=$watcher
+    [ "$mode" != arm ] || target=$owner
+    signal=TERM
+    expected=143
+    if [ "$mode" = hup ]; then signal=HUP; expected=129; fi
+    kill -s "$signal" "$target" || fail "could not stop fixture $mode"
+    wait_for_exit "$owner" "$REARM_EXIT_POLLS"
+    status=$?
+    expect_code "$expected" "$status" "the $mode $signal must close its cycle"
+    ! is_live_non_zombie "$watcher" || fail "fixture watcher survived $signal"
+    grep -q "watcher_pid=$watcher.*exit_code=$expected.*successor=none" "$state/.watch-cycle-exits.log" \
+      || fail "fixture did not record a $signal close without successor"
+    [ ! -s "$state/.wake-queue" ] || fail "fixture queue was not empty"
+
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+    sleep 3
+    is_live_non_zombie "$ARM_PID" || fail "acknowledged $mode stop woke an empty arm: $(cat "$dir/rearm.out")"
+    ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "empty queue resurfaced after $mode stop"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "$mode stop replaced the acknowledgement"
+
+    append_wake "$state" check later "check: real work after $mode stop"
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+    status=$?
+    expect_code 0 "$status" "later work must still wake the replacement"
+    assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface"
+    [ -s "$state/.wake-queue" ] || fail "later work was lost"
+  done
+  pass "watch-arm: acknowledged watcher TERM/HUP and arm TERM closes stay quiet until new work"
+}
+
 # Pause just after handover releases its snapshot locks, then fail the old
 # watcher's secondmate tick write so it exits through cleanup before TERM lands.
 # The ledger and recovery wake are public output contracts, not source probes.
@@ -1678,4 +1723,5 @@ test_handling_delivered_rejects_a_superseded_generation
 test_take_over_attaches_to_a_cycle_the_named_arm_does_not_own
 test_take_over_owns_a_fresh_cycle_and_keeps_queued_work_surfacing
 test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet
+test_acknowledged_cycle_stop_keeps_next_arm_quiet
 test_take_over_preserves_downtime_from_watcher_self_exit

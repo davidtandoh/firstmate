@@ -227,14 +227,16 @@ If a durable row arrived after the announcement, the arm opens a fresh pending d
 ### Generation reuse
 
 An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
+A clean close, including native HUP or TERM cleanup, preserves an acknowledged episode under the marker lock instead of opening empty recovery work.
+Explicit failure exits and stale-lock recovery still publish new downtime after an acknowledgement.
 A handling successor closing to resurface recovery preserves the existing marker instead.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
 That handling republication gives a successor exactly one recovery presentation without orphaning the acknowledgement already printed for that generation.
-A watcher stopped so an arm can take its cycle over (`bin/fm-watch-arm.sh --take-over`) publishes downtime like any close, but the taking arm restores an acknowledged episode that stop reopened only when the taken-over arm's cycle-ledger row for that exact arm and watcher records the watcher ending by the take-over's TERM and no wake was appended in between.
-The taking arm waits within a short bound for that row; a missing row or any other signal leaves downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
+If a watcher stopped for `bin/fm-watch-arm.sh --take-over` publishes downtime, the taking arm restores an acknowledged episode that stop reopened only when the taken-over arm's cycle-ledger row for that exact arm and watcher records the watcher ending by the take-over's TERM and no wake was appended in between.
+The taking arm waits within a short bound for that row; a missing row or any other signal leaves any published downtime for the fresh cycle's ordinary recovery wake, while take-over still proceeds.
 Any other episode is left for the next cycle's arm check.
 
 ### What an acknowledgement retires
@@ -250,7 +252,7 @@ It is a non-fatal result that names its own remedy: re-drain, then acknowledge t
 The acknowledgement retires the marker only when no rows remain after sequence-bound consumption.
 A concurrently appended wake has a higher sequence, remains queued, and keeps the episode pending for presentation.
 Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid.
-An acknowledged episode does not freeze the generation, because the next downtime after it opens an episode of its own.
+An acknowledged episode does not freeze the generation, because new durable work or failure downtime opens an episode of its own.
 
 ## Per-actor acknowledgement
 
@@ -451,6 +453,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - Decision-only OPEN DECISIONS recovery.
 - Interrupted handling replay.
 - Generation-bound acknowledgement.
+- Acknowledged watcher TERM/HUP and arm TERM closes that leave the next empty arm quiet while later durable work still wakes it.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
 - An append that reopens an announced empty recovery.

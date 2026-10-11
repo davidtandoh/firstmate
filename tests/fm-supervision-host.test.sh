@@ -163,6 +163,18 @@ HOMES_FILE="$TMP_ROOT/homes"
 # Stop whatever a case left running, by the exact pids its home recorded.
 stop_home_processes() {  # <home>
   local home=$1 pid arms='' i=0
+  # Stop the hook owner before its host so teardown cannot start a retry.
+  # An acknowledged clean stop no longer supplies a recovery wake to end it.
+  if [ -e "$home/session.stop" ] && [ -f "$home/state/.claude-autoarm-epoch" ]; then
+    FM_STATE_OVERRIDE="$home/state" bash -c '
+      # shellcheck source=/dev/null
+      . "$1"
+      fm_autoarm_ledger_read "$2" || exit 0
+      [ -n "$FM_AUTOARM_IDENTITY" ] || exit 0
+      [ "$(fm_pid_identity "$FM_AUTOARM_OWNER")" = "$FM_AUTOARM_IDENTITY" ] || exit 0
+      kill -TERM "$FM_AUTOARM_OWNER" 2>/dev/null || true
+    ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state"
+  fi
   if [ -f "$home/state/.supervision-host" ]; then
     arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
     pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
@@ -1732,12 +1744,8 @@ SH
   pass "host: the dialog mirror, its feed, and the wake file are owner-only"
 }
 
-# Park again after a host was stopped mid-park: the new cycle's first close is
-# the watcher's downtime resurface, which main drains before the next park.
-# That close can end the park before its cycle is ever seen live, so this
-# waits for the exit itself.
-# The resurface pass-through leaves its successor running. Stop that watcher
-# and acknowledge the downtime its exit records, so the next park starts a
+# A recovery pass-through leaves its successor running. Stop that watcher
+# and acknowledge its episode, so the next park starts a
 # watcher it owns. Attaching instead would not observe the exit until the
 # beacon went stale, and this fixture's turn budget would already be gone.
 quiet_pass_through_successor() {  # <home>
@@ -1763,6 +1771,15 @@ quiet_pass_through_successor() {  # <home>
 }
 
 park_after_stop() {  # <home>
+  # A handled cycle stays quiet after a clean stop. An interrupted handling
+  # turn still needs its recovery drained before the fixture can park again.
+  case "$(cat "$1/state/.watcher-down" 2>/dev/null)" in
+    acked:*)
+      park_again "$1"
+      assert_no_re '^check: rearm-resurface' "$1/host.out" "an acknowledged clean stop must not replay recovery"
+      return 0
+      ;;
+  esac
   rm -f "$1/host.rc"
   : > "$1/park.go"
   wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
