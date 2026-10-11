@@ -19,7 +19,9 @@ Native permission flags, prompts, busy hooks, and turn-end wiring retain their e
 Quota dispatch continues to use the native harness identity.
 
 `bin/fm-omnigent.sh` queries the local Kit status for every preflight and again when the pane executes its launch.
-The status file identifies the managed runtime; a separate Omnigent executable on `PATH` can be stale.
+Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
+The launcher accepts the retained headless runtime when only web-readiness requirements are missing.
+A separate Omnigent executable on `PATH` can be stale.
 The launcher checks the native `--env` capability and server health before invoking that runtime.
 A failure never executes the original native command as a fallback.
 
