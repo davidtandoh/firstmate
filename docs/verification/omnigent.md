@@ -124,10 +124,17 @@ LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
 
 The local contract test executes the launch delivered to ship, scout, and secondmate panes and observes the explicit native arguments and environment at a service double.
 It checks marker detection, home policy, malformed settings, service refusal before metadata publication, ordinary native launches, backend propagation, dispatch preservation, and the attaching client's UTF-8 locale.
+It also checks readiness-selected web activation, retained headless rollback, fresh selection on each invocation, and refusal of malformed, oversized, unsafe, or inconsistent readiness data.
 The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises both a wrapped parent's relaunch of a previously native secondmate and recovery without an inherited marker.
 The relaunch metadata regression checks the destination-confirmed mode, and the restart regression checks that the parent's mode crosses the transport with its resolved profile.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.
+
+### Launcher selection verification
+
+On 2026-10-11, the schema-version `1` service double passed `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh` with `FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0`.
+The test checks selection for Claude, Codex, Kiro, and Antigravity and observes the executed path through a primary launch.
+This is portable contract evidence; live generation cutover and acceptance remain separate operator work.
 
 ## Live Herdr guard
 

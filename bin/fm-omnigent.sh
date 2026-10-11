@@ -8,7 +8,7 @@
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
 # check/run/start resolve the local Kit's serve status afresh. The client is
-# <state_file parent>/runtime/bin/omnigent, never a possibly stale PATH install.
+# readiness runtime.executable, never a cached generation or PATH install.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
 # Only the four native wrappers with a verified --env contract are admitted.
@@ -22,6 +22,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-path-lib.sh
+. "$SCRIPT_DIR/fm-path-lib.sh"
 
 fail() { printf 'error: Omnigent launch: %s\n' "$*" >&2; exit 1; }
 mode() {
@@ -40,7 +42,7 @@ mode() {
 }
 
 resolve_service() {
-  local status reason help health status_rc=0
+  local status readiness reason help health candidate service_root status_rc=0 readiness_rc=0
   case "$HARNESS" in claude|codex|kiro|agy) ;; *) fail "unverified wrapped harness: $HARNESS" ;; esac
   command -v agent-kit >/dev/null 2>&1 || fail 'agent-kit is required on this host'
   command -v jq >/dev/null 2>&1 || fail 'jq is required on this host'
@@ -48,7 +50,7 @@ resolve_service() {
   status=$(fm_run_timed 15 agent-kit observe serve status --json < /dev/null | head -c 131073) || status_rc=$?
   fm_timed_out "$status_rc" && fail 'agent-kit observe serve status --json timed out'
   [ "${#status}" -le 131072 ] || fail 'serve status exceeds 128 KiB'
-  printf '%s' "$status" | jq -e 'type == "object"' >/dev/null 2>&1 || fail 'invalid serve status JSON'
+  printf '%s' "$status" | jq -se 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 || fail 'invalid serve status JSON'
   if ! printf '%s' "$status" | jq -e '.status == "running"' >/dev/null; then
     reason=$(printf '%s' "$status" | jq -r '.reason // .status // "missing status"')
     fail "agent-kit observe serve is unavailable: $reason"
@@ -63,7 +65,35 @@ resolve_service() {
   ' >/dev/null 2>&1 || fail 'serve status lacks a valid local server, state path, or client environment'
   SERVER=$(printf '%s' "$status" | jq -r .server_url)
   STATE_FILE=$(printf '%s' "$status" | jq -r .state_file)
-  OMNIGENT_BIN="$(dirname "$STATE_FILE")/runtime/bin/omnigent"
+  readiness=$(fm_run_timed 15 agent-kit observe serve status --readiness --json < /dev/null | head -c 131073) || readiness_rc=$?
+  fm_timed_out "$readiness_rc" && fail 'serve readiness timed out'
+  [ "${#readiness}" -le 131072 ] || fail 'serve readiness exceeds 128 KiB'
+  # Headless rollback remains usable even though the web-readiness gate is not
+  # ready. All other readiness failures refuse before probing any executable.
+  printf '%s' "$readiness" | jq -se --arg server "$SERVER" --arg rc "$readiness_rc" '
+    length == 1 and (.[0] |
+      .schema_version == "1" and
+      (.reasons | type == "array") and
+      ((.status == "ready" and .reasons == [] and $rc == "0") or
+       (.status == "unavailable" and $rc == "0" and (.reasons | length > 0) and
+        all(.reasons[]; . == "serve_setup_headless_only" or . == "serve_web_assets_missing"))) and
+      .managed_status.status == "running" and .managed_service.server_url == $server and
+      (.runtime.executable | type == "string" and startswith("/") and
+        (test("[\u0000-\u001f\u007f]") | not) and
+        (split("/")[1:] | all(. != "" and . != "." and . != ".."))))
+  ' >/dev/null 2>&1 || fail 'invalid or inconsistent serve readiness'
+  OMNIGENT_BIN=$(printf '%s' "$readiness" | jq -r .runtime.executable)
+  fm_dirname_to service_root "$STATE_FILE"
+  case "$OMNIGENT_BIN" in
+    "$service_root/"*) ;;
+    *) fail 'readiness executable is outside the managed service root' ;;
+  esac
+  candidate=$OMNIGENT_BIN
+  while :; do
+    [ ! -L "$candidate" ] || fail "symlink in managed executable path: $candidate"
+    [ "$candidate" != "$service_root" ] || break
+    fm_dirname_to candidate "$candidate"
+  done
   [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "managed executable is missing: $OMNIGENT_BIN"
   help=$(fm_run_timed 10 "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac

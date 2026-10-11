@@ -60,6 +60,68 @@ export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+
+# Selection is read for every operation; the retained executable stays present.
+readiness="$TMP_ROOT/serve/readiness.json"
+cp "$readiness" "$TMP_ROOT/headless.json"
+web="$TMP_ROOT/serve/generations/web/runtime/bin/omnigent"
+mkdir -p "$(dirname "$web")"
+cp "$TMP_ROOT/serve/runtime/bin/omnigent" "$web"
+jq --arg executable "$web" '.status="ready" | .reasons=[] | .runtime.executable=$executable' \
+  "$readiness" > "$TMP_ROOT/web.json"
+for selected in web headless web; do
+  cp "$TMP_ROOT/$selected.json" "$readiness"
+  expected=$(jq -r .runtime.executable "$readiness")
+  for harness in claude codex kiro agy; do
+    "$OMNI" check "$harness"
+    "$OMNI" run --dry-run "$harness" > "$TMP_ROOT/preview.json"
+    jq -e --arg expected "$expected" '.executable == $expected' "$TMP_ROOT/preview.json" >/dev/null || fail 'dry run cached a generation'
+  done
+  "$OMNI" start codex
+  jq -e --arg expected "$expected" '.executable == $expected' "$OMNI_RESULT" >/dev/null || fail 'launch used the wrong generation'
+done
+pass 'check, dry run, and launch select web activation and retained rollback afresh'
+for invalid in \
+  'del(.runtime.executable)' \
+  '.runtime.executable=null' \
+  '.runtime.executable="relative/omnigent"' \
+  '.runtime.executable="/tmp/omnigent"' \
+  '.runtime.executable += "/../omnigent"' \
+  '.runtime.executable += "\n"' \
+  '.runtime.executable += "-missing"' \
+  '.managed_status.status="stopped"' \
+  '.managed_service.server_url="http://127.0.0.1:9999"' \
+  '.reasons=["serve_runtime_identity_mismatch"]' \
+  '.status="failed"'; do
+  jq "$invalid" "$TMP_ROOT/web.json" > "$readiness"
+  if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail "invalid readiness accepted: $invalid"; fi
+done
+for malformed in '{bad json' '{} {}' '[]'; do
+  printf '%s' "$malformed" > "$readiness"
+  if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'malformed readiness accepted'; fi
+done
+# Oversized output must refuse even when its prefix is a complete valid report.
+cat "$TMP_ROOT/web.json" > "$readiness"
+head -c 131073 /dev/zero | tr '\000' ' ' >> "$readiness"
+if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'oversized readiness accepted'; fi
+cp "$TMP_ROOT/web.json" "$readiness"
+chmod -x "$web"
+if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'nonexecutable selection accepted'; fi
+chmod +x "$web"
+mv "$web" "$web.saved"
+ln -s "$web.saved" "$web"
+if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'symlink executable accepted'; fi
+rm "$web"
+mv "$web.saved" "$web"
+cp "$OMNI_STATUS" "$TMP_ROOT/running.json"
+jq '.status="stopped"' "$OMNI_STATUS" > "$TMP_ROOT/stopped.json"
+cp "$TMP_ROOT/stopped.json" "$OMNI_STATUS"
+rm "$OMNI_RESULT"
+if "$OMNI" start codex > "$TMP_ROOT/error" 2>&1; then fail 'ready runtime bypassed stopped service'; fi
+[ ! -e "$OMNI_RESULT" ] || fail 'stopped service launched selected executable'
+cp "$TMP_ROOT/running.json" "$OMNI_STATUS"
+cp "$TMP_ROOT/headless.json" "$readiness"
+pass 'malformed, unsafe, inconsistent readiness and stopped service refuse'
 LC_ALL=C "$OMNI" run codex 'locale probe'
 jq -e '.client_encoding == "UTF-8"' "$OMNI_RESULT" >/dev/null \
   || fail 'Omnigent attach must preserve native glyphs under an ASCII supervisor locale'
