@@ -756,6 +756,7 @@ The concise single-line route contract is owned by the [`secondmate-provisioning
 ### Remote routes and validation
 
 A remote route adds `host:` and `root:` before the existing fields and places the whole secondmate home on that SSH host; it does not make ordinary workers remotely placeable.
+A remote route may also opt into [availability-aware routing](remote-secondmates.md#hosts-that-are-not-always-on) for a host that sleeps.
 [`remote-secondmates.md`](remote-secondmates.md) owns current remote setup, operation, and safety behavior.
 
 Use `fm-home-seed.sh validate` to check the complete operational registry contract documented by the command itself.

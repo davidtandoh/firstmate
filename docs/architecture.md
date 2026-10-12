@@ -343,7 +343,8 @@ Explicit backend-target sends and direct human typing stay unmarked, so captain 
 After seeding a secondmate, `fm-backlog-handoff.sh` validates the fleet-specific handoff, atomically delegates already-judged in-scope queued item moves to `tasks-axi mv`, and then attempts a marked routed-work wake through the receiver's recorded endpoint.
 The [`fm-backlog-handoff.sh`](../bin/fm-backlog-handoff.sh) header owns route-specific wake outcomes, remote outbox release after receipt, and stable wake-correlation retry behavior.
 `tests/fm-backlog-handoff.test.sh` and `tests/fm-remote-backlog-handoff.test.sh` pin the local and remote delivery boundaries.
-An unreachable remote host is unknown rather than dead, preserves its route and durable work, and is never failed over or relaunched locally.
+An unreachable remote secondmate remains unknown rather than dead, preserves its route and durable work, and is never replaced by a local secondmate endpoint.
+For availability-aware intake, the primary calls `fm-secondmate-availability.sh`, which reuses the liveness library's read-only poll probe; [remote-secondmates.md](remote-secondmates.md#hosts-that-are-not-always-on) owns the primary's routing and backlog responsibilities.
 Idle secondmate panes are healthy; teardown is explicit and refuses while the secondmate home has in-flight work unless the captain has approved discard with `--force`.
 
 Secondmate homes converge conservatively to the primary's version and declared inherited local material at launch and during locked session start.
