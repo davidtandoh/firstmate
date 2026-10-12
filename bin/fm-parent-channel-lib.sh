@@ -13,18 +13,8 @@
 # The fix is structural: every script that RECORDS a captain-facing outcome in a
 # mate home publishes it on the parent channel itself, so delivery never
 # depends on the model. This library owns where that channel lives and how a
-# line is appended to it. The publishers are:
-#   - bin/fm-inactive-reconcile.sh   a direct child's terminal done or failed
-#                                    ledger line, on every watcher poll, plus
-#                                    the silent-ledger inactive-outcome fallback
-#   - bin/fm-pr-check.sh             a registered PR-ready line carrying the
-#                                    canonical URL
-#   - bin/fm-captain-hold.sh         a task held for the captain and its answer
-#   - bin/fm-merge-outcome-lib.sh    a merged PR
-#   - bin/fm-teardown.sh             the child's final ledger line, refusing to
-#                                    remove the child while it is undelivered
-#   - bin/fm-secondmate-report.sh     a marked request's correlated answer,
-#                                    with this resolver choosing its destination
+# line is appended to it.
+# docs/secondmate-parent-channel.md owns the publisher inventory.
 # The mate's own appends are reserved for judgement (bin/fm-brief.sh charter).
 # docs/secondmate-parent-channel.md records the design and its coverage.
 #
@@ -41,6 +31,11 @@
 # crewmate's status stream, so a captain-relevant line becomes a parent wake.
 #
 # Line syntax and retry equivalence are owned by fm-classify-lib.sh.
+# With an optional open-decision key, append/report instead deduplicate against
+# the destination's current decision fold: blocked appends only when closed,
+# resolved only when open, and other verbs are rejected.
+# This permits a new episode after resolution even with identical report text.
+# Without a key, callers retain event-based retry deduplication.
 # An existing destination must be a regular, non-symlinked file; a missing one
 # is created with its directory.
 #
@@ -151,25 +146,34 @@ fm_parent_channel_clean_note() {  # <text>
   printf '%s' "$1" | LC_ALL=C tr '\t\r\n' '   ' | cut -c1-1200
 }
 
-# Append <line> once, using fm-classify-lib.sh's retry contract. Time-insensitive:
-# the caller declaring a new event is the one that stamps it.
-fm_parent_channel_append_once() {  # <path> <line>
-  local path=$1 line=$2
+# Append <line> using the retry mode documented above.
+# The caller declaring a new event is the one that stamps it.
+fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
+  local path=$1 line=$2 key=${3-} open=0
   if [ -e "$path" ] || [ -L "$path" ]; then
     [ -f "$path" ] && [ ! -L "$path" ] || return 1
   else
     mkdir -p "$(dirname "$path")" || return 1
   fi
-  if status_event_recorded "$path" "$line"; then
+  if [ -n "$key" ]; then
+    case $'\n'"$(status_open_decisions "$path")" in
+      *$'\n'"$key"$'\t'*) open=1 ;;
+    esac
+    case "$(status_line_verb "$line")" in
+      blocked) [ "$open" = 0 ] || return 0 ;;
+      resolved) [ "$open" = 1 ] || return 0 ;;
+      *) return 1 ;;
+    esac
+  elif status_event_recorded "$path" "$line"; then
     return 0
   fi
   printf '%s\n' "$line" >> "$path"
 }
 
 # Publish one parent-facing line from <home>. See the return codes above.
-fm_parent_channel_report() {  # <home> <state> <line>
-  local home=$1 state=$2 line=$3 destination rc=0
+fm_parent_channel_report() {  # <home> <state> <line> [open-decision-key]
+  local home=$1 state=$2 line=$3 key=${4-} destination rc=0
   destination=$(fm_parent_channel_destination "$home" "$state") || rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || return 4
+  fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" "$key" || return 4
 }

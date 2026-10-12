@@ -30,6 +30,7 @@ Every captain-facing outcome that leaves durable evidence in the mate home is pu
 | Child leaving the home | its final ledger line | `bin/fm-teardown.sh`, which refuses to remove the child while that line is undelivered |
 | Child ended silently | terminal current state with a silent ledger | the existing inactive-outcome scan in `bin/fm-inactive-reconcile.sh` |
 | Answer to a marked request | a correlated line guarded by the pending-reply record | `bin/fm-secondmate-report.sh`, which resolves the parent channel from the mate home; the pending-reply guard repairs a line stranded in the local mate's same-basename status file before recovery or escalation |
+| Session lock refusal | a keyed blocker on the parent channel | `bin/fm-session-start.sh` through `bin/fm-parent-channel-lib.sh` |
 | An outcome that exists only in the mate's reasoning | none | the charter and the `AGENTS.md` carve-outs only |
 
 The ledger delivery reads files, plus a local git reachability check on a ship `done:` with no delivery record yet (`bin/fm-dod-lib.sh`): it calls no harness, no forge, and no current-state reader, so it is identical for every harness and runtime backend.
@@ -41,6 +42,34 @@ Other correlated mate-home status lines remain wrong-home evidence, while a remo
 The mate home's own status scans treat that remote channel the same way: `status_scan_parent_channel_exclude` in `bin/fm-classify-lib.sh` resolves the outbound path through the same `bin/fm-parent-channel-lib.sh` binding, and the watcher's signal scan and heartbeat backstop, the away-mode daemon's catch-all scan, and the fleet-wide folds skip exactly that resolved path, never a file name.
 The remote reply adapter already mirrors every channel line into the parent home, so folding the channel again here would only spin spurious wakes and a phantom `parent-replies` task, while a `parent-replies.status` in a main home or in a local mate is an ordinary task log that keeps folding and waking.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
+
+## Lock refusal and unanswered requests
+
+A lock-refused secondmate reports `blocked [key=secondmate-readonly]` through its bound parent channel.
+The publisher uses the [parent-channel library's keyed retry contract](../bin/fm-parent-channel-lib.sh).
+When session start verifies restored lock ownership, it closes the episode on the same source channel.
+For a remote mate, this writes the resolution to its own `parent-replies.status`, which the parent mirror then carries upstream.
+A parent-local decision close alone does not update that remote source log.
+A later refusal opens a new episode, even when the report text is identical; repeated healthy starts publish no extra resolution.
+A main home publishes nothing upward.
+
+[`bin/fm-pending-reply-lib.sh`](../bin/fm-pending-reply-lib.sh) owns the unanswered-request deadlines, completion grace, remote mirror evidence, and late-reply closure contract.
+This is a parent-owned escalation path: it runs independently of the mate's watcher and can escalate an unanswered steer during a gap in the mate's supervision.
+
+### Cause of the recurring supervision gaps
+
+The read-only investigation of agent-station established that its Codex home had the supervision host disabled.
+Each bounded 180-second checkpoint ran a one-shot watcher, which ended normally rather than crashing.
+Watcher liveness therefore depended on the model issuing the next checkpoint.
+During long work outside a checkpoint, no watcher polled the fleet, while queued steering messages remained unread until the model returned to handling them.
+The remote triage-log gaps and watcher-down markers confirmed those blind intervals.
+The parent-owned escalation above addresses the unacknowledged steering requests without depending on that missing mate-side polling.
+
+The recommended operational follow-up is to enable `config/supervision-host` for Codex secondmates, using the [supported engine and opt-out rules](configuration.md#supervision-host-configsupervision-host).
+The host manages successor watcher cycles during wake handling, so that re-arm no longer waits for the model's next checkpoint.
+The host's [Codex park boundary](supervision-host.md#codex-checkpoint-bound) still applies.
+This recommendation requires the captain's decision; this change does not enable the host or alter any home's configuration.
+Codex's inability to reason during a foreground tool call remains an upstream checkpoint-design constraint, outside this change.
 
 ## What is deliberately not built
 
@@ -56,7 +85,8 @@ A missed-reply escalation includes the complete first sighting path and line num
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
-`tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
+`tests/fm-session-start.test.sh` covers local and remote lock-refusal episodes, repeat suppression, source closure on verified recovery, reopening across repeated recovery cycles, and main-home silence.
+`tests/fm-pending-reply.test.sh` covers request and recovery backstops, completion grace, deadline-based mirror evidence, late-reply closure, and helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 
 ## Live verification
