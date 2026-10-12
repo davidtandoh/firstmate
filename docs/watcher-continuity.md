@@ -191,7 +191,7 @@ The durable wake queue preserves actionable events between a watcher close and t
 The bounded turn-end guard enforces recovery at Stop when no watcher is live and no open generation claim is still deciding.
 So a finished, hung, or identity-mismatched claim cannot suppress that recovery ([`turnend-guard.md`](turnend-guard.md#harness-integrations) owns that boundary).
 
-The recovery-episode contract below owns once-per-generation announcement.
+The [recovery-episode contract](#recovery-episode-acknowledgement) below owns announcement and retry rules.
 A handling successor does not re-announce.
 It enters its poll loop immediately and keeps scanning signals, stale panes, and checks.
 
@@ -219,12 +219,11 @@ The away return brief treats a still-open handling episode as a wake in progress
 ### Announcement
 
 An unacknowledged downtime generation is normally announced once.
-The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
+The first recovery marks that generation announced.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
 Reclaiming a stale watcher lock makes an unacknowledged announcement pending again on the same generation, because the watcher may have died before delivering it.
-Acknowledged empty episodes remain retired during stale-lock recovery.
 
 ### Generation reuse
 
@@ -415,9 +414,9 @@ Both signals run its EXIT cleanup and stop the blocked operation.
 HUP and TERM received while a child process group starts retain their identity when termination resumes after ownership is recorded.
 The same interruptible boundary covers watcher-owned busy and crew-state classification, including indirect pane reads.
 `watcher_stop_signals` in `bin/fm-watch.sh` owns the signal-handling rationale.
-The EXIT cleanup bounds its wait for `state/.watcher-down.lock` while persisting recovery state with `FM_WATCHER_CLEANUP_LOCK_BOUND` (default 2 seconds).
+The EXIT cleanup shares one `FM_WATCHER_CLEANUP_LOCK_BOUND` deadline (default 2 seconds) across the queue-lock and `state/.watcher-down.lock` waits while persisting recovery state.
 Only positive decimal integers are accepted, including leading-zero forms such as `08`; empty, non-numeric, and zero values (including `00`) fall back to 2 seconds.
-A live foreign holder therefore cannot strand a TERM'd watcher in this marker-lock wait: on timeout the recovery transition fails without releasing the singleton, leaving dead-pid stale evidence for the next arm to republish and clear.
+A live foreign holder of either lock therefore cannot strand a TERM'd watcher: on timeout the recovery transition fails without releasing the singleton, leaving dead-pid stale evidence for the next arm to reconcile under [Generation reuse](#generation-reuse).
 
 ## Regression coverage
 
@@ -457,7 +456,9 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - Real remote parent-replies ingestion into the authoritative status log.
 - Unacknowledged decision-only OPEN DECISIONS recovery; acknowledged empty episodes remain quiet after a crash.
 - Interrupted handling replay.
+- A watcher killed after an empty recovery announcement but before delivery, with both ordinary arm and restart retrying the same generation.
 - Generation-bound acknowledgement.
+- Shutdown overlapping acknowledgement before queue replacement, with successful consumption staying quiet and failed replacement preserving queued work for recovery.
 - Acknowledged watcher TERM/HUP/KILL, arm TERM, and failure closes that leave the next empty arm quiet while later durable work still wakes it.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
@@ -467,7 +468,7 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 - The self-healing moved-generation acknowledgement that consumes its handled rows and names its remedy.
 - The already-acknowledged confirmation no-op for a matching generation, with its mismatched-generation, dead-pid, and lock-mismatch rejections preserved.
 - The manual-restart generation churn that makes a confirmation for the churned generation report a mismatch, which an arm check without a reopen leaves in place.
-- A take-over that stays quiet after a confirmed TERM, still surfaces queued work and self-exit downtime, and attaches without stopping a cycle the named arm does not own.
+- A take-over that preserves acknowledgement after TERM or watcher failure, still surfaces later queued work, and attaches without stopping a cycle the named arm does not own.
 - A take-over during a blocked pane read that preserves an acknowledged empty queue and still delivers later work.
 - The disposable-checkout arm refusal.
 - The home-gone and state-gone watcher exits.

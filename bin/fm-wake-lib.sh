@@ -659,7 +659,7 @@ FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
 
 # Token grammar (one owner): <pending|announced|acked>:<handling|downtime>:<generation>
 # docs/watcher-continuity.md owns the recovery-episode contract, including the
-# once-per-generation announcement rule for unacknowledged downtime.
+# announcement and retry rules for unacknowledged downtime.
 fm_recovery_marker_read() {
   local marker=$1 line extra
   FM_RECOVERY_MARKER_TOKEN=

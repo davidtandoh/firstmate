@@ -292,7 +292,7 @@ SIGNAL_GRACE=${FM_SIGNAL_GRACE:-30}   # seconds to linger after a signal so trai
                                       # signals (a status write, then the same turn's
                                       # turn-end hook) coalesce into one wake
 CLEANUP_LOCK_BOUND=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}  # seconds EXIT cleanup may
-                                      # wait on the downtime-marker lock; a live
+                                      # wait across queue and marker locks; a live
                                       # foreign holder must not strand a TERM'd
                                       # watcher inside its own trap
 case "$CLEANUP_LOCK_BOUND" in
