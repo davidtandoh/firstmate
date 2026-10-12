@@ -141,6 +141,68 @@ for capability in steering live_queue images compaction; do
   done
 done
 pass 'callable commands and typed capabilities refuse ambiguity and preserve unknown values'
+selected_runtime=$(jq -c .runtime "$TMP_ROOT/contract.json")
+verify_measured_runtime() {
+  jq -L "$ROOT/bin" -se --argjson runtime "$selected_runtime" \
+    --arg server 'http://127.0.0.1:6767' \
+    --argjson environment '{"OMNIGENT_CONFIG_HOME":"/private/fixture/config"}' \
+    'include "fm-omnigent-contract"; fm_omnigent_runtime_matches($runtime; $server; $environment)' \
+    "$1" >/dev/null 2>&1
+}
+verify_measured_runtime "$TMP_ROOT/contract.json" || fail 'full measured runtime equality refused'
+for invalid in \
+  '.runtime.python="/foreign/python3"' \
+  '.runtime.package_version="foreign"' \
+  '.runtime.installer_generation="0123456789abcdef0123456789abcdef"'; do
+  jq "$invalid" "$TMP_ROOT/contract.json" > "$TMP_ROOT/foreign-runtime.json"
+  if verify_measured_runtime "$TMP_ROOT/foreign-runtime.json"; then fail "full runtime mismatch accepted: $invalid"; fi
+done
+pass 'the complete measured runtime object matches the independently selected receipt'
+jq -n '{schema_version:1,owner:"pak",session_scope:"personal",work_session_policy:"exclude",
+  capture_enabled:false,collection_required:false,delivery_available:false,admission:"allow",reason:null,
+  existing_sessions:"preserve",durable_acceptance:false,redactor_endpoint:null,
+  client_environment:{OMNIGENT_TELEMETRY_ENABLED:"0",OMNIGENT_OTEL_CAPTURE_CONTENT:"0",
+    OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION:"0",OTEL_METRICS_EXPORTER:"none",OTEL_LOGS_EXPORTER:"none"},
+  loss:null,retry:{max_attempts:3,memory_queue_items:64,memory_queue_bytes:67108864}}' > "$TMP_ROOT/telemetry-off.json"
+verify_telemetry() {
+  jq -L "$ROOT/bin" -se 'include "fm-omnigent-contract"; fm_omnigent_telemetry_verified' "$1" >/dev/null 2>&1
+}
+verify_telemetry "$TMP_ROOT/telemetry-off.json" || fail 'excluded telemetry refused permitted new admission'
+jq '.capture_enabled=true | .redactor_endpoint="http://127.0.0.1:5052" |
+  .client_environment.OMNIGENT_TELEMETRY_ENABLED="1" |
+  .client_environment += {OTEL_EXPORTER_OTLP_PROTOCOL:"http/protobuf",
+    OTEL_EXPORTER_OTLP_ENDPOINT:"http://127.0.0.1:5052",OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:"http://127.0.0.1:5052/v1/traces",
+    OTEL_EXPORTER_OTLP_TRACES_HEADERS:""} |
+  .admission="allow_with_gap" | .reason="telemetry_gap"' "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/telemetry-gap.json"
+verify_telemetry "$TMP_ROOT/telemetry-gap.json" || fail 'personal trace gap blocked permitted admission'
+jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
+  "$TMP_ROOT/telemetry-gap.json" > "$TMP_ROOT/telemetry-required.json"
+verify_telemetry "$TMP_ROOT/telemetry-required.json" || fail 'required collection denial receipt refused'
+jq '.delivery_available=true | .admission="allow" | .reason=null | .loss={dropped_items:0}' \
+  "$TMP_ROOT/telemetry-required.json" > "$TMP_ROOT/telemetry-ready.json"
+verify_telemetry "$TMP_ROOT/telemetry-ready.json" || fail 'available required collection receipt refused'
+for invalid in \
+  '.schema_version="1"' \
+  '.owner="omnigent"' \
+  '.capture_enabled="false"' \
+  '.admission="allow"' \
+  '.reason=null' \
+  '.existing_sessions="terminate"' \
+  '.durable_acceptance=true' \
+  '.redactor_endpoint="http://127.0.0.1:5051"' \
+  '.client_environment.OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:5051"' \
+  '.client_environment.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://external.example/v1/traces"' \
+  '.client_environment.OMNIGENT_DATA_DIR="/foreign"' \
+  '.client_environment.OTEL_RESOURCE_ATTRIBUTES="raw-content"' \
+  '.loss="unknown"' \
+  '.retry.max_attempts=0'; do
+  jq "$invalid" "$TMP_ROOT/telemetry-required.json" > "$TMP_ROOT/invalid-telemetry.json"
+  if verify_telemetry "$TMP_ROOT/invalid-telemetry.json"; then fail "unsafe or inconsistent telemetry accepted: $invalid"; fi
+done
+jq '.client_environment.OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:5052"' \
+  "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/invalid-telemetry.json"
+if verify_telemetry "$TMP_ROOT/invalid-telemetry.json"; then fail 'excluded work retained an exporter destination'; fi
+pass 'telemetry admission distinguishes gaps and required denial while preserving existing custody'
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'

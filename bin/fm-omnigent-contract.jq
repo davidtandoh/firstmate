@@ -1,4 +1,4 @@
-# Verify Omnigent runtime launch-contract schema 1 runtime and harness fields.
+# Consumer validation for Omnigent schema 1 and preparatory PAK telemetry.
 # Inputs are the independently selected installer receipt, not measured values
 # copied back as their own expected values. Native wrapper capability remains
 # a separate CLI probe owned by fm-omnigent.sh.
@@ -32,6 +32,11 @@ try (length == 1 and (.[0] |
   (.native_environment | type == "object" and .max_entries == 64 and
     .max_total_bytes == 65536 and .ambient_forwarding == false) and
   .telemetry == {owner:"external",admission:"external_policy"})) catch false;
+def fm_omnigent_runtime_matches($runtime; $server; $environment):
+  try (fm_omnigent_runtime_verified($runtime.executable; $runtime.generation;
+    $runtime.source_commit; $server; $environment) and
+  (.[0].runtime == $runtime) and
+  ($runtime | keys == ["executable", "generation", "package_version", "python", "source_commit", "state_schema"])) catch false;
 def valid_harness_capabilities:
   . as $caps | type == "object" and
   all(["integration_mode", "elicitation", "resume", "effort", "model_family",
@@ -55,6 +60,42 @@ def fm_omnigent_harness_verified($harness):
       (map(.id) | unique | length) == length and
       (map(.command) | unique | length) == length and
       ([.[] | select(.command == $harness)] | length) == 1))) catch false;
+# Preparatory PAK telemetry schema validation. Scope/policy labels remain
+# opaque owner fields; admission uses the owner's explicit booleans and verdict.
+# Loss null remains unknown. This predicate neither starts nor stops a session.
+def telemetry_environment_names($capture):
+  (["OMNIGENT_TELEMETRY_ENABLED", "OMNIGENT_OTEL_CAPTURE_CONTENT",
+    "OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION", "OTEL_METRICS_EXPORTER", "OTEL_LOGS_EXPORTER"] +
+   (if $capture then ["OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_ENDPOINT",
+                     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_HEADERS"] else [] end)) | sort;
+def redactor_url:
+  type == "string" and test("^http://(127\\.0\\.0\\.1|localhost|\\[::1\\]):5052(/v1/traces)?/?$");
+def fm_omnigent_telemetry_verified:
+  try (length == 1 and (.[0] | . as $policy |
+    type == "object" and .schema_version == 1 and .owner == "pak" and
+    (.session_scope | type == "string" and length > 0) and
+    (.work_session_policy | type == "string" and length > 0) and
+    (.capture_enabled | type == "boolean") and
+    (.collection_required | type == "boolean") and
+    (.delivery_available | type == "boolean") and
+    .existing_sessions == "preserve" and .durable_acceptance == false and
+    has("loss") and (.loss == null or (.loss | type == "object" and
+      all(.[]; type == "number" and . >= 0 and floor == .))) and
+    .retry == {max_attempts:3,memory_queue_items:64,memory_queue_bytes:67108864} and
+    (.client_environment | type == "object" and
+      keys == telemetry_environment_names($policy.capture_enabled) and
+      all(.[]; type == "string" and (test("[\u0000-\u001f\u007f]") | not))) and
+    (if .capture_enabled then
+       (.redactor_endpoint | redactor_url) and
+       (.client_environment.OTEL_EXPORTER_OTLP_ENDPOINT | redactor_url) and
+       (.client_environment.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT | redactor_url)
+     else .redactor_endpoint == null end) and
+    has("reason") and
+    (if .collection_required and ((.capture_enabled | not) or (.delivery_available | not)) then
+       .admission == "deny_new" and .reason == "required_collection_unavailable"
+     elif .capture_enabled and (.delivery_available | not) then
+       .admission == "allow_with_gap" and .reason == "telemetry_gap"
+     else .admission == "allow" and .reason == null end))) catch false;
 def fm_omnigent_error_category:
   if length == 1 and (.[0] | type == "object" and .schema_version == 1 and
       (.error | type == "object" and
