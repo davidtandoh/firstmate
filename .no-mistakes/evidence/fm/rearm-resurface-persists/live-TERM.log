@@ -1,0 +1,30 @@
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/TERM
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/TERM
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: handled initial lab work
+exit=0
+$ bin/fm-wake-drain.sh
+1791794990	1	check	lab	check: handled initial lab work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49406.1791794990.2Be2XE
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49406.1791794990.2Be2XE
+exit=0
+acknowledged_marker=acked:handling:49406.1791794990.2Be2XE
+sent=TERM watcher_pid=50052
+first_arm_exit=143
+after_rearm=live_and_quiet_for_6_seconds
+marker_unchanged=true
+queue_bytes=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: later real work after TERM
+exit=0
+$ bin/fm-wake-drain.sh
+1791795001	2	check	lab	check: later real work after TERM
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 53900.1791795001.qahe5R
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 53900.1791795001.qahe5R
+exit=0
+later_work=delivered_and_acknowledged
+result=pass
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0

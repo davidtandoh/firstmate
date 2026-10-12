@@ -1,0 +1,12 @@
+{
+  "duration_ms": 66535,
+  "exit": 0,
+  "gate_skip": false,
+  "script": "tests/fm-supervision-host.test.sh",
+  "selectors": [
+    "test_next_park_takes_over_the_cycle_a_pass_through_left_for_main",
+    "test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park",
+    "test_undelivered_dialog_is_fed_again_on_the_next_turn"
+  ],
+  "timeout": false
+}

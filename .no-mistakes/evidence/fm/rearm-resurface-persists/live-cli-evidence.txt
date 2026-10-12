@@ -1,0 +1,169 @@
+Actual product CLI validation in marked disposable homes with private tmux.
+No fake terminal backend or substituted product executable.
+Native Claude remained at workspace trust; these are CLI results, not Claude turn-end acceptance.
+
+SCENARIO TERM
+live-TERM.log
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/TERM
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/TERM
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: handled initial lab work
+exit=0
+$ bin/fm-wake-drain.sh
+1791794990	1	check	lab	check: handled initial lab work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49406.1791794990.2Be2XE
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 49406.1791794990.2Be2XE
+exit=0
+acknowledged_marker=acked:handling:49406.1791794990.2Be2XE
+sent=TERM watcher_pid=50052
+first_arm_exit=143
+after_rearm=live_and_quiet_for_6_seconds
+marker_unchanged=true
+queue_bytes=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: later real work after TERM
+exit=0
+$ bin/fm-wake-drain.sh
+1791795001	2	check	lab	check: later real work after TERM
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 53900.1791795001.qahe5R
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 53900.1791795001.qahe5R
+exit=0
+later_work=delivered_and_acknowledged
+result=pass
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+
+live-TERM-first-arm.log
+watcher: started pid=50052 (beacon fresh)
+watcher: FAILED - watcher cycle exited 143 without an actionable reason
+
+live-TERM-next-arm.log
+watcher: started pid=51267 (beacon fresh)
+check: rearm-resurface
+
+SCENARIO HUP
+live-HUP.log
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/HUP
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/HUP
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: handled initial lab work
+exit=0
+$ bin/fm-wake-drain.sh
+1791795002	1	check	lab	check: handled initial lab work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 54878.1791795002.2LFfGe
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 54878.1791795002.2LFfGe
+exit=0
+acknowledged_marker=acked:handling:54878.1791795002.2LFfGe
+sent=HUP watcher_pid=55533
+first_arm_exit=129
+after_rearm=live_and_quiet_for_6_seconds
+marker_unchanged=true
+queue_bytes=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: later real work after HUP
+exit=0
+$ bin/fm-wake-drain.sh
+1791795013	2	check	lab	check: later real work after HUP
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 58603.1791795013.AYj6Gz
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 58603.1791795013.AYj6Gz
+exit=0
+later_work=delivered_and_acknowledged
+result=pass
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+
+live-HUP-first-arm.log
+watcher: started pid=55533 (beacon fresh)
+watcher: FAILED - watcher cycle exited 129 without an actionable reason
+
+live-HUP-next-arm.log
+watcher: started pid=56755 (beacon fresh)
+check: rearm-resurface
+
+SCENARIO KILL
+live-KILL.log
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/KILL
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/KILL
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: handled initial lab work
+exit=0
+$ bin/fm-wake-drain.sh
+1791795015	1	check	lab	check: handled initial lab work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 60203.1791795015.10Jhp6
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 60203.1791795015.10Jhp6
+exit=0
+acknowledged_marker=acked:handling:60203.1791795015.10Jhp6
+sent=KILL watcher_pid=60849
+first_arm_exit=137
+after_rearm=live_and_quiet_for_6_seconds
+marker_unchanged=true
+queue_bytes=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: later real work after KILL
+exit=0
+$ bin/fm-wake-drain.sh
+1791795026	2	check	lab	check: later real work after KILL
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 63385.1791795026.wFJBpn
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 63385.1791795026.wFJBpn
+exit=0
+later_work=delivered_and_acknowledged
+result=pass
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+
+live-KILL-first-arm.log
+watcher: started pid=60849 (beacon fresh)
+bin/fm-watch-arm.sh: line 766: 60849 Killed: 9               "$WATCH" > "$child_out"
+watcher: FAILED - watcher cycle exited 137 without an actionable reason
+
+live-KILL-next-arm.log
+watcher: started pid=61926 (beacon fresh)
+check: rearm-resurface
+
+SCENARIO interpreter-failure
+live-interpreter-failure.log
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/interpreter-failure
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-home/interpreter-failure
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: handled initial lab work
+exit=0
+$ bin/fm-wake-drain.sh
+1791795027	1	check	lab	check: handled initial lab work
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 64358.1791795027.JwclY2
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 64358.1791795027.JwclY2
+exit=0
+acknowledged_marker=acked:handling:64358.1791795027.JwclY2
+first_arm_exit=1
+after_rearm=live_and_quiet_for_6_seconds
+marker_unchanged=true
+queue_bytes=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check lab "$1" _ check: later real work after interpreter-failure
+exit=0
+$ bin/fm-wake-drain.sh
+1791795034	2	check	lab	check: later real work after interpreter-failure
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 68190.1791795034.Q7mAaA
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 68190.1791795034.Q7mAaA
+exit=0
+later_work=delivered_and_acknowledged
+result=pass
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+
+live-interpreter-failure-first-arm.log
+watcher: started pid=65006 (beacon fresh)
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/bin/fm-watch.sh: line 3281: invalid: unbound variable
+watcher: FAILED - watcher cycle exited 1 without an actionable reason
+
+live-interpreter-failure-next-arm.log
+watcher: started pid=65718 (beacon fresh)
+check: rearm-resurface
+

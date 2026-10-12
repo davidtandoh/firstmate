@@ -1,0 +1,2 @@
+bin/fm-watch-arm.sh: line 786: 24740 Killed: 9               "$WATCH" > "$child_out"
+watcher: FAILED - watcher cycle exited 137 without an actionable reason

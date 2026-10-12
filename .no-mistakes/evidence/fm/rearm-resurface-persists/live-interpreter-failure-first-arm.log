@@ -1,0 +1,3 @@
+watcher: started pid=65006 (beacon fresh)
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/bin/fm-watch.sh: line 3281: invalid: unbound variable
+watcher: FAILED - watcher cycle exited 1 without an actionable reason

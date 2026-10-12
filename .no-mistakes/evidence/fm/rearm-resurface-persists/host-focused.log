@@ -1,0 +1,8 @@
+Selected existing behavioral cases:
+test_next_park_takes_over_the_cycle_a_pass_through_left_for_main
+test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park
+test_undelivered_dialog_is_fed_again_on_the_next_turn
+ok - host+hook: the next park takes over the cycle a main-only pass-through left, so one arm owns it
+ok - host+hook: a park stopped mid take-over leaves the take-over to the next park
+ok - host: dialog a turn never completed with its report (a park boundary, a stopped turn, no report) reaches the next turn
+{"duration_ms": 66535, "exit": 0, "gate_skip": false, "script": "tests/fm-supervision-host.test.sh", "selectors": ["test_next_park_takes_over_the_cycle_a_pass_through_left_for_main", "test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park", "test_undelivered_dialog_is_fed_again_on_the_next_turn"], "timeout": false}

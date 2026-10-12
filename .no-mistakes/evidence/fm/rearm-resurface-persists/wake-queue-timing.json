@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 211619,
+      "failed": 0,
+      "name": "watcher-wake-lock"
+    }
+  ],
+  "finished_at": "2026-10-12T08:54:22Z",
+  "run_id": "fm-test-run-1791795051039-70946",
+  "scripts": [
+    {
+      "duration_ms": 211619,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "watcher-wake-lock",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-wake-queue.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-10-12T08:50:50Z",
+  "summary": {
+    "duration_ms": 211929,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}

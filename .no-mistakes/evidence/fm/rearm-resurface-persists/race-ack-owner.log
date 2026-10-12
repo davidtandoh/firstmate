@@ -1,0 +1,3 @@
+watcher: started pid=19545 (beacon fresh)
+watcher: recovery state could not be persisted; retaining stale lock evidence
+watcher: FAILED - watcher cycle exited 143 without an actionable reason

@@ -1,0 +1,3 @@
+watcher: started pid=60849 (beacon fresh)
+bin/fm-watch-arm.sh: line 766: 60849 Killed: 9               "$WATCH" > "$child_out"
+watcher: FAILED - watcher cycle exited 137 without an actionable reason

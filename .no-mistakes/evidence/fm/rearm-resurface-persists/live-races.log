@@ -1,0 +1,61 @@
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races
+exit=0
+$ bin/fm-lab-home.sh tmux-dir /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races
+/tmp/fml.Q12Dw7
+exit=0
+$ tmux -L fm-lab new-session -d -s cli -c /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ /bin/sh
+exit=0
+$ tmux -L fm-lab display-message -p -t cli #{socket_path},#{pid},0
+/private/tmp/fml.Q12Dw7/tmux-501/fm-lab,19514,0
+exit=0
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races/ack-overlap
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races/ack-overlap
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check race "$1" _ check: acknowledgement overlaps native watcher shutdown
+exit=0
+$ bin/fm-wake-drain.sh
+1791795287	1	check	race	check: acknowledgement overlaps native watcher shutdown
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 19985.1791795287.AAk4K6
+exit=0
+ack-overlap: real acknowledgement paused; marker=acked:handling:19985.1791795287.AAk4K6; queue remains nonempty
+ack-overlap: bounded shutdown preserved marker and stale watcher evidence
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check race "$1" _ check: new durable work after overlapping acknowledgement
+exit=0
+$ bin/fm-wake-drain.sh
+1791795296	2	check	race	check: new durable work after overlapping acknowledgement
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 23524.1791795296.SGFrHM
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 23524.1791795296.SGFrHM
+exit=0
+ack-overlap: PASS; committed acknowledgement stayed quiet, later durable work resurfaced
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races/announcement-interruption
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races/announcement-interruption
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_recovery_marker_publish "$STATE/.watcher-down" handling; fm_recovery_marker_publish "$STATE/.watcher-down" downtime
+exit=0
+announcement-interruption: watcher killed after announcement and before delivery; generation=24622.1791795298.sAXdUR
+$ bin/fm-wake-drain.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 24622.1791795298.sAXdUR
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 24622.1791795298.sAXdUR
+exit=0
+$ /bin/bash -c . bin/fm-wake-lib.sh; fm_wake_append check race "$1" _ check: real work after recovered announcement
+exit=0
+$ bin/fm-wake-drain.sh
+1791795305	1	check	race	check: real work after recovered announcement
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 27952.1791795305.Resi9S
+exit=0
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 27952.1791795305.Resi9S
+exit=0
+announcement-interruption: PASS; retry retained generation, acknowledgement stopped replay, later work woke
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+$ bin/fm-watch-arm.sh --stop
+watcher: none running
+exit=0
+$ tmux -L fm-lab kill-server
+exit=0
+$ bin/fm-lab-home.sh teardown /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M4PNWW27JM5K5V2XTQ5VS8GJ/.nm-live-races
+exit=0
