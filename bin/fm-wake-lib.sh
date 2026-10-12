@@ -169,12 +169,11 @@ fm_watcher_lock_unheld() {
 FM_WATCHER_MATCHED_IDENTITY=
 fm_watcher_lock_matches_pid() {
   local state=$1 watch_path=$2 pid=$3 home=${4:-$FM_HOME} lockdir lock_home lock_path lock_identity current_identity
-  local identity_file=${5:-pid-identity}
   FM_WATCHER_MATCHED_IDENTITY=
   lockdir="$state/.watch.lock"
   lock_home=$(cat "$lockdir/fm-home" 2>/dev/null || true)
   lock_path=$(cat "$lockdir/watcher-path" 2>/dev/null || true)
-  lock_identity=$(cat "$lockdir/$identity_file" 2>/dev/null || true)
+  lock_identity=$(cat "$lockdir/pid-identity" 2>/dev/null || true)
   [ "$lock_home" = "$home" ] || return 1
   [ "$lock_path" = "$watch_path" ] || return 1
   [ -n "$lock_identity" ] || return 1
@@ -470,7 +469,6 @@ fm_lock_clean_known_files() {
     "$lockdir/pid" \
     "$lockdir/fm-home" \
     "$lockdir/pid-identity" \
-    "$lockdir/cleanup-identity" \
     "$lockdir/role" \
     "$lockdir/watcher-path" \
     2>/dev/null || true
@@ -716,7 +714,7 @@ _fm_recovery_marker_publish() {
   local marker=$1 kind=${2:-downtime} bound=${3:-} source=${4:-watcher}
   local lock saved_token generation='' status=pending previous_append_token=''
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|append|clean-close) ;; *) return 1 ;; esac
+  case "$source" in watcher|append) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
@@ -742,7 +740,7 @@ _fm_recovery_marker_publish() {
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
         acked:*)
-          if [ "$source" = clean-close ]; then
+          if [ "$source" = watcher ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
             FM_RECOVERY_MARKER_TOKEN=$saved_token
             fm_lock_release "$lock"
             return 0
@@ -757,7 +755,7 @@ _fm_recovery_marker_publish() {
           status=pending
           ;;
         announced:downtime:*)
-          if [ "$source" != append ]; then
+          if [ "$source" = watcher ]; then
             generation=${FM_RECOVERY_MARKER_TOKEN##*:}
             status=announced
           fi
@@ -1061,11 +1059,9 @@ fm_recovery_transition() {
     reopen-announced)
       _fm_recovery_marker_reopen_announced "$marker"
       ;;
-    release-lock|release-lock-clean)
+    release-lock)
       [ -n "$target" ] || return 1
-      local source=watcher
-      [ "$action" != release-lock-clean ] || source=clean-close
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" "$source" || return 1
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
       fm_lock_release "$target"
       ;;
     release-lock-existing)
@@ -1090,45 +1086,6 @@ fm_recovery_transition() {
       ;;
     *) return 2 ;;
   esac
-}
-
-fm_watcher_cleanup_lock_bound() {
-  local bound=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}
-  case "$bound" in
-    ''|*[!0-9]*) bound=2 ;;
-    *) bound=$((10#$bound)) ;;
-  esac
-  [ "$bound" -gt 0 ] || bound=2
-  printf '%s\n' "$bound"
-}
-
-fm_watcher_wait_for_cleanup() {
-  local state=$1 watch=$2 home=${3:-$FM_HOME} lock_pid deadline bound
-  bound=$(fm_watcher_cleanup_lock_bound)
-  deadline=$((SECONDS + bound + 1))
-  while :; do
-    lock_pid=$(cat "$state/.watch.lock/pid" 2>/dev/null || true)
-    fm_pid_alive "$lock_pid" || return 0
-    fm_watcher_lock_matches_pid "$state" "$watch" "$lock_pid" "$home" cleanup-identity || return 0
-    if [ "$SECONDS" -ge "$deadline" ]; then
-      echo "watcher: FAILED - cleanup owner pid=$lock_pid did not release the watcher lock" >&2
-      return 1
-    fi
-    sleep 0.1
-  done
-}
-
-fm_watcher_finish_cleanup() {
-  local state=$1 status=$2 current lock transition=release-lock bound
-  lock="$state/.watch.lock"
-  fm_current_pid current || return 1
-  [ "$(cat "$lock/pid" 2>/dev/null || true)" = "$current" ] || return 0
-  case "$status" in 0|129|143) transition=release-lock-clean ;; esac
-  bound=$(fm_watcher_cleanup_lock_bound)
-  fm_recovery_transition "$state/.watcher-down" "$transition" "$lock" downtime "$bound" || {
-    echo "watcher: recovery state could not be persisted; retaining stale lock evidence" >&2
-    return 1
-  }
 }
 
 fm_recovery_marker_publish() {
@@ -1331,38 +1288,32 @@ fm_lock_acquire_wait_max() {  # <lockdir> <max-seconds>
   done
 }
 
-fm_lock_handoff() {
-  local lockdir=$1 caller_pid=$2 ownerdir current back
-  case "$caller_pid" in ''|*[!0-9]*) return 1 ;; esac
-  fm_pid_alive "$caller_pid" || return 1
-  if [ -L "$lockdir" ]; then
-    ownerdir=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || return 1
-  else
-    ownerdir=$lockdir
-  fi
-  fm_current_pid current || return 1
-  back=$(cat "$ownerdir/pid" 2>/dev/null || true)
-  if [ "$back" != "$current" ] \
-    || ! printf '%s\n' "$caller_pid" > "$ownerdir/pid" 2>/dev/null \
-    || [ "$(cat "$ownerdir/pid" 2>/dev/null || true)" != "$caller_pid" ]; then
-    return 1
-  fi
-}
-
 # Acquire in the timed helper process, then transfer the lock record to the
 # waiting caller before exiting. The lock's ordinary stale-owner recovery makes
 # every interruption safe: before transfer the helper is the owner; after
 # transfer the still-live caller is the owner.
 _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
-  local lockdir=$1 caller_pid=$2
+  local lockdir=$1 caller_pid=$2 ownerdir current back
   case "$caller_pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_pid_alive "$caller_pid" || return 1
   trap 'fm_lock_release "$lockdir"; exit 143' TERM INT
   fm_lock_acquire_wait "$lockdir" || return 1
-  fm_lock_handoff "$lockdir" "$caller_pid" || {
+  if [ -L "$lockdir" ]; then
+    ownerdir=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || {
+      fm_lock_release "$lockdir"
+      return 1
+    }
+  else
+    ownerdir=$lockdir
+  fi
+  fm_current_pid current || { fm_lock_release "$lockdir"; return 1; }
+  back=$(cat "$ownerdir/pid" 2>/dev/null || true)
+  if [ "$back" != "$current" ] \
+    || ! printf '%s\n' "$caller_pid" > "$ownerdir/pid" 2>/dev/null \
+    || [ "$(cat "$ownerdir/pid" 2>/dev/null || true)" != "$caller_pid" ]; then
     fm_lock_release "$lockdir"
     return 1
-  }
+  fi
   trap - TERM INT
 }
 

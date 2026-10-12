@@ -293,7 +293,6 @@ clear_stale_recorded_watcher_lock() {
   [ "$lock_home" = "$FM_HOME" ] || return 0
   [ "$lock_path" = "$WATCH" ] || return 0
   [ -n "$lock_identity" ] || return 0
-  [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "$1" ] || return 0
   fm_recovery_transition "$STATE/.watcher-down" clear-stale-lock "$WATCH_LOCK" downtime
 }
 
@@ -509,16 +508,15 @@ if [ "$mode" = handling-delivered ]; then
   exit $?
 fi
 
-STOPPED_PID=
-
 # Home-scoped stop: only the watcher pid recorded in THIS home's lock. Waits
 # for it to actually exit, so a fresh watcher either takes a released lock or
 # reclaims a now-dead-pid stale lock instead of seeing the dying one as a live
 # holder and no-opping. Sets STOPPED_PID to the pid it stopped.
+STOPPED_PID=
 stop_home_watcher() {
   local lock_pid i
   lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
-  fm_pid_alive "$lock_pid" || { fm_watcher_wait_for_cleanup "$STATE" "$WATCH" "$FM_HOME"; return $?; }
+  fm_pid_alive "$lock_pid" || return 0
   if fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME"; then
     kill -TERM "$lock_pid" 2>/dev/null || true
     i=0
@@ -527,13 +525,10 @@ stop_home_watcher() {
       i=$((i + 1))
     done
     STOPPED_PID=$lock_pid
-  elif fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME" cleanup-identity; then
-    :
-  elif ! clear_stale_recorded_watcher_lock "$lock_pid"; then
+  elif ! clear_stale_recorded_watcher_lock; then
     echo "watcher: FAILED - stale watcher recovery state could not be persisted" >&2
     return 1
   fi
-  fm_watcher_wait_for_cleanup "$STATE" "$WATCH" "$FM_HOME"
 }
 
 if [ "$mode" = restart ]; then
@@ -643,7 +638,7 @@ cleanup_child() {
 
 # shellcheck disable=SC2329 # Invoked indirectly by the signal traps below.
 handle_arm_signal() {
-  local signal=$1 rc=$2 child_status
+  local signal=$1 rc=$2
   trap - HUP TERM INT
   if [ -n "$child" ] && fm_pid_alive "$child"; then
     # The watcher installs its own cleanup traps only after acquiring and
@@ -659,11 +654,7 @@ handle_arm_signal() {
       fi
       sleep 0.02
     done
-  fi
-  if [ -n "$child" ]; then
-    wait "$child" 2>/dev/null
-    child_status=$?
-    fm_watcher_finish_cleanup "$STATE" "$child_status" || rc=1
+    wait "$child" 2>/dev/null || true
   fi
   cycle_log_append "$rc" "$signal" arm-interrupted none
   cleanup_child
@@ -682,9 +673,9 @@ child_out=$(mktemp "$STATE/.watch-arm-output.XXXXXX") || {
 # collapsing when startup begins just before the next second boundary.
 deadline=$(( $(date +%s) + CONFIRM_TIMEOUT + 1 ))
 if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
-  FM_WATCH_ARM_PID=$ARM_PID FM_WATCH_HANDLING_SUCCESSOR=1 "$WATCH" >"$child_out" &
+  FM_WATCH_HANDLING_SUCCESSOR=1 "$WATCH" >"$child_out" &
 else
-  FM_WATCH_ARM_PID=$ARM_PID "$WATCH" >"$child_out" &
+  "$WATCH" >"$child_out" &
 fi
 child=$!
 cycle_begin "$child" started "$(fm_pid_identity "$child" 2>/dev/null || true)"
@@ -692,7 +683,6 @@ child_done=0
 
 owned_child_finished() {
   local rc=$1 signal reason_type status
-  fm_watcher_finish_cleanup "$STATE" "$rc" || rc=1
   signal=$(cycle_signal_name "$rc")
   if [ "$rc" -eq 0 ] && watch_output_has_wake "$child_out"; then
     reason_type=$(watch_output_reason_type "$child_out")
@@ -761,8 +751,7 @@ while :; do
       cycle_refresh_lock_before
       if ! handling_generation=$(handling_successor_generation); then
         cleanup_child
-        wait "$child" 2>/dev/null
-        fm_watcher_finish_cleanup "$STATE" "$?" || true
+        wait "$child" 2>/dev/null || true
         cycle_log_append 1 none handling-handoff-failed none
         echo "watcher: FAILED - established successor could not inspect handling state"
         exit 1
@@ -801,7 +790,6 @@ print_watch_output "$child_out"
 cleanup_child
 wait "$child" 2>/dev/null
 rc=$?
-fm_watcher_finish_cleanup "$STATE" "$rc" || rc=1
 cycle_log_append "$rc" "$(cycle_signal_name "$rc")" confirmation-timeout none
 echo "watcher: FAILED - no live watcher with a fresh beacon"
 exit 1

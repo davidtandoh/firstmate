@@ -227,19 +227,13 @@ If a durable row arrived after the announcement, the arm opens a fresh pending d
 ### Generation reuse
 
 An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
-A clean close, including native HUP or TERM cleanup, preserves an acknowledged episode under the marker lock instead of opening empty recovery work.
-Explicit failure exits and stale-lock recovery still publish new downtime after an acknowledgement.
-An EXIT trap cannot distinguish an interpreter failure from a native signal that inherited a false predicate's status.
-For an ambiguous nonzero close, watcher cleanup transfers its singleton lock to its direct owning arm.
-The lock records that cleanup owner's process identity before the transfer.
-Stop and watcher acquisition wait for an identity-matched cleanup owner to release the lock before reporting completion or starting a replacement.
-Acquisition repeats this check after stalled-watcher eviction, then retries if lock ownership changed.
-The wait is bounded by `FM_WATCHER_CLEANUP_LOCK_BOUND` plus one second; expiration reports failure without clearing or signalling the live cleanup owner.
-The arm waits for the watcher's final status, then preserves an acknowledgement for native HUP or TERM and publishes downtime for failure.
-The transfer keeps a live lock owner until the arm finishes cleanup; if the arm dies or cannot persist recovery within `FM_WATCHER_CLEANUP_LOCK_BOUND`, the retained singleton provides stale-lock recovery evidence.
-Without a direct owning arm, an ambiguous nonzero close publishes downtime conservatively.
+Every watcher shutdown and stale-lock recovery preserves an acknowledged episode while its durable queue is empty, regardless of exit cause.
+This includes native HUP or TERM, explicit failures, interpreter failures, and abrupt termination.
+The marker lock serializes that decision with acknowledgement and durable append publication.
+A successful durable append opens recovery even after acknowledgement.
+The watcher retains ownership of its singleton until cleanup releases it; its arm never becomes the cleanup owner.
 A handling successor closing to resurface recovery preserves the existing marker instead.
-If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
+If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to reconcile recovery before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
@@ -261,7 +255,7 @@ It is a non-fatal result that names its own remedy: re-drain, then acknowledge t
 The acknowledgement retires the marker only when no rows remain after sequence-bound consumption.
 A concurrently appended wake has a higher sequence, remains queued, and keeps the episode pending for presentation.
 Consequently, a watcher close during handling republishes the same generation as pending and forces one recovery turn even when no queue row remains, while the outstanding generation-bound acknowledgement stays valid.
-An acknowledged episode does not freeze the generation, because new durable work or failure downtime opens an episode of its own.
+An acknowledged episode does not freeze the generation, because new durable work opens an episode of its own.
 
 ## Per-actor acknowledgement
 
@@ -459,10 +453,10 @@ They also prove that a legacy or handoff-phase watcher marker from an absent rep
 
 - Durable queue replay.
 - Real remote parent-replies ingestion into the authoritative status log.
-- Decision-only OPEN DECISIONS recovery.
+- Unacknowledged decision-only OPEN DECISIONS recovery; acknowledged empty episodes remain quiet after a crash.
 - Interrupted handling replay.
 - Generation-bound acknowledgement.
-- Acknowledged watcher TERM/HUP and arm TERM closes that leave the next empty arm quiet while later durable work still wakes it.
+- Acknowledged watcher TERM/HUP/KILL, arm TERM, and failure closes that leave the next empty arm quiet while later durable work still wakes it.
 - A persistent live successor after recovery.
 - An idle live Lavish source that stays quiet until its real result wakes promptly.
 - An append that reopens an announced empty recovery.
