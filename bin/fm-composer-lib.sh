@@ -178,6 +178,33 @@ fm_composer_strip_ansi() {
   LC_ALL=C sed "s/${esc}\\[[0-9;:?]*[[:alpha:]]//g"
 }
 
+# Omnigent draws its conversation link in tmux's status row, below the native
+# viewport. In an outer capture that row can touch a bare composer and look
+# like wrapped input. Blank only a complete local conversation banner on the
+# last non-blank row. Preserve row indices, ANSI on all other rows, and a
+# banner under the native cursor (which could be real wrapped draft text).
+# Both classification and selected-content extraction use this boundary.
+fm_composer_strip_omnigent_footer() {  # <screen> [cursor-row]
+  printf '%s\n' "$1" | LC_ALL=C awk -v cursor="${2:-}" '
+    {
+      rows[NR] = $0
+      plain = $0
+      gsub(/\033\[[0-9;:?]*[[:alpha:]]/, "", plain)
+      sub(/^[ \t\r]+/, "", plain)
+      sub(/[ \t\r]+$/, "", plain)
+      if (plain != "") { last = NR; footer = plain }
+    }
+    END {
+      if (footer ~ /^Omnigent: http:\/\/(127\.0\.0\.1|localhost|\[::1\]):[0-9]+\/c\/[a-f0-9]+$/) {
+        id = footer
+        sub(/^.*\/c\//, "", id)
+        if (length(id) == 32 && (cursor == "" || cursor + 1 != last)) rows[last] = ""
+      }
+      for (i = 1; i <= NR; i++) print rows[i]
+    }
+  '
+}
+
 # Every code point Unicode gives the property White_Space=Yes that lies OUTSIDE
 # ASCII, as UTF-8 byte sequences. Built from octal escapes rather than written
 # literally so each entry stays reviewable in source instead of being an
@@ -1718,6 +1745,7 @@ fm_composer_extract_selected_content() {  # <caps> <screen>
   done <<EOF
 $caps
 EOF
+  screen=$(fm_composer_strip_omnigent_footer "$screen")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
   _fm_composer_select_cursorless "$plain" || return 1
@@ -1872,6 +1900,7 @@ EOF
   if [ -n "$cy" ]; then
     case "$cy" in *[!0-9]*) printf 'unknown'; return 0 ;; esac
   fi
+  screen=$(fm_composer_strip_omnigent_footer "$screen" "$cy")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" "$cy"
   if [ -n "$cy" ]; then

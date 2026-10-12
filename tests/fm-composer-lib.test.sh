@@ -1262,6 +1262,51 @@ test_omnigent_codex_requires_preserved_glyph() {
 }
 test_omnigent_codex_requires_preserved_glyph
 
+test_omnigent_footer_bounds_bare_composer() {
+  local banner screen caps glyph content want expected out host
+  banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
+  for glyph in '❯' '›' '⟩' '→' '❭'; do
+    for content in '' 'unsubmitted draft' "$banner"; do
+      want=pending
+      [ -n "$content" ] || want=empty
+      screen=$(printf '%s %s\n%s\n\n' "$glyph" "$content" "$banner")
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        expected=$want
+        [ "$caps" != "$CAPS_PLAIN" ] || { [ "$want" != pending ] || expected=unknown; }
+        assert_screen "Omnigent $glyph footer" "$expected" "$caps" "$screen"
+      done
+      # tmux's real cursor remains on the native composer, above the banner.
+      want=pending
+      [ -n "$content" ] || want=empty
+      assert_screen "Omnigent $glyph native cursor" "$want" "$CAPS_TMUX" "$screen" 0
+    done
+  done
+  screen=$(printf '❯\nwrapped draft\n%s\n' "$banner")
+  assert_screen 'wrapped draft above Omnigent footer' pending "$CAPS_STYLED" "$screen"
+  assert_screen 'tmux wrapped draft above Omnigent footer' pending "$CAPS_TMUX" "$screen" 1
+  out=$(fm_composer_extract_selected_content styled=1 "$screen")
+  [ "$out" = 'wrapped draft' ] || fail "Omnigent footer leaked into selected content: $out"
+  for host in '127.0.0.1' localhost '[::1]'; do
+    screen=$(printf '❯\n\033[39mOmnigent: http://%s:52131/c/0123456789abcdef0123456789abcdef\033[0m\n\n' "$host")
+    assert_screen 'styled local Omnigent footer' empty "$CAPS_STYLED" "$screen"
+  done
+  for screen in "$banner" "$(printf '_\n%s\n' "$banner")"; do
+    assert_screen 'Omnigent footer proves no composer' unknown "$CAPS_STYLED" "$screen"
+  done
+  # A quoted banner in a draft, or an incomplete/non-local URL, is content.
+  for content in "$banner extra" 'Omnigent: http://example.com:52131/c/0123456789abcdef0123456789abcdef' \
+    'Omnigent: http://127.0.0.1:52131/c/short'; do
+    assert_screen 'unproven Omnigent footer remains content' pending "$CAPS_STYLED" "$(printf '❯\n%s\n' "$content")"
+  done
+  screen=$(printf '❯\n%s\nmore typed text\n' "$banner")
+  assert_screen 'Omnigent URL inside a wrapped draft' pending "$CAPS_STYLED" "$screen"
+  screen=$(printf '❯\n%s\n%s\n' "$banner" "$banner")
+  assert_screen 'only the final Omnigent banner is furniture' pending "$CAPS_STYLED" "$screen"
+  assert_screen 'cursor on Omnigent URL is draft content' pending "$CAPS_TMUX" "$(printf '❯\n%s\n' "$banner")" 1
+  pass 'Omnigent footer bounds bare composers while drafts and unproven rows retain their verdicts'
+}
+test_omnigent_footer_bounds_bare_composer
+
 
 # The selected row sits on cursor row 1 so a tmux read whose cursor is that
 # row, and a cursorless read, both still see unsubmitted text.

@@ -2600,7 +2600,7 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 ## Omnigent wrapper process boundary
 
-The [Omnigent verification record](omnigent.md) owns wrapper attribution, native control and trace-export evidence, remaining live boundaries, and the live guard refresh command.
+The [Omnigent verification record](omnigent.md) owns wrapper attribution, composer-footer evidence, native control and trace-export evidence, remaining live boundaries, and the live guard refresh command.
 
 ## Busy inbox escalation
 
