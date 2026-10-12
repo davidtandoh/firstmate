@@ -4017,13 +4017,18 @@ test_composer_state_popup_placeholder_fill_is_pending() {
 }
 
 test_composer_state_omnigent_footer_and_doorbell() {
-  local dir log resp fb out content want rc sent
-  for content in '' 'real unsubmitted draft'; do
+  local dir log resp fb out content want rc sent banner
+  banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
+  for content in '' 'real draft' "$banner"; do
     want=pending
     [ -n "$content" ] || want=empty
-    dir="$TMP_ROOT/composer-omnigent-$want"; mkdir -p "$dir/responses"
+    dir="$TMP_ROOT/composer-omnigent-$want-${#content}"; mkdir -p "$dir/responses"
     log="$dir/log"; resp="$dir/responses"; sent="$dir/sent"; : > "$log"; : > "$sent"
-    printf '❯ %s\nOmnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef\n' "$content" > "$resp/1.out"
+    if [ "$content" = "$banner" ]; then
+      printf '❯\n%s\n' "$content" > "$resp/1.out"
+    else
+      printf '╭────────────────────────╮\n│ ❯ %-21s│\n╰────────────────────────╯\n%s\n' "$content" "$banner" > "$resp/1.out"
+    fi
     cp "$resp/1.out" "$resp/2.out"
     cp "$resp/1.out" "$resp/3.out"
     fb=$(make_herdr_fakebin "$dir")

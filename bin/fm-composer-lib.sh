@@ -178,33 +178,6 @@ fm_composer_strip_ansi() {
   LC_ALL=C sed "s/${esc}\\[[0-9;:?]*[[:alpha:]]//g"
 }
 
-# Omnigent draws its conversation link in tmux's status row, below the native
-# viewport. In an outer capture that row can touch a bare composer and look
-# like wrapped input. Blank only a complete local conversation banner on the
-# last non-blank row. Preserve row indices, ANSI on all other rows, and a
-# banner under the native cursor (which could be real wrapped draft text).
-# Both classification and selected-content extraction use this boundary.
-fm_composer_strip_omnigent_footer() {  # <screen> [cursor-row]
-  printf '%s\n' "$1" | LC_ALL=C awk -v cursor="${2:-}" '
-    {
-      rows[NR] = $0
-      plain = $0
-      gsub(/\033\[[0-9;:?]*[[:alpha:]]/, "", plain)
-      sub(/^[ \t\r]+/, "", plain)
-      sub(/[ \t\r]+$/, "", plain)
-      if (plain != "") { last = NR; footer = plain }
-    }
-    END {
-      if (footer ~ /^Omnigent: http:\/\/(127\.0\.0\.1|localhost|\[::1\]):[0-9]+\/c\/[a-f0-9]+$/) {
-        id = footer
-        sub(/^.*\/c\//, "", id)
-        if (length(id) == 32 && (cursor == "" || cursor + 1 != last)) rows[last] = ""
-      }
-      for (i = 1; i <= NR; i++) print rows[i]
-    }
-  '
-}
-
 # Every code point Unicode gives the property White_Space=Yes that lies OUTSIDE
 # ASCII, as UTF-8 byte sequences. Built from octal escapes rather than written
 # literally so each entry stays reviewable in source instead of being an
@@ -1546,13 +1519,10 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 #
 # The zone is furniture only if EVERY row in it is: one non-furniture row makes
 # the whole run unclaimed activity, the envelope above it stale, and this
-# function return 1. That is the asymmetry this rule is held to - it may only
-# ever move a verdict toward refusing, never toward `empty`, because `empty` is
-# the one verdict that authorizes fm-send to type into the pane. Returns 1 too
-# when no envelope is glyph-proven, when a blank row sits directly beneath it,
-# or when the run holds no bare candidate at all (nothing to demote).
+# function return 1.
 _fm_composer_locate_footer_zone() {  # <plain>
-  local plain=$1 close next trimmed proof=''
+  local plain=$1 close next trimmed remaining proof='' omnigent=0
+  local banner_re='^Omnigent: http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/c/[a-f0-9]{32}$'
   FM_COMPOSER_FOOTER_AFTER=-1
   FM_COMPOSER_FOOTER_GLYPH=-1
   FM_COMPOSER_FOOTER_LAST=-1
@@ -1583,21 +1553,28 @@ _fm_composer_locate_footer_zone() {  # <plain>
     proof=$FM_COMPOSER_SCAN_PI_GLYPH
   fi
   [ "$FM_COMPOSER_FOOTER_AFTER" -ge 0 ] || return 1
-  # Nothing below the envelope can be demoted unless a bare candidate sits
-  # there, so settle that from the scan's own record before walking any rows.
-  [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] || return 1
   FM_COMPOSER_FOOTER_LAST=$FM_COMPOSER_FOOTER_AFTER
   next=$((FM_COMPOSER_FOOTER_AFTER + 1))
   while :; do
     trimmed=$(_fm_composer_screen_row "$next" "$plain")
     fm_composer_normalize_trim_var trimmed
     [ -n "$trimmed" ] || break
+    if [[ "$trimmed" =~ $banner_re ]]; then
+      remaining=$(printf '%s\n' "$plain" | tail -n "+$((next + 2))")
+      fm_composer_normalize_trim_var remaining
+      [ -z "$remaining" ] || return 1
+      omnigent=1
+      FM_COMPOSER_FOOTER_LAST=$next
+      break
+    fi
     _fm_composer_row_is_composer_furniture "$trimmed" "$proof" || return 1
     FM_COMPOSER_FOOTER_LAST=$next
     next=$((next + 1))
   done
-  [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
-    && [ "$FM_COMPOSER_SCAN_BARE_ROW" -le "$FM_COMPOSER_FOOTER_LAST" ]
+  [ "$omnigent" = 1 ] || {
+    [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
+      && [ "$FM_COMPOSER_SCAN_BARE_ROW" -le "$FM_COMPOSER_FOOTER_LAST" ]
+  }
 }
 
 # _fm_composer_bare_rule_sandwich: 0 when bare agent-glyph <row> sits in its
@@ -1745,7 +1722,6 @@ fm_composer_extract_selected_content() {  # <caps> <screen>
   done <<EOF
 $caps
 EOF
-  screen=$(fm_composer_strip_omnigent_footer "$screen")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
   _fm_composer_select_cursorless "$plain" || return 1
@@ -1900,7 +1876,6 @@ EOF
   if [ -n "$cy" ]; then
     case "$cy" in *[!0-9]*) printf 'unknown'; return 0 ;; esac
   fi
-  screen=$(fm_composer_strip_omnigent_footer "$screen" "$cy")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" "$cy"
   if [ -n "$cy" ]; then

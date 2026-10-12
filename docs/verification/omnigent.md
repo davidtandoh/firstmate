@@ -98,15 +98,17 @@ The current acceptance above confirms a fresh native launch and control exit fro
 
 Verified on Darwin `23.6.0` with tmux `3.6b`, Claude Code `2.1.296`, and Omnigent `0.16.0.dev0 (5d0cf5e8, built 2026-10-12T21:28:49Z)`.
 A bare empty `❯` fixture classified `empty` without the wrapper's conversation banner and `pending` with the banner directly below it before the fix.
-The shared classifier now excludes a complete local conversation banner on the final nonblank row, while preserving a banner under a known native cursor as possible draft content.
+The shared cursorless selection boundary recognizes a complete local conversation banner only below a closed composer containing an agent prompt glyph, with only recognized footer rows between them.
+A banner-shaped row in an unbounded bare composer remains draft content.
 Classification and selected-content extraction use the same boundary across all five backend adapters.
-`tests/fm-composer-lib.test.sh` pins the fixture, styled and plain captures, cursor positions, wrapped drafts, malformed banners, and banners inside drafts.
-`tests/fm-backend-herdr.test.sh` proves that the doorbell rings for the empty fixture and still defers for a real draft.
+`tests/fm-composer-lib.test.sh` covers bounded wrapper footers, exact banner-shaped drafts, styled and plain captures, cursor positions, and lower live composers.
+`tests/fm-backend-herdr.test.sh` checks that the doorbell rings for the bounded empty fixture and defers for ordinary and exact banner-shaped drafts.
 
-A real wrapped Claude session launched on a private tmux socket with `bin/fm-omnigent.sh run claude --dangerously-skip-permissions ''`.
+Before the review correction, a real wrapped Claude session launched on a private tmux socket with `bin/fm-omnigent.sh run claude --dangerously-skip-permissions ''`.
 The check captured the outer viewport with `tmux capture-pane -p -e`, then read `fm_composer_classify_screen` with `styled=1`, `cursor=0`, `identity=1`, and `claude<TAB>idle`.
 The check typed a draft without Enter, captured it again, and deleted only that session's terminal resource during cleanup.
 No model prompt was submitted.
+This live check has not been repeated after the review correction.
 Observed output:
 
 ```text
