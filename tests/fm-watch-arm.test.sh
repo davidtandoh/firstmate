@@ -1694,8 +1694,8 @@ test_handling_delivered_rejects_a_superseded_generation() {
 }
 
 test_native_stop_after_false_predicate_preserves_acknowledgement() {
-  local signal dir state fakebin acknowledged status expected
-  for signal in TERM HUP exit-1 exit-129 exit-143; do
+  local signal dir state fakebin acknowledged status expected target i
+  for signal in TERM HUP orphan-TERM lost-owner exit-1 exit-129 exit-143; do
     dir=$(make_case "false-predicate-$signal")
     state="$dir/state"
     fakebin="$dir/fakebin"
@@ -1722,8 +1722,23 @@ if [ "$(touch "$STATE/reading"; sleep 2)" = due ]; then
 fi
 exit 1
 SH
+    cat > "$dir/owner.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$1"
+FM_WATCH_ARM_PID=$$ bash "$2" "$3" "$4" &
+child=$!
+wait "$child"
+status=$?
+if [ "$4" = lost-owner ]; then
+  touch "$STATE/finish-ready"
+  while [ ! -e "$STATE/finish-release" ]; do sleep 0.05; done
+fi
+fm_watcher_finish_cleanup "$STATE" "$status" || exit 1
+exit "$status"
+SH
     PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
-      bash "$dir/stop.sh" "$WATCH" "$signal" > "$dir/stop.out" 2>&1 &
+      bash "$dir/owner.sh" "$ROOT/bin/fm-wake-lib.sh" "$dir/stop.sh" "$WATCH" "$signal" > "$dir/stop.out" 2>&1 &
     SEED_PID=$!
     case "$signal" in
       exit-*)
@@ -1741,13 +1756,51 @@ SH
         continue
         ;;
     esac
-    local i=0
+    i=0
     while [ ! -e "$state/reading" ] && [ "$i" -lt 100 ]; do
       sleep 0.05
       i=$((i + 1))
     done
     [ -e "$state/reading" ] || fail "watcher never reached the read after the false predicate: $(cat "$dir/stop.out")"
-    kill -s "$signal" "$SEED_PID" || fail "could not stop false-predicate fixture"
+    target=$(cat "$state/.watch.lock/pid")
+    if [ "$signal" = lost-owner ]; then
+      kill -TERM "$target" || fail "could not stop the transfer fixture"
+      i=0
+      while [ ! -e "$state/finish-ready" ] && [ "$i" -lt 100 ]; do
+        sleep 0.05
+        i=$((i + 1))
+      done
+      [ -e "$state/finish-ready" ] || fail "shutdown never reached its waiting owner"
+      [ "$(cat "$state/.watch.lock/pid")" = "$SEED_PID" ] || fail "shutdown did not retain a live lock owner"
+      kill -KILL "$SEED_PID" || fail "could not stop the transferred shutdown owner"
+      wait "$SEED_PID" 2>/dev/null || true
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+      wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+      expect_code 0 "$?" "a lost shutdown owner must recover"
+      assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "retained singleton must recover after owner loss"
+      continue
+    fi
+    if [ "$signal" = orphan-TERM ]; then
+      kill -KILL "$SEED_PID" || fail "could not stop the fixture shutdown owner"
+      wait "$SEED_PID" 2>/dev/null || true
+      kill -TERM "$target" || fail "could not stop the orphaned fixture"
+      i=0
+      while is_live_non_zombie "$target" && [ "$i" -lt 100 ]; do
+        sleep 0.05
+        i=$((i + 1))
+      done
+      ! is_live_non_zombie "$target" || fail "orphaned fixture survived TERM"
+      case "$(cat "$state/.watcher-down")" in
+        pending:downtime:*) ;;
+        *) fail "missing shutdown owner lost recovery evidence" ;;
+      esac
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+      wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+      expect_code 0 "$?" "an orphaned shutdown must recover"
+      assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "missing shutdown owner must resurface"
+      continue
+    fi
+    kill -s "$signal" "$target" || fail "could not stop false-predicate fixture"
     wait_for_exit "$SEED_PID" 100
     status=$?
     case "$signal" in
@@ -1769,6 +1822,35 @@ SH
   pass "watch-arm: native TERM/HUP after false predicates stay quiet while explicit failures recover"
 }
 
+test_interpreter_failure_preserves_recovery() {
+  local dir state fakebin status
+  dir=$(make_case interpreter-failure)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  append_wake "$state" signal handled "signal: fixture handled by main"
+  ack_wakes "$state" >/dev/null || fail "fixture: could not acknowledge wake"
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=invalid \
+    FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" \
+    "$WATCH_ARM" --restart > "$dir/failed.out" 2> "$dir/failed.err" &
+  ARM_PID=$!
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  status=$?
+  expect_code 1 "$status" "invalid heartbeat arithmetic must fail the watcher"
+  assert_contains "$(cat "$dir/failed.err")" 'unbound variable' "fixture must reach the interpreter failure"
+  [ ! -s "$state/.wake-queue" ] || fail "interpreter failure unexpectedly queued work"
+  case "$(cat "$state/.watcher-down")" in
+    pending:downtime:*) ;;
+    *) fail "interpreter failure erased recovery evidence" ;;
+  esac
+  start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  expect_code 0 "$?" "corrected configuration must recover the failed watcher"
+  assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "interpreter failure must resurface"
+  pass "watch-arm: interpreter failure preserves downtime for the corrected arm"
+}
+
+test_interpreter_failure_preserves_recovery
 test_native_stop_after_false_predicate_preserves_acknowledgement
 test_attached_arm_reports_the_delivered_wake
 test_attached_arm_reports_the_delivered_wake_after_drain

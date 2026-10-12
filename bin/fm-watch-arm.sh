@@ -638,7 +638,7 @@ cleanup_child() {
 
 # shellcheck disable=SC2329 # Invoked indirectly by the signal traps below.
 handle_arm_signal() {
-  local signal=$1 rc=$2
+  local signal=$1 rc=$2 child_status
   trap - HUP TERM INT
   if [ -n "$child" ] && fm_pid_alive "$child"; then
     # The watcher installs its own cleanup traps only after acquiring and
@@ -654,7 +654,11 @@ handle_arm_signal() {
       fi
       sleep 0.02
     done
-    wait "$child" 2>/dev/null || true
+  fi
+  if [ -n "$child" ]; then
+    wait "$child" 2>/dev/null
+    child_status=$?
+    fm_watcher_finish_cleanup "$STATE" "$child_status" || rc=1
   fi
   cycle_log_append "$rc" "$signal" arm-interrupted none
   cleanup_child
@@ -673,9 +677,9 @@ child_out=$(mktemp "$STATE/.watch-arm-output.XXXXXX") || {
 # collapsing when startup begins just before the next second boundary.
 deadline=$(( $(date +%s) + CONFIRM_TIMEOUT + 1 ))
 if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
-  FM_WATCH_HANDLING_SUCCESSOR=1 "$WATCH" >"$child_out" &
+  FM_WATCH_ARM_PID=$ARM_PID FM_WATCH_HANDLING_SUCCESSOR=1 "$WATCH" >"$child_out" &
 else
-  "$WATCH" >"$child_out" &
+  FM_WATCH_ARM_PID=$ARM_PID "$WATCH" >"$child_out" &
 fi
 child=$!
 cycle_begin "$child" started "$(fm_pid_identity "$child" 2>/dev/null || true)"
@@ -683,6 +687,7 @@ child_done=0
 
 owned_child_finished() {
   local rc=$1 signal reason_type status
+  fm_watcher_finish_cleanup "$STATE" "$rc" || rc=1
   signal=$(cycle_signal_name "$rc")
   if [ "$rc" -eq 0 ] && watch_output_has_wake "$child_out"; then
     reason_type=$(watch_output_reason_type "$child_out")
@@ -751,7 +756,8 @@ while :; do
       cycle_refresh_lock_before
       if ! handling_generation=$(handling_successor_generation); then
         cleanup_child
-        wait "$child" 2>/dev/null || true
+        wait "$child" 2>/dev/null
+        fm_watcher_finish_cleanup "$STATE" "$?" || true
         cycle_log_append 1 none handling-handoff-failed none
         echo "watcher: FAILED - established successor could not inspect handling state"
         exit 1
@@ -790,6 +796,7 @@ print_watch_output "$child_out"
 cleanup_child
 wait "$child" 2>/dev/null
 rc=$?
+fm_watcher_finish_cleanup "$STATE" "$rc" || rc=1
 cycle_log_append "$rc" "$(cycle_signal_name "$rc")" confirmation-timeout none
 echo "watcher: FAILED - no live watcher with a fresh beacon"
 exit 1

@@ -229,7 +229,11 @@ If a durable row arrived after the announcement, the arm opens a fresh pending d
 An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
 A clean close, including native HUP or TERM cleanup, preserves an acknowledged episode under the marker lock instead of opening empty recovery work.
 Explicit failure exits and stale-lock recovery still publish new downtime after an acknowledgement.
-Cleanup identifies an explicit nonzero `exit` from the command captured by the EXIT trap, because native signal cleanup can inherit a false predicate's status.
+An EXIT trap cannot distinguish an interpreter failure from a native signal that inherited a false predicate's status.
+For an ambiguous nonzero close, watcher cleanup transfers its singleton lock to its direct owning arm.
+The arm waits for the watcher's final status, then preserves an acknowledgement for native HUP or TERM and publishes downtime for failure.
+The transfer keeps a live lock owner until the arm finishes cleanup; if the arm dies or cannot persist recovery within `FM_WATCHER_CLEANUP_LOCK_BOUND`, the retained singleton provides stale-lock recovery evidence.
+Without a direct owning arm, an ambiguous nonzero close publishes downtime conservatively.
 A handling successor closing to resurface recovery preserves the existing marker instead.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.

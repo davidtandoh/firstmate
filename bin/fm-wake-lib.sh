@@ -1090,6 +1090,29 @@ fm_recovery_transition() {
   esac
 }
 
+fm_watcher_cleanup_lock_bound() {
+  local bound=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}
+  case "$bound" in
+    ''|*[!0-9]*) bound=2 ;;
+    *) bound=$((10#$bound)) ;;
+  esac
+  [ "$bound" -gt 0 ] || bound=2
+  printf '%s\n' "$bound"
+}
+
+fm_watcher_finish_cleanup() {
+  local state=$1 status=$2 current lock transition=release-lock bound
+  lock="$state/.watch.lock"
+  fm_current_pid current || return 1
+  [ "$(cat "$lock/pid" 2>/dev/null || true)" = "$current" ] || return 0
+  case "$status" in 0|129|143) transition=release-lock-clean ;; esac
+  bound=$(fm_watcher_cleanup_lock_bound)
+  fm_recovery_transition "$state/.watcher-down" "$transition" "$lock" downtime "$bound" || {
+    echo "watcher: recovery state could not be persisted; retaining stale lock evidence" >&2
+    return 1
+  }
+}
+
 fm_recovery_marker_publish() {
   fm_recovery_transition "$1" publish "${2:-downtime}"
 }
@@ -1290,32 +1313,38 @@ fm_lock_acquire_wait_max() {  # <lockdir> <max-seconds>
   done
 }
 
+fm_lock_handoff() {
+  local lockdir=$1 caller_pid=$2 ownerdir current back
+  case "$caller_pid" in ''|*[!0-9]*) return 1 ;; esac
+  fm_pid_alive "$caller_pid" || return 1
+  if [ -L "$lockdir" ]; then
+    ownerdir=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || return 1
+  else
+    ownerdir=$lockdir
+  fi
+  fm_current_pid current || return 1
+  back=$(cat "$ownerdir/pid" 2>/dev/null || true)
+  if [ "$back" != "$current" ] \
+    || ! printf '%s\n' "$caller_pid" > "$ownerdir/pid" 2>/dev/null \
+    || [ "$(cat "$ownerdir/pid" 2>/dev/null || true)" != "$caller_pid" ]; then
+    return 1
+  fi
+}
+
 # Acquire in the timed helper process, then transfer the lock record to the
 # waiting caller before exiting. The lock's ordinary stale-owner recovery makes
 # every interruption safe: before transfer the helper is the owner; after
 # transfer the still-live caller is the owner.
 _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
-  local lockdir=$1 caller_pid=$2 ownerdir current back
+  local lockdir=$1 caller_pid=$2
   case "$caller_pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_pid_alive "$caller_pid" || return 1
   trap 'fm_lock_release "$lockdir"; exit 143' TERM INT
   fm_lock_acquire_wait "$lockdir" || return 1
-  if [ -L "$lockdir" ]; then
-    ownerdir=$(fm_lock_link_owner "$lockdir" 2>/dev/null) || {
-      fm_lock_release "$lockdir"
-      return 1
-    }
-  else
-    ownerdir=$lockdir
-  fi
-  fm_current_pid current || { fm_lock_release "$lockdir"; return 1; }
-  back=$(cat "$ownerdir/pid" 2>/dev/null || true)
-  if [ "$back" != "$current" ] \
-    || ! printf '%s\n' "$caller_pid" > "$ownerdir/pid" 2>/dev/null \
-    || [ "$(cat "$ownerdir/pid" 2>/dev/null || true)" != "$caller_pid" ]; then
+  fm_lock_handoff "$lockdir" "$caller_pid" || {
     fm_lock_release "$lockdir"
     return 1
-  fi
+  }
   trap - TERM INT
 }
 

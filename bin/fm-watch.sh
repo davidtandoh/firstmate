@@ -291,15 +291,10 @@ esac
 SIGNAL_GRACE=${FM_SIGNAL_GRACE:-30}   # seconds to linger after a signal so trailing
                                       # signals (a status write, then the same turn's
                                       # turn-end hook) coalesce into one wake
-CLEANUP_LOCK_BOUND=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}  # seconds EXIT cleanup may
+CLEANUP_LOCK_BOUND=$(fm_watcher_cleanup_lock_bound)  # seconds EXIT cleanup may
                                       # wait on the downtime-marker lock; a live
                                       # foreign holder must not strand a TERM'd
                                       # watcher inside its own trap
-case "$CLEANUP_LOCK_BOUND" in
-  ''|*[!0-9]*) CLEANUP_LOCK_BOUND=2 ;;
-  *) CLEANUP_LOCK_BOUND=$((10#$CLEANUP_LOCK_BOUND)) ;;
-esac
-[ "$CLEANUP_LOCK_BOUND" -gt 0 ] || CLEANUP_LOCK_BOUND=2
 TURNEND_CHURN_ABSORB_SECS=${FM_TURNEND_CHURN_ABSORB_SECS:-900}  # longest a task's
                                       # bare turn-ends may be deferred on pane-churn
                                       # evidence alone (signal_turnend_panes_churned)
@@ -2448,10 +2443,18 @@ watcher_cleanup() {
   fm_capture_output_cleanup
   fm_custom_check_snapshot_cleanup
   if [ "$cleanup_status" -eq 0 ] && [ "$transition" = release-lock ]; then
-    transition=release-lock-clean
-    case "$exit_command" in
-      exit|exit\ *) [ "$exit_status" -eq 0 ] || transition=release-lock ;;
-    esac
+    if [ "$exit_status" -eq 0 ]; then
+      transition=release-lock-clean
+    else
+      case "$exit_command" in
+        exit|exit\ *) ;;
+        *)
+          if [ "$owns_lock" -eq 1 ] && [ "${FM_WATCH_ARM_PID:-}" = "$PPID" ]; then
+            fm_lock_handoff "$WATCH_LOCK" "$FM_WATCH_ARM_PID" && return 0
+          fi
+          ;;
+      esac
+    fi
   fi
   if [ "$owns_lock" -eq 1 ] \
     && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
