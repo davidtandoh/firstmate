@@ -605,26 +605,27 @@ An unavailable remote home is projected as unknown and is never replaced by a lo
 
 Scope decides which second mate fits the work; it does not say whether that second mate's host is awake.
 A remote route whose host sleeps or is switched off, such as a laptop, opts in with `availability: when-online` on its registry entry.
-Set `FM_SECONDMATE_AVAILABILITY=when-online` when seeding the route; the [routing table](../.agents/skills/secondmate-provisioning/SKILL.md#routing-table) owns the field.
-Routes without the field stay always-on and route exactly as before.
+The [routing table](../.agents/skills/secondmate-provisioning/SKILL.md#routing-table) owns the field and its default; the [seed command](../bin/fm-remote-home-seed.sh) owns how to set it on initial seed and reruns.
 
-Before routing work to an opted-in second mate, the primary asks for a decision:
+Before routing work to an opted-in second mate, including a backlog handoff, the primary follows these steps:
 
-```sh
-bin/fm-secondmate-availability.sh <id> [portable|host-bound]
-```
+1. Classify the work as portable if this home can run it, or host-bound if it needs the remote host.
+2. Call [`fm-secondmate-availability.sh`](../bin/fm-secondmate-availability.sh) with that work kind; its header owns invocation syntax, output, and exit codes.
+   The command checks the recorded endpoint through the bounded, read-only [liveness probe](#liveness-recovery), and requires a live secondmate before permitting remote routing.
+   If no endpoint is recorded, it reports unavailability without a remote call.
+3. On `route`, send or hand off the work to the secondmate.
+   On `local`, run portable work in the primary's home.
+   On `queue`, retain host-bound work in the primary's backlog with the required host and printed reason.
+   If the command reports a usage or registry error, resolve that error before making a routing decision.
+4. Recheck queued host-bound work during the primary's normal backlog re-evaluation, and hand it off only when the availability decision permits routing.
 
-1. The command runs the same bounded, read-only remote state probe as the [liveness tick](#liveness-recovery).
-2. When the host answers and the second mate is running, it prints `route`, and the work goes to the second mate.
-3. Otherwise it prints why and falls back: `local` for portable work, which the primary runs in its own home, and `queue` for host-bound work, which stays queued in the primary's backlog with that reason.
-
-The probe never relaunches, repairs, or records anything, so asking is always safe.
-Queued host-bound work is re-checked when the primary next re-evaluates its queue.
-The [script header](../bin/fm-secondmate-availability.sh) owns the exact output and exit codes.
+The helper only prints a decision; the primary performs the dispatch or backlog update.
+It does not relaunch or repair an endpoint, persist queued work, or schedule its own retry.
+Running portable work in the primary's home leaves the remote secondmate's identity and existing work intact.
 
 ## Backlog handoff
 
-Move already-judged queued work with the normal command:
+Apply [availability-aware routing](#hosts-that-are-not-always-on) first, then move queued work selected for remote routing with the normal command:
 
 ```sh
 bin/fm-backlog-handoff.sh <id> <item-key>...
@@ -719,6 +720,7 @@ The portable tests run with these commands:
 bin/fm-test-run.sh tests/fm-on.test.sh
 bin/fm-test-run.sh tests/fm-send-remote-delivery.test.sh
 bin/fm-test-run.sh tests/fm-secondmate-reconcile.test.sh
+bin/fm-test-run.sh tests/fm-secondmate-availability.test.sh
 bin/fm-test-run.sh tests/fm-peek-remote.test.sh
 bin/fm-test-run.sh tests/fm-crew-state.test.sh
 bin/fm-test-run.sh tests/fm-remote-job.test.sh

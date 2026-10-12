@@ -195,7 +195,8 @@ Read `data/backlog.md`, pick queued items that fit the new scope, and move them 
 bin/fm-backlog-handoff.sh <secondmate-id> <item-key>...
 ```
 
-After seeding, run this handoff for the new secondmate's in-scope queued items.
+After seeding, apply the [availability-aware routing procedure](../../../docs/remote-secondmates.md#hosts-that-are-not-always-on) before handing in-scope queued items to an opted-in remote secondmate.
+For such a route, run the handoff only for items selected for remote routing.
 For an existing or inherited domain, complete record intake first so no already-shipped plan row is handed off as open work.
 For a local route, the helper resolves and validates the secondmate home from `data/secondmates.md`, then delegates the item move to `tasks-axi mv` (the single owner of the backlog format), which moves each named item - and a whole connected set, blocker plus dependents, atomically - from the main `data/backlog.md` into the secondmate home's `data/backlog.md`.
 For a remote route, the same helper first moves the dependency-closed set atomically from the main backlog into `data/handoff/<id>.outbox.md`, then transfers that backlog-format outbox through `fm-on.sh` and lets the remote home's `fm-backlog-receive.sh` move every not-already-present key under the destination lock.

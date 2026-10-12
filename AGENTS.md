@@ -170,7 +170,7 @@ Proceed on one confident match while naming the project in plain language; ask o
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
-Before routing to a remote secondmate registered `availability: when-online`, run `bin/fm-secondmate-availability.sh` and route there only on `route`; otherwise run portable work in the main home and keep host-bound work queued in the main backlog with the printed reason.
+Before routing to a remote secondmate registered `availability: when-online`, run `bin/fm-secondmate-availability.sh` and follow its decision under [availability-aware routing](docs/remote-secondmates.md#hosts-that-are-not-always-on); an error is not a fallback decision.
 If no secondmate scope fits, use the main home or discuss creating an appropriate persistent secondmate.
 For one-off or infrequent operational work, start with the simplest direct end-to-end path.
 Do not build wrappers, control planes, policy layers, custom verifiers, or automation unless the direct path exposes a concrete blocker or repeated need that justifies the added machinery.
