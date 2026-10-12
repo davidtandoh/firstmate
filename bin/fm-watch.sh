@@ -292,7 +292,7 @@ SIGNAL_GRACE=${FM_SIGNAL_GRACE:-30}   # seconds to linger after a signal so trai
                                       # signals (a status write, then the same turn's
                                       # turn-end hook) coalesce into one wake
 CLEANUP_LOCK_BOUND=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}  # seconds EXIT cleanup may
-                                      # wait on the downtime-marker lock; a live
+                                      # wait across queue and marker locks; a live
                                       # foreign holder must not strand a TERM'd
                                       # watcher inside its own trap
 case "$CLEANUP_LOCK_BOUND" in
@@ -2495,9 +2495,6 @@ if [ -n "$EVICTED_PID" ]; then
   echo "watcher: replaced stalled pid $EVICTED_PID (beacon ${EVICTED_BEAT_AGE}s past hard bound ${WATCHER_STALL_BOUND}s)"
 fi
 WATCHER_RECOVERY_PENDING=0
-if [ -n "${FM_LOCK_RECOVERED_PID:-}" ]; then
-  WATCHER_RECOVERY_PENDING=1
-fi
 if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ]; then
   if ! fm_recovery_marker_reopen_announced "$WATCHER_DOWNTIME_MARKER"; then
     echo "watcher: recovery state could not be reopened safely; retaining stale lock evidence" >&2

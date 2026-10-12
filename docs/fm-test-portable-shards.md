@@ -10,7 +10,7 @@ The concurrent isolation proof in [fm-test-isolation-proof.md](fm-test-isolation
 Local timings are not interchangeable with CI timings: platform and machine load can affect each script differently and change their relative weights.
 
 Both hint tables were refreshed on 2026-09-30 from five Ubuntu CI runs: [36583881812](https://github.com/kunchenguid/firstmate/actions/runs/36583881812), [36658498535](https://github.com/kunchenguid/firstmate/actions/runs/36658498535), [36663947738](https://github.com/kunchenguid/firstmate/actions/runs/36663947738), [36664663190](https://github.com/kunchenguid/firstmate/actions/runs/36664663190), and [36669175457](https://github.com/kunchenguid/firstmate/actions/runs/36669175457).
-Use the slowest successful `duration_ms` per script across their uploaded portable timing artifacts and completed `FM_TEST_END` log markers, with the two version/platform exceptions below.
+Use the slowest successful `duration_ms` per script across their uploaded portable timing artifacts and completed `FM_TEST_END` log markers, with the refreshes and exceptions below.
 All artifact records were cross-checked against the corresponding job's markers.
 This covers all 24 parallel and 201 serial members; an existing live-capability skip is a portable-runner measurement, not a timing claim for the unavailable live integration.
 Observed maxima provide conservative packing weights, not an upper bound on future durations.
@@ -21,8 +21,13 @@ A failed script's duration is excluded even when its lane uploaded an artifact.
 In particular, run 36664663190's serial 5 finished in 22m15s with an assertion failure, not a timeout; treating that as a healthy whole-lane sample would hide the failure.
 Collect successful per-script measurements for every member before calculating a split.
 
-`tests/fm-supervision-host.test.sh` uses 789123 ms from run 36669175457, after the merged [host runtime fix](https://github.com/kunchenguid/firstmate/pull/6179), rather than its pre-fix maximum of 1065298 ms.
-That post-fix value has only one sample in this baseline, so further green runs must establish its variance.
+The host weights were refreshed on 2026-10-12 from the successful host suite in [job 114907622215](https://github.com/davidtandoh/firstmate/actions/runs/38272867814/job/114907622215).
+The suite took 1630587 ms before its serial lane reached the unchanged 30-minute job cap.
+Its cases now run through two serial entry points with shared fixtures: `tests/fm-supervision-host.test.sh` covers reports, handoffs, and dialog; `tests/fm-supervision-host-lifecycle.test.sh` covers failure latches, deadlines, and process ownership.
+The corresponding case intervals in that log were 798383 ms and 832211 ms; their initial packing weights round up to 800000 ms and 840000 ms.
+These are estimates from the unsplit run, not measurements of the new jobs; refresh them from completed split-suite timing artifacts.
+The split preserves every case and assertion, including undelivered-dialog recovery, and the runner regression requires the two entry points to occupy separate serial shards.
+`tests/fm-watch-arm.test.sh` uses its successful 185534 ms sample from [job 114907624553](https://github.com/davidtandoh/firstmate/actions/runs/38272867814/job/114907624553), including the added shutdown and acknowledgement regressions.
 The two Kiro scripts retain one sample each from the green serial shards of [run 35171933923](https://github.com/kunchenguid/firstmate/actions/runs/35171933923) on 2026-09-17, the first run that included them; `tests/fm-kiro-signals-live-e2e.test.sh` is gate-skipped in CI, so its 76 ms is the skip cost rather than a measurement of the live guard's own work.
 The native-Windows-only `tests/fm-pi-windows-shell-invocation.test.sh` retains its separate 5121 ms measurement from 2026-09-06T21:02Z instead of a portable capability skip.
 The session-start hint retains its pre-optimization maximum until CI measures the shorter fixture-only home-summary bound; do not discount a local speedup from CI packing weights.

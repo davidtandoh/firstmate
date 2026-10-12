@@ -391,7 +391,7 @@ test_attached_arm_hands_a_stalled_holder_to_its_replacement() {
 }
 
 test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
-  local dir home state fakebin result armout drainout status watcher_pid sequence generation decision_recovery_arm decision_successor
+  local dir home state fakebin result armout drainout status watcher_pid sequence generation decision_recovery_arm decision_successor acknowledged
   dir=$(make_case rearm-resurface)
   home="$dir/home"
   state="$dir/state"
@@ -463,9 +463,32 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/recovery-successor-arm.out"
   is_live_non_zombie "$ARM_PID" || fail "recovery successor did not stay live after the drain"
 
-  # A later down interval can have no new queue rows at all. The unchanged
-  # remote decision must still trigger a recovery wake and be folded again.
-  kill "$ARM_PID" 2>/dev/null || true
+  acknowledged=$(cat "$state/.watcher-down")
+  watcher_pid=$(cat "$state/.watch.lock/pid")
+  kill -KILL "$watcher_pid" 2>/dev/null || fail "could not crash the acknowledged watcher"
+  wait "$ARM_PID" 2>/dev/null || true
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/acknowledged-decision-arm.out"
+  sleep 3
+  is_live_non_zombie "$ARM_PID" || fail "acknowledged open decision caused empty crash recovery"
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "crash replaced the acknowledged decision episode"
+  ! grep -q '^check: rearm-resurface' "$dir/acknowledged-decision-arm.out" || fail "acknowledged decision re-triggered without new work"
+  kill -TERM "$ARM_PID"
+  wait "$ARM_PID" 2>/dev/null || true
+
+  dir=$(make_case unacknowledged-remote-decision)
+  home="$dir/home"
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  mkdir -p "$home/data"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$home/data" \
+    "$ROOT/bin/fm-procevent-remote-reply.sh" ingest ios "$result" >/dev/null \
+    || fail "unacknowledged remote decision ingest failed"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/unacknowledged-drain.out" \
+    || fail "unacknowledged decision drain failed"
+  printf '%s' "$(status_signature "$state/ios.status")" > "$state/.seen-ios_status"
+  start_rearm_arm "$home" "$state" "$fakebin" "$dir/unacknowledged-arm.out"
+  watcher_pid=$(cat "$state/.watch.lock/pid")
+  kill -KILL "$watcher_pid" 2>/dev/null || fail "could not interrupt the unacknowledged watcher"
   wait "$ARM_PID" 2>/dev/null || true
   start_rearm_arm "$home" "$state" "$fakebin" "$dir/decision-only-arm.out"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "decision-only re-arm did not surface the open decision"
@@ -508,7 +531,7 @@ test_rearm_resurfaces_durable_queue_and_remote_open_decision() {
   is_live_non_zombie "$ARM_PID" || fail "acknowledged decision recovery did not leave a live successor"
   kill "$ARM_PID" 2>/dev/null || true
   wait "$ARM_PID" 2>/dev/null || true
-  pass "watch-arm: re-arm surfaces every queued wake and an open remote decision after downtime"
+  pass "watch-arm: recovery resurfaces queued work and unacknowledged decisions while acknowledged crashes stay quiet"
 }
 
 # A contended host starves the short-lived processes a recovery cycle runs while
@@ -730,6 +753,83 @@ test_interrupted_handling_is_redrained_on_rearm() {
     || fail "completed replay could not acknowledge the handled wake"
   [ ! -s "$state/.wake-queue" ] || fail "acknowledged replay remained in the durable queue"
   pass "watch-arm: interrupted handling leaves its wake durable for successor re-drain"
+}
+
+test_interrupted_empty_announcement_is_retried() {
+  local mode dir state fakebin generation watcher status acknowledged
+  for mode in arm restart; do
+    dir=$(make_case "interrupted-empty-announcement-$mode")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      fm_recovery_marker_publish "$STATE/.watcher-down" handling &&
+        fm_recovery_marker_publish "$STATE/.watcher-down" downtime
+    ' _ "$ROOT/bin/fm-wake-lib.sh" || fail "could not persist interrupted handling"
+    generation=$(recovery_marker_generation "$state/.watcher-down")
+    cat > "$fakebin/touch" <<'SH'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = "$FM_STATE_OVERRIDE/.last-heartbeat" ] && [ -f "$FM_HOME/crash-on-announce" ]; then
+  case "$(cat "$FM_STATE_OVERRIDE/.watcher-down")" in
+    announced:downtime:*)
+      rm "$FM_HOME/crash-on-announce"
+      printf '%s\n' "$PPID" > "$FM_HOME/interrupted-watcher"
+      kill -KILL "$PPID"
+      exit 1
+      ;;
+  esac
+fi
+exec "$FM_REAL_TOUCH" "$@"
+SH
+    chmod +x "$fakebin/touch"
+    : > "$dir/crash-on-announce"
+    PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+      FM_REAL_TOUCH="$(command -v touch)" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 FM_ARM_CONFIRM_TIMEOUT=5 \
+      "$WATCH_ARM" > "$dir/interrupted-arm.out" 2>&1 &
+    ARM_PID=$!
+    wait_for_exit "$ARM_PID" 150
+    status=$?
+    [ "$status" -ne 124 ] && [ "$status" -ne 0 ] || fail "interrupted watcher did not fail its arm"
+    watcher=$(cat "$dir/interrupted-watcher")
+    [ -n "$watcher" ] || fail "fixture did not identify its watcher"
+    ! is_live_non_zombie "$watcher" || fail "fixture watcher was not killed"
+    [ "$(cat "$state/.watch.lock/pid")" = "$watcher" ] || fail "interruption lost stale-owner evidence"
+    [ "$(cat "$state/.watcher-down")" = "announced:downtime:$generation" ] \
+      || fail "fixture did not interrupt an announced recovery generation"
+    [ ! -s "$state/.wake-queue" ] || fail "empty recovery fixture queued work"
+    ! grep -q '^check: rearm-resurface' "$dir/interrupted-arm.out" || fail "fixture delivered recovery before interruption"
+    rm "$fakebin/touch"
+
+    if [ "$mode" = restart ]; then
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/retry-arm.out"
+    else
+      PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+        FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" "$WATCH_ARM" > "$dir/retry-arm.out" &
+      ARM_PID=$!
+    fi
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "$mode stranded an interrupted empty recovery announcement"
+    grep -q '^check: rearm-resurface' "$dir/retry-arm.out" || fail "$mode did not retry recovery delivery"
+    [ "$(recovery_marker_generation "$state/.watcher-down")" = "$generation" ] \
+      || fail "$mode replaced the unacknowledged generation"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/drain.out" 2> "$dir/drain.err" \
+      || fail "could not drain retried recovery"
+    grep -qF -- "--ack-through 0 --recovery-generation $generation" < "$dir/drain.err" \
+      || fail "retried empty recovery lost its acknowledgement"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through 0 --recovery-generation "$generation" \
+      || fail "could not acknowledge retried recovery"
+    acknowledged=$(cat "$state/.watcher-down")
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/quiet-arm.out"
+    sleep 3
+    is_live_non_zombie "$ARM_PID" || fail "acknowledged recovery repeated: $(cat "$dir/quiet-arm.out")"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "acknowledged retry reopened recovery"
+    append_wake "$state" signal later 'signal: work after recovery acknowledgement' || fail "could not append later work"
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "later durable work did not wake"
+    grep -q '^check: rearm-resurface' "$dir/quiet-arm.out" || fail "later append did not reopen recovery"
+  done
+  pass "watch-arm: stale-owner recovery retries an interrupted empty announcement until acknowledged"
 }
 
 test_malformed_marker_is_quarantined_once() {
@@ -1260,10 +1360,133 @@ test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet() {
   pass "watch-arm: takeover during a blocked capture preserves acknowledgement and later wakes"
 }
 
+# A stopped acknowledged cycle must not create work for the next empty arm.
+test_shutdown_overlapping_queue_acknowledgement() {
+  local outcome dir state fakebin owner watcher sequence generation ack_pid acknowledged real_mv status
+  for outcome in committed failed; do
+    dir=$(make_case "shutdown-during-ack-$outcome")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/owner.out" "$$"
+    owner=$ARM_PID
+    watcher=$(cat "$state/.watch.lock/pid")
+    append_wake "$state" signal overlap 'signal: handling overlaps shutdown' || fail "could not queue fixture wake"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/drain.out" 2> "$dir/drain.err" \
+      || fail "could not present fixture wake"
+    IFS=$'\t' read -r sequence generation < <(drain_ack_pair "$dir/drain.err")
+    [ -n "$sequence" ] && [ -n "$generation" ] || fail "drain omitted acknowledgement"
+    real_mv=$(command -v mv)
+    mkdir "$dir/ackbin"
+    cat > "$dir/ackbin/mv" <<'SH'
+#!/usr/bin/env bash
+set -eu
+case "${3:-}" in
+  "$FM_STATE_OVERRIDE"/.wake-queue.ack.*)
+    printf 'paused\n' > "$FM_ACK_PAUSE"
+    deadline=$((SECONDS + 30))
+    while [ ! -e "$FM_ACK_RELEASE" ]; do
+      [ "$SECONDS" -lt "$deadline" ] || exit 1
+      sleep 0.05
+    done
+    [ "$FM_ACK_OUTCOME" = committed ] || exit 1
+    ;;
+esac
+exec "$FM_REAL_MV" "$@"
+SH
+    chmod +x "$dir/ackbin/mv"
+    PATH="$dir/ackbin:$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+      FM_REAL_MV="$real_mv" FM_ACK_PAUSE="$dir/ack-paused" FM_ACK_RELEASE="$dir/ack-release" \
+      FM_ACK_OUTCOME="$outcome" "$DRAIN" --ack-through "$sequence" --recovery-generation "$generation" \
+      > "$dir/ack.out" 2> "$dir/ack.err" &
+    ack_pid=$!
+    wait_for_file_text "$dir/ack-paused" paused || fail "acknowledgement did not pause before queue replacement"
+    acknowledged=$(cat "$state/.watcher-down")
+    case "$acknowledged" in acked:*) ;; *) fail "acknowledgement had not retired the marker" ;; esac
+    [ -s "$state/.wake-queue" ] || fail "acknowledgement replaced the queue before pausing"
+    kill -TERM "$watcher" || fail "could not interrupt fixture watcher"
+    wait_for_pid_gone "$watcher" 100 || fail "queue acknowledgement stranded watcher cleanup"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] \
+      || fail "shutdown reopened recovery using rows being acknowledged"
+    [ "$(cat "$state/.watch.lock/pid" 2>/dev/null)" = "$watcher" ] \
+      || fail "bounded cleanup discarded its stale lock evidence"
+    : > "$dir/ack-release"
+    wait_for_exit "$ack_pid" 100
+    status=$?
+    [ "$status" -ne 124 ] || fail "acknowledgement did not finish"
+    wait_for_exit "$owner" "$REARM_EXIT_POLLS" >/dev/null 2>&1 || true
+    if [ "$outcome" = committed ]; then
+      expect_code 0 "$status" "overlapping acknowledgement commits"
+      [ ! -s "$state/.wake-queue" ] || fail "acknowledgement left handled rows"
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/next-arm.out"
+      sleep 3
+      is_live_non_zombie "$ARM_PID" || fail "next arm emitted an empty wake: $(cat "$dir/next-arm.out")"
+      [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "next arm reopened acknowledged recovery"
+      ! grep -F 'check: rearm-resurface' "$dir/next-arm.out" >/dev/null || fail "next arm emitted empty recovery"
+      append_wake "$state" signal later 'signal: later queued work' || fail "could not append later work"
+      wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "next arm missed later queued work"
+      grep -q '^check: rearm-resurface' "$dir/next-arm.out" || fail "later append did not reopen recovery"
+    else
+      [ "$status" -ne 0 ] || fail "failed queue replacement reported success"
+      [ -s "$state/.wake-queue" ] || fail "failed acknowledgement discarded queued work"
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/next-arm.out"
+      wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "uncommitted acknowledgement did not recover"
+      grep -q '^check: rearm-resurface' "$dir/next-arm.out" || fail "unfinished acknowledgement lost recovery"
+      FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/recovered.out" 2> "$dir/recovered.err" \
+        || fail "could not drain unfinished acknowledgement"
+      grep -qF 'signal: handling overlaps shutdown' "$dir/recovered.out" || fail "unfinished handling was not redelivered"
+    fi
+  done
+  pass "watch-arm: shutdown waits for queue acknowledgement without losing unfinished work"
+}
+
+test_acknowledged_cycle_stop_keeps_next_arm_quiet() {
+  local mode dir state fakebin owner watcher acknowledged target status signal expected
+  for mode in watcher arm hup kill; do
+    dir=$(make_case "acknowledged-stop-$mode")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/owner.out" "$$"
+    owner=$ARM_PID
+    watcher=$(cat "$state/.watch.lock/pid")
+    append_wake "$state" signal handled "signal: fixture handled by main"
+    ack_wakes "$state" >/dev/null || fail "fixture: could not acknowledge wake"
+    acknowledged=$(cat "$state/.watcher-down")
+    case "$acknowledged" in acked:*) ;; *) fail "fixture: wake was not acknowledged" ;; esac
+    target=$watcher
+    [ "$mode" != arm ] || target=$owner
+    signal=TERM
+    expected=143
+    if [ "$mode" = hup ]; then signal=HUP; expected=129; fi
+    if [ "$mode" = kill ]; then signal=KILL; expected=137; fi
+    kill -s "$signal" "$target" || fail "could not stop fixture $mode"
+    wait_for_exit "$owner" "$REARM_EXIT_POLLS"
+    status=$?
+    expect_code "$expected" "$status" "the $mode $signal must close its cycle"
+    ! is_live_non_zombie "$watcher" || fail "fixture watcher survived $signal"
+    grep -q "watcher_pid=$watcher.*exit_code=$expected.*successor=none" "$state/.watch-cycle-exits.log" \
+      || fail "fixture did not record a $signal close without successor"
+    [ ! -s "$state/.wake-queue" ] || fail "fixture queue was not empty"
+
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+    sleep 3
+    is_live_non_zombie "$ARM_PID" || fail "acknowledged $mode stop woke an empty arm: $(cat "$dir/rearm.out")"
+    ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "empty queue resurfaced after $mode stop"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "$mode stop replaced the acknowledgement"
+
+    append_wake "$state" check later "check: real work after $mode stop"
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+    status=$?
+    expect_code 0 "$status" "later work must still wake the replacement"
+    assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface"
+    [ -s "$state/.wake-queue" ] || fail "later work was lost"
+  done
+  pass "watch-arm: acknowledged watcher TERM/HUP/KILL and arm TERM closes stay quiet until new work"
+}
+
 # Pause just after handover releases its snapshot locks, then fail the old
 # watcher's secondmate tick write so it exits through cleanup before TERM lands.
 # The ledger and recovery wake are public output contracts, not source probes.
-test_take_over_preserves_downtime_from_watcher_self_exit() {
+test_take_over_preserves_acknowledgement_after_watcher_failure() {
   local dir home state fakebin owner watcher armout acknowledged real_rm real_touch status i
   dir=$(make_case take-over-self-exit)
   home="$dir/home"
@@ -1310,7 +1533,7 @@ test_take_over_preserves_downtime_from_watcher_self_exit() {
   [ ! -s "$state/.wake-queue" ] || fail "self-exit unexpectedly queued a wake"
   ! grep -q "^$watcher	" "$state/.watch-deliveries.log" 2>/dev/null \
     || fail "self-exit unexpectedly delivered a wake"
-  case "$(cat "$state/.watcher-down")" in pending:downtime:*) ;; *) fail "self-exit did not publish downtime" ;; esac
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "self-exit replaced the acknowledgement"
   rm -f "$dir/fail-tick"
   touch "$dir/release"
   i=0
@@ -1320,12 +1543,16 @@ test_take_over_preserves_downtime_from_watcher_self_exit() {
     sleep 0.05
     i=$((i + 1))
   done
-  [ "$(cat "$state/.watcher-down")" != "$acknowledged" ] || fail "takeover restored the old acknowledgement"
+  sleep 3
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "takeover replaced the acknowledgement"
+  is_live_non_zombie "$ARM_PID" || fail "takeover after failure surfaced an empty queue"
+  ! grep -q '^check: rearm-resurface' "$armout" || fail "self-exit manufactured recovery work"
+  append_wake "$state" check later "check: real work after watcher failure"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
   status=$?
-  expect_code 0 "$status" "fresh takeover must surface recovery cleanly"
-  assert_contains "$(cat "$armout")" 'check: rearm-resurface' "self-exit downtime must surface as recovery"
-  pass "watch-arm: takeover preserves self-exit downtime and surfaces a recovery wake"
+  expect_code 0 "$status" "later work must wake the takeover"
+  assert_contains "$(cat "$armout")" 'check: rearm-resurface' "later durable work must resurface"
+  pass "watch-arm: takeover after failure stays quiet until later durable work"
 }
 
 test_downtime_marker_does_not_follow_symlink() {
@@ -1648,6 +1875,37 @@ test_handling_delivered_rejects_a_superseded_generation() {
   pass "watch-arm: a churned generation's handling confirmation reports a mismatch and an arm check keeps it"
 }
 
+test_interpreter_failure_preserves_acknowledgement() {
+  local dir state fakebin status acknowledged
+  dir=$(make_case interpreter-failure)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  append_wake "$state" signal handled "signal: fixture handled by main"
+  ack_wakes "$state" >/dev/null || fail "fixture: could not acknowledge wake"
+  acknowledged=$(cat "$state/.watcher-down")
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=invalid \
+    FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" \
+    "$WATCH_ARM" --restart > "$dir/failed.out" 2> "$dir/failed.err" &
+  ARM_PID=$!
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  status=$?
+  expect_code 1 "$status" "invalid heartbeat arithmetic must fail the watcher"
+  assert_contains "$(cat "$dir/failed.err")" 'unbound variable' "fixture must reach the interpreter failure"
+  [ ! -s "$state/.wake-queue" ] || fail "interpreter failure unexpectedly queued work"
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "interpreter failure replaced the acknowledgement"
+  start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+  sleep 3
+  is_live_non_zombie "$ARM_PID" || fail "corrected configuration surfaced an empty queue"
+  ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "interpreter failure manufactured recovery work"
+  append_wake "$state" check later "check: real work after interpreter failure"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  expect_code 0 "$?" "later work must wake the corrected arm"
+  assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later durable work must resurface"
+  pass "watch-arm: interpreter failure preserves acknowledgement while later work still wakes"
+}
+
+test_interpreter_failure_preserves_acknowledgement
 test_attached_arm_reports_the_delivered_wake
 test_attached_arm_reports_the_delivered_wake_after_drain
 test_arm_refuses_an_unusable_launch_confirm_window
@@ -1663,6 +1921,7 @@ test_slow_rearm_recovery_is_still_surfaced
 test_marker_publish_failure_retains_recovery_evidence
 test_delivery_gap_wake_is_recovered_once
 test_interrupted_handling_is_redrained_on_rearm
+test_interrupted_empty_announcement_is_retried
 test_malformed_marker_is_quarantined_once
 test_recovery_consumption_serializes_queue_publication
 test_restart_preserves_recovery_across_reused_pid_lock
@@ -1678,4 +1937,6 @@ test_handling_delivered_rejects_a_superseded_generation
 test_take_over_attaches_to_a_cycle_the_named_arm_does_not_own
 test_take_over_owns_a_fresh_cycle_and_keeps_queued_work_surfacing
 test_take_over_of_blocked_capture_keeps_acknowledged_queue_quiet
-test_take_over_preserves_downtime_from_watcher_self_exit
+test_shutdown_overlapping_queue_acknowledgement
+test_acknowledged_cycle_stop_keeps_next_arm_quiet
+test_take_over_preserves_acknowledgement_after_watcher_failure

@@ -74,15 +74,14 @@
 # arm's own child, it stops that watcher by its locked identity: a cycle that
 # delivered a reason before the stop landed reports it exactly as an attached
 # arm would, and otherwise this arm owns a fresh cycle as a plain arm does.
-# Recovery restoration follows docs/watcher-continuity.md "Generation reuse";
-# an unconfirmed stop leaves downtime for the fresh cycle's recovery check.
+# Recovery restoration follows docs/watcher-continuity.md "Generation reuse".
 # Any other watcher, or one that outlives the stop,
 # is attached to exactly as a plain arm attaches.
 #
 # --stop: the same home-scoped stop without re-arming, for an owner that ends
 # its own supervision cycle on purpose (the supervision host's park boundary,
-# bin/fm-supervision-host.sh). The stopped watcher publishes downtime exactly
-# as any watcher close does; prints "watcher: stopped pid=<N>" or
+# bin/fm-supervision-host.sh). Recovery follows the same "Generation reuse"
+# contract. The arm prints "watcher: stopped pid=<N>" or
 # "watcher: none running" and exits 0, or exits 1 when the watcher outlived
 # the stop.
 #

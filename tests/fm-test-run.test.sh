@@ -1111,7 +1111,8 @@ test_portable_parallel_lanes_stay_duration_balanced() {
 }
 
 test_portable_serial_shards_partition_the_serial_lane() {
-  local lanes count serial shard listed union dups shard_lane total cap
+  local lanes count serial shard listed union dups shard_lane total cap host_shard lifecycle_shard
+  host_shard='' lifecycle_shard=''
   lanes=$("$RUNNER" --list-lanes)
   count=$(printf '%s\n' "$lanes" | grep -c '^portable-serial-[0-9]*of[0-9]*$')
   [ "$count" -ge 2 ] || fail "expected at least two portable serial shard lanes, got $count"
@@ -1125,6 +1126,12 @@ test_portable_serial_shards_partition_the_serial_lane() {
     shard_lane="portable-serial-${shard}of${count}"
     listed=$("$RUNNER" --list --lane "$shard_lane")
     [ -n "$listed" ] || fail "$shard_lane selected no tests"
+    if printf '%s\n' "$listed" | grep -Fxq tests/fm-supervision-host.test.sh; then
+      host_shard=$shard
+    fi
+    if printf '%s\n' "$listed" | grep -Fxq tests/fm-supervision-host-lifecycle.test.sh; then
+      lifecycle_shard=$shard
+    fi
     union=$(printf '%s\n%s' "$union" "$listed")
     shard=$((shard + 1))
   done
@@ -1134,6 +1141,8 @@ test_portable_serial_shards_partition_the_serial_lane() {
   [ -z "$dups" ] || fail "portable serial shards run the same script twice: $dups"
   [ "$(printf '%s\n' "$union" | LC_ALL=C sort)" = "$serial" ] \
     || fail "portable serial shards must exactly cover the portable serial lane"
+  [ -n "$host_shard" ] && [ -n "$lifecycle_shard" ] && [ "$host_shard" != "$lifecycle_shard" ] \
+    || fail "host handoff and lifecycle coverage must run on separate serial shards"
 
   # Every shard carries a real share of the lane, so no degenerate partition
   # leaves one runner doing nearly all of the work the split exists to spread.
