@@ -1,4 +1,4 @@
-# Verify the runtime portion of Omnigent runtime launch-contract schema 1.
+# Verify Omnigent runtime launch-contract schema 1 runtime and harness fields.
 # Inputs are the independently selected installer receipt, not measured values
 # copied back as their own expected values. Native wrapper capability remains
 # a separate CLI probe owned by fm-omnigent.sh.
@@ -32,6 +32,29 @@ try (length == 1 and (.[0] |
   (.native_environment | type == "object" and .max_entries == 64 and
     .max_total_bytes == 65536 and .ambient_forwarding == false) and
   .telemetry == {owner:"external",admission:"external_policy"})) catch false;
+def valid_harness_capabilities:
+  . as $caps | type == "object" and
+  all(["integration_mode", "elicitation", "resume", "effort", "model_family",
+       "auth", "fork_history", "instruction_delivery"][]; . as $key |
+    ($caps[$key] | type == "string")) and
+  all(["subagents", "interrupt", "streaming"][]; . as $key |
+    ($caps[$key] | type == "boolean")) and
+  all(["steering", "live_queue", "images", "compaction"][]; . as $key |
+    ($caps | has($key)) and ($caps[$key] | type == "boolean" or type == "null")) and
+  all(["shell_tool_name", "shell_tool_prompt"][]; . as $key |
+    ($caps | has($key)) and ($caps[$key] | type == "string" or type == "null"));
+def fm_omnigent_harness_verified($harness):
+  try (length == 1 and (.[0] |
+    type == "object" and .schema_version == 1 and
+    (.harnesses | type == "array" and
+      all(.[];
+        type == "object" and (.id | type == "string" and length > 0) and
+        (.command | type == "string" and length > 0) and
+        (.durable_custody | type == "boolean") and
+        (.capabilities | valid_harness_capabilities)) and
+      (map(.id) | unique | length) == length and
+      (map(.command) | unique | length) == length and
+      ([.[] | select(.command == $harness)] | length) == 1))) catch false;
 def fm_omnigent_error_category:
   if length == 1 and (.[0] | type == "object" and .schema_version == 1 and
       (.error | type == "object" and

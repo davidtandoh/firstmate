@@ -94,6 +94,53 @@ for invalid in '.schema_version=2' '.schema_version="1"' '.error.category="sensi
   [ ! -s "$TMP_ROOT/error" ] || fail 'malformed refusal leaked output'
 done
 pass 'only known structured refusal categories are exposed'
+jq -n '{schema_version:1,harnesses:[
+  {id:"codex-native",command:"codex",durable_custody:false,capabilities:{
+    integration_mode:"native",elicitation:"unknown",resume:"unknown",effort:"unknown",
+    model_family:"unknown",auth:"unknown",fork_history:"unknown",instruction_delivery:"unknown",
+    subagents:true,interrupt:true,streaming:true,steering:null,live_queue:null,images:null,
+    compaction:null,shell_tool_name:null,shell_tool_prompt:null}},
+  {id:"claude-native",command:"claude",durable_custody:false,capabilities:{
+    integration_mode:"native",elicitation:"unknown",resume:"unknown",effort:"unknown",
+    model_family:"unknown",auth:"unknown",fork_history:"unknown",instruction_delivery:"unknown",
+    subagents:true,interrupt:true,streaming:true,steering:false,live_queue:false,images:false,
+    compaction:false,shell_tool_name:"bash",shell_tool_prompt:"shell"}}]}' > "$TMP_ROOT/harness-contract.json"
+verify_harness() {
+  jq -L "$ROOT/bin" -se --arg harness "$1" \
+    'include "fm-omnigent-contract"; fm_omnigent_harness_verified($harness)' "$2" >/dev/null 2>&1
+}
+for harness in codex claude; do
+  verify_harness "$harness" "$TMP_ROOT/harness-contract.json" || fail "callable $harness receipt refused"
+done
+for harness in codex-native codex-wrapper pi foreign; do
+  if verify_harness "$harness" "$TMP_ROOT/harness-contract.json"; then fail "foreign wrapper command accepted: $harness"; fi
+done
+for invalid in \
+  '.schema_version=2' \
+  '.harnesses=[]' \
+  '.harnesses={}' \
+  '.harnesses += [.harnesses[0]]' \
+  '.harnesses[1].id="codex-native"' \
+  '.harnesses[0].command="codex-native"' \
+  '.harnesses[0].command=["codex"]' \
+  '.harnesses[0].durable_custody="false"' \
+  '.harnesses[0].capabilities=[]' \
+  '.harnesses[0].capabilities.streaming=null' \
+  '.harnesses[0].capabilities.auth=false' \
+  '.harnesses[0].capabilities.steering="unknown"' \
+  '.harnesses[0].capabilities.shell_tool_name=false' \
+  'del(.harnesses[0].capabilities.compaction)'; do
+  jq "$invalid" "$TMP_ROOT/harness-contract.json" > "$TMP_ROOT/invalid-harness.json"
+  if verify_harness codex "$TMP_ROOT/invalid-harness.json"; then fail "malformed or ambiguous harness receipt accepted: $invalid"; fi
+done
+for capability in steering live_queue images compaction; do
+  for value in true false null; do
+    jq --arg capability "$capability" --argjson value "$value" \
+      '.harnesses[0].capabilities[$capability]=$value' "$TMP_ROOT/harness-contract.json" > "$TMP_ROOT/nullable-capability.json"
+    verify_harness codex "$TMP_ROOT/nullable-capability.json" || fail "valid nullable $capability=$value refused"
+  done
+done
+pass 'callable commands and typed capabilities refuse ambiguity and preserve unknown values'
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
