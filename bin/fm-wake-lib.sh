@@ -715,12 +715,12 @@ _fm_recovery_marker_publish() {
   local lock saved_token generation='' status=pending previous_append_token=''
   local queue_lock='' current deadline
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|append) ;; *) return 1 ;; esac
+  case "$source" in watcher|stale-lock|append) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
   fi
-  if [ "$kind" = downtime ] && [ "$source" = watcher ]; then
+  if [ "$kind" = downtime ] && [ "$source" != append ]; then
     fm_current_pid current || return 1
     if [ "$(cat "$FM_WAKE_QUEUE_LOCK/pid" 2>/dev/null || true)" != "$current" ]; then
       if [ -n "$bound" ]; then
@@ -762,7 +762,7 @@ _fm_recovery_marker_publish() {
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
         acked:*)
-          if [ "$source" = watcher ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
+          if [ "$source" != append ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
             FM_RECOVERY_MARKER_TOKEN=$saved_token
             fm_lock_release "$lock"
             [ -z "$queue_lock" ] || fm_lock_release "$queue_lock"
@@ -778,9 +778,11 @@ _fm_recovery_marker_publish() {
           status=pending
           ;;
         announced:downtime:*)
-          if [ "$source" = watcher ]; then
+          if [ "$source" != append ]; then
             generation=${FM_RECOVERY_MARKER_TOKEN##*:}
-            status=announced
+            if [ "$source" = watcher ]; then
+              status=announced
+            fi
           fi
           ;;
       esac
@@ -1106,7 +1108,7 @@ fm_recovery_transition() {
       ;;
     clear-stale-lock)
       [ -n "$target" ] || return 1
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" stale-lock || return 1
       fm_lock_remove_path "$target"
       ;;
     *) return 2 ;;
@@ -1271,7 +1273,7 @@ fm_lock_try_acquire() {
   fi
 
   if [ "$lockdir" = "$STATE/.watch.lock" ] \
-    && ! _fm_recovery_marker_publish "$STATE/.watcher-down" downtime; then
+    && ! _fm_recovery_marker_publish "$STATE/.watcher-down" downtime "" stale-lock; then
     fm_lock_release "$steal"
     FM_LOCK_HELD_PID=$cur
     FM_LOCK_OWNER_DIR=

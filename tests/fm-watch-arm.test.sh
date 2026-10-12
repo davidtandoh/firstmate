@@ -755,6 +755,83 @@ test_interrupted_handling_is_redrained_on_rearm() {
   pass "watch-arm: interrupted handling leaves its wake durable for successor re-drain"
 }
 
+test_interrupted_empty_announcement_is_retried() {
+  local mode dir state fakebin generation watcher status acknowledged
+  for mode in arm restart; do
+    dir=$(make_case "interrupted-empty-announcement-$mode")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      fm_recovery_marker_publish "$STATE/.watcher-down" handling &&
+        fm_recovery_marker_publish "$STATE/.watcher-down" downtime
+    ' _ "$ROOT/bin/fm-wake-lib.sh" || fail "could not persist interrupted handling"
+    generation=$(recovery_marker_generation "$state/.watcher-down")
+    cat > "$fakebin/touch" <<'SH'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = "$FM_STATE_OVERRIDE/.last-heartbeat" ] && [ -f "$FM_HOME/crash-on-announce" ]; then
+  case "$(cat "$FM_STATE_OVERRIDE/.watcher-down")" in
+    announced:downtime:*)
+      rm "$FM_HOME/crash-on-announce"
+      printf '%s\n' "$PPID" > "$FM_HOME/interrupted-watcher"
+      kill -KILL "$PPID"
+      exit 1
+      ;;
+  esac
+fi
+exec "$FM_REAL_TOUCH" "$@"
+SH
+    chmod +x "$fakebin/touch"
+    : > "$dir/crash-on-announce"
+    PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+      FM_REAL_TOUCH="$(command -v touch)" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 FM_ARM_CONFIRM_TIMEOUT=5 \
+      "$WATCH_ARM" > "$dir/interrupted-arm.out" 2>&1 &
+    ARM_PID=$!
+    wait_for_exit "$ARM_PID" 150
+    status=$?
+    [ "$status" -ne 124 ] && [ "$status" -ne 0 ] || fail "interrupted watcher did not fail its arm"
+    watcher=$(cat "$dir/interrupted-watcher")
+    [ -n "$watcher" ] || fail "fixture did not identify its watcher"
+    ! is_live_non_zombie "$watcher" || fail "fixture watcher was not killed"
+    [ "$(cat "$state/.watch.lock/pid")" = "$watcher" ] || fail "interruption lost stale-owner evidence"
+    [ "$(cat "$state/.watcher-down")" = "announced:downtime:$generation" ] \
+      || fail "fixture did not interrupt an announced recovery generation"
+    [ ! -s "$state/.wake-queue" ] || fail "empty recovery fixture queued work"
+    ! grep -q '^check: rearm-resurface' "$dir/interrupted-arm.out" || fail "fixture delivered recovery before interruption"
+    rm "$fakebin/touch"
+
+    if [ "$mode" = restart ]; then
+      start_rearm_arm "$dir" "$state" "$fakebin" "$dir/retry-arm.out"
+    else
+      PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+        FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        FM_ARM_CONFIRM_TIMEOUT="$REARM_CONFIRM_SECONDS" "$WATCH_ARM" > "$dir/retry-arm.out" &
+      ARM_PID=$!
+    fi
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "$mode stranded an interrupted empty recovery announcement"
+    grep -q '^check: rearm-resurface' "$dir/retry-arm.out" || fail "$mode did not retry recovery delivery"
+    [ "$(recovery_marker_generation "$state/.watcher-down")" = "$generation" ] \
+      || fail "$mode replaced the unacknowledged generation"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/drain.out" 2> "$dir/drain.err" \
+      || fail "could not drain retried recovery"
+    grep -qF -- "--ack-through 0 --recovery-generation $generation" < "$dir/drain.err" \
+      || fail "retried empty recovery lost its acknowledgement"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through 0 --recovery-generation "$generation" \
+      || fail "could not acknowledge retried recovery"
+    acknowledged=$(cat "$state/.watcher-down")
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/quiet-arm.out"
+    sleep 3
+    is_live_non_zombie "$ARM_PID" || fail "acknowledged recovery repeated: $(cat "$dir/quiet-arm.out")"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "acknowledged retry reopened recovery"
+    append_wake "$state" signal later 'signal: work after recovery acknowledgement' || fail "could not append later work"
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "later durable work did not wake"
+    grep -q '^check: rearm-resurface' "$dir/quiet-arm.out" || fail "later append did not reopen recovery"
+  done
+  pass "watch-arm: stale-owner recovery retries an interrupted empty announcement until acknowledged"
+}
+
 test_malformed_marker_is_quarantined_once() {
   local dir home state fakebin invalid_count
   dir=$(make_case malformed-downtime-marker)
@@ -1844,6 +1921,7 @@ test_slow_rearm_recovery_is_still_surfaced
 test_marker_publish_failure_retains_recovery_evidence
 test_delivery_gap_wake_is_recovered_once
 test_interrupted_handling_is_redrained_on_rearm
+test_interrupted_empty_announcement_is_retried
 test_malformed_marker_is_quarantined_once
 test_recovery_consumption_serializes_queue_publication
 test_restart_preserves_recovery_across_reused_pid_lock
