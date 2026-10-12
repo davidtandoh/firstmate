@@ -1311,7 +1311,7 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
         "$(fm_pending_reply_get "$rec" task_id)" "${completed:-$deadline}" || return 1
       ;;
     delivery_unknown) kind=delivery-unknown ;;
-    recovery_failed|recovery_unknown) kind=recovery-delivery ;;
+    recovery_failed|recovery_unknown) kind='recovery-delivery' ;;
     *) return 1 ;;
   esac
   delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
