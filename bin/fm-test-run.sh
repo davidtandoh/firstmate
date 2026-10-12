@@ -1473,7 +1473,7 @@ families_for_changed_path() {
       printf '%s\n' backend-dispatch
       printf '%s\n' real-herdr-gated
       ;;
-    bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh)
+    bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh|bin/fm-omnigent-contract.jq)
       # The shared harness-process classifier feeds both the tmux and Herdr
       # liveness verdicts, so a change to it is proven by both backends' suites.
       printf '%s\n' backend-dispatch

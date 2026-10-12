@@ -32,6 +32,68 @@ TMP_ROOT=$(fm_test_tmproot fm-omnigent)
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
 OMNI="$ROOT/bin/fm-omnigent.sh"
+# The immutable installer selection and the measured runtime receipt must agree.
+generation="sha256:$(printf '%064d' 1)"
+source_commit=$(printf '%040d' 1)
+jq -n --arg executable "$TMP_ROOT/runtime/bin/omnigent" --arg generation "$generation" --arg commit "$source_commit" '
+  {schema_version:1,
+   runtime:{executable:$executable,python:"/usr/bin/python3",generation:$generation,
+            package_version:"0.16.0.dev0",source_commit:$commit,state_schema:1},
+   endpoint:"http://127.0.0.1:6767",availability:"ready",
+   allowed_client_environment:["OMNIGENT_AUTH_PROVIDER","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
+                               "OMNIGENT_LOCAL_SERVER_PORT","OMNIGENT_WEB_BASE_PATH"],
+   client_environment:{OMNIGENT_CONFIG_HOME:"/private/fixture/config"},
+   native_environment:{max_entries:64,max_total_bytes:65536,ambient_forwarding:false},
+   telemetry:{owner:"external",admission:"external_policy"}}
+' > "$TMP_ROOT/contract.json"
+verify_contract() {
+  jq -L "$ROOT/bin" -se --arg executable "$TMP_ROOT/runtime/bin/omnigent" --arg generation "$generation" \
+    --arg commit "$source_commit" --arg server 'http://127.0.0.1:6767' \
+    --argjson environment '{"OMNIGENT_CONFIG_HOME":"/private/fixture/config"}' \
+    'include "fm-omnigent-contract"; fm_omnigent_runtime_verified($executable; $generation; $commit; $server; $environment)' \
+    "$1" >/dev/null 2>&1
+}
+verify_contract "$TMP_ROOT/contract.json" || fail 'valid measured runtime contract refused'
+for invalid in \
+  '.schema_version="1"' \
+  '.schema_version=2' \
+  '.availability="unverified"' \
+  '.runtime.executable="/foreign/bin/omnigent"' \
+  '.runtime.generation="sha256:" + ("f" * 64)' \
+  '.runtime.source_commit=null' \
+  '.runtime.source_commit=("f" * 40)' \
+  '.runtime.state_schema=2' \
+  '.runtime.python="relative/python"' \
+  '.endpoint="http://127.0.0.1:6767/?token=secret"' \
+  '.allowed_client_environment += ["OTEL_EXPORTER_OTLP_ENDPOINT"]' \
+  '.client_environment.PATH="/foreign"' \
+  '.client_environment.OMNIGENT_CONFIG_HOME="/foreign/config"' \
+  '.native_environment.ambient_forwarding=true' \
+  '.native_environment.max_entries=65' \
+  '.telemetry.owner="omnigent"'; do
+  jq "$invalid" "$TMP_ROOT/contract.json" > "$TMP_ROOT/invalid-contract.json"
+  if verify_contract "$TMP_ROOT/invalid-contract.json"; then fail "invalid runtime contract accepted: $invalid"; fi
+done
+for malformed in '{bad json' '{} {}' '[]' 'null'; do
+  printf '%s' "$malformed" > "$TMP_ROOT/invalid-contract.json"
+  if verify_contract "$TMP_ROOT/invalid-contract.json"; then fail 'malformed runtime contract accepted'; fi
+done
+pass 'measured runtime, endpoint, environment, and schema match immutable selection'
+refusal_category() {
+  jq -L "$ROOT/bin" -ser 'include "fm-omnigent-contract"; fm_omnigent_error_category' "$1" 2>/dev/null
+}
+for category in invalid_endpoint endpoint_unavailable endpoint_mismatch auth_denied runtime_unverified runtime_mismatch; do
+  jq -n --arg category "$category" '{schema_version:1,error:{category:$category,detail:"sensitive value"}}' \
+    > "$TMP_ROOT/refusal.json"
+  [ "$(refusal_category "$TMP_ROOT/refusal.json")" = "$category" ] || fail 'structured refusal lost its safe category'
+  if verify_contract "$TMP_ROOT/refusal.json"; then fail 'refusal was accepted as a ready runtime'; fi
+done
+for invalid in '.schema_version=2' '.schema_version="1"' '.error.category="sensitive value"' '.error.category=null' '.error=[]'; do
+  jq "$invalid" "$TMP_ROOT/refusal.json" > "$TMP_ROOT/invalid-refusal.json"
+  if refusal_category "$TMP_ROOT/invalid-refusal.json" > "$TMP_ROOT/error"; then fail 'unknown or malformed refusal accepted'; fi
+  [ ! -s "$TMP_ROOT/error" ] || fail 'malformed refusal leaked output'
+done
+pass 'only known structured refusal categories are exposed'
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
