@@ -1307,6 +1307,29 @@ test_omnigent_trailing_banner_and_native_drafts() {
     assert_screen 'shell example inside native composer' pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
     out=$(fm_composer_extract_selected_content styled=1 "$screen")
     [ "$out" = '$ ls' ] || fail "internal shell example lost: $out"
+    for content in ' │ │' ' │    │' ' │ $ ls │'; do
+      screen=$(printf '────────\n❯ draw this box\n ┌────┐\n%s\n └────┘\n────────\n→ repo git:(main)\n%s\n' "$content" "$suffix")
+      want='draw this box ┌────┐ └────┘'
+      [ "$content" != ' │ $ ls │' ] || want='draw this box ┌────┐ $ ls └────┘'
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        expected=pending
+        [ "$caps" != "$CAPS_PLAIN" ] || expected=unknown
+        assert_screen 'box drawing inside native composer' "$expected" "$caps" "$screen" '' $'claude\tidle'
+        out=$(fm_composer_extract_selected_content "$caps" "$screen")
+        [ "$out" = "$want" ] || fail "box drawing replaced native draft: $out"
+      done
+    done
+    for content in '❯ later draft' "$(printf '┌─────────────────┐\n│ ❯ later draft   │\n└─────────────────┘')"; do
+      screen=$(printf '────────\n❯ draw this box\n ┌────┐\n │ │\n └────┘\n────────\n→ repo git:(main)\n\n%s\n%s\n' "$content" "$suffix")
+      assert_screen 'later composer supersedes enclosing native draft' pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+      out=$(fm_composer_extract_selected_content styled=1 "$screen")
+      [ "$out" = 'later draft' ] || fail "stale enclosing draft replaced later composer: $out"
+    done
+    screen=$(printf '────────\n❯ draw this box\n ┌────┐\n │ │\n └────┘\n────────\n→ repo git:(main)\n\n$ ls\n%s\n' "$suffix")
+    assert_screen 'later shell invalidates enclosing native draft' unknown "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+    if out=$(fm_composer_extract_selected_content styled=1 "$screen"); then
+      fail "later shell retained enclosing native draft: $out"
+    fi
     for content in '$ ls' '> echo hello' '% pwd' '# whoami'; do
       for status in "$(printf '→ repo git:(main)\n%s' "$content")" "$(printf '→ repo git:(main)\n\n%s' "$content")"; do
         screen=$(printf '────────\n❯\n\n $ ls\n────────\n%s\n%s\n' "$status" "$suffix")

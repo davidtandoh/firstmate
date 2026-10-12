@@ -1617,7 +1617,7 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
 }
 
 _fm_composer_select_cursorless() {
-  local plain=$1 generic=-1 next boundary raw trimmed glyph bare footer=0
+  local plain=$1 generic=-1 next boundary raw trimmed glyph bare bare_boundary footer=0
   FM_COMPOSER_SELECTED_KIND=
   FM_COMPOSER_SELECTED_FIRST=-1
   FM_COMPOSER_SELECTED_LAST=-1
@@ -1645,14 +1645,17 @@ _fm_composer_select_cursorless() {
       bare=-1
     fi
   fi
-  if [ "$bare" -gt "$generic" ]; then
-    generic=$bare
+  bare_boundary=$bare
+  if [ "$footer" = 1 ] && [ "$bare" = "$FM_COMPOSER_FOOTER_GLYPH" ]; then
+    bare_boundary=$FM_COMPOSER_FOOTER_AFTER
+  fi
+  if [ "$bare_boundary" -gt "$generic" ]; then
+    generic=$bare_boundary
     FM_COMPOSER_SELECTED_KIND=bare
     FM_COMPOSER_SELECTED_FIRST=$bare
     FM_COMPOSER_SELECTED_LAST=$bare
-    if [ "$footer" = 1 ] && [ "$bare" = "$FM_COMPOSER_FOOTER_GLYPH" ]; then
-      generic=$FM_COMPOSER_FOOTER_AFTER
-      FM_COMPOSER_SELECTED_LAST=$((FM_COMPOSER_FOOTER_AFTER - 1))
+    if [ "$bare_boundary" -gt "$bare" ]; then
+      FM_COMPOSER_SELECTED_LAST=$((bare_boundary - 1))
     fi
   fi
   if [ "$FM_COMPOSER_SCAN_LEFTBAR_END" -gt "$generic" ]; then
