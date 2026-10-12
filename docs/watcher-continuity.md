@@ -232,7 +232,8 @@ Explicit failure exits and stale-lock recovery still publish new downtime after 
 An EXIT trap cannot distinguish an interpreter failure from a native signal that inherited a false predicate's status.
 For an ambiguous nonzero close, watcher cleanup transfers its singleton lock to its direct owning arm.
 The lock records that cleanup owner's process identity before the transfer.
-Stop and re-arm wait for an identity-matched cleanup owner to release the lock before reporting completion or starting a replacement.
+Stop and watcher acquisition wait for an identity-matched cleanup owner to release the lock before reporting completion or starting a replacement.
+Acquisition repeats this check after stalled-watcher eviction, then retries if lock ownership changed.
 The wait is bounded by `FM_WATCHER_CLEANUP_LOCK_BOUND` plus one second; expiration reports failure without clearing or signalling the live cleanup owner.
 The arm waits for the watcher's final status, then preserves an acknowledgement for native HUP or TERM and publishes downtime for failure.
 The transfer keeps a live lock owner until the arm finishes cleanup; if the arm dies or cannot persist recovery within `FM_WATCHER_CLEANUP_LOCK_BOUND`, the retained singleton provides stale-lock recovery evidence.

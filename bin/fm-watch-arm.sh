@@ -510,21 +510,6 @@ if [ "$mode" = handling-delivered ]; then
 fi
 
 STOPPED_PID=
-wait_for_watcher_cleanup() {
-  local lock_pid deadline bound
-  bound=$(fm_watcher_cleanup_lock_bound)
-  deadline=$((SECONDS + bound + 1))
-  while :; do
-    lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
-    fm_pid_alive "$lock_pid" || return 0
-    fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME" cleanup-identity || return 0
-    if [ "$SECONDS" -ge "$deadline" ]; then
-      echo "watcher: FAILED - cleanup owner pid=$lock_pid did not release the watcher lock" >&2
-      return 1
-    fi
-    sleep 0.1
-  done
-}
 
 # Home-scoped stop: only the watcher pid recorded in THIS home's lock. Waits
 # for it to actually exit, so a fresh watcher either takes a released lock or
@@ -533,7 +518,7 @@ wait_for_watcher_cleanup() {
 stop_home_watcher() {
   local lock_pid i
   lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
-  fm_pid_alive "$lock_pid" || { wait_for_watcher_cleanup; return $?; }
+  fm_pid_alive "$lock_pid" || { fm_watcher_wait_for_cleanup "$STATE" "$WATCH" "$FM_HOME"; return $?; }
   if fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME"; then
     kill -TERM "$lock_pid" 2>/dev/null || true
     i=0
@@ -548,7 +533,7 @@ stop_home_watcher() {
     echo "watcher: FAILED - stale watcher recovery state could not be persisted" >&2
     return 1
   fi
-  wait_for_watcher_cleanup
+  fm_watcher_wait_for_cleanup "$STATE" "$WATCH" "$FM_HOME"
 }
 
 if [ "$mode" = restart ]; then
@@ -645,7 +630,6 @@ fi
 # stays our child for its whole life: we wait on it, so killing this arm (the
 # harness-tracked task) tears the watcher down too, and the watcher's eventual
 # wake exit propagates out so the harness re-notifies firstmate.
-wait_for_watcher_cleanup || exit 1
 child=
 child_out=
 cleanup_child() {

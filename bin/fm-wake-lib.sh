@@ -1102,6 +1102,22 @@ fm_watcher_cleanup_lock_bound() {
   printf '%s\n' "$bound"
 }
 
+fm_watcher_wait_for_cleanup() {
+  local state=$1 watch=$2 home=${3:-$FM_HOME} lock_pid deadline bound
+  bound=$(fm_watcher_cleanup_lock_bound)
+  deadline=$((SECONDS + bound + 1))
+  while :; do
+    lock_pid=$(cat "$state/.watch.lock/pid" 2>/dev/null || true)
+    fm_pid_alive "$lock_pid" || return 0
+    fm_watcher_lock_matches_pid "$state" "$watch" "$lock_pid" "$home" cleanup-identity || return 0
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "watcher: FAILED - cleanup owner pid=$lock_pid did not release the watcher lock" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+}
+
 fm_watcher_finish_cleanup() {
   local state=$1 status=$2 current lock transition=release-lock bound
   lock="$state/.watch.lock"

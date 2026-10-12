@@ -2517,6 +2517,8 @@ EVICTED_PID=
 EVICTED_BEAT_AGE=
 BEAT="$STATE/.last-watcher-beat"
 while ! fm_lock_try_acquire "$WATCH_LOCK"; do
+  fm_watcher_wait_for_cleanup "$STATE" "$WATCH_PATH" "$FM_HOME" || exit 1
+  [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${FM_LOCK_HELD_PID:-}" ] || continue
   if [ -n "${FM_LOCK_HELD_PID:-}" ]; then
     if [ -e "$BEAT" ]; then
       beat_age=$(fm_path_age "$BEAT")

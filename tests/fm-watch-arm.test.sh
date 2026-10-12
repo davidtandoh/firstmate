@@ -1693,6 +1693,97 @@ test_handling_delivered_rejects_a_superseded_generation() {
   pass "watch-arm: a churned generation's handling confirmation reports a mismatch and an arm check keeps it"
 }
 
+test_stalled_watcher_eviction_waits_for_marker_cleanup() {
+  local dir state fakebin owner watcher acknowledged i real_cat real_date
+  real_cat=$(command -v cat)
+  real_date=$(command -v date)
+  dir=$(make_case stalled-watcher-cleanup)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  append_wake "$state" signal handled "signal: handled before stall"
+  ack_wakes "$state" >/dev/null || fail "could not acknowledge the fixture wake"
+  acknowledged=$(cat "$state/.watcher-down")
+  touch "$state/.last-heartbeat"
+  cat > "$fakebin/cat" <<'SH'
+#!/usr/bin/env bash
+set -eu
+if [ "${FM_TEST_BLOCK_HEARTBEAT:-0}" = 1 ] && [ -e "$FM_STATE_OVERRIDE/heartbeat-block" ] \
+  && [ "${1:-}" = "$FM_STATE_OVERRIDE/.heartbeat-streak" ]; then
+  if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -ge 2 ]; }; then
+    if mkdir "$FM_STATE_OVERRIDE/heartbeat-read" 2>/dev/null; then sleep 3; fi
+  else
+    touch "$FM_STATE_OVERRIDE/heartbeat-next"
+  fi
+fi
+exec "$FM_TEST_REAL_CAT" "$@"
+SH
+  cat > "$fakebin/date" <<'SH'
+#!/usr/bin/env bash
+set -eu
+if [ "${FM_TEST_BLOCK_HEARTBEAT:-0}" = 1 ] \
+  && [ -e "$FM_STATE_OVERRIDE/heartbeat-next" ] \
+  && mkdir "$FM_STATE_OVERRIDE/heartbeat-read" 2>/dev/null; then
+  sleep 3
+fi
+exec "$FM_TEST_REAL_DATE" "$@"
+SH
+  chmod +x "$fakebin/cat" "$fakebin/date"
+  FM_TEST_REAL_CAT="$real_cat" FM_TEST_REAL_DATE="$real_date" FM_TEST_BLOCK_HEARTBEAT=1 \
+    FM_HEARTBEAT_MAX=999999999 FM_WATCHER_CLEANUP_LOCK_BOUND=10 \
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/owner.out"
+  owner=$ARM_PID
+  SEED_PID=$owner
+  watcher=$(cat "$state/.watch.lock/pid")
+  touch "$state/heartbeat-block"
+  i=0
+  while [ ! -e "$state/heartbeat-read" ] && [ "$i" -lt 100 ]; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$state/heartbeat-read" ] || fail "real watcher never reached the heartbeat read"
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_watcher_lock_matches_pid "$STATE" "$2" "$3" "$FM_HOME"
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$WATCH" "$watcher" || fail "real watcher identity does not match its lock"
+  mkdir "$state/.watcher-down.lock"
+  printf '%s\n' "$$" > "$state/.watcher-down.lock/pid"
+  touch -t 200001010000 "$state/.last-watcher-beat"
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_TEST_REAL_CAT="$real_cat" FM_TEST_REAL_DATE="$real_date" \
+    FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_GUARD_GRACE=1 FM_WATCHER_STALL_BOUND=3 FM_WATCHER_CLEANUP_LOCK_BOUND=10 \
+    FM_ARM_CONFIRM_TIMEOUT=30 "$WATCH_ARM" --arm > "$dir/rearm.out" 2> "$dir/rearm.err" &
+  ARM_PID=$!
+  i=0
+  while [ "$(cat "$state/.watch.lock/pid" 2>/dev/null || true)" != "$owner" ] && [ "$i" -lt 100 ]; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ "$(cat "$state/.watch.lock/pid" 2>/dev/null || true)" = "$owner" ] \
+    || fail "eviction did not hand cleanup to the real arm: $(cat "$dir/owner.out" "$dir/rearm.out" "$dir/rearm.err"); holder=$(cat "$state/.watch.lock/pid" 2>/dev/null || true) owner=$owner watcher=$watcher"
+  ! is_live_non_zombie "$watcher" || fail "evicted watcher remained alive"
+  sleep 1
+  is_live_non_zombie "$owner" || fail "old arm did not wait for the recovery-marker lock"
+  ! grep -q 'heartbeat is stale' "$dir/rearm.err" \
+    || fail "replacement rejected the live cleanup owner: $(cat "$dir/rearm.err")"
+  [ "$(cat "$state/.watch.lock/pid")" = "$owner" ] || fail "replacement removed the cleanup owner's lock"
+  rm "$state/.watcher-down.lock/pid"
+  rmdir "$state/.watcher-down.lock"
+  wait_for_file_text "$dir/rearm.out" 'watcher: started' \
+    || fail "eviction did not establish a replacement: $(cat "$dir/rearm.out" "$dir/rearm.err")"
+  sleep 3
+  is_live_non_zombie "$ARM_PID" || fail "replacement did not remain live after delayed cleanup"
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "eviction replaced the acknowledgement"
+  [ ! -s "$state/.wake-queue" ] || fail "eviction manufactured queued work"
+  ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "eviction surfaced an empty queue"
+  append_wake "$state" check later "check: real work after stalled eviction"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+  expect_code 0 "$?" "replacement must wake for later work"
+  assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface"
+  wait "$owner" 2>/dev/null || true
+  pass "watch-arm: stalled watcher eviction waits for real arm cleanup and later wakes"
+}
+
 test_native_stop_after_false_predicate_preserves_acknowledgement() {
   local signal dir state fakebin acknowledged status expected target i operation
   for signal in restart restart-race restart-pending restart-timeout stop-pending arm-pending TERM HUP orphan-TERM lost-owner exit-1 exit-129 exit-143; do
@@ -1944,6 +2035,7 @@ test_interpreter_failure_preserves_recovery() {
 }
 
 test_interpreter_failure_preserves_recovery
+test_stalled_watcher_eviction_waits_for_marker_cleanup
 test_native_stop_after_false_predicate_preserves_acknowledgement
 test_attached_arm_reports_the_delivered_wake
 test_attached_arm_reports_the_delivered_wake_after_drain
