@@ -229,11 +229,11 @@ If a durable row arrived after the announcement, the arm opens a fresh pending d
 An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
 Every watcher shutdown and stale-lock recovery preserves an acknowledged episode while its durable queue is empty, regardless of exit cause.
 This includes native HUP or TERM, explicit failures, interpreter failures, and abrupt termination.
-The marker lock serializes that decision with acknowledgement and durable append publication.
+The publisher takes the queue lock before the marker lock to serialize that decision with the complete acknowledgement transaction and durable append publication.
 A successful durable append opens recovery even after acknowledgement.
 The watcher retains ownership of its singleton until cleanup releases it; its arm never becomes the cleanup owner.
 A handling successor closing to resurface recovery preserves the existing marker instead.
-If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to reconcile recovery before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
+If EXIT cleanup cannot acquire the queue and downtime-marker locks within its shared bound, it retains the stale singleton for the next arm to reconcile recovery before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
