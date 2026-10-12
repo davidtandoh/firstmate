@@ -39,3 +39,13 @@ A Python process merely mentioning Omnigent, or running its server, is not an ag
 The native harness remains the identity used by steering, interrupt, and exit.
 A live wrapper alone does not prove that a model turn completed or that MLflow received its trace.
 [Verification](verification/omnigent.md) separates those claims.
+
+## Conversation banner and draft protection
+
+Shared composer classification and selected-content extraction remove one trailing `Omnigent: http://127.0.0.1:<port>/c/<32 lowercase hex digits>` line and any blank rows after it before reading the native composer.
+The port must contain only decimal digits.
+ANSI styling and trailing terminal padding do not change the match; other hosts, malformed URLs, and nonfinal banner rows remain content.
+A final exact-match line is treated as wrapper output even without separate wrapper identity.
+This prevents the banner from making an empty composer appear to hold a draft.
+Native draft selection remains owned by [`bin/fm-composer-lib.sh`](../bin/fm-composer-lib.sh), including its enclosing-composer safety boundary.
+The [conversation-footer verification record](verification/omnigent.md#2026-10-12-conversation-footer) distinguishes regression coverage from live evidence.

@@ -58,8 +58,9 @@
 #   bare       - an agent prompt glyph row with no border at all (claude `❯`,
 #                codex `›`, muse `⟩`, cursor `→`). The agent glyph is itself the container
 #                proof; a bare SHELL glyph (`>` `$` `%` `#`) never is.
-#                A bare composer's WRAP region (typed input continuing on the
-#                rows beneath the glyph row) is bounded by blank rows, by
+#                Outside a proven enclosing composer (see THE COMPOSER FOOTER
+#                ZONE below), a bare composer's WRAP region (typed input
+#                continuing beneath the glyph row) is bounded by blank rows, by
 #                structural edges, and by the FURNITURE rows a harness draws
 #                directly below its composer - omp's status row and
 #                braille-only animation rows (declared once below, next to
@@ -92,13 +93,16 @@
 # container, so a BARE candidate among the contiguous non-blank rows below its
 # closing row is that composer's own footer furniture and not a composer. The
 # proven envelope is selected instead; when its proving glyph row is itself
-# borderless, that row is the bare candidate it stood for, and the envelope's
-# staleness probe resumes past the zone.
+# borderless, selection includes every row from that glyph to the closing
+# boundary. That boundary ranks the candidate and bounds staleness checks, so
+# blank rows, shell examples, and box drawings inside it remain draft content.
+# A later shell or composer outside the envelope still invalidates or
+# supersedes it. The envelope's staleness probe resumes past the footer zone.
 #
 # THE ASYMMETRY that bounds it: `empty` is the one verdict that authorizes
-# fm-send to type into a pane, so this rule may move a verdict only toward
-# REFUSING, never toward `empty`. A false refusal costs one undelivered
-# message; a false `empty` overwrites a visible draft or types into a working
+# fm-send to type into a pane, so footer recognition alone must never prove
+# `empty`; the selected native content must also be empty. A false refusal
+# costs one undelivered message; a false `empty` overwrites a visible draft or types into a working
 # agent. So the zone counts only when EVERY row in it is demonstrably furniture
 # (_fm_composer_row_is_composer_furniture): one unclaimed activity row
 # (`Working on request...`) makes the whole run activity and the envelope above
@@ -176,6 +180,27 @@
 fm_composer_strip_ansi() {
   local esc; esc=$(printf '\033')
   LC_ALL=C sed "s/${esc}\\[[0-9;:?]*[[:alpha:]]//g"
+}
+
+fm_composer_strip_omnigent_banner() {
+  printf '%s\n' "$1" | LC_ALL=C awk '
+    {
+      rows[NR] = $0
+      plain = $0
+      gsub(/\033\[[0-9;:?]*[[:alpha:]]/, "", plain)
+      sub(/[ \t\r]+$/, "", plain)
+      if (plain != "") { last = NR; banner = plain }
+    }
+    END {
+      limit = NR
+      if (banner ~ /^Omnigent: http:\/\/127\.0\.0\.1:[0-9]+\/c\/[a-f0-9]+$/) {
+        id = banner
+        sub(/^.*\/c\//, "", id)
+        if (length(id) == 32) limit = last - 1
+      }
+      for (i = 1; i <= limit; i++) print rows[i]
+    }
+  '
 }
 
 # Every code point Unicode gives the property White_Space=Yes that lies OUTSIDE
@@ -1519,9 +1544,8 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 #
 # The zone is furniture only if EVERY row in it is: one non-furniture row makes
 # the whole run unclaimed activity, the envelope above it stale, and this
-# function return 1. That is the asymmetry this rule is held to - it may only
-# ever move a verdict toward refusing, never toward `empty`, because `empty` is
-# the one verdict that authorizes fm-send to type into the pane. Returns 1 too
+# function return 1. The header's safety rule requires checking the selected
+# native content before returning `empty`. Returns 1 too
 # when no envelope is glyph-proven, when a blank row sits directly beneath it,
 # or when the run holds no bare candidate at all (nothing to demote).
 _fm_composer_locate_footer_zone() {  # <plain>
@@ -1596,7 +1620,7 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
 }
 
 _fm_composer_select_cursorless() {
-  local plain=$1 generic=-1 next boundary raw trimmed glyph bare footer=0
+  local plain=$1 generic=-1 next boundary raw trimmed glyph bare bare_boundary footer=0
   FM_COMPOSER_SELECTED_KIND=
   FM_COMPOSER_SELECTED_FIRST=-1
   FM_COMPOSER_SELECTED_LAST=-1
@@ -1624,11 +1648,18 @@ _fm_composer_select_cursorless() {
       bare=-1
     fi
   fi
-  if [ "$bare" -gt "$generic" ]; then
-    generic=$bare
+  bare_boundary=$bare
+  if [ "$footer" = 1 ] && [ "$bare" = "$FM_COMPOSER_FOOTER_GLYPH" ]; then
+    bare_boundary=$FM_COMPOSER_FOOTER_AFTER
+  fi
+  if [ "$bare_boundary" -gt "$generic" ]; then
+    generic=$bare_boundary
     FM_COMPOSER_SELECTED_KIND=bare
     FM_COMPOSER_SELECTED_FIRST=$bare
     FM_COMPOSER_SELECTED_LAST=$bare
+    if [ "$bare_boundary" -gt "$bare" ]; then
+      FM_COMPOSER_SELECTED_LAST=$((bare_boundary - 1))
+    fi
   fi
   if [ "$FM_COMPOSER_SCAN_LEFTBAR_END" -gt "$generic" ]; then
     generic=$FM_COMPOSER_SCAN_LEFTBAR_END
@@ -1718,6 +1749,7 @@ fm_composer_extract_selected_content() {  # <caps> <screen>
   done <<EOF
 $caps
 EOF
+  screen=$(fm_composer_strip_omnigent_banner "$screen")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
   _fm_composer_select_cursorless "$plain" || return 1
@@ -1857,6 +1889,7 @@ fm_composer_dialog_sink_release() {
 fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
   local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
   local styled=0 cursor=0 has_identity=0 kv plain
+  screen=$(fm_composer_strip_omnigent_banner "$screen")
   # Note the dialog before any early return so a pending picker is still named.
   fm_composer_note_blocking_dialog "$screen" || true
   while IFS= read -r kv; do

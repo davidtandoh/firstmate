@@ -4016,6 +4016,57 @@ test_composer_state_popup_placeholder_fill_is_pending() {
   pass "fm_backend_herdr_composer_state: a slash-command popup's argument-hint placeholder still reads pending (the incident fix)"
 }
 
+test_composer_state_omnigent_footer_and_doorbell() {
+  local dir log resp fb out scenario want rc sent banner
+  banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
+  for scenario in empty draft banner-draft multiline multiline-status multiline-status-native shell-example shell-example-native box-drawing box-drawing-native; do
+    want=pending
+    [ "$scenario" != empty ] || want=empty
+    dir="$TMP_ROOT/composer-omnigent-$scenario"; mkdir -p "$dir/responses"
+    log="$dir/log"; resp="$dir/responses"; sent="$dir/sent"; : > "$log"; : > "$sent"
+    case "$scenario" in
+      empty) printf '❯\n%s\n' "$banner" > "$resp/1.out" ;;
+      draft) printf '❯ real draft\n%s\n' "$banner" > "$resp/1.out" ;;
+      banner-draft) printf '❯ %s\n%s\n' "$banner" "$banner" > "$resp/1.out" ;;
+      multiline) printf '────────\n❯\n\n ❯ keep this draft\n────────\n%s\n' "$banner" > "$resp/1.out" ;;
+      multiline-status) printf '────────\n❯\n\n ❯ keep this draft\n────────\n→ repo git:(main)\n%s\n' "$banner" > "$resp/1.out" ;;
+      multiline-status-native) printf '────────\n❯\n\n ❯ keep this draft\n────────\n→ repo git:(main)\n' > "$resp/1.out" ;;
+      shell-example) printf '────────\n❯\n\n $ ls\n────────\n→ repo git:(main)\n%s\n' "$banner" > "$resp/1.out" ;;
+      shell-example-native) printf '────────\n❯\n\n $ ls\n────────\n→ repo git:(main)\n' > "$resp/1.out" ;;
+      box-drawing) printf '────────\n❯ draw this box\n ┌────┐\n │ │\n └────┘\n────────\n→ repo git:(main)\n%s\n' "$banner" > "$resp/1.out" ;;
+      box-drawing-native) printf '────────\n❯ draw this box\n ┌────┐\n │ │\n └────┘\n────────\n→ repo git:(main)\n' > "$resp/1.out" ;;
+    esac
+    cp "$resp/1.out" "$resp/2.out"
+    cp "$resp/1.out" "$resp/3.out"
+    if [ "$scenario" = multiline ]; then
+      printf '%s\n' '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}' > "$resp/2.out"
+      cp "$resp/2.out" "$resp/4.out"
+    fi
+    fb=$(make_herdr_fakebin "$dir")
+    out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '. "$0/bin/fm-backend.sh"; fm_backend_composer_state herdr lab:w1:p2' "$ROOT")
+    [ "$out" = "$want" ] || fail "Omnigent $want composer read $out"
+    rc=0
+    PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '
+        . "$0/bin/fm-task-inbox-lib.sh"
+        fm_backend_agent_state() { printf alive; }
+        fm_task_inbox_doorbell_line() { printf "test doorbell"; }
+        # Stub liveness and sending; the Herdr classifier and selected-composer
+        # check still read the actual fixture capture.
+        sent=$1
+        fm_backend_send_text_submit() { printf "%s\n" "$3" >> "$sent"; printf empty; }
+        fm_task_inbox_ring herdr lab:w1:p2 fixture
+      ' "$ROOT" "$sent" || rc=$?
+    if [ "$want" = empty ]; then
+      [ "$rc" = 0 ] && [ "$(cat "$sent")" = 'test doorbell' ] || fail "empty Omnigent composer must receive its doorbell"
+    else
+      [ "$rc" = 1 ] && [ ! -s "$sent" ] || fail "real pending Omnigent draft must defer its doorbell"
+    fi
+  done
+  pass 'Herdr Omnigent footer does not block an empty composer doorbell; real drafts still defer'
+}
+
 test_composer_state_unknown_on_capture_failure() {
   local dir log resp fb out status
   dir="$TMP_ROOT/composer-capture-fail"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -6116,6 +6167,7 @@ test_composer_state_styled_placeholder_draft_is_pending
 test_composer_state_real_text_is_pending
 test_composer_state_grok_oversized_title_preserves_safe_verdicts
 test_composer_state_popup_placeholder_fill_is_pending
+test_composer_state_omnigent_footer_and_doorbell
 test_composer_state_unknown_on_capture_failure
 test_composer_state_unknown_when_no_composer_row_found
 test_composer_state_pi_parked_prompt_is_not_empty

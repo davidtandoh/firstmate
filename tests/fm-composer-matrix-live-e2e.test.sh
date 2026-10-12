@@ -130,7 +130,7 @@ check_harness_idle_empty() {  # <name> <launch-cmd...>
 # `pending` is the one verdict that blocks a steer, so that is what this
 # refuses; `unknown` stays legitimate for a shape only identity can prove.
 check_harness_idle_cursorless() {  # <name> <version> <target>
-  local name=$1 version=$2 target=$3 pane caps verdict identity
+  local name=$1 version=$2 target=$3 pane caps verdict identity wrapped wrapped_verdict
   pane=$(fm_tmux_composer_capture "$target") || {
     FAILED=1
     printf 'not ok - %s (%s): cursorless re-read could not capture the proven-idle pane\n' \
@@ -156,6 +156,20 @@ check_harness_idle_cursorless() {  # <name> <version> <target>
   else
     CHECKED=$((CHECKED + 1))
     pass "$name ($version): the same idle pane read cursorless is not pending (verdict: $verdict)"
+  fi
+  # Model the outer wrapper's status row below the real native viewport.
+  # This does not claim a live Omnigent launch; the separate Omnigent guard
+  # owns that boundary. Every installed native harness must retain its verdict.
+  wrapped="$pane"$'\nOmnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
+  wrapped_verdict=$(fm_composer_classify_screen "$caps" "$wrapped" '' "${identity:-}")
+  [ "$wrapped_verdict" != need-identity ] || wrapped_verdict=unknown
+  if [ "$wrapped_verdict" != "$verdict" ]; then
+    FAILED=1
+    printf 'not ok - %s (%s): Omnigent status row changed idle verdict %s to %s\n' \
+      "$name" "$version" "$verdict" "$wrapped_verdict" >&2
+  else
+    CHECKED=$((CHECKED + 1))
+    pass "$name ($version): modeled Omnigent status row preserves the real native idle verdict ($verdict)"
   fi
 }
 

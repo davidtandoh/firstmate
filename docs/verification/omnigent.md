@@ -94,6 +94,40 @@ The portable fixture keeps an underscore composer `unknown` and proves that real
 The live guard deliberately launches from an ASCII supervisor locale.
 The current acceptance above confirms a fresh native launch and control exit from that ASCII supervisor locale.
 
+### 2026-10-12 conversation footer
+
+The initial live check used Darwin `23.6.0`, tmux `3.6b`, Claude Code `2.1.296`, and Omnigent `0.16.0.dev0 (5d0cf5e8, built 2026-10-12T21:28:49Z)`.
+A bare empty `❯` fixture classified `empty` without the wrapper's conversation banner and `pending` with the banner directly below it before the fix.
+[Conversation banner and draft protection](../omnigent.md#conversation-banner-and-draft-protection) owns the current wrapper contract.
+`tests/fm-composer-lib.test.sh` covers classification and selected-content extraction for banner removal, rejected hostname aliases, and multiline drafts containing blank rows, prompt glyphs, shell examples, and box drawings, with and without a banner.
+It also checks that later shells invalidate selection and later composers supersede the earlier native envelope.
+`tests/fm-backend-herdr.test.sh` checks that the doorbell rings for the empty fixture and defers for ordinary and multiline drafts, including shell examples and box drawings.
+
+Before the review correction, a real wrapped Claude session launched on a private tmux socket with `bin/fm-omnigent.sh run claude --dangerously-skip-permissions ''`.
+The check captured the outer viewport with `tmux capture-pane -p -e`, then read `fm_composer_classify_screen` with `styled=1`, `cursor=0`, `identity=1`, and `claude<TAB>idle`.
+The check typed a draft without Enter, captured it again, and deleted only that session's terminal resource during cleanup.
+No model prompt was submitted.
+This live check has not been repeated after the review correction.
+Observed output:
+
+```text
+claude=2.1.296 (Claude Code) tmux=tmux 3.6b
+wrapped cursorless verdict=empty
+wrapped draft verdict=pending
+```
+
+The live refresh command for native composer shapes and a modeled conversation footer is:
+
+```sh
+FM_COMPOSER_MATRIX_LIVE=1 bin/fm-test-run.sh tests/fm-composer-matrix-live-e2e.test.sh
+```
+
+On this date, Codex `0.162.1` passed both the native idle check and the modeled footer check with `empty`.
+Claude `2.1.296` and OpenCode `1.18.31` failed the native idle check with `pending` before reaching the modeled footer check.
+Those native-guard failures remain open; the wrapped Claude check above is separate evidence and does not make the full matrix green.
+Pi, Grok, Kimi, Muse, and Zellij were absent and were reported as unverified.
+This check did not run Herdr lifecycle commands or repeat the Mac mini's parent-message recovery.
+
 ## Remaining live boundaries
 
 | Check | Observed result |
