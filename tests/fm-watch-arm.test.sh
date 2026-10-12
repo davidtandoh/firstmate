@@ -1693,6 +1693,83 @@ test_handling_delivered_rejects_a_superseded_generation() {
   pass "watch-arm: a churned generation's handling confirmation reports a mismatch and an arm check keeps it"
 }
 
+test_native_stop_after_false_predicate_preserves_acknowledgement() {
+  local signal dir state fakebin acknowledged status expected
+  for signal in TERM HUP exit-1 exit-129 exit-143; do
+    dir=$(make_case "false-predicate-$signal")
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    append_wake "$state" signal handled "signal: fixture handled by main"
+    ack_wakes "$state" >/dev/null || fail "fixture: could not acknowledge wake"
+    acknowledged=$(cat "$state/.watcher-down")
+    case "$acknowledged" in acked:*) ;; *) fail "fixture: wake was not acknowledged" ;; esac
+    cat > "$dir/stop.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$1"
+fm_lock_try_acquire "$WATCH_LOCK" || exit 1
+WATCHER_PID=$$
+trap 'watcher_cleanup "$?" "$BASH_COMMAND"' EXIT
+watcher_stop_signals
+case "$2" in
+  exit-*) exit "${2#exit-}" ;;
+esac
+hb=1
+HEARTBEAT_MAX=2
+[ "$hb" -gt "$HEARTBEAT_MAX" ] && hb=$HEARTBEAT_MAX
+if [ "$(touch "$STATE/reading"; sleep 2)" = due ]; then
+  exit 1
+fi
+exit 1
+SH
+    PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+      bash "$dir/stop.sh" "$WATCH" "$signal" > "$dir/stop.out" 2>&1 &
+    SEED_PID=$!
+    case "$signal" in
+      exit-*)
+        expected=${signal#exit-}
+        wait_for_exit "$SEED_PID" 100
+        expect_code "$expected" "$?" "explicit failure must retain its exit status"
+        case "$(cat "$state/.watcher-down")" in
+          pending:downtime:*) ;;
+          *) fail "explicit failure $expected did not publish downtime" ;;
+        esac
+        start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+        wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+        expect_code 0 "$?" "explicit failure recovery must wake the replacement"
+        assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "explicit failure must resurface"
+        continue
+        ;;
+    esac
+    local i=0
+    while [ ! -e "$state/reading" ] && [ "$i" -lt 100 ]; do
+      sleep 0.05
+      i=$((i + 1))
+    done
+    [ -e "$state/reading" ] || fail "watcher never reached the read after the false predicate: $(cat "$dir/stop.out")"
+    kill -s "$signal" "$SEED_PID" || fail "could not stop false-predicate fixture"
+    wait_for_exit "$SEED_PID" 100
+    status=$?
+    case "$signal" in
+      TERM) expect_code 143 "$status" "native TERM must end the watcher" ;;
+      HUP) expect_code 129 "$status" "native HUP must end the watcher" ;;
+    esac
+    [ ! -e "$state/.watch.lock" ] || fail "native cleanup did not release its singleton"
+    [ ! -s "$state/.wake-queue" ] || fail "fixture queue was not empty"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "$signal after a false predicate replaced the acknowledgement"
+    start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+    sleep 3
+    is_live_non_zombie "$ARM_PID" || fail "native $signal cleanup woke an empty arm"
+    ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "native $signal cleanup resurfaced an empty queue"
+    append_wake "$state" check later "check: real work after false predicate"
+    wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+    expect_code 0 "$?" "later work must still wake the replacement"
+    assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface"
+  done
+  pass "watch-arm: native TERM/HUP after false predicates stay quiet while explicit failures recover"
+}
+
+test_native_stop_after_false_predicate_preserves_acknowledgement
 test_attached_arm_reports_the_delivered_wake
 test_attached_arm_reports_the_delivered_wake_after_drain
 test_arm_refuses_an_unusable_launch_confirm_window
