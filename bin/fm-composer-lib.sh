@@ -178,6 +178,27 @@ fm_composer_strip_ansi() {
   LC_ALL=C sed "s/${esc}\\[[0-9;:?]*[[:alpha:]]//g"
 }
 
+fm_composer_strip_omnigent_banner() {
+  printf '%s\n' "$1" | LC_ALL=C awk '
+    {
+      rows[NR] = $0
+      plain = $0
+      gsub(/\033\[[0-9;:?]*[[:alpha:]]/, "", plain)
+      sub(/[ \t\r]+$/, "", plain)
+      if (plain != "") { last = NR; banner = plain }
+    }
+    END {
+      limit = NR
+      if (banner ~ /^Omnigent: http:\/\/127\.0\.0\.1:[0-9]+\/c\/[a-f0-9]+$/) {
+        id = banner
+        sub(/^.*\/c\//, "", id)
+        if (length(id) == 32) limit = last - 1
+      }
+      for (i = 1; i <= limit; i++) print rows[i]
+    }
+  '
+}
+
 # Every code point Unicode gives the property White_Space=Yes that lies OUTSIDE
 # ASCII, as UTF-8 byte sequences. Built from octal escapes rather than written
 # literally so each entry stays reviewable in source instead of being an
@@ -1519,10 +1540,13 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 #
 # The zone is furniture only if EVERY row in it is: one non-furniture row makes
 # the whole run unclaimed activity, the envelope above it stale, and this
-# function return 1.
+# function return 1. That is the asymmetry this rule is held to - it may only
+# ever move a verdict toward refusing, never toward `empty`, because `empty` is
+# the one verdict that authorizes fm-send to type into the pane. Returns 1 too
+# when no envelope is glyph-proven, when a blank row sits directly beneath it,
+# or when the run holds no bare candidate at all (nothing to demote).
 _fm_composer_locate_footer_zone() {  # <plain>
-  local plain=$1 close next trimmed remaining proof='' omnigent=0
-  local banner_re='^Omnigent: http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/c/[a-f0-9]{32}$'
+  local plain=$1 close next trimmed proof=''
   FM_COMPOSER_FOOTER_AFTER=-1
   FM_COMPOSER_FOOTER_GLYPH=-1
   FM_COMPOSER_FOOTER_LAST=-1
@@ -1553,28 +1577,21 @@ _fm_composer_locate_footer_zone() {  # <plain>
     proof=$FM_COMPOSER_SCAN_PI_GLYPH
   fi
   [ "$FM_COMPOSER_FOOTER_AFTER" -ge 0 ] || return 1
+  # Nothing below the envelope can be demoted unless a bare candidate sits
+  # there, so settle that from the scan's own record before walking any rows.
+  [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] || return 1
   FM_COMPOSER_FOOTER_LAST=$FM_COMPOSER_FOOTER_AFTER
   next=$((FM_COMPOSER_FOOTER_AFTER + 1))
   while :; do
     trimmed=$(_fm_composer_screen_row "$next" "$plain")
     fm_composer_normalize_trim_var trimmed
     [ -n "$trimmed" ] || break
-    if [[ "$trimmed" =~ $banner_re ]]; then
-      remaining=$(printf '%s\n' "$plain" | tail -n "+$((next + 2))")
-      fm_composer_normalize_trim_var remaining
-      [ -z "$remaining" ] || return 1
-      omnigent=1
-      FM_COMPOSER_FOOTER_LAST=$next
-      break
-    fi
     _fm_composer_row_is_composer_furniture "$trimmed" "$proof" || return 1
     FM_COMPOSER_FOOTER_LAST=$next
     next=$((next + 1))
   done
-  [ "$omnigent" = 1 ] || {
-    [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
-      && [ "$FM_COMPOSER_SCAN_BARE_ROW" -le "$FM_COMPOSER_FOOTER_LAST" ]
-  }
+  [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
+    && [ "$FM_COMPOSER_SCAN_BARE_ROW" -le "$FM_COMPOSER_FOOTER_LAST" ]
 }
 
 # _fm_composer_bare_rule_sandwich: 0 when bare agent-glyph <row> sits in its
@@ -1619,9 +1636,7 @@ _fm_composer_select_cursorless() {
   # is itself borderless, the bare candidate moves UP to it; otherwise the
   # envelope (box, left bar) stays selected on its own.
   bare=$FM_COMPOSER_SCAN_BARE_ROW
-  if [ "$footer" = 1 ] \
-     && [ "$bare" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
-     && [ "$bare" -le "$FM_COMPOSER_FOOTER_LAST" ]; then
+  if [ "$footer" = 1 ]; then
     trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$plain")
     fm_composer_normalize_trim_var trimmed
     if fm_composer_leading_agent_glyph_var glyph "$trimmed"; then
@@ -1635,6 +1650,9 @@ _fm_composer_select_cursorless() {
     FM_COMPOSER_SELECTED_KIND=bare
     FM_COMPOSER_SELECTED_FIRST=$bare
     FM_COMPOSER_SELECTED_LAST=$bare
+    if [ "$footer" = 1 ] && [ "$bare" = "$FM_COMPOSER_FOOTER_GLYPH" ]; then
+      FM_COMPOSER_SELECTED_LAST=$((FM_COMPOSER_FOOTER_AFTER - 1))
+    fi
   fi
   if [ "$FM_COMPOSER_SCAN_LEFTBAR_END" -gt "$generic" ]; then
     generic=$FM_COMPOSER_SCAN_LEFTBAR_END
@@ -1724,6 +1742,7 @@ fm_composer_extract_selected_content() {  # <caps> <screen>
   done <<EOF
 $caps
 EOF
+  screen=$(fm_composer_strip_omnigent_banner "$screen")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
   _fm_composer_select_cursorless "$plain" || return 1
@@ -1863,6 +1882,7 @@ fm_composer_dialog_sink_release() {
 fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
   local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
   local styled=0 cursor=0 has_identity=0 kv plain
+  screen=$(fm_composer_strip_omnigent_banner "$screen")
   # Note the dialog before any early return so a pending picker is still named.
   fm_composer_note_blocking_dialog "$screen" || true
   while IFS= read -r kv; do

@@ -1262,76 +1262,87 @@ test_omnigent_codex_requires_preserved_glyph() {
 }
 test_omnigent_codex_requires_preserved_glyph
 
-test_omnigent_footer_requires_composer_boundary() {
-  local banner screen caps glyph content want expected out host
+test_omnigent_trailing_banner_and_native_drafts() {
+  local banner screen caps glyph content want expected out host suffix status
   banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
   for glyph in '❯' '›' '⟩' '→' '❭'; do
-    screen=$(printf '%s\n%s\n' "$glyph" "$banner")
-    for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
-      expected=pending
-      [ "$caps" != "$CAPS_PLAIN" ] || expected=unknown
-      assert_screen 'unwrapped banner-like draft' "$expected" "$caps" "$screen"
-      out=$(fm_composer_extract_selected_content "$caps" "$screen")
-      [ "$out" = "$banner" ] || fail "banner-like draft lost from selected content: $out"
-    done
     for content in '' 'unsubmitted draft' "$banner"; do
       want=pending
       [ -n "$content" ] || want=empty
-      screen=$(printf '────────────────────────\n%s %s\n────────────────────────\n%s\n\n' "$glyph" "$content" "$banner")
-      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
-        expected=$want
-        [ "$caps" != "$CAPS_PLAIN" ] || { [ "$want" != pending ] || expected=unknown; }
-        assert_screen "bounded Omnigent $glyph footer" "$expected" "$caps" "$screen" '' $'claude\tidle'
-        out=$(fm_composer_extract_selected_content "$caps" "$screen")
-        [ "$out" = "$content" ] || fail "bounded composer content changed: $out"
+      for screen in \
+        "$(printf '%s %s\n%s\n\n' "$glyph" "$content" "$banner")" \
+        "$(printf '────────────────────────\n%s %s\n────────────────────────\n%s\n\n' "$glyph" "$content" "$banner")"; do
+        for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+          expected=$want
+          [ "$caps" != "$CAPS_PLAIN" ] || { [ "$want" != pending ] || expected=unknown; }
+          assert_screen "Omnigent $glyph trailing banner" "$expected" "$caps" "$screen" '' $'claude\tidle'
+          out=$(fm_composer_extract_selected_content "$caps" "$screen")
+          [ "$out" = "$content" ] || fail "native composer content changed: $out"
+        done
       done
-      assert_screen "bounded Omnigent $glyph cursor" "$want" "$CAPS_TMUX" "$screen" 1 $'claude\tidle'
     done
-  done
-  for glyph in '❯' '›' '⟩' '→' '❭'; do
     for content in " $glyph keep this draft" "$(printf '\n %s keep this draft' "$glyph")"; do
       screen=$(printf '────────\n%s\n%s\n────────\n%s\n' "$glyph" "$content" "$banner")
+      assert_screen 'prompt-like draft inside composer' pending "$CAPS_STYLED_NOID" "$screen"
+      out=$(fm_composer_extract_selected_content styled=1 "$screen")
+      [ "$out" = 'keep this draft' ] || fail "prompt-like draft lost inside composer: $out"
+    done
+  done
+  for suffix in '' "$banner"; do
+    for content in '❯ keep this draft' 'keep this draft'; do
+      screen=$(printf '────────\n❯ first line\n\n %s\n\n last line\n────────\n→ repo git:(main)\n%s\n' "$content" "$suffix")
       for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
         expected=pending
         [ "$caps" != "$CAPS_PLAIN" ] || expected=unknown
-        assert_screen 'prompt-like draft inside composer' "$expected" "$caps" "$screen" '' $'claude\tidle'
+        assert_screen 'full multiline draft above status row' "$expected" "$caps" "$screen" '' $'claude\tidle'
         out=$(fm_composer_extract_selected_content "$caps" "$screen")
-        [ "$out" = 'keep this draft' ] || fail "prompt-like draft lost inside composer: $out"
+        [ "$out" = "first line $content last line" ] || fail "multiline draft truncated: $out"
       done
     done
+    screen=$(printf '────────\n❯\n\n ❯ keep this draft\n────────\n→ repo git:(main)\n%s\n' "$suffix")
+    assert_screen 'repeated prompt after blank row with status' pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+    out=$(fm_composer_extract_selected_content styled=1 "$screen")
+    [ "$out" = '❯ keep this draft' ] || fail "reported multiline draft lost: $out"
   done
   screen=$(printf '❯\nwrapped draft\n%s\n' "$banner")
-  assert_screen 'unbounded wrapped draft' pending "$CAPS_STYLED" "$screen"
+  assert_screen 'wrapped draft above banner' pending "$CAPS_STYLED" "$screen"
   out=$(fm_composer_extract_selected_content styled=1 "$screen")
-  [ "$out" = "wrapped draft $banner" ] || fail "unbounded wrapped draft changed: $out"
-  for host in '127.0.0.1' localhost '[::1]'; do
-    screen=$(printf '╭────────────────────────╮\n│ ❯                      │\n╰────────────────────────╯\n\033[39mOmnigent: http://%s:52131/c/0123456789abcdef0123456789abcdef\033[0m\n\n' "$host")
-    assert_screen 'boxed composer with local Omnigent footer' empty "$CAPS_STYLED" "$screen"
+  [ "$out" = 'wrapped draft' ] || fail "wrapped draft changed: $out"
+  for status in '' '→ repo git:(main)'; do
+    screen=$(printf '╭────────────────────────╮\n│ ❯                      │\n╰────────────────────────╯\n%s\n\033[39m%s   \033[0m\n \n\t\n' "$status" "$banner")
+    assert_screen 'boxed composer with styled padded banner' empty "$CAPS_STYLED" "$screen"
     out=$(fm_composer_extract_selected_content styled=1 "$screen")
-    [ -z "$out" ] || fail "proven wrapper footer leaked into selected content: $out"
+    [ -z "$out" ] || fail "wrapper output leaked into selected content: $out"
   done
-  screen=$(printf '────────────────────────\n❯\n────────────────────────\n→ repo git:(main) | Opus 5\n%s\n' "$banner")
-  assert_screen 'wrapper banner below native status line' empty "$CAPS_STYLED_NOID" "$screen"
+  for host in localhost '[::1]' example.com; do
+    content="Omnigent: http://$host:52131/c/0123456789abcdef0123456789abcdef"
+    screen=$(printf '❯\n%s\n' "$content")
+    assert_screen 'unsupported banner host remains content' pending "$CAPS_STYLED" "$screen"
+    out=$(fm_composer_extract_selected_content styled=1 "$screen")
+    [ "$out" = "$content" ] || fail "unsupported banner host was stripped: $out"
+  done
+  for content in "$banner extra" 'Omnigent: http://127.0.0.1:52131/c/short' \
+    'Omnigent: http://127.0.0.1:port/c/0123456789abcdef0123456789abcdef' \
+    'Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef0'; do
+    screen=$(printf '❯\n%s\n' "$content")
+    assert_screen 'nonmatching banner remains content' pending "$CAPS_STYLED" "$screen"
+    out=$(fm_composer_extract_selected_content styled=1 "$screen")
+    [ "$out" = "$content" ] || fail "nonmatching banner was stripped: $out"
+  done
+  screen=$(printf '❯\n%s\nmore draft\n' "$banner")
+  assert_screen 'nonfinal banner remains content' pending "$CAPS_STYLED" "$screen"
   out=$(fm_composer_extract_selected_content styled=1 "$screen")
-  [ -z "$out" ] || fail "wrapper status leaked into selected content: $out"
-  for content in "$banner" "$banner extra" 'Omnigent: http://example.com:52131/c/0123456789abcdef0123456789abcdef' \
-    'Omnigent: http://127.0.0.1:52131/c/short'; do
-    screen=$(printf '────────────────────────\n❯\n────────────────────────\n❯\n%s\n' "$content")
-    assert_screen 'live draft below old composer' pending "$CAPS_STYLED_NOID" "$screen"
-    out=$(fm_composer_extract_selected_content styled=1 "$screen")
-    [ "$out" = "$content" ] || fail "lower live draft lost: $out"
-  done
+  [ "$out" = "$banner more draft" ] || fail "nonfinal banner draft changed: $out"
   screen=$(printf '❯\n%s\n%s\n' "$banner" "$banner")
+  assert_screen 'only one final banner is removed' pending "$CAPS_STYLED" "$screen"
   out=$(fm_composer_extract_selected_content styled=1 "$screen")
-  [ "$out" = "$banner $banner" ] || fail "repeated banner draft changed: $out"
-  assert_screen 'cursor on banner-like draft' pending "$CAPS_TMUX" "$(printf '❯\n%s\n' "$banner")" 1
-  for content in "$banner extra" 'Omnigent: http://127.0.0.1:52131/c/short' "$(printf '%s\n\nWorking on request...' "$banner")"; do
-    screen=$(printf '╭────────────────────────╮\n│ ❯                      │\n╰────────────────────────╯\n%s\n' "$content")
-    assert_screen 'unproven footer below box' unknown "$CAPS_STYLED_NOID" "$screen"
-  done
-  pass 'Omnigent footer requires a closed native composer; ambiguous drafts remain intact'
+  [ "$out" = "$banner" ] || fail "more than one banner was removed: $out"
+  screen=$(printf '❯ real draft\n%s\n' "$banner")
+  assert_screen 'native cursor draft above banner' pending "$CAPS_TMUX" "$screen" 0
+  assert_screen 'banner does not prove a composer' unknown "$CAPS_STYLED" "$banner"
+  pass 'Only the exact trailing Omnigent banner is removed; native multiline drafts survive status demotion'
 }
-test_omnigent_footer_requires_composer_boundary
+test_omnigent_trailing_banner_and_native_drafts
 
 
 # The selected row sits on cursor row 1 so a tmux read whose cursor is that
