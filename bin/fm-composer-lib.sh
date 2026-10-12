@@ -58,8 +58,9 @@
 #   bare       - an agent prompt glyph row with no border at all (claude `❯`,
 #                codex `›`, muse `⟩`, cursor `→`). The agent glyph is itself the container
 #                proof; a bare SHELL glyph (`>` `$` `%` `#`) never is.
-#                A bare composer's WRAP region (typed input continuing on the
-#                rows beneath the glyph row) is bounded by blank rows, by
+#                Outside a proven enclosing composer (see THE COMPOSER FOOTER
+#                ZONE below), a bare composer's WRAP region (typed input
+#                continuing beneath the glyph row) is bounded by blank rows, by
 #                structural edges, and by the FURNITURE rows a harness draws
 #                directly below its composer - omp's status row and
 #                braille-only animation rows (declared once below, next to
@@ -92,13 +93,16 @@
 # container, so a BARE candidate among the contiguous non-blank rows below its
 # closing row is that composer's own footer furniture and not a composer. The
 # proven envelope is selected instead; when its proving glyph row is itself
-# borderless, that row is the bare candidate it stood for, and the envelope's
-# staleness probe resumes past the zone.
+# borderless, selection includes every row from that glyph to the closing
+# boundary. That boundary ranks the candidate and bounds staleness checks, so
+# blank rows, shell examples, and box drawings inside it remain draft content.
+# A later shell or composer outside the envelope still invalidates or
+# supersedes it. The envelope's staleness probe resumes past the footer zone.
 #
 # THE ASYMMETRY that bounds it: `empty` is the one verdict that authorizes
-# fm-send to type into a pane, so this rule may move a verdict only toward
-# REFUSING, never toward `empty`. A false refusal costs one undelivered
-# message; a false `empty` overwrites a visible draft or types into a working
+# fm-send to type into a pane, so footer recognition alone must never prove
+# `empty`; the selected native content must also be empty. A false refusal
+# costs one undelivered message; a false `empty` overwrites a visible draft or types into a working
 # agent. So the zone counts only when EVERY row in it is demonstrably furniture
 # (_fm_composer_row_is_composer_furniture): one unclaimed activity row
 # (`Working on request...`) makes the whole run activity and the envelope above
@@ -1540,9 +1544,8 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 #
 # The zone is furniture only if EVERY row in it is: one non-furniture row makes
 # the whole run unclaimed activity, the envelope above it stale, and this
-# function return 1. That is the asymmetry this rule is held to - it may only
-# ever move a verdict toward refusing, never toward `empty`, because `empty` is
-# the one verdict that authorizes fm-send to type into the pane. Returns 1 too
+# function return 1. The header's safety rule requires checking the selected
+# native content before returning `empty`. Returns 1 too
 # when no envelope is glyph-proven, when a blank row sits directly beneath it,
 # or when the run holds no bare candidate at all (nothing to demote).
 _fm_composer_locate_footer_zone() {  # <plain>
