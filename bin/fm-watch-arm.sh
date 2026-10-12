@@ -293,6 +293,7 @@ clear_stale_recorded_watcher_lock() {
   [ "$lock_home" = "$FM_HOME" ] || return 0
   [ "$lock_path" = "$WATCH" ] || return 0
   [ -n "$lock_identity" ] || return 0
+  [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "$1" ] || return 0
   fm_recovery_transition "$STATE/.watcher-down" clear-stale-lock "$WATCH_LOCK" downtime
 }
 
@@ -508,15 +509,31 @@ if [ "$mode" = handling-delivered ]; then
   exit $?
 fi
 
+STOPPED_PID=
+wait_for_watcher_cleanup() {
+  local lock_pid deadline bound
+  bound=$(fm_watcher_cleanup_lock_bound)
+  deadline=$((SECONDS + bound + 1))
+  while :; do
+    lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
+    fm_pid_alive "$lock_pid" || return 0
+    fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME" cleanup-identity || return 0
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "watcher: FAILED - cleanup owner pid=$lock_pid did not release the watcher lock" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+}
+
 # Home-scoped stop: only the watcher pid recorded in THIS home's lock. Waits
 # for it to actually exit, so a fresh watcher either takes a released lock or
 # reclaims a now-dead-pid stale lock instead of seeing the dying one as a live
 # holder and no-opping. Sets STOPPED_PID to the pid it stopped.
-STOPPED_PID=
 stop_home_watcher() {
   local lock_pid i
   lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
-  fm_pid_alive "$lock_pid" || return 0
+  fm_pid_alive "$lock_pid" || { wait_for_watcher_cleanup; return $?; }
   if fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME"; then
     kill -TERM "$lock_pid" 2>/dev/null || true
     i=0
@@ -525,10 +542,13 @@ stop_home_watcher() {
       i=$((i + 1))
     done
     STOPPED_PID=$lock_pid
-  elif ! clear_stale_recorded_watcher_lock; then
+  elif fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME" cleanup-identity; then
+    :
+  elif ! clear_stale_recorded_watcher_lock "$lock_pid"; then
     echo "watcher: FAILED - stale watcher recovery state could not be persisted" >&2
     return 1
   fi
+  wait_for_watcher_cleanup
 }
 
 if [ "$mode" = restart ]; then
@@ -625,6 +645,7 @@ fi
 # stays our child for its whole life: we wait on it, so killing this arm (the
 # harness-tracked task) tears the watcher down too, and the watcher's eventual
 # wake exit propagates out so the harness re-notifies firstmate.
+wait_for_watcher_cleanup || exit 1
 child=
 child_out=
 cleanup_child() {

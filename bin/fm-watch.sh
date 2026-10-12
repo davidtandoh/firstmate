@@ -2429,6 +2429,7 @@ pr_poll_publish_release() {
 
 watcher_cleanup() {
   local exit_status=$1 exit_command=$2 cleanup_status=0 owns_lock=0 transition=release-lock
+  local cleanup_identity
   pr_poll_publish_release || cleanup_status=1
   pr_poll_control_release || cleanup_status=1
   if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
@@ -2450,7 +2451,12 @@ watcher_cleanup() {
         exit|exit\ *) ;;
         *)
           if [ "$owns_lock" -eq 1 ] && [ "${FM_WATCH_ARM_PID:-}" = "$PPID" ]; then
-            fm_lock_handoff "$WATCH_LOCK" "$FM_WATCH_ARM_PID" && return 0
+            if cleanup_identity=$(fm_pid_identity "$FM_WATCH_ARM_PID") \
+              && [ -n "$cleanup_identity" ] \
+              && printf '%s\n' "$cleanup_identity" > "$WATCH_LOCK/cleanup-identity" \
+              && fm_lock_handoff "$WATCH_LOCK" "$FM_WATCH_ARM_PID"; then
+              return 0
+            fi
           fi
           ;;
       esac

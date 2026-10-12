@@ -1694,8 +1694,8 @@ test_handling_delivered_rejects_a_superseded_generation() {
 }
 
 test_native_stop_after_false_predicate_preserves_acknowledgement() {
-  local signal dir state fakebin acknowledged status expected target i
-  for signal in TERM HUP orphan-TERM lost-owner exit-1 exit-129 exit-143; do
+  local signal dir state fakebin acknowledged status expected target i operation
+  for signal in restart restart-race restart-pending restart-timeout stop-pending arm-pending TERM HUP orphan-TERM lost-owner exit-1 exit-129 exit-143; do
     dir=$(make_case "false-predicate-$signal")
     state="$dir/state"
     fakebin="$dir/fakebin"
@@ -1709,6 +1709,9 @@ set -u
 . "$1"
 fm_lock_try_acquire "$WATCH_LOCK" || exit 1
 WATCHER_PID=$$
+printf '%s\n' "$FM_HOME" > "$WATCH_LOCK/fm-home"
+printf '%s\n' "$WATCH_PATH" > "$WATCH_LOCK/watcher-path"
+fm_pid_identity "$$" > "$WATCH_LOCK/pid-identity"
 trap 'watcher_cleanup "$?" "$BASH_COMMAND"' EXIT
 watcher_stop_signals
 case "$2" in
@@ -1730,10 +1733,12 @@ FM_WATCH_ARM_PID=$$ bash "$2" "$3" "$4" &
 child=$!
 wait "$child"
 status=$?
-if [ "$4" = lost-owner ]; then
-  touch "$STATE/finish-ready"
-  while [ ! -e "$STATE/finish-release" ]; do sleep 0.05; done
-fi
+case "$4" in
+  lost-owner|restart|restart-race|restart-pending|restart-timeout|stop-pending|arm-pending)
+    touch "$STATE/finish-ready"
+    while [ ! -e "$STATE/finish-release" ]; do sleep 0.05; done
+    ;;
+esac
 fm_watcher_finish_cleanup "$STATE" "$status" || exit 1
 exit "$status"
 SH
@@ -1763,6 +1768,94 @@ SH
     done
     [ -e "$state/reading" ] || fail "watcher never reached the read after the false predicate: $(cat "$dir/stop.out")"
     target=$(cat "$state/.watch.lock/pid")
+    case "$signal" in
+      restart|restart-race|restart-pending|restart-timeout|stop-pending|arm-pending)
+        if [ "$signal" != restart ] && [ "$signal" != restart-race ]; then
+          kill -TERM "$target" || fail "could not start pending cleanup"
+          i=0
+          while [ ! -e "$state/finish-ready" ] && [ "$i" -lt 100 ]; do
+            sleep 0.05
+            i=$((i + 1))
+          done
+          [ -e "$state/finish-ready" ] || fail "fixture did not enter pending cleanup"
+        fi
+        operation=--restart
+        [ "$signal" != stop-pending ] || operation=--stop
+        [ "$signal" != arm-pending ] || operation=--arm
+        mkdir -p "$dir/barrier-bin"
+        if [ "$signal" = restart-race ]; then
+          cat > "$dir/barrier-bin/cat" <<'SH'
+#!/usr/bin/env bash
+set -eu
+if [ "${1:-}" = "$FM_STATE_OVERRIDE/.watch.lock/fm-home" ] && [ ! -e "$FM_STATE_OVERRIDE/identity-read" ]; then
+  touch "$FM_STATE_OVERRIDE/identity-read"
+  i=0
+  while [ ! -e "$FM_STATE_OVERRIDE/identity-release" ] && [ "$i" -lt 100 ]; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$FM_STATE_OVERRIDE/identity-release" ] || exit 1
+fi
+exec "$FM_TEST_REAL_CAT" "$@"
+SH
+          chmod +x "$dir/barrier-bin/cat"
+        fi
+        PATH="$dir/barrier-bin:$fakebin:$PATH" FM_TEST_REAL_CAT="$(command -v cat)" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+          FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+          FM_ARM_CONFIRM_TIMEOUT=3 "$WATCH_ARM" "$operation" > "$dir/rearm.out" 2>&1 &
+        ARM_PID=$!
+        if [ "$signal" = restart-race ]; then
+          i=0
+          while [ ! -e "$state/identity-read" ] && [ "$i" -lt 100 ]; do
+            sleep 0.05
+            i=$((i + 1))
+          done
+          [ -e "$state/identity-read" ] || fail "restart did not inspect the watcher identity"
+          kill -TERM "$target" || fail "could not transfer ownership during identity inspection"
+        fi
+        i=0
+        while [ ! -e "$state/finish-ready" ] && [ "$i" -lt 100 ]; do
+          sleep 0.05
+          i=$((i + 1))
+        done
+        [ -e "$state/finish-ready" ] || fail "restart did not reach the delayed cleanup"
+        touch "$state/identity-release"
+        sleep 1
+        is_live_non_zombie "$SEED_PID" || fail "restart stopped the live cleanup owner"
+        [ "$(cat "$state/.watch.lock/pid")" = "$SEED_PID" ] || fail "restart removed the cleanup owner's lock"
+        if [ "$signal" = restart-timeout ]; then
+          wait_for_exit "$ARM_PID" 120
+          expect_code 1 "$?" "a stalled cleanup must bound the restart wait"
+          assert_contains "$(cat "$dir/rearm.out")" 'cleanup owner' "bounded restart must name the unfinished cleanup"
+          [ "$(cat "$state/.watch.lock/pid")" = "$SEED_PID" ] || fail "bounded restart removed the live owner's lock"
+          is_live_non_zombie "$SEED_PID" || fail "bounded restart killed the cleanup owner"
+          ! grep -q '^watcher: started' "$dir/rearm.out" || fail "bounded restart started a replacement before cleanup"
+        else
+          is_live_non_zombie "$ARM_PID" || fail "stop or restart completed before cleanup released its lock"
+        fi
+        touch "$state/finish-release"
+        wait_for_exit "$SEED_PID" 100
+        expect_code 143 "$?" "the stopped watcher must retain its native TERM outcome"
+        case "$signal" in
+          restart-timeout) start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out" ;;
+          stop-pending)
+            wait_for_exit "$ARM_PID" 100
+            expect_code 0 "$?" "stop must complete after cleanup releases the lock"
+            start_rearm_arm "$dir" "$state" "$fakebin" "$dir/rearm.out"
+            ;;
+        esac
+        wait_for_file_text "$dir/rearm.out" 'watcher: started' || fail "restart did not establish a replacement: $(cat "$dir/rearm.out")"
+        sleep 3
+        is_live_non_zombie "$ARM_PID" || fail "restart did not keep its replacement live"
+        ! grep -q '^check: rearm-resurface' "$dir/rearm.out" || fail "restart surfaced an empty queue"
+        [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] || fail "restart replaced the acknowledgement"
+        append_wake "$state" check later "check: real work after delayed cleanup"
+        wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
+        expect_code 0 "$?" "replacement must wake for later queued work"
+        assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface after restart"
+        continue
+        ;;
+    esac
     if [ "$signal" = lost-owner ]; then
       kill -TERM "$target" || fail "could not stop the transfer fixture"
       i=0
@@ -1819,7 +1912,7 @@ SH
     expect_code 0 "$?" "later work must still wake the replacement"
     assert_contains "$(cat "$dir/rearm.out")" 'check: rearm-resurface' "later work must resurface"
   done
-  pass "watch-arm: native TERM/HUP after false predicates stay quiet while explicit failures recover"
+  pass "watch-arm: cleanup handoff preserves quiet stops, replacement liveness, and failure recovery"
 }
 
 test_interpreter_failure_preserves_recovery() {
