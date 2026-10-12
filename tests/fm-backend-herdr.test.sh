@@ -4019,18 +4019,24 @@ test_composer_state_popup_placeholder_fill_is_pending() {
 test_composer_state_omnigent_footer_and_doorbell() {
   local dir log resp fb out content want rc sent banner
   banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
-  for content in '' 'real draft' "$banner"; do
+  for content in '' 'real draft' "$banner" $'\n ❯ keep this draft'; do
     want=pending
     [ -n "$content" ] || want=empty
     dir="$TMP_ROOT/composer-omnigent-$want-${#content}"; mkdir -p "$dir/responses"
     log="$dir/log"; resp="$dir/responses"; sent="$dir/sent"; : > "$log"; : > "$sent"
     if [ "$content" = "$banner" ]; then
       printf '❯\n%s\n' "$content" > "$resp/1.out"
+    elif [ "$content" = $'\n ❯ keep this draft' ]; then
+      printf '────────\n❯\n%s\n────────\n%s\n' "$content" "$banner" > "$resp/1.out"
     else
       printf '╭────────────────────────╮\n│ ❯ %-21s│\n╰────────────────────────╯\n%s\n' "$content" "$banner" > "$resp/1.out"
     fi
     cp "$resp/1.out" "$resp/2.out"
     cp "$resp/1.out" "$resp/3.out"
+    if [ "$content" = $'\n ❯ keep this draft' ]; then
+      printf '%s\n' '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}' > "$resp/2.out"
+      cp "$resp/2.out" "$resp/4.out"
+    fi
     fb=$(make_herdr_fakebin "$dir")
     out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
       bash -c '. "$0/bin/fm-backend.sh"; fm_backend_composer_state herdr lab:w1:p2' "$ROOT")

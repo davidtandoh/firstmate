@@ -1619,7 +1619,9 @@ _fm_composer_select_cursorless() {
   # is itself borderless, the bare candidate moves UP to it; otherwise the
   # envelope (box, left bar) stays selected on its own.
   bare=$FM_COMPOSER_SCAN_BARE_ROW
-  if [ "$footer" = 1 ]; then
+  if [ "$footer" = 1 ] \
+     && [ "$bare" -gt "$FM_COMPOSER_FOOTER_AFTER" ] \
+     && [ "$bare" -le "$FM_COMPOSER_FOOTER_LAST" ]; then
     trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$plain")
     fm_composer_normalize_trim_var trimmed
     if fm_composer_leading_agent_glyph_var glyph "$trimmed"; then

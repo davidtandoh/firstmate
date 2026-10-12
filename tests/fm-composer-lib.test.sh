@@ -1288,6 +1288,18 @@ test_omnigent_footer_requires_composer_boundary() {
       assert_screen "bounded Omnigent $glyph cursor" "$want" "$CAPS_TMUX" "$screen" 1 $'claude\tidle'
     done
   done
+  for glyph in '❯' '›' '⟩' '→' '❭'; do
+    for content in " $glyph keep this draft" "$(printf '\n %s keep this draft' "$glyph")"; do
+      screen=$(printf '────────\n%s\n%s\n────────\n%s\n' "$glyph" "$content" "$banner")
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        expected=pending
+        [ "$caps" != "$CAPS_PLAIN" ] || expected=unknown
+        assert_screen 'prompt-like draft inside composer' "$expected" "$caps" "$screen" '' $'claude\tidle'
+        out=$(fm_composer_extract_selected_content "$caps" "$screen")
+        [ "$out" = 'keep this draft' ] || fail "prompt-like draft lost inside composer: $out"
+      done
+    done
+  done
   screen=$(printf '❯\nwrapped draft\n%s\n' "$banner")
   assert_screen 'unbounded wrapped draft' pending "$CAPS_STYLED" "$screen"
   out=$(fm_composer_extract_selected_content styled=1 "$screen")
