@@ -125,6 +125,7 @@ case "$mode" in
     # shellcheck disable=SC2086 # the printed acknowledgement arguments
     [ -z "$ack" ] || [ "$mode" = noack ] || "$FM_REPO/bin/fm-wake-drain.sh" $ack >> "$FM_HOME/engine-ack.log" 2>&1
     case "$mode" in captain-close-before-return)
+      cp "$STATE/.watcher-down" "$FM_HOME/ack-before-close"
       watcher=$(cat "$STATE/.watch.lock/pid" 2>/dev/null || true)
       [ -z "$watcher" ] || kill -TERM "$watcher" 2>/dev/null || true
       i=0
@@ -1219,7 +1220,7 @@ test_claude_stop_hook_delivers_a_main_only_pass_through() {
 # Close the confirmed handling watcher after the engine has acknowledged its
 # wake but before its captain outcome returns to the host.
 test_claude_stop_hook_restores_handoff_when_successor_closed_before_exit_to_main() {
-  local home
+  local home drained
   home=$(make_primary_home hook-successor-closed-before-return)
   ln -s "$ROOT/.agents" "$home/.agents"
   echo captain-close-before-return > "$home/stub-mode"
@@ -1228,10 +1229,15 @@ test_claude_stop_hook_restores_handoff_when_successor_closed_before_exit_to_main
   wait_until 150 watcher_live "$home" || fail "closed successor: the Stop hook never started a watcher cycle"
   append_status "$home" 'first actionable wake'
   wait_until 250 hook_exited "$home" || fail "closed successor: the Stop hook did not finish: $(cat "$home/state/.supervision-host.log")"
+  assert_re '^acked:' "$home/ack-before-close" "fixture: the engine must acknowledge before closing its successor"
+  [ ! -s "$home/state/.wake-queue" ] || fail "fixture: the engine left queue rows unacknowledged"
   assert_re '^supervision-host: branch-outcome: ' "$home/hook.err" "the host must hand its captain outcome to main"
   expect_code 2 "$(cat "$home/hook.rc")" "the Stop hook must rewake main after the successor closed"
+  assert_re 'outcome=rewake ' "$home/state/.claude-autoarm-epoch" "the hand-back must commit the rewake"
   assert_re '^(pending|announced):downtime:' "$home/state/.watcher-down" \
     "the closed handling successor must leave a deliverable downtime episode"
+  drained=$(main_drain "$home")
+  assert_contains "$drained" 'stub escalated:' "main must receive the undelivered captain outcome"
   pass "host+hook: a successor closed before exit_to_main does not suppress the branch-outcome rewake"
 }
 

@@ -232,6 +232,7 @@ Every watcher shutdown and stale-lock recovery preserves an acknowledged episode
 This includes native HUP or TERM, explicit failures, interpreter failures, and abrupt termination.
 The publisher takes the queue lock before the marker lock to serialize that decision with the complete acknowledgement transaction and durable append publication.
 A successful durable append opens recovery even after acknowledgement.
+An explicit publication, such as the supervision host returning an undelivered captain outcome to main, also opens recovery after queue acknowledgement.
 The watcher retains ownership of its singleton until cleanup releases it; its arm never becomes the cleanup owner.
 A handling successor closing to resurface recovery preserves the existing marker instead.
 If EXIT cleanup cannot acquire the queue and downtime-marker locks within its shared bound, it retains the stale singleton for the next arm to reconcile recovery before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).

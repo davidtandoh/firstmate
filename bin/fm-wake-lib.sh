@@ -711,11 +711,11 @@ _fm_recovery_marker_write_locked() {
 # Apply the downtime republication states owned by docs/watcher-continuity.md
 # while preserving an outstanding generation-bound acknowledgement.
 _fm_recovery_marker_publish() {
-  local marker=$1 kind=${2:-downtime} bound=${3:-} source=${4:-watcher}
+  local marker=$1 kind=${2:-downtime} bound=${3:-} source=${4:-explicit}
   local lock saved_token generation='' status=pending previous_append_token=''
   local queue_lock='' current deadline
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
-  case "$source" in watcher|stale-lock|append) ;; *) return 1 ;; esac
+  case "$source" in explicit|watcher|stale-lock|append) ;; *) return 1 ;; esac
   if [ "$source" = append ]; then
     FM_WAKE_APPEND_RECOVERY_PREVIOUS_TOKEN=
     FM_WAKE_APPEND_RECOVERY_PUBLISHED_TOKEN=
@@ -762,7 +762,8 @@ _fm_recovery_marker_publish() {
       fi
       case "$FM_RECOVERY_MARKER_TOKEN" in
         acked:*)
-          if [ "$source" != append ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
+          if { [ "$source" = watcher ] || [ "$source" = stale-lock ]; } \
+            && [ ! -s "$FM_WAKE_QUEUE" ]; then
             FM_RECOVERY_MARKER_TOKEN=$saved_token
             fm_lock_release "$lock"
             [ -z "$queue_lock" ] || fm_lock_release "$queue_lock"
@@ -780,7 +781,7 @@ _fm_recovery_marker_publish() {
         announced:downtime:*)
           if [ "$source" != append ]; then
             generation=${FM_RECOVERY_MARKER_TOKEN##*:}
-            if [ "$source" = watcher ]; then
+            if [ "$source" != stale-lock ]; then
               status=announced
             fi
           fi
@@ -1088,7 +1089,7 @@ fm_recovery_transition() {
       ;;
     release-lock)
       [ -n "$target" ] || return 1
-      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" || return 1
+      _fm_recovery_marker_publish "$marker" "${value:-downtime}" "$bound" watcher || return 1
       fm_lock_release "$target"
       ;;
     release-lock-existing)

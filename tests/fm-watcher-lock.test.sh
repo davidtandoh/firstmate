@@ -1252,7 +1252,7 @@ test_arm_fails_loud_when_no_fresh_watcher_confirmable() {
 }
 
 test_cycle_exit_ledger_links_successor_and_stays_bounded() {
-  local dir state fakebin armout check_file first_arm successor_arm successor_pid i size iteration
+  local dir state fakebin armout check_file first_arm successor_arm successor_pid i size iteration acknowledged
   dir=$(make_case cycle-ledger)
   state="$dir/state"
   fakebin="$dir/fakebin"
@@ -1272,6 +1272,7 @@ SH
   grep -q "arm_pid=$first_arm.*reason=actionable-check.*successor=none" "$state/.watch-cycle-exits.log" \
     || fail "first ledger record omitted its actionable classification"
   drain_and_ack "$state" || fail "first ledger wake handling acknowledgement failed"
+  acknowledged=$(cat "$state/.watcher-down")
 
   rm -f "$check_file" "$state/task.check-trust"
   armout="$dir/successor-arm.out"
@@ -1289,11 +1290,10 @@ SH
     || fail "predecessor ledger record was not linked to its verified successor"
   kill -HUP "$successor_arm" 2>/dev/null || true
   wait "$successor_arm" 2>/dev/null || true
-  # The forced interruption is a watcher-down interval. Consume the prior
-  # delivered wake before beginning independent ledger cycles, just as the
-  # recovery handling turn does, so this fixture does not intentionally carry a
-  # durable wake into the next arm.
-  drain_and_ack "$state" || fail "recovery drain after forced arm interruption failed"
+  # Interrupting an acknowledged empty cycle must not create another episode.
+  [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] \
+    || fail "forced arm interruption reopened the acknowledged episode"
+  [ ! -s "$state/.wake-queue" ] || fail "forced arm interruption queued an empty recovery wake"
 
   # Produce enough short cycles to cross a deliberately small cap. The cap is
   # applied by the arm layer itself and keeps only complete ledger records.
@@ -1311,8 +1311,9 @@ SH
     grep -qF 'watcher: started pid=' "$armout" || fail "bounded ledger cycle $iteration did not start"
     kill -HUP "$successor_arm" 2>/dev/null || true
     wait "$successor_arm" 2>/dev/null || true
-    drain_and_ack "$state" \
-      || fail "recovery drain after bounded ledger cycle $iteration failed"
+    [ "$(cat "$state/.watcher-down")" = "$acknowledged" ] \
+      || fail "bounded ledger cycle $iteration reopened the acknowledged episode"
+    [ ! -s "$state/.wake-queue" ] || fail "bounded ledger cycle $iteration queued an empty recovery wake"
     iteration=$((iteration + 1))
   done
   size=$(wc -c < "$state/.watch-cycle-exits.log" | tr -d '[:space:]')

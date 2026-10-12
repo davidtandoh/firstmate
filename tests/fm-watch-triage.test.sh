@@ -34,6 +34,14 @@ ack_stopped_cycle() {  # <state>
   sequence=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$/\1/p' "$err")
   generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through [0-9][0-9]* --recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$err")
   rm -f "$err"
+  if [ -z "$sequence" ] && [ -z "$generation" ]; then
+    # An already acknowledged empty cycle stays quiet when stopped again.
+    [ ! -s "$state/.wake-queue" ] || return 1
+    case "$(cat "$state/.watcher-down" 2>/dev/null)" in
+      acked:*) return 0 ;;
+      *) return 1 ;;
+    esac
+  fi
   [ -n "$sequence" ] && [ -n "$generation" ] || return 1
   FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through "$sequence" \
     --recovery-generation "$generation"
