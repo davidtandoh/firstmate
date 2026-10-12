@@ -4019,7 +4019,7 @@ test_composer_state_popup_placeholder_fill_is_pending() {
 test_composer_state_omnigent_footer_and_doorbell() {
   local dir log resp fb out scenario want rc sent banner
   banner='Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef'
-  for scenario in empty draft banner-draft multiline multiline-status multiline-status-native; do
+  for scenario in empty draft banner-draft multiline multiline-status multiline-status-native shell-example shell-example-native; do
     want=pending
     [ "$scenario" != empty ] || want=empty
     dir="$TMP_ROOT/composer-omnigent-$scenario"; mkdir -p "$dir/responses"
@@ -4031,6 +4031,8 @@ test_composer_state_omnigent_footer_and_doorbell() {
       multiline) printf '────────\n❯\n\n ❯ keep this draft\n────────\n%s\n' "$banner" > "$resp/1.out" ;;
       multiline-status) printf '────────\n❯\n\n ❯ keep this draft\n────────\n→ repo git:(main)\n%s\n' "$banner" > "$resp/1.out" ;;
       multiline-status-native) printf '────────\n❯\n\n ❯ keep this draft\n────────\n→ repo git:(main)\n' > "$resp/1.out" ;;
+      shell-example) printf '────────\n❯\n\n $ ls\n────────\n→ repo git:(main)\n%s\n' "$banner" > "$resp/1.out" ;;
+      shell-example-native) printf '────────\n❯\n\n $ ls\n────────\n→ repo git:(main)\n' > "$resp/1.out" ;;
     esac
     cp "$resp/1.out" "$resp/2.out"
     cp "$resp/1.out" "$resp/3.out"

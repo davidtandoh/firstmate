@@ -1289,7 +1289,7 @@ test_omnigent_trailing_banner_and_native_drafts() {
     done
   done
   for suffix in '' "$banner"; do
-    for content in '❯ keep this draft' 'keep this draft'; do
+    for content in '❯ keep this draft' 'keep this draft' '$ ls' '> echo hello' '% pwd' '# whoami'; do
       screen=$(printf '────────\n❯ first line\n\n %s\n\n last line\n────────\n→ repo git:(main)\n%s\n' "$content" "$suffix")
       for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
         expected=pending
@@ -1303,6 +1303,19 @@ test_omnigent_trailing_banner_and_native_drafts() {
     assert_screen 'repeated prompt after blank row with status' pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
     out=$(fm_composer_extract_selected_content styled=1 "$screen")
     [ "$out" = '❯ keep this draft' ] || fail "reported multiline draft lost: $out"
+    screen=$(printf '────────\n❯\n\n $ ls\n────────\n→ repo git:(main)\n%s\n' "$suffix")
+    assert_screen 'shell example inside native composer' pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+    out=$(fm_composer_extract_selected_content styled=1 "$screen")
+    [ "$out" = '$ ls' ] || fail "internal shell example lost: $out"
+    for content in '$ ls' '> echo hello' '% pwd' '# whoami'; do
+      for status in "$(printf '→ repo git:(main)\n%s' "$content")" "$(printf '→ repo git:(main)\n\n%s' "$content")"; do
+        screen=$(printf '────────\n❯\n\n $ ls\n────────\n%s\n%s\n' "$status" "$suffix")
+        assert_screen 'shell below native composer invalidates selection' unknown "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+        if out=$(fm_composer_extract_selected_content styled=1 "$screen"); then
+          fail "shell below native composer retained a stale selection: $out"
+        fi
+      done
+    done
   done
   screen=$(printf '❯\nwrapped draft\n%s\n' "$banner")
   assert_screen 'wrapped draft above banner' pending "$CAPS_STYLED" "$screen"

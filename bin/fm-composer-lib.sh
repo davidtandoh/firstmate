@@ -1651,6 +1651,7 @@ _fm_composer_select_cursorless() {
     FM_COMPOSER_SELECTED_FIRST=$bare
     FM_COMPOSER_SELECTED_LAST=$bare
     if [ "$footer" = 1 ] && [ "$bare" = "$FM_COMPOSER_FOOTER_GLYPH" ]; then
+      generic=$FM_COMPOSER_FOOTER_AFTER
       FM_COMPOSER_SELECTED_LAST=$((FM_COMPOSER_FOOTER_AFTER - 1))
     fi
   fi
