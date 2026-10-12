@@ -34,6 +34,7 @@ Each registry entry stays concise and single-line: the summary is one sentence n
 Natural-language summary and `scope:` text may contain parentheses and semicolons; keep the generated `(home: ...; scope: ...; projects: ...; added ...)` suffix intact so operational consumers resolve its explicit field markers.
 The `home:` path points to the seeded home containing `data/charter.md`; no extra registry pointer field is needed.
 For a remote route, `host:` is an OpenSSH config alias and `root:` is that host's separate tracked Firstmate code root.
+A remote route whose host is not always on, such as a laptop that sleeps, adds `availability: when-online; ` between `home:` and `scope:`; `when-online` is the only accepted value, an absent field means always-on, and [`bin/fm-secondmate-availability.sh`](../../../bin/fm-secondmate-availability.sh) owns the routing decision it enables.
 A remote second-mate agent always runs on the Herdr backend and every seed, launch, and liveness relaunch first gates its host on `bin/fm-remote-doctor.sh` readiness, so an unready host refuses with that doctor's own gap text rather than half-creating a route; the workers that second mate supervises keep the home's ordinary backend selection.
 This release places whole secondmate homes remotely and never individual workers.
 [`docs/remote-secondmates.md`](../../../docs/remote-secondmates.md) owns current operator setup and transport behavior.

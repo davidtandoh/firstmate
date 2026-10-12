@@ -21,6 +21,11 @@
 # bin/fm-project-mode.sh refuses, is refused rather than provisioned.
 # Seeding writes nothing under projects/ and needs no fleet sync first.
 #
+# Set FM_SECONDMATE_AVAILABILITY=when-online to record a route whose host is
+# not always on, such as a laptop; bin/fm-secondmate-availability.sh owns how
+# routing treats it. Unset keeps the always-on default, and a rerun records
+# only what that rerun supplies.
+#
 # Known provisioning failure rolls the registry back. SSH status 255 preserves
 # the route and any newly scaffolded brief because completion is unknown and a same-route rerun converges.
 set -eu
@@ -46,7 +51,7 @@ MAX_MANIFEST_BYTES=1048576
 . "$SCRIPT_DIR/fm-project-origin-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 encode() { base64 | tr -d '\n'; }
 safe_id() { case "$1" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac; }
 
@@ -76,6 +81,12 @@ for path in "$REMOTE_ROOT" "$REMOTE_HOME"; do
   case "/$path/" in */../*|*/./*) die "remote root or home contains traversal components" ;; esac
   case "$path" in *'//'*) die "remote root or home contains an empty path component" ;; esac
 done
+AVAILABILITY_FIELD=
+case "${FM_SECONDMATE_AVAILABILITY:-}" in
+  '') ;;
+  when-online) AVAILABILITY_FIELD='availability: when-online; ' ;;
+  *) die "FM_SECONDMATE_AVAILABILITY must be when-online or unset: ${FM_SECONDMATE_AVAILABILITY}" ;;
+esac
 [ "$REMOTE_ROOT" != "$REMOTE_HOME" ] || die "remote root and home must be separate"
 case "$REMOTE_HOME/" in "$REMOTE_ROOT/"*) die "remote home must not be inside the remote code root" ;; esac
 case "$REMOTE_ROOT/" in "$REMOTE_HOME/"*) die "remote code root must not be inside the remote home" ;; esac
@@ -223,8 +234,8 @@ MANIFEST_BYTES=$(LC_ALL=C wc -c < "$TMP/manifest" | tr -d ' ')
 TODAY=$(date +%F)
 REG_TMP="$TMP/secondmates.next"
 if [ -f "$REG" ]; then grep -vE "^- $ID( |$)" "$REG" > "$REG_TMP" || true; else : > "$REG_TMP"; fi
-printf -- '- %s - %s (host: %s; root: %s; home: %s; scope: %s; projects: %s; added %s)\n' \
-  "$ID" "$SUMMARY" "$HOST" "$REMOTE_ROOT" "$REMOTE_HOME" "$SCOPE" "$PROJECTS_CSV" "$TODAY" >> "$REG_TMP"
+printf -- '- %s - %s (host: %s; root: %s; home: %s; %sscope: %s; projects: %s; added %s)\n' \
+  "$ID" "$SUMMARY" "$HOST" "$REMOTE_ROOT" "$REMOTE_HOME" "$AVAILABILITY_FIELD" "$SCOPE" "$PROJECTS_CSV" "$TODAY" >> "$REG_TMP"
 mv -f -- "$REG_TMP" "$REG"
 if ! secondmate_registry_validate_bindings "$REG" secondmate_registry_path_key "$ID" "$REMOTE_HOME"; then
   if [ "$REG_EXISTED" -eq 1 ]; then cp "$TMP/registry.before" "$REG"; else rm -f -- "$REG"; fi

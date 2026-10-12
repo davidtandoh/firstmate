@@ -511,6 +511,16 @@ assert_grep '- seed-keep ' "$TMP_ROOT/seed-parent/data/secondmates.md" "failed s
 assert_present "$TMP_ROOT/seed-keep-home/.fm-secondmate-home" "serialized seed lost its published remote home"
 pass "remote seed rollback preserves serialized competing routes"
 
+FM_SECONDMATE_CHARTER='Laptop hands charter.' FM_SECONDMATE_SCOPE='laptop-only work' \
+  FM_SECONDMATE_AVAILABILITY=when-online seed_env "$ROOT/bin/fm-remote-home-seed.sh" \
+  seed-online remote-mac "$REMOTE_ROOT" "$TMP_ROOT/seed-online-home" --no-projects \
+  > "$TMP_ROOT/seed-online.out" 2>&1 || fail "when-online seed failed: $(cat "$TMP_ROOT/seed-online.out")"
+assert_grep "home: $TMP_ROOT/seed-online-home; availability: when-online; scope: laptop-only work;" \
+  "$TMP_ROOT/seed-parent/data/secondmates.md" "remote seed did not record the when-online opt-in"
+assert_grep "home: $TMP_ROOT/seed-keep-home; scope: successful seed;" \
+  "$TMP_ROOT/seed-parent/data/secondmates.md" "remote seed changed an always-on route"
+pass "remote seed records the when-online opt-in only on the route that asks for it"
+
 : > "$DOCTOR_LOG"
 if FM_SECONDMATE_CHARTER='Unknown readiness charter.' FM_SECONDMATE_SCOPE='unknown readiness' \
   FM_FAKE_SSH_MODE=doctor-fix-unknown seed_env "$ROOT/bin/fm-remote-home-seed.sh" \

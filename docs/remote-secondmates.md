@@ -15,6 +15,7 @@ Firstmate does not support placing an individual worker remotely or failing a re
 | Check whether a host is ready, or repair it | [Readiness, repair, and the human steps](#readiness-repair-and-the-human-steps) |
 | Create the route and the remote home | [Provision a route](#provision-a-route) |
 | Launch, recover, message, and read a remote second mate | [Normal operation](#normal-operation) |
+| Route work to a host that is not always on | [Hosts that are not always on](#hosts-that-are-not-always-on) |
 | Move queued work to the remote home | [Backlog handoff](#backlog-handoff) |
 | Push configuration, relaunch, update, or retire | [Sync, update, and retirement](#sync-update-and-retirement) |
 | Run the tests or a real-host smoke test | [Verification](#verification) |
@@ -599,6 +600,27 @@ Semantic callers preserve the route or pending request:
 - An unconfirmed steer may be retried only through the correlation-preserving command described above.
 
 An unavailable remote home is projected as unknown and is never replaced by a local second mate.
+
+### Hosts that are not always on
+
+Scope decides which second mate fits the work; it does not say whether that second mate's host is awake.
+A remote route whose host sleeps or is switched off, such as a laptop, opts in with `availability: when-online` on its registry entry.
+Set `FM_SECONDMATE_AVAILABILITY=when-online` when seeding the route; the [routing table](../.agents/skills/secondmate-provisioning/SKILL.md#routing-table) owns the field.
+Routes without the field stay always-on and route exactly as before.
+
+Before routing work to an opted-in second mate, the primary asks for a decision:
+
+```sh
+bin/fm-secondmate-availability.sh <id> [portable|host-bound]
+```
+
+1. The command runs the same bounded, read-only remote state probe as the [liveness tick](#liveness-recovery).
+2. When the host answers and the second mate is running, it prints `route`, and the work goes to the second mate.
+3. Otherwise it prints why and falls back: `local` for portable work, which the primary runs in its own home, and `queue` for host-bound work, which stays queued in the primary's backlog with that reason.
+
+The probe never relaunches, repairs, or records anything, so asking is always safe.
+Queued host-bound work is re-checked when the primary next re-evaluates its queue.
+The [script header](../bin/fm-secondmate-availability.sh) owns the exact output and exit codes.
 
 ## Backlog handoff
 
