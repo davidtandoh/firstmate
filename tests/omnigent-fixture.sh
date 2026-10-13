@@ -70,6 +70,29 @@ python3 - "$0" "$@" <<'PY'
 import json, os, pathlib, subprocess, sys
 service = pathlib.Path(os.environ['OMNIGENT_CONFIG_HOME']).parent
 args = sys.argv[2:]
+if '--binding-json' in args or '--reattach-binding' in args:
+    error = os.environ.get('OMNI_BINDING_ERROR')
+    if error:
+        print(json.dumps({'schema_version': 1, 'error': {'category': error, 'detail': 'synthetic-private'}}))
+        sys.exit(1)
+    binding = json.loads((service / 'binding.json').read_text())
+    if '--reattach-binding' in args:
+        requested = json.loads(pathlib.Path(args[args.index('--reattach-binding') + 1]).read_text())
+        if requested != binding:
+            print(json.dumps({'schema_version': 1, 'error': {'category': 'binding_mismatch'}}))
+            sys.exit(1)
+        if os.environ.get('OMNI_BINDING_SWAP'):
+            binding['owner_generation'] = 'foreign-owner'
+        if '--binding-json' in args:
+            print(json.dumps(binding))
+        else:
+            with (service / 'attachments.log').open('a') as output:
+                output.write(json.dumps(args) + '\n')
+    else:
+        with (service / 'native-launches.log').open('a') as output:
+            output.write(json.dumps(args) + '\n')
+        print(json.dumps(binding))
+    sys.exit(0)
 environment = {}
 for index, value in enumerate(args[:-1]):
     if value == '--env':

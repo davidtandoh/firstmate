@@ -52,16 +52,56 @@ A recorded wrapped task remains wrapped through recovery.
    The launcher's [help](../bin/fm-omnigent.sh) owns exact flags; its [receipt validator](../bin/fm-omnigent-contract.jq) owns consumer validation and safe refusal categories.
 3. If runtime, endpoint, authentication, capability, or policy verification refuses, repair that owner before retrying admission.
    Do not substitute a binary on `PATH`, remove an account pin, or use a direct exporter as a workaround.
-4. Use [`fm-control relaunch`](agent-control.md#transactional-relaunch) only for an explicitly requested replacement.
+4. For a task with a public Codex binding, use [`fm-control reattach`](agent-control.md#native-session-reattachment) after the attachment has exited and its recorded endpoint is agent-free.
+   The command verifies the binding before sending one attachment command.
+   An occupied, missing, unreadable, or foreign endpoint refuses.
+5. Use [`fm-control relaunch`](agent-control.md#transactional-relaunch) only for an explicitly requested replacement of a task without a native binding.
    Wrapped relaunch checks admission and worker restrictions before stopping the current agent.
    The launch checks again at pane execution; a later availability change can still refuse the replacement.
 
-Explicit relaunch is a stop-and-replace transaction, not maintenance reattachment.
-The launch receipt's custody capability does not identify a Firstmate task's existing native session.
-Omnigent supports retained-runner custody for host-launched Codex sessions on macOS; Firstmate still needs the task/session binding and scoped adoption interface to consume it.
-Firstmate has no supported maintenance-detach or native-adoption operation from the launch receipt alone.
-Do not send lifecycle commands as steering text.
-Same-session reattachment and duplicate-adoption refusal require an explicit session-owner contract and the separate mandatory acceptance in the [verification matrix](verification/omnigent.md#independent-launch-acceptance-matrix).
+## Native task association
+
+```mermaid
+flowchart LR
+    spawn[fm-spawn: task launch] --> binding[Public Omnigent binding]
+    binding --> task[Existing task data directory]
+    control[fm-control: typed reattach] --> verify[Owner validates exact binding]
+    task --> verify
+    verify --> attach[Attach existing native terminal once]
+```
+
+The binding associates one existing Firstmate task with an Omnigent session; Omnigent retains custody.
+
+For a measured `durable_custody=true` Codex capability, the worker launcher requests the owner's public binding before attaching to the native terminal.
+The launcher stores the exact binding as a private `omnigent-binding.json` in the task's existing data directory.
+The binding identifies the session, runner, owner generation, owner and native process identities, terminal socket, workspace, endpoint, and config/environment digests.
+The [binding validator](../bin/fm-omnigent-contract.jq) owns the executable schema checks.
+The [association helper](../bin/fm-omnigent-binding-lib.sh) checks private-file safety and refuses duplicate session, runner, or native process associations among this home's existing tasks.
+Firstmate does not enumerate Omnigent's private records or maintain another custody registry.
+
+Before native creation, the launcher reserves the task binding path exclusively under the existing task-set lock.
+A failed or interrupted creation retains that empty reservation because the consumer cannot prove that no owner was created.
+If a reservation is empty, malformed, unsafe, or missing after an uncertain launch, stop and reconcile with Omnigent's owner.
+Do not remove the reservation and retry creation or guess an identity from terminal output.
+Existing task records without a binding remain unchanged; maintenance reattachment refuses them.
+
+Typed reattachment uses the same selected-runtime, endpoint, authentication, environment, and callable-capability checks as launch.
+The owner's public verifier must return the entire recorded binding unchanged before attachment.
+Reattachment does not query new-admission telemetry policy, resend a prompt, replay launch options, or create a replacement native session.
+The task metadata, brief, worktree, and durable inbox remain intact.
+The control plane refuses an occupied endpoint and never submits a second attachment command as an Enter retry.
+Both control-plane relaunch and direct spawn replacement refuse a bound task before changing its records or stopping its attachment.
+Do not send maintenance detach or other lifecycle commands as steering text.
+
+The binding integration follows the published Omnigent schema version 1 interface at source commit `17b6afc0e951bb370ce725abfa87d5e67dfe0a2d`.
+The owner advisory identified incomplete client identity fields and teardown recovery defects at that source commit.
+The owner must return the corrected identity and end contract before this consumer's impacted integration is finalized.
+Firstmate must not compensate with ambient environment guesses, wider allowlists, private-state reads, or weaker identity equality.
+Intentional end qualification and integrated mandatory acceptance remain pending.
+The source fixtures do not prove installed compatibility, host maintenance, native process survival, or phone continuity.
+Custody capability remains limited to host-launched Codex on macOS; false capability rows retain their existing launch path.
+Full runner replacement, runner-crash survival, and same-process survival through OS reboot are not claimed.
+See the [acceptance matrix](verification/omnigent.md#independent-launch-acceptance-matrix) for the separate destination proof.
 
 `bin/fm-agent-process-lib.sh` recognizes the observed Python interpreter, Omnigent entrypoint, and native subcommand in order.
 A Python process merely mentioning Omnigent, or running its server, is not an agent.

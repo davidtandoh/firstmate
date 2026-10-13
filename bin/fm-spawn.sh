@@ -1795,6 +1795,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: --relaunch refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
     exit 1
   }
+  if [ -e "$DATA/$ID/omnigent-binding.json" ] || [ -L "$DATA/$ID/omnigent-binding.json" ]; then
+    echo 'error: task has a native session binding; replacement refuses, use fm-control reattach for maintenance' >&2
+    exit 1
+  fi
   fm_backend_validate_task_endpoint "$RELAUNCH_META" "$ID" || exit 1
   BACKEND=$FM_BACKEND_VALIDATED_BACKEND
   RELAUNCH_TARGET=$FM_BACKEND_VALIDATED_TARGET
@@ -5569,6 +5573,9 @@ SPAWN_CLAUDE_BIN=claude
 SPAWN_CODEX_BIN=codex
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run --config $(shell_quote "$CONFIG") $HARNESS"
+  if [ "$HARNESS" = codex ]; then
+    OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run --config $(shell_quote "$CONFIG") --task-meta $(shell_quote "$STATE/$ID.meta") --task-data $(shell_quote "$DATA/$ID") codex"
+  fi
   case "$HARNESS" in
     claude) SPAWN_CLAUDE_BIN=$OMNIGENT_LAUNCH ;;
     codex) SPAWN_CODEX_BIN=$OMNIGENT_LAUNCH ;;

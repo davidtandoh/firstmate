@@ -600,6 +600,8 @@ A missing executable, unsupported interface, malformed receipt, runtime mismatch
 The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
 Firstmate never retries a refused wrapped launch through the native CLI.
 The [launch boundary and recovery runbook](omnigent.md) owns independent telemetry admission and preservation of existing sessions during a trace gap.
+For a verified true-custody Codex launch, the task's existing data directory holds the owner's private public binding as `omnigent-binding.json`.
+The [typed reattachment contract](agent-control.md#native-session-reattachment) owns maintenance reattachment and its current source-only qualification limits.
 
 ### Claude external-import consent
 

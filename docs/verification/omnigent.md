@@ -15,7 +15,7 @@ These are synthetic owner and native-executable fixtures; they do not establish 
 | Capture excluded or enabled | Exact policy settings disable exports or select only the loopback redactor; ambient client export settings are cleared. | Verify destination redaction and trace canary. |
 | Runtime, environment, endpoint, and capability identity | Entire selected runtime equality, exact environment, callable capability types, and native `--env` support fail closed. | Verify independent installed receipt equality and authentication. |
 | Wrapped/native precedence | Marker, home policy, inherited mode, recorded mode, and remote recovery retain their declared precedence. | Verify the approved primary launch configuration. |
-| Maintenance detach and reattachment | Firstmate task/session binding and scoped adoption integration remain pending. | Verify exact native session, PID/start identity, terminal identity, ownership, same-session reattachment once, and duplicate-adoption refusal. |
+| Maintenance detach and reattachment | Schema version 1 binding equality, private-file checks, same association reattachment, no prompt replay, occupied-endpoint refusal, duplicate task adoption refusal, and bound replacement refusal use public CLI fixtures. Owner identity/end corrections remain pending. | Verify exact native session, PID/start identity, terminal identity, ownership, same-session reattachment once, and duplicate-adoption refusal. |
 | Host reboot or runner replacement | No same-process survival claim. | Establish the session owner's supported limits separately. |
 
 The focused launch and SSH regressions ran with:
@@ -38,7 +38,11 @@ Its Pi registration case uses a synthetic executable and portable metadata editi
 Source success does not authorize deployment, legacy retirement, primary switchover, or a maintenance window.
 Omnigent's session-owner contract supports retained-runner custody only for host-launched Codex on macOS.
 Full runner replacement, runner-crash survival, and same-process survival through OS reboot are not claimed.
-The Firstmate task binding and scoped adoption interface, approved installed fork pin, native and phone continuity, backup/schema validation, and destination canary remain separate acceptance requirements.
+The owner identity/end contract correction, approved installed fork pin, native and phone continuity, backup/schema validation, and destination canary remain separate acceptance requirements.
+The consumer binding fixtures target published owner source commit `17b6afc0e951bb370ce725abfa87d5e67dfe0a2d`.
+Their owner/native process identities are synthetic; exact equality and one creation call do not prove real native process survival.
+The advisory at that commit found incomplete client identity fields and dead-owner/config-drift end lockouts.
+Those owner-owned repairs must return through Firstmate before impacted end/reattach integration is finalized.
 
 ## Historical aggregate-service evidence
 

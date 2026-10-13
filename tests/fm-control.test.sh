@@ -664,7 +664,7 @@ test_record_bound_to_another_task_is_refused() {
 # refuses, and none of them reaches a local endpoint.
 test_remote_secondmate_is_refused_by_placement() {
   local dir out rc verb
-  for verb in interrupt exit relaunch; do
+  for verb in interrupt exit relaunch reattach; do
     dir=$(new_case "remote-$verb")
     add_task "$dir" t1 claude secondmate
     alive_as "$dir" claude

@@ -4,6 +4,7 @@
 #
 # Usage: fm-control.sh <task-id> interrupt
 #        fm-control.sh <task-id> exit
+#        fm-control.sh <task-id> reattach
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>]
 #                                         (--note <text> | --note-file <path>)
@@ -86,6 +87,11 @@
 #              the prior durable record in place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
 #              running.
+#   reattach   Verify a recorded public Omnigent Codex binding, then reconnect
+#              its existing native terminal to the retained task endpoint once.
+#              An occupied endpoint refuses a duplicate attachment.
+#              Missing/foreign bindings and unverified/missing endpoints refuse.
+#              This does not start services, replace the owner, or replay a prompt.
 #
 # Teardown and discard are NOT verbs here and never will be. `exit` stops an
 # agent and preserves everything else; removing a worktree, killing an
@@ -820,6 +826,9 @@ relaunch_rollback() {
 }
 
 resolve_relaunch_profile() {
+  if [ -e "$DATA/$ID/omnigent-binding.json" ] || [ -L "$DATA/$ID/omnigent-binding.json" ]; then
+    die 'task has a native session binding; stop-and-replace relaunch refuses, use reattach for maintenance'
+  fi
   PRIOR_HARNESS=$HARNESS
   PRIOR_RECORDED_HARNESS=$RECORDED_HARNESS
   PRIOR_MODEL=$(fm_meta_get "$META" model)
@@ -1100,7 +1109,45 @@ do_relaunch() {
 
 # --- verbs ------------------------------------------------------------------
 
+do_reattach() {
+  local state binding command attached verdict config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+  [ "$HARNESS" = codex ] && [ "$RECORDED_HARNESS" = codex ] \
+    && [ "$(fm_meta_get "$META" omnigent)" = on ] || die 'reattach requires an exact wrapped Codex task'
+  require_state_verified_backend reattach
+  state=$(agent_state)
+  case "$state" in
+    dead) ;;
+    alive) die 'reattach refuses an occupied endpoint; no duplicate attachment was sent' ;;
+    *) die "reattach refuses endpoint state: $state" ;;
+  esac
+  binding=$(cd "$WT" && "$SCRIPT_DIR/fm-omnigent.sh" verify-binding \
+    --config "$config" --task-meta "$META" --task-data "$DATA/$ID" codex) \
+    || die 'reattach refused the task session binding; existing native owner preserved'
+  fm_backend_source "$BACKEND" || die 'reattach cannot load the recorded backend'
+  [ "$("fm_backend_${BACKEND}_current_path" "$T")" = "$WT" ] || die 'reattach refuses a pane outside the recorded workspace'
+  [ "$(agent_state)" = dead ] || die 'reattach endpoint became occupied during verification; no attachment sent'
+  printf -v command '%s reattach --config %s --task-meta %s --task-data %s codex' \
+    "$(printf "'%s'" "${SCRIPT_DIR//\'/\'\\\'\'}/fm-omnigent.sh")" \
+    "$(printf "'%s'" "${config//\'/\'\\\'\'}")" \
+    "$(printf "'%s'" "${META//\'/\'\\\'\'}")" "$(printf "'%s'" "${DATA//\'/\'\\\'\'}/$ID")"
+  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$command" 1 "$POLL" 0 "$LABEL") \
+    || die 'reattach transport unconfirmed; do not retry until the endpoint is reconciled'
+  # The new attachment can replace the shell before the composer is readable.
+  # A failed transport or remaining draft is not proof of attachment delivery.
+  case "$verdict" in
+    empty|unknown) ;;
+    *) die 'reattach transport unconfirmed; do not retry until the endpoint is reconciled' ;;
+  esac
+  attached=$(wait_agent_state "$LAUNCH_WAIT" alive) || die "reattach did not confirm an attachment: $attached"
+  # The public verifier must still report the exact owner after attachment.
+  (cd "$WT" && "$SCRIPT_DIR/fm-omnigent.sh" verify-binding \
+    --config "$config" --task-meta "$META" --task-data "$DATA/$ID" codex) >/dev/null \
+    || die 'reattach attachment is visible but owner identity could not be confirmed'
+  echo "reattached $ID session=$(printf '%s' "$binding" | jq -r .session_id) backend=$BACKEND endpoint=$T"
+}
+
 case "$VERB" in
+  reattach) do_reattach ;;
   interrupt)
     state=$(agent_state)
     case "$state" in

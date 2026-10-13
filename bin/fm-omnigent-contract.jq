@@ -143,3 +143,37 @@ def fm_pak_error_category:
   if length == 1 and (.[0] | .schema_version == 1 and .status == "refused" and
       .error.category == "unavailable_probe")
   then "unavailable_probe" else empty end;
+
+def identity_string:
+  type == "string" and length > 0 and (test("[\u0000-\u001f\u007f]") | not);
+def positive_integer:
+  type == "number" and . > 0 and floor == .;
+def nonnegative_integer:
+  type == "number" and . >= 0 and floor == .;
+def digest_string:
+  type == "string" and test("^[0-9a-f]{64}$");
+def process_identity:
+  type == "object" and keys == ["boot_id", "pid", "pid_ns", "started_at"] and
+  (.pid | positive_integer) and (.started_at | type == "number" and . > 0) and
+  .pid_ns == "none" and .boot_id == null;
+def fm_omnigent_binding_verified($workspace; $endpoint):
+  try (length == 1 and (.[0] |
+    type == "object" and keys == ["config_digest", "endpoint", "environment_digest", "harness",
+      "host_id", "native", "owner", "owner_generation", "runner_id", "schema_version", "session_id", "terminal", "workspace"] and
+    .schema_version == 1 and .harness == "codex-native" and
+    (.session_id | identity_string) and (.runner_id | identity_string) and
+    (.owner_generation | identity_string) and (.host_id | identity_string) and
+    (.workspace | absolute_path) and .workspace == $workspace and .endpoint == $endpoint and
+    (.endpoint | loopback_endpoint_port != null) and
+    (.config_digest | digest_string) and (.environment_digest | digest_string) and
+    (.owner | process_identity) and (.native | process_identity) and
+    (.terminal | type == "object" and
+      keys == ["device", "inode", "name", "pane", "session_key", "socket", "tmux"] and
+      .name == "codex/main" and (.session_key | identity_string) and (.socket | absolute_path) and
+      (.device | nonnegative_integer) and (.inode | positive_integer) and
+      (.tmux | process_identity) and (.pane | process_identity)))) catch false;
+def fm_omnigent_binding_error_category:
+  if length == 1 and (.[0] | type == "object" and .schema_version == 1 and
+      (.error.category | IN("record_mismatch", "scope_mismatch", "config_mismatch", "binding_mismatch",
+        "stale_attachment", "foreign_socket", "unsupported_custody", "unavailable_probe", "launch_unavailable")))
+  then .[0].error.category else empty end;

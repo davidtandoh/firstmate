@@ -15,7 +15,7 @@ The failure repeated across harnesses and homes, and the workaround (remember to
 
 `bin/fm-control-lib.sh` is the single executable owner of three capability tables, which have no side effects, so they can be read as a contract:
 
-- The **verb allowlist**: `interrupt`, `exit`, `relaunch`.
+- The **verb allowlist**: `interrupt`, `exit`, `relaunch`, `reattach`.
   There is no arbitrary-text and no generic raw-key entry point.
   A caller either names an allowlisted verb or is refused.
 - **Per-harness mechanics**: the key that cancels a running turn, how many times it must be delivered, whether the composer needs clearing afterwards, the command that exits the agent, and which task kinds the adapter is verified to run.
@@ -28,12 +28,29 @@ The [endpoint-absence proof](#reclaiming-a-task-whose-endpoint-is-gone) below is
 A recorded `harness=` is not always an exact adapter name: a task launched from a raw command records that command's basename instead.
 `fm_control_harness_family` is the one place that prefix rule is stated, and an unrecognized value resolves to no adapter rather than being guessed into one.
 
+## Native session reattachment
+
+`bin/fm-control.sh <task-id> reattach` preserves the existing task and native owner.
+The task must record exact wrapped Codex identity and a public binding created by its original launch.
+The existing endpoint must be positively agent-free and in the recorded workspace.
+The control plane verifies the binding through the selected public runtime, submits one strict attachment command, verifies agent liveness, and verifies the binding again.
+A failed transport refuses even if an agent becomes visible.
+An occupied endpoint refuses instead of opening a duplicate viewer.
+The operation sends no prompt, exit command, or lifecycle steer to the worker's durable inbox.
+The [Omnigent association and scoped recovery contract](omnigent.md#native-task-association) owns binding safety, owner provenance, and pending owner identity/end qualification.
+A bound task refuses stop-and-replace `relaunch`, including direct `fm-spawn --relaunch`.
+For a bound task, an ordinary `exit` liveness result proves only that the outer attachment stopped.
+Intentional native-owner end verification remains pending the corrected Omnigent contract.
+Do not treat outer-pane absence as a custody teardown receipt.
+This source operation does not authorize a maintenance window or prove custody survival on an installed runtime.
+
 ## Verbs
 
 | Verb | Effect | Postcondition |
 | --- | --- | --- |
 | `interrupt` | Deliver the harness's verified interrupt sequence while leaving the agent running. | Delivery succeeds while the endpoint still exists and the agent is still alive where the backend can classify that; cancellation is confirmed only from an adapter-owned acknowledgement and otherwise reports `cancel=unconfirmed`. |
 | `exit` | Stop the agent, preserving the endpoint, the worktree, and every uncommitted change. | The backend's recovery-grade classifier reports the agent gone. Already-stopped is idempotent success. An endpoint reading `missing` goes through the same [absence proof](#reclaiming-a-task-whose-endpoint-is-gone) the reclaim uses before anything is claimed about it, and only Herdr can supply one: proven gone reports `endpoint-gone` (the agent went with it, and the endpoint this verb normally preserves did not survive), a pane that turns out to be there and idle is the ordinary `already-stopped`, one whose agent is back takes the ordinary interrupt-then-exit path. A tmux `missing` always refuses rather than claim a stop it cannot see. |
+| `reattach` | Validate a wrapped Codex task's public native binding and attach once from its existing agent-free endpoint. | The attachment is visible and the public verifier still returns the exact stored owner binding; occupied or unverified endpoints refuse. |
 | `relaunch` | Replace the running agent with a new one in the same worktree - and the same endpoint whenever that endpoint still exists - on the exact recorded adapter or an explicitly chosen harness, model, and effort. | The new agent is alive on the endpoint the task's record now names, and that record names the harness that is actually running. |
 
 An exit that delivers lifecycle input but cannot prove the agent stopped fails with `exit=unconfirmed`, reports the observed agent state and any interrupt cancellation claim, and never claims that nothing changed.

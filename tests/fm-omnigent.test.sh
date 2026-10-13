@@ -262,6 +262,27 @@ for invalid in \
   if verify_selector "$TMP_ROOT/invalid-selector.json"; then fail "malformed or inconsistent selector accepted: $invalid"; fi
 done
 pass 'installer identity and exact owner environment refuse malformed or inconsistent selection'
+
+jq -n --arg workspace "$TMP_ROOT" '
+  def process($pid): {pid:$pid,started_at:1000,pid_ns:"none",boot_id:null};
+  {schema_version:1,session_id:"session-1",runner_id:"runner-1",harness:"codex-native",
+   owner_generation:"owner-1",host_id:"host-1",endpoint:"http://127.0.0.1:6767",workspace:$workspace,
+   config_digest:("a" * 64),environment_digest:("b" * 64),owner:process(101),native:process(102),
+   terminal:{name:"codex/main",session_key:"terminal-1",socket:"/tmp/fixture-native.sock",device:1,inode:2,
+     tmux:process(103),pane:process(104)}}' > "$TMP_ROOT/binding.json"
+verify_binding() {
+  jq -L "$ROOT/bin" -se --arg workspace "$TMP_ROOT" --arg endpoint http://127.0.0.1:6767 \
+    'include "fm-omnigent-contract"; fm_omnigent_binding_verified($workspace; $endpoint)' "$1" >/dev/null 2>&1
+}
+verify_binding "$TMP_ROOT/binding.json" || fail 'valid exact native binding refused'
+for invalid in '.schema_version=2' '.extra=true' '.harness="claude-native"' '.session_id=""' \
+  '.workspace="/foreign"' '.endpoint="http://127.0.0.1:6768"' '.owner.pid=0' '.owner.started_at=null' \
+  '.config_digest="bad"' '.terminal.name="codex/other"' '.terminal.socket="relative"' \
+  '.terminal.inode=-1' '.native.pid=true' 'del(.owner.boot_id)'; do
+  jq "$invalid" "$TMP_ROOT/binding.json" > "$TMP_ROOT/invalid-binding.json"
+  if verify_binding "$TMP_ROOT/invalid-binding.json"; then fail "unsafe native binding accepted: $invalid"; fi
+done
+pass 'public binding pins schema, task scope, native process and terminal identities'
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
@@ -340,6 +361,85 @@ grep -q 'required_collection_unavailable.*existing sessions preserved' "$TMP_ROO
 [ ! -e "$OMNI_RESULT" ] || fail 'denied policy started a native session'
 cp "$TMP_ROOT/permitted-policy.json" "$TMP_ROOT/serve/telemetry.json"
 pass 'mismatched identity, missing wrapper capability, and required collection refuse before native launch'
+
+(
+  binding_home="$TMP_ROOT/binding-home"
+  mkdir -p "$binding_home/state" "$binding_home/data/bound" "$binding_home/config"
+  printf 'window=fmses:fm-bound\nendpoint_task_id=bound\nbackend=tmux\nharness=codex\nomnigent=on\nworktree=%s\nproject=%s\n' \
+    "$TMP_ROOT" "$TMP_ROOT" > "$binding_home/state/bound.meta"
+  cp "$TMP_ROOT/binding.json" "$TMP_ROOT/serve/binding.json"
+  jq '.harnesses |= map(if .command == "codex" then .durable_custody=true else . end)' \
+    "$OMNI_STATUS" > "$TMP_ROOT/custody.json"
+  cp "$TMP_ROOT/custody.json" "$OMNI_STATUS"
+  binding_run() {
+    (cd "$TMP_ROOT"; FM_HOME="$binding_home" FM_TASK_ID=bound "$OMNI" "$1" \
+      --task-meta "$binding_home/state/bound.meta" --task-data "$binding_home/data/bound" codex "${@:2}")
+  }
+  binding_run run 'initial synthetic prompt' || fail 'binding launch refused a valid task'
+  stored="$binding_home/data/bound/omnigent-binding.json"
+  cmp -s <(jq -S . "$stored") <(jq -S . "$TMP_ROOT/binding.json") || fail 'launch did not store the exact owner binding'
+  [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'binding launch created more than one native session'
+  [ "$(wc -l < "$TMP_ROOT/serve/attachments.log" | tr -d ' ')" = 1 ] || fail 'initial binding did not attach once'
+  cp "$stored" "$TMP_ROOT/stored-before.json"
+  jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
+    "$TMP_ROOT/permitted-policy.json" > "$TMP_ROOT/serve/telemetry.json"
+  binding_run verify-binding > "$TMP_ROOT/verified-binding.json" || fail 'existing verification used new-admission policy'
+  cmp -s <(jq -S . "$TMP_ROOT/verified-binding.json") <(jq -S . "$stored") || fail 'public verification changed the bound owner'
+  binding_run reattach || fail 'existing attachment used new-admission policy'
+  cmp -s "$stored" "$TMP_ROOT/stored-before.json" || fail 'reattachment changed the owner binding'
+  [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'reattachment launched a duplicate native session'
+  jq -e 'all(.[]; . != "--prompt" and . != "--model" and . != "initial synthetic prompt")' \
+    "$TMP_ROOT/serve/attachments.log" >/dev/null || fail 'reattachment repeated native launch options'
+  if binding_run run 'duplicate prompt' > "$TMP_ROOT/error" 2>&1; then fail 'existing association admitted another native session'; fi
+  if OMNI_BINDING_SWAP=1 binding_run verify-binding > "$TMP_ROOT/error" 2>&1; then fail 'changed owner binding accepted'; fi
+  for category in stale_attachment foreign_socket scope_mismatch binding_mismatch; do
+    if OMNI_BINDING_ERROR="$category" binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'unsafe owner refusal accepted'; fi
+    assert_contains "$(cat "$TMP_ROOT/error")" "$category" 'safe binding refusal category lost'
+    assert_not_contains "$(cat "$TMP_ROOT/error")" synthetic-private 'owner refusal leaked raw details'
+  done
+  mkdir -p "$binding_home/data/duplicate"
+  cp "$binding_home/state/bound.meta" "$binding_home/state/duplicate.meta"
+  cp "$stored" "$binding_home/data/duplicate/omnigent-binding.json"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'another task adopted the same native binding'; fi
+  rm "$binding_home/state/duplicate.meta"
+  mv "$stored" "$TMP_ROOT/stored-good.json"
+  ln -s "$TMP_ROOT/stored-good.json" "$stored"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'symlink task binding accepted'; fi
+  rm "$stored"
+  cp "$TMP_ROOT/stored-good.json" "$stored"
+  chmod 644 "$stored"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'public task binding permissions accepted'; fi
+  chmod 600 "$stored"
+  ln "$stored" "$TMP_ROOT/binding-hardlink"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'hardlinked task binding accepted'; fi
+  rm "$TMP_ROOT/binding-hardlink"
+  python3 - "$stored" <<'PY_BOUND'
+import sys
+with open(sys.argv[1], 'w') as stream:
+    stream.write(' ' * 65537)
+PY_BOUND
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'oversized task binding accepted'; fi
+  cp "$TMP_ROOT/stored-good.json" "$stored"
+  python3 - "$stored" <<'PY_BOUND'
+import sys
+with open(sys.argv[1], 'a') as stream:
+    stream.write('\n' * 65537)
+PY_BOUND
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'newline-padded oversized binding accepted'; fi
+  printf '{}\n' > "$stored"
+  chmod 600 "$stored"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'malformed task binding accepted'; fi
+  rm "$stored"
+  if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'legacy task without a binding guessed a native identity'; fi
+  [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'refusals launched another native session'
+  cp "$TMP_ROOT/permitted-policy.json" "$TMP_ROOT/serve/telemetry.json"
+  if OMNI_BINDING_ERROR=launch_unavailable binding_run run 'interrupted launch' > "$TMP_ROOT/error" 2>&1; then fail 'failed owner creation accepted'; fi
+  [ -f "$stored" ] && [ ! -s "$stored" ] || fail 'failed creation lost its duplicate-prevention reservation'
+  if binding_run run 'retry duplicate' > "$TMP_ROOT/error" 2>&1; then fail 'uncertain creation retried without reconciliation'; fi
+  [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'uncertain creation admitted a duplicate native session'
+) || fail 'strict task binding and reattachment contract failed'
+fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+pass 'one public task binding reattaches unchanged during required collection denial; duplicate and unsafe adoption refuse'
 
 mv "$TMP_ROOT/serve/runtime/bin/omnigent" "$TMP_ROOT/serve/runtime/bin/selected-cli"
 ln -s selected-cli "$TMP_ROOT/serve/runtime/bin/omnigent"

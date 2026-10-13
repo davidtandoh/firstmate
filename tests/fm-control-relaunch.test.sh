@@ -78,6 +78,10 @@ case "${1:-}" in
       esac
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
+        *' reattach '*)
+          cat "$D/becomes" > "$D/command"
+          [ -z "${FM_FAKE_REATTACH_SEND_FAIL:-}" ] || exit 1
+          ;;
         /exit|/quit)
           printf 'zsh' > "$D/command"
           [ -z "${FM_FAKE_EXIT_TRANSPORT_FAIL_AFTER_STOP:-}" ] || exit 1
@@ -108,6 +112,7 @@ case "${1:-}" in
         *cursor_y*) printf '1\n'; exit 0 ;;
         *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*)
+          [ -z "${FM_FAKE_REATTACH_CWD_RACE:-}" ] || printf codex > "$D/command"
           if [ -n "${FM_FAKE_CWD_RACE_READY:-}" ]; then
             : > "$FM_FAKE_CWD_RACE_READY"
             /bin/sleep 1
@@ -2482,6 +2487,71 @@ test_wrapped_admission_refusal_preserves_the_running_agent() {
   done
 }
 
+test_omnigent_reattach_preserves_the_same_task_and_refuses_replacement() {
+  local dir out rc=0 id=rl-bound binding metadata brief inbox
+  dir=$(new_case omni-binding "$id")
+  add_ship_task "$dir" "$id" codex
+  printf 'omnigent=on\n' >> "$dir/home/state/$id.meta"
+  printf zsh > "$dir/fake/command"
+  printf codex > "$dir/fake/becomes"
+  (
+    # shellcheck source=tests/omnigent-fixture.sh
+    . "$ROOT/tests/omnigent-fixture.sh"
+    fm_test_omnigent_service "$dir/serve" "$dir/fakebin"
+  ) || fail 'could not prepare isolated binding owner'
+  jq '.harnesses |= map(if .command == "codex" then .durable_custody=true else . end)' \
+    "$dir/serve/launch-contract.json" > "$dir/custody.json"
+  mv "$dir/custody.json" "$dir/serve/launch-contract.json"
+  jq -n --arg workspace "$dir/wt" '
+    def p($pid): {pid:$pid,started_at:1000,pid_ns:"none",boot_id:null};
+    {schema_version:1,session_id:"bound-session",runner_id:"bound-runner",harness:"codex-native",
+     owner_generation:"bound-owner",host_id:"bound-host",endpoint:"http://127.0.0.1:6767",workspace:$workspace,
+     config_digest:("a" * 64),environment_digest:("b" * 64),owner:p(101),native:p(102),
+     terminal:{name:"codex/main",session_key:"bound-terminal",socket:"/tmp/fixture-bound.sock",device:1,inode:2,
+       tmux:p(103),pane:p(104)}}' > "$dir/serve/binding.json"
+  binding="$dir/home/data/$id/omnigent-binding.json"
+  cp "$dir/serve/binding.json" "$binding"
+  chmod 600 "$binding"
+  mkdir -p "$dir/home/state/$id.inbox/handled"
+  printf 'durable steer\n' > "$dir/home/state/$id.inbox/001.msg"
+  inbox=$(cat "$dir/home/state/$id.inbox/001.msg")
+  metadata=$(cat "$dir/home/state/$id.meta")
+  brief=$(cat "$dir/home/data/$id/brief.md")
+  out=$(run_control "$dir" "$id" reattach) || rc=$?
+  expect_code 0 "$rc" "exact session reattachment should complete: $out"
+  assert_contains "$out" "reattached $id" 'typed reattachment did not confirm its task'
+  assert_contains "$(cat "$dir/fake/literal")" ' reattach ' 'control plane did not use the strict attachment boundary'
+  assert_not_contains "$(cat "$dir/fake/literal")" 'launch-brief' 'reattachment replayed the initial prompt'
+  assert_not_contains "$(cat "$dir/fake/literal")" '/quit' 'reattachment stopped native custody'
+  : > "$dir/fake/literal"
+  out=$(run_control "$dir" "$id" reattach) && rc=0 || rc=$?
+  expect_code 1 "$rc" "an occupied endpoint must refuse another attachment: $out"
+  [ ! -s "$dir/fake/literal" ] || fail 'repeated reattachment created another attachment'
+  out=$(run_control "$dir" "$id" relaunch --note 'maintenance') && rc=0 || rc=$?
+  expect_code 1 "$rc" 'bound session must refuse the stop-and-replace transaction'
+  [ "$(cat "$dir/fake/command")" = codex ] || fail 'bound relaunch stopped the running session'
+  [ "$metadata" = "$(cat "$dir/home/state/$id.meta")" ] || fail 'reattachment changed task metadata'
+  [ "$brief" = "$(cat "$dir/home/data/$id/brief.md")" ] || fail 'reattachment changed durable instructions'
+  cmp -s "$binding" "$dir/serve/binding.json" || fail 'reattachment changed native owner identity'
+  [ "$inbox" = "$(cat "$dir/home/state/$id.inbox/001.msg")" ] || fail 'reattachment changed the durable inbox'
+  printf zsh > "$dir/fake/command"
+  out=$(run_spawn "$dir" "$id" --relaunch) && rc=0 || rc=$?
+  expect_code 1 "$rc" 'direct spawn must refuse replacement of a bound session'
+  assert_contains "$out" 'native session binding' 'direct spawn did not refuse at the binding boundary'
+  [ "$metadata" = "$(cat "$dir/home/state/$id.meta")" ] || fail 'direct spawn changed bound task metadata'
+  : > "$dir/fake/literal"
+  out=$(FM_FAKE_REATTACH_SEND_FAIL=1 run_control "$dir" "$id" reattach) && rc=0 || rc=$?
+  expect_code 1 "$rc" 'failed transport must not claim reattachment even if an agent becomes visible'
+  assert_not_contains "$out" "reattached $id" 'failed transport claimed a verified attachment'
+  printf zsh > "$dir/fake/command"
+  : > "$dir/fake/literal"
+  out=$(FM_FAKE_REATTACH_CWD_RACE=1 run_control "$dir" "$id" reattach) && rc=0 || rc=$?
+  expect_code 1 "$rc" 'a newly occupied endpoint must refuse before typing'
+  [ ! -s "$dir/fake/literal" ] || fail 'reattachment typed into an endpoint occupied during verification'
+  pass 'typed reattach preserves task and inbox; occupied endpoints and bound replacement refuse'
+}
+
+test_omnigent_reattach_preserves_the_same_task_and_refuses_replacement
 test_wrapped_admission_refusal_preserves_the_running_agent
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
