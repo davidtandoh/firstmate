@@ -39,9 +39,11 @@ An occupied endpoint refuses instead of opening a duplicate viewer.
 The operation sends no prompt, exit command, or lifecycle steer to the worker's durable inbox.
 The [Omnigent association and scoped recovery contract](omnigent.md#native-task-association) owns binding safety, owner provenance, and pending owner identity/end qualification.
 A bound task refuses stop-and-replace `relaunch`, including direct `fm-spawn --relaunch`.
-For a bound task, an ordinary `exit` liveness result proves only that the outer attachment stopped.
-Intentional native-owner end verification remains pending the corrected Omnigent contract.
-Do not treat outer-pane absence as a custody teardown receipt.
+For a bound task, `exit` requests the public owner's exact intentional end and requires its matching ended receipt.
+The operation sends no lifecycle text or keys and confirms outer attachment closure separately.
+An already agent-free outer pane still requires owner verification; pane absence alone never proves custody ended.
+The task binding and durable records remain intact after intentional end.
+The successor source is provisional until its pipeline-delivered receipt is reconciled.
 This source operation does not authorize a maintenance window or prove custody survival on an installed runtime.
 
 ## Verbs
@@ -49,7 +51,7 @@ This source operation does not authorize a maintenance window or prove custody s
 | Verb | Effect | Postcondition |
 | --- | --- | --- |
 | `interrupt` | Deliver the harness's verified interrupt sequence while leaving the agent running. | Delivery succeeds while the endpoint still exists and the agent is still alive where the backend can classify that; cancellation is confirmed only from an adapter-owned acknowledgement and otherwise reports `cancel=unconfirmed`. |
-| `exit` | Stop the agent, preserving the endpoint, the worktree, and every uncommitted change. | The backend's recovery-grade classifier reports the agent gone. Already-stopped is idempotent success. An endpoint reading `missing` goes through the same [absence proof](#reclaiming-a-task-whose-endpoint-is-gone) the reclaim uses before anything is claimed about it, and only Herdr can supply one: proven gone reports `endpoint-gone` (the agent went with it, and the endpoint this verb normally preserves did not survive), a pane that turns out to be there and idle is the ordinary `already-stopped`, one whose agent is back takes the ordinary interrupt-then-exit path. A tmux `missing` always refuses rather than claim a stop it cannot see. |
+| `exit` | For a bound Codex task, verify exact native-owner end and outer attachment closure. Otherwise stop the agent, preserving the endpoint, the worktree, and every uncommitted change. | The backend's recovery-grade classifier reports the agent gone. For a native binding, `ended-native` requires an exact owner-ended receipt even on repeats. Otherwise already-stopped is idempotent success. An endpoint reading `missing` goes through the same [absence proof](#reclaiming-a-task-whose-endpoint-is-gone) the reclaim uses before anything is claimed about it, and only Herdr can supply one: proven gone reports `endpoint-gone` (the agent went with it, and the endpoint this verb normally preserves did not survive), a pane that turns out to be there and idle is the ordinary `already-stopped`, one whose agent is back takes the ordinary interrupt-then-exit path. A tmux `missing` always refuses rather than claim a stop it cannot see. |
 | `reattach` | Validate a wrapped Codex task's public native binding and attach once from its existing agent-free endpoint. | The attachment is visible and the public verifier still returns the exact stored owner binding; occupied or unverified endpoints refuse. |
 | `relaunch` | Replace the running agent with a new one in the same worktree - and the same endpoint whenever that endpoint still exists - on the exact recorded adapter or an explicitly chosen harness, model, and effort. | The new agent is alive on the endpoint the task's record now names, and that record names the harness that is actually running. |
 

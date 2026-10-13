@@ -4,12 +4,16 @@
 #        fm-omnigent.sh check [--config <worker-config-dir>] <claude|codex|kiro|agy>
 #        fm-omnigent.sh run [--dry-run] [--config <worker-config-dir>] <harness> <Firstmate native arguments...>
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
-#        fm-omnigent.sh verify-binding|reattach [--dry-run] [--config <worker-config-dir>] --task-meta <file> --task-data <dir> codex
+#        fm-omnigent.sh verify-binding|reattach|end-binding [--dry-run] [--config <worker-config-dir>] --task-meta <file> --task-data <dir> codex
 # run can take --task-meta/--task-data after --config. A true-custody Codex
 # launch reserves and stores the public binding in that existing task directory,
 # then attaches once. A pending or existing binding refuses a fresh launch.
 # verify-binding and reattach never read new-admission telemetry policy, replay
 # a prompt, start services, or create a session. They require the exact binding.
+# end-binding retains task records and requests intentional end of only the
+# recorded session/owner generation/host/endpoint. The public owner proves its
+# lease and resources. Current caller config drift does not authorize adoption
+# and does not prevent this separately scoped intentional end.
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
@@ -18,7 +22,7 @@
 # or its configured default); Firstmate never reconstructs that directory.
 # The selected executable must return a matching public Omnigent launch receipt.
 # Required collection denies new admission only. Trace degradation never owns
-# running sessions. This command does not detach, stop, or adopt a session.
+# running sessions. Telemetry checks never detach, stop, or adopt a session.
 # --config enforces worker credential-removal/environment restrictions before
 # preflight and again at pane execution. It does not change primary settings.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
@@ -30,7 +34,8 @@
 # The Kit owns capture/export policy. Firstmate neither configures nor starts
 # the server. A failed preflight or launch never falls back to the native CLI.
 # --dry-run prints resolved launch evidence without launch; reattach dry-run
-# only verifies and returns the stored public binding.
+# only verifies and returns the stored public binding. End dry-run returns
+# the scoped request and binding path without calling the owner end operation.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -80,7 +85,7 @@ resolve_service() {
   selection=$JSON_OUTPUT
   printf '%s' "$selection" | jq -L "$SCRIPT_DIR" -se \
     'include "fm-omnigent-contract"; fm_omnigent_selector_verified' >/dev/null 2>&1 || fail 'invalid PAK runtime selector'
-  if [ "$OP" != verify-binding ] && [ "$OP" != reattach ]; then
+  if [ "$OP" != verify-binding ] && [ "$OP" != reattach ] && [ "$OP" != end-binding ]; then
     read_json 'PAK telemetry policy' 15 agent-kit observe serve telemetry --json
     POLICY=$JSON_OUTPUT
     printf '%s' "$POLICY" | jq -L "$SCRIPT_DIR" -se \
@@ -105,15 +110,22 @@ resolve_service() {
   done
   [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "managed executable is missing: $OMNIGENT_BIN"
 
-  CLIENT_UNSET=(-u OMNIGENT_AUTH_PROVIDER -u OMNIGENT_CONFIG_HOME -u OMNIGENT_DATA_DIR -u OMNIGENT_LOCAL_SERVER_PORT -u OMNIGENT_WEB_BASE_PATH)
+  CLIENT_UNSET=(-u CODEX_HOME -u OMNIGENT_CODEX_PATH -u OMNIGENT_AUTH_PROVIDER -u OMNIGENT_CONFIG_HOME -u OMNIGENT_DATA_DIR -u OMNIGENT_LOCAL_SERVER_PORT -u OMNIGENT_WEB_BASE_PATH)
   for name in "${TELEMETRY_ENV_NAMES[@]}" "${!OTEL_@}"; do CLIENT_UNSET+=(-u "$name"); done
+  # These are declared owner inputs, echoed from the invoking environment.
+  # Their values are never inferred from PAK state or a home convention.
+  CLIENT_IDENTITY=$(printf '%s' "$selection" | jq -c \
+    '.client_environment + (env | with_entries(select(.key == "CODEX_HOME" or .key == "OMNIGENT_CODEX_PATH")))')
+  printf '%s' "$CLIENT_IDENTITY" | jq -L "$SCRIPT_DIR" -e \
+    'include "fm-omnigent-contract"; valid_client_environment' >/dev/null 2>&1 \
+    || fail 'invalid declared client environment'
   SELECTED_ENV=()
-  while IFS= read -r entry; do SELECTED_ENV+=("$entry"); done < <(printf '%s' "$selection" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
+  while IFS= read -r entry; do SELECTED_ENV+=("$entry"); done < <(printf '%s' "$CLIENT_IDENTITY" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
   read_json 'Omnigent launch receipt' 10 env "${CLIENT_UNSET[@]}" "${SELECTED_ENV[@]}" \
     "$OMNIGENT_BIN" runtime launch-contract --server "$SERVER" --json
   receipt=$JSON_OUTPUT
   printf '%s' "$receipt" | jq -L "$SCRIPT_DIR" -se --argjson runtime "$RUNTIME" --arg server "$SERVER" \
-    --argjson environment "$(printf '%s' "$selection" | jq -c .client_environment)" --arg harness "$HARNESS" \
+    --argjson environment "$CLIENT_IDENTITY" --arg harness "$HARNESS" \
     'include "fm-omnigent-contract"; fm_omnigent_runtime_matches($runtime; $server; $environment) and fm_omnigent_harness_verified($harness)' \
     >/dev/null 2>&1 || fail 'Omnigent runtime, endpoint, environment, or capability receipt mismatch'
   CUSTODY=$(printf '%s' "$receipt" | jq -r --arg harness "$HARNESS" '.harnesses[] | select(.command == $harness) | .durable_custody')
@@ -121,7 +133,7 @@ resolve_service() {
   [ "$help_rc" = 0 ] && [ "${#help}" -le 32768 ] || fail "$HARNESS capability probe failed"
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
   CLIENT_ENV=("${SELECTED_ENV[@]}")
-  if [ "$OP" != verify-binding ] && [ "$OP" != reattach ]; then
+  if [ "$OP" != verify-binding ] && [ "$OP" != reattach ] && [ "$OP" != end-binding ]; then
     while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$POLICY" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
   fi
 }
@@ -130,7 +142,7 @@ OP=${1:---help}
 shift || true
 case "$OP" in
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
-  check|run|start|verify-binding|reattach) ;;
+  check|run|start|verify-binding|reattach|end-binding) ;;
   -h|--help) sed -n '2,/^set /{ /^#/s/^# \{0,1\}//p; }' "$0"; exit ;;
   *) fail "unknown operation: $OP" ;;
 esac
@@ -170,7 +182,7 @@ if [ "$OP" = start ]; then
 fi
 resolve_service
 [ "$OP" != check ] || exit 0
-if [ -n "$TASK_META" ] && { [ "$CUSTODY" = true ] || [ "$OP" = verify-binding ] || [ "$OP" = reattach ] \
+if [ -n "$TASK_META" ] && { [ "$CUSTODY" = true ] || [ "$OP" = verify-binding ] || [ "$OP" = reattach ] || [ "$OP" = end-binding ] \
     || [ -e "$BINDING_FILE" ] || [ -L "$BINDING_FILE" ]; }; then
   # shellcheck source=bin/fm-backend.sh
   . "$SCRIPT_DIR/fm-backend.sh"
@@ -180,7 +192,7 @@ if [ -n "$TASK_META" ] && { [ "$CUSTODY" = true ] || [ "$OP" = verify-binding ] 
   . "$SCRIPT_DIR/fm-omnigent-binding-lib.sh"
   fm_omnigent_task_context "$TASK_META" "$TASK_DATA" || fail 'binding_mismatch: invalid task binding scope'
 fi
-if [ "$OP" = verify-binding ] || [ "$OP" = reattach ]; then
+if [ "$OP" = verify-binding ] || [ "$OP" = reattach ] || [ "$OP" = end-binding ]; then
   [ -n "$TASK_META" ] && [ "$HARNESS" = codex ] && [ "$CUSTODY" = true ] && [ "$#" = 0 ] \
     || fail 'unsupported_custody: exact Codex task binding is required'
   fm_omnigent_binding_read "$BINDING_FILE" || fail 'binding_mismatch: missing or unsafe task binding'
@@ -194,6 +206,25 @@ if [ "$OP" = verify-binding ] || [ "$OP" = reattach ]; then
   fm_lock_acquire_wait_max "$BINDING_LOCK" 5 || fail 'owner_busy: task set is locked'
   trap 'fm_lock_release "$BINDING_LOCK"' EXIT
   fm_omnigent_binding_unique "$BINDING_FILE" "$EXPECTED_BINDING" || fail 'binding_mismatch: duplicate or unverified task association'
+  if [ "$OP" = end-binding ]; then
+    if [ "$DRY_RUN" = 1 ]; then
+      printf '%s' "$EXPECTED_BINDING" | jq -S --arg file "$BINDING_FILE" \
+        '{operation:"end-session",task_binding:$file,session_id,owner_generation,host_id,endpoint,workspace}'
+      exit 0
+    fi
+    # Strict reattachment remains config-bound. Exact end instead asks the
+    # owner to prove this recorded generation, lease and retained resources.
+    read_json 'Omnigent exact session end' 90 env "${CLIENT_UNSET[@]}" "${SELECTED_ENV[@]}" \
+      "$OMNIGENT_BIN" runtime end-session \
+      --session "$(printf '%s' "$EXPECTED_BINDING" | jq -r .session_id)" \
+      --owner-generation "$(printf '%s' "$EXPECTED_BINDING" | jq -r .owner_generation)" \
+      --host-id "$(printf '%s' "$EXPECTED_BINDING" | jq -r .host_id)" --server "$SERVER" --json
+    printf '%s' "$JSON_OUTPUT" | jq -L "$SCRIPT_DIR" -se --argjson binding "$EXPECTED_BINDING" \
+      'include "fm-omnigent-contract"; fm_omnigent_end_verified($binding)' >/dev/null 2>&1 \
+      || fail 'binding_mismatch: exact end returned an unverified owner receipt'
+    printf '%s\n' "$JSON_OUTPUT"
+    exit 0
+  fi
   read_json 'Omnigent binding verification' 15 env "${CLIENT_UNSET[@]}" "${SELECTED_ENV[@]}" \
     "$OMNIGENT_BIN" codex --reattach-binding "$BINDING_FILE" --binding-json
   printf '%s' "$JSON_OUTPUT" | jq -se --argjson expected "$EXPECTED_BINDING" \

@@ -10,8 +10,12 @@ def absolute_path:
   (test("[\u0000-\u001f\u007f]") | not) and
   (split("/")[1:] | all(. != "" and . != "." and . != ".."));
 def exact_environment_names:
-  ["OMNIGENT_AUTH_PROVIDER", "OMNIGENT_CONFIG_HOME", "OMNIGENT_DATA_DIR",
+  ["CODEX_HOME", "OMNIGENT_AUTH_PROVIDER", "OMNIGENT_CODEX_PATH", "OMNIGENT_CONFIG_HOME", "OMNIGENT_DATA_DIR",
    "OMNIGENT_LOCAL_SERVER_PORT", "OMNIGENT_WEB_BASE_PATH"];
+def valid_client_environment:
+  type == "object" and all(to_entries[];
+    (.key as $key | exact_environment_names | index($key) != null) and
+    (.value | type == "string" and (test("[\u0000-\u001f\u007f]") | not)));
 def valid_runtime_identity:
   type == "object" and
   keys == ["executable", "generation", "package_version", "python", "source_commit", "state_schema"] and
@@ -31,12 +35,9 @@ try (length == 1 and (.[0] |
     .generation == $generation and .source_commit == $commit) and
   .endpoint == $server and
   (.endpoint | loopback_endpoint_port != null) and
-  .allowed_client_environment == exact_environment_names and
+  (.allowed_client_environment | type == "array" and sort == exact_environment_names) and
   .client_environment == $environment and
-  (.client_environment | type == "object" and
-    all(to_entries[];
-      (.key as $key | exact_environment_names | index($key) != null) and
-      (.value | type == "string" and (test("[\u0000-\u001f\u007f]") | not)))) and
+  (.client_environment | valid_client_environment) and
   (.native_environment | type == "object" and .interface == "--env KEY=VALUE" and .max_entries == 64 and
     .max_total_bytes == 65536 and .ambient_forwarding == false) and
   .telemetry == {owner:"external",admission:"external_policy"})) catch false;
@@ -177,3 +178,11 @@ def fm_omnigent_binding_error_category:
       (.error.category | IN("record_mismatch", "scope_mismatch", "config_mismatch", "binding_mismatch",
         "stale_attachment", "foreign_socket", "unsupported_custody", "unavailable_probe", "launch_unavailable")))
   then .[0].error.category else empty end;
+
+# Intentional end verifies its exact bound scope through the owner, not a
+# caller config digest. This is an owner-ended receipt, not pane liveness.
+def fm_omnigent_end_verified($binding):
+  try (length == 1 and (.[0] | type == "object" and
+    keys == ["owner_generation", "schema_version", "session_id", "state"] and
+    .schema_version == 1 and .state == "ended" and
+    .session_id == $binding.session_id and .owner_generation == $binding.owner_generation)) catch false;

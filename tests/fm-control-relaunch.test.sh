@@ -2548,7 +2548,28 @@ test_omnigent_reattach_preserves_the_same_task_and_refuses_replacement() {
   out=$(FM_FAKE_REATTACH_CWD_RACE=1 run_control "$dir" "$id" reattach) && rc=0 || rc=$?
   expect_code 1 "$rc" 'a newly occupied endpoint must refuse before typing'
   [ ! -s "$dir/fake/literal" ] || fail 'reattachment typed into an endpoint occupied during verification'
-  pass 'typed reattach preserves task and inbox; occupied endpoints and bound replacement refuse'
+  : > "$dir/fake/keys"
+  : > "$dir/fake/literal"
+  out=$(OMNI_END_ERROR=scope_mismatch run_control "$dir" "$id" exit) && rc=0 || rc=$?
+  expect_code 1 "$rc" 'bound exit must refuse a retired or foreign scope'
+  [ "$(cat "$dir/fake/command")" = codex ] || fail 'owner end refusal stopped native attachment'
+  [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'bound exit sent text or keys before owner proof'
+  out=$(OMNI_END_KEEP_ATTACHMENT=1 run_control "$dir" "$id" exit) && rc=0 || rc=$?
+  expect_code 1 "$rc" 'owner-ended receipt with a visible outer agent must report unconfirmed attachment closure'
+  assert_contains "$out" 'owner ended' 'unconfirmed closure lost its exact native-owner end evidence'
+  out=$(CODEX_HOME="$dir/changed-client-home" run_control "$dir" "$id" exit) && rc=0 || rc=$?
+  expect_code 0 "$rc" "exact native end should complete despite caller selector drift: $out"
+  assert_contains "$out" "ended-native $id" 'bound exit claimed only outer-pane liveness'
+  [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'intentional end sent lifecycle text instead of exact owner request'
+  jq -e '.argv | index("--owner-generation") != null and index("--host-id") != null and index("--session") != null' \
+    "$dir/serve/end-calls.log" >/dev/null || fail 'bound exit omitted exact owner scope'
+  out=$(run_control "$dir" "$id" exit) && rc=0 || rc=$?
+  expect_code 0 "$rc" 'bound exit repeat must still prove exact native owner ended, even from a dead outer pane'
+  assert_contains "$out" "ended-native $id" 'outer dead state bypassed the owner end receipt'
+  [ "$metadata" = "$(cat "$dir/home/state/$id.meta")" ] || fail 'intentional end changed durable task metadata'
+  [ "$inbox" = "$(cat "$dir/home/state/$id.inbox/001.msg")" ] || fail 'intentional end changed durable inbox'
+  cmp -s "$binding" "$dir/serve/binding.json" || fail 'intentional end removed or rewrote native binding'
+  pass 'typed reattach and intentional end preserve records and verify exact owner scope'
 }
 
 test_omnigent_reattach_preserves_the_same_task_and_refuses_replacement

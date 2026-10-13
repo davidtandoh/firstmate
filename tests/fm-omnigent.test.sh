@@ -40,7 +40,7 @@ jq -n --arg executable "$TMP_ROOT/runtime/bin/omnigent" --arg generation "$gener
    runtime:{executable:$executable,python:"/usr/bin/python3",generation:$generation,
             package_version:"0.16.0.dev0",source_commit:$commit,state_schema:1},
    endpoint:"http://127.0.0.1:6767",availability:"ready",
-   allowed_client_environment:["OMNIGENT_AUTH_PROVIDER","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
+   allowed_client_environment:["CODEX_HOME","OMNIGENT_AUTH_PROVIDER","OMNIGENT_CODEX_PATH","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
                                "OMNIGENT_LOCAL_SERVER_PORT","OMNIGENT_WEB_BASE_PATH"],
    client_environment:{OMNIGENT_CONFIG_HOME:"/private/fixture/config"},
    native_environment:{interface:"--env KEY=VALUE",max_entries:64,max_total_bytes:65536,ambient_forwarding:false},
@@ -310,6 +310,21 @@ fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/launch-contract.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
+# Malformed declared inputs must refuse before they become env command argv.
+cat > "$TMP_ROOT/unexpected-client-command" <<'SH_INPUT'
+#!/usr/bin/env bash
+set -euo pipefail
+printf bad > "$OMNI_INPUT_SENTINEL"
+SH_INPUT
+chmod +x "$TMP_ROOT/unexpected-client-command"
+for name in CODEX_HOME OMNIGENT_CODEX_PATH; do
+  if (export "$name=invalid
+$TMP_ROOT/unexpected-client-command"; OMNI_INPUT_SENTINEL="$TMP_ROOT/input-executed" "$OMNI" check codex) > "$TMP_ROOT/error" 2>&1; then
+    fail 'malformed declared input admitted a runtime probe'
+  fi
+  [ ! -e "$TMP_ROOT/input-executed" ] || fail 'malformed declared client input executed an unapproved command'
+done
+pass 'declared client inputs reject control characters before argv conversion'
 "$OMNI" check codex
 if grep -qx 'observe serve status --json' "$TMP_ROOT/serve/calls.log"; then fail 'aggregate trace health still gates launch'; fi
 "$OMNI" start --dry-run codex > "$TMP_ROOT/gap-preview.json"
@@ -363,6 +378,7 @@ cp "$TMP_ROOT/permitted-policy.json" "$TMP_ROOT/serve/telemetry.json"
 pass 'mismatched identity, missing wrapper capability, and required collection refuse before native launch'
 
 (
+  export CODEX_HOME="$TMP_ROOT/explicit-codex-config" OMNIGENT_CODEX_PATH="$TMP_ROOT/explicit-codex"
   binding_home="$TMP_ROOT/binding-home"
   mkdir -p "$binding_home/state" "$binding_home/data/bound" "$binding_home/config"
   printf 'window=fmses:fm-bound\nendpoint_task_id=bound\nbackend=tmux\nharness=codex\nomnigent=on\nworktree=%s\nproject=%s\n' \
@@ -376,6 +392,9 @@ pass 'mismatched identity, missing wrapper capability, and required collection r
       --task-meta "$binding_home/state/bound.meta" --task-data "$binding_home/data/bound" codex "${@:2}")
   }
   binding_run run 'initial synthetic prompt' || fail 'binding launch refused a valid task'
+  jq -e --arg home "$CODEX_HOME" --arg executable "$OMNIGENT_CODEX_PATH" \
+    '. == {CODEX_HOME:$home,OMNIGENT_CODEX_PATH:$executable}' "$TMP_ROOT/serve/binding-client-environment.json" >/dev/null \
+    || fail 'declared client selector inputs did not reach owner creation exactly'
   stored="$binding_home/data/bound/omnigent-binding.json"
   cmp -s <(jq -S . "$stored") <(jq -S . "$TMP_ROOT/binding.json") || fail 'launch did not store the exact owner binding'
   [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'binding launch created more than one native session'
@@ -386,6 +405,10 @@ pass 'mismatched identity, missing wrapper capability, and required collection r
   binding_run verify-binding > "$TMP_ROOT/verified-binding.json" || fail 'existing verification used new-admission policy'
   cmp -s <(jq -S . "$TMP_ROOT/verified-binding.json") <(jq -S . "$stored") || fail 'public verification changed the bound owner'
   binding_run reattach || fail 'existing attachment used new-admission policy'
+  for name in CODEX_HOME OMNIGENT_CODEX_PATH; do
+    if (export "$name=$TMP_ROOT/foreign-input"; binding_run reattach) > "$TMP_ROOT/error" 2>&1; then fail 'drifted selector reattached a bound native session'; fi
+    assert_contains "$(cat "$TMP_ROOT/error")" config_mismatch 'strict selector drift refusal lost its category'
+  done
   cmp -s "$stored" "$TMP_ROOT/stored-before.json" || fail 'reattachment changed the owner binding'
   [ "$(wc -l < "$TMP_ROOT/serve/native-launches.log" | tr -d ' ')" = 1 ] || fail 'reattachment launched a duplicate native session'
   jq -e 'all(.[]; . != "--prompt" and . != "--model" and . != "initial synthetic prompt")' \
@@ -397,10 +420,35 @@ pass 'mismatched identity, missing wrapper capability, and required collection r
     assert_contains "$(cat "$TMP_ROOT/error")" "$category" 'safe binding refusal category lost'
     assert_not_contains "$(cat "$TMP_ROOT/error")" synthetic-private 'owner refusal leaked raw details'
   done
+  (cd "$TMP_ROOT"; FM_HOME="$binding_home" "$OMNI" end-binding --dry-run \
+    --task-meta "$binding_home/state/bound.meta" --task-data "$binding_home/data/bound" codex) \
+    > "$TMP_ROOT/end-preview.json" || fail 'exact end dry-run refused its recorded scope'
+  jq -e --arg file "$stored" '.operation == "end-session" and .task_binding == $file and .owner_generation == "owner-1"' \
+    "$TMP_ROOT/end-preview.json" >/dev/null || fail 'exact end dry-run omitted its binding path or scope'
+  [ ! -e "$TMP_ROOT/serve/end-calls.log" ] || fail 'dry-run ended native custody'
+  for name in CODEX_HOME OMNIGENT_CODEX_PATH; do
+    (export "$name=$TMP_ROOT/changed-end-input"; binding_run end-binding) > "$TMP_ROOT/end-receipt.json" \
+      || fail 'exact end incorrectly depended on current selector/config digest'
+    jq -e --argjson binding "$(cat "$stored")" '.state == "ended" and .session_id == $binding.session_id and .owner_generation == $binding.owner_generation' \
+      "$TMP_ROOT/end-receipt.json" >/dev/null || fail 'exact end did not return the bound native owner receipt'
+  done
+  for invalid in '.schema_version=2' '.state="live"' '.session_id="foreign"' '.owner_generation="foreign"' '.extra=true'; do
+    jq "$invalid" "$TMP_ROOT/end-receipt.json" > "$TMP_ROOT/invalid-end.json"
+    if jq -L "$ROOT/bin" -se --argjson binding "$(cat "$stored")" \
+      'include "fm-omnigent-contract"; fm_omnigent_end_verified($binding)' "$TMP_ROOT/invalid-end.json" >/dev/null 2>&1; then
+      fail "invalid owner end receipt accepted: $invalid"
+    fi
+  done
+  if OMNI_END_SWAP=1 binding_run end-binding > "$TMP_ROOT/error" 2>&1; then fail 'end accepted a foreign owner receipt'; fi
+  if OMNI_END_ERROR=scope_mismatch binding_run end-binding > "$TMP_ROOT/error" 2>&1; then fail 'retired conversation scope ended its successor'; fi
+  assert_contains "$(cat "$TMP_ROOT/error")" scope_mismatch 'end refusal lost its safe scope category'
+  assert_not_contains "$(cat "$TMP_ROOT/error")" synthetic-private 'end refusal leaked private details'
+  cmp -s "$stored" "$TMP_ROOT/stored-before.json" || fail 'intentional end changed the durable binding'
   mkdir -p "$binding_home/data/duplicate"
   cp "$binding_home/state/bound.meta" "$binding_home/state/duplicate.meta"
   cp "$stored" "$binding_home/data/duplicate/omnigent-binding.json"
   if binding_run reattach > "$TMP_ROOT/error" 2>&1; then fail 'another task adopted the same native binding'; fi
+  if binding_run end-binding > "$TMP_ROOT/error" 2>&1; then fail 'duplicate task association was allowed to end native custody'; fi
   rm "$binding_home/state/duplicate.meta"
   mv "$stored" "$TMP_ROOT/stored-good.json"
   ln -s "$TMP_ROOT/stored-good.json" "$stored"

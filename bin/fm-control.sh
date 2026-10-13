@@ -33,7 +33,11 @@
 #              an idle agent (Devin's revert picker) sends its later presses
 #              only after the first press rendered a running turn, and
 #              otherwise reports `cancel=not-running` having sent one press.
-#   exit       Stop the agent, preserving its terminal endpoint, worktree, and
+#   exit       For a public native binding, request exact owner end and verify
+#              its ended receipt separately from outer attachment closure.
+#              Repeats require the same owner receipt even from a dead pane.
+#              Bound end sends no lifecycle text or keys.
+#              Otherwise stop the agent, preserving its endpoint, worktree, and
 #              every uncommitted change. Interrupts first when the task reads
 #              busy, then submits the harness's exit command. Postcondition:
 #              the backend's recovery-grade classifier reports the agent gone.
@@ -578,9 +582,13 @@ retire_busy_incarnation() {
 }
 
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
-# `already-stopped`, `endpoint-gone`, or `stopped`.
+# `already-stopped`, `endpoint-gone`, `stopped`, or public-receipt `ended-native`.
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  if [ -e "$DATA/$ID/omnigent-binding.json" ] || [ -L "$DATA/$ID/omnigent-binding.json" ]; then
+    do_bound_exit
+    return $?
+  fi
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -1108,6 +1116,34 @@ do_relaunch() {
 }
 
 # --- verbs ------------------------------------------------------------------
+
+do_bound_exit() {
+  local state absence config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+  [ "$HARNESS" = codex ] && [ "$RECORDED_HARNESS" = codex ] \
+    && [ "$(fm_meta_get "$META" omnigent)" = on ] || die 'native end requires an exact wrapped Codex task'
+  require_state_verified_backend exit
+  state=$(agent_state)
+  if [ "$state" = missing ]; then
+    absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T")
+    case "${absence%%$'\t'*}" in
+      gone) state=missing ;;
+      alive|dead) state=${absence%%$'\t'*} ;;
+      *) die 'native end refuses an endpoint whose absence cannot be verified' ;;
+    esac
+  fi
+  case "$state" in alive|dead|missing) ;; *) die "native end refuses endpoint state: $state" ;; esac
+  (cd "$WT" && "$SCRIPT_DIR/fm-omnigent.sh" end-binding \
+    --config "$config" --task-meta "$META" --task-data "$DATA/$ID" codex) >/dev/null \
+    || die 'native end refused the recorded owner scope; no lifecycle input sent'
+  # A stopped outer attachment alone never proves that retained custody ended.
+  # The launcher already validated the exact public owner-ended receipt.
+  if [ "$state" != missing ]; then
+    state=$(wait_agent_state "$EXIT_WAIT" dead) \
+      || die "native owner ended but attachment closure is unconfirmed: $state; no lifecycle input sent"
+  fi
+  retire_busy_incarnation
+  printf 'ended-native'
+}
 
 do_reattach() {
   local state binding command attached verdict config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"

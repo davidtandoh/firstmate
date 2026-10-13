@@ -23,6 +23,10 @@ The launcher does not infer an executable from a state directory or use a separa
 The selected executable must return a public launch receipt that matches the entire selected runtime identity and client environment.
 The launcher verifies callable harness capabilities and the existing native `--env` interface.
 The public receipt retains endpoint, authentication, runtime-generation, and environment refusals.
+The declared client inputs `CODEX_HOME` and `OMNIGENT_CODEX_PATH` select the source Codex config/auth home and native executable.
+The launcher passes only their present invoking-environment values and requires the receipt to echo them exactly.
+It does not infer paths or add those selectors to the separate native `--env` settings.
+Omnigent continues to own the native session's managed Codex home.
 A failure never executes the original native command as a fallback.
 
 The Kit owns telemetry policy, content capture, redaction, delivery, retry, and loss reporting.
@@ -55,7 +59,10 @@ A recorded wrapped task remains wrapped through recovery.
 4. For a task with a public Codex binding, use [`fm-control reattach`](agent-control.md#native-session-reattachment) after the attachment has exited and its recorded endpoint is agent-free.
    The command verifies the binding before sending one attachment command.
    An occupied, missing, unreadable, or foreign endpoint refuses.
-5. Use [`fm-control relaunch`](agent-control.md#transactional-relaunch) only for an explicitly requested replacement of a task without a native binding.
+5. To intentionally end a bound task, use `fm-control <task-id> exit`.
+   The control plane requires the owner's exact ended receipt before claiming native end.
+   A refusal or timeout preserves the task records; reconcile the recorded owner scope before retrying.
+6. Use [`fm-control relaunch`](agent-control.md#transactional-relaunch) only for an explicitly requested replacement of a task without a native binding.
    Wrapped relaunch checks admission and worker restrictions before stopping the current agent.
    The launch checks again at pane execution; a later availability change can still refuse the replacement.
 
@@ -93,11 +100,19 @@ The control plane refuses an occupied endpoint and never submits a second attach
 Both control-plane relaunch and direct spawn replacement refuse a bound task before changing its records or stopping its attachment.
 Do not send maintenance detach or other lifecycle commands as steering text.
 
-The binding integration follows the published Omnigent schema version 1 interface at source commit `17b6afc0e951bb370ce725abfa87d5e67dfe0a2d`.
-The owner advisory identified incomplete client identity fields and teardown recovery defects at that source commit.
-The owner must return the corrected identity and end contract before this consumer's impacted integration is finalized.
-Firstmate must not compensate with ambient environment guesses, wider allowlists, private-state reads, or weaker identity equality.
-Intentional end qualification and integrated mandatory acceptance remain pending.
+The provisional successor source `b54e5419bb7a222822b14c3c2f0c0bff140661ea` preserves the thirteen-field binding schema version 1 and completes the declared client allowlist.
+Launch and strict reattachment keep config-digest equality; changing either declared selector refuses reattachment.
+The launcher does not retarget a bound session after a refusal.
+Intentional end uses the recorded session, owner generation, host, and endpoint through the public `runtime end-session` operation.
+The owner verifies the lease and retained resources, or proves a released owner and all resources absent before publishing its ended tombstone.
+Current global config or caller selector drift does not replace those exact end proofs.
+The control plane confirms the owner-ended receipt and separately confirms closure of the outer attachment.
+An already agent-free outer pane still requires the same exact owner-ended receipt.
+The binding, task metadata, instructions, and durable inbox remain intact after end.
+No lifecycle text or key is sent as a teardown fallback.
+These consumer paths have isolated fixture qualification against the provisional successor source.
+Final reconciliation with the successor pipeline-delivered source and receipt remains required before integration/publication readiness.
+Integrated mandatory destination acceptance remains separate.
 The source fixtures do not prove installed compatibility, host maintenance, native process survival, or phone continuity.
 Custody capability remains limited to host-launched Codex on macOS; false capability rows retain their existing launch path.
 Full runner replacement, runner-crash survival, and same-process survival through OS reboot are not claimed.

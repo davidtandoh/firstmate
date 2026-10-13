@@ -15,7 +15,8 @@ These are synthetic owner and native-executable fixtures; they do not establish 
 | Capture excluded or enabled | Exact policy settings disable exports or select only the loopback redactor; ambient client export settings are cleared. | Verify destination redaction and trace canary. |
 | Runtime, environment, endpoint, and capability identity | Entire selected runtime equality, exact environment, callable capability types, and native `--env` support fail closed. | Verify independent installed receipt equality and authentication. |
 | Wrapped/native precedence | Marker, home policy, inherited mode, recorded mode, and remote recovery retain their declared precedence. | Verify the approved primary launch configuration. |
-| Maintenance detach and reattachment | Schema version 1 binding equality, private-file checks, same association reattachment, no prompt replay, occupied-endpoint refusal, duplicate task adoption refusal, and bound replacement refusal use public CLI fixtures. Owner identity/end corrections remain pending. | Verify exact native session, PID/start identity, terminal identity, ownership, same-session reattachment once, and duplicate-adoption refusal. |
+| Maintenance detach and reattachment | Schema version 1 binding equality, private-file checks, same association reattachment, no prompt replay, occupied-endpoint refusal, duplicate task adoption refusal, and bound replacement refusal use public CLI fixtures. Strict selector equality and exact intentional-end receipts use the provisional corrected owner interface. Final delivered-source reconciliation remains pending. | Verify exact native session, PID/start identity, terminal identity, ownership, same-session reattachment once, and duplicate-adoption refusal. |
+| Intentional bound end | Exact session/generation/host/endpoint, ended-receipt equality, selector drift, refusal, repeated end, dry-run, and separate attachment-closure proof use isolated CLI fixtures. | Verify deliberate real owner teardown and proven-dead-owner resource reconciliation through the approved owner interface. |
 | Host reboot or runner replacement | No same-process survival claim. | Establish the session owner's supported limits separately. |
 
 The focused launch and SSH regressions ran with:
@@ -38,11 +39,14 @@ Its Pi registration case uses a synthetic executable and portable metadata editi
 Source success does not authorize deployment, legacy retirement, primary switchover, or a maintenance window.
 Omnigent's session-owner contract supports retained-runner custody only for host-launched Codex on macOS.
 Full runner replacement, runner-crash survival, and same-process survival through OS reboot are not claimed.
-The owner identity/end contract correction, approved installed fork pin, native and phone continuity, backup/schema validation, and destination canary remain separate acceptance requirements.
-The consumer binding fixtures target published owner source commit `17b6afc0e951bb370ce725abfa87d5e67dfe0a2d`.
-Their owner/native process identities are synthetic; exact equality and one creation call do not prove real native process survival.
-The advisory at that commit found incomplete client identity fields and dead-owner/config-drift end lockouts.
-Those owner-owned repairs must return through Firstmate before impacted end/reattach integration is finalized.
+The final pipeline-delivered owner receipt, approved installed fork pin, native and phone continuity, backup/schema validation, and destination canary remain separate acceptance requirements.
+The initial binding fixtures targeted published owner source `17b6afc0e951bb370ce725abfa87d5e67dfe0a2d`.
+The corrected consumer paths target provisional successor source `b54e5419bb7a222822b14c3c2f0c0bff140661ea`, binding schema version 1 unchanged.
+The successor notice declares `CODEX_HOME` and `OMNIGENT_CODEX_PATH` through the existing client allowlist.
+Strict reattachment remains config-bound; exact intentional end uses generation/scope/lease/resource proof independently of caller config digest.
+The source fixtures use synthetic owner/native process identities.
+Exact equality, one creation call, and a synthetic ended receipt do not prove real native survival or teardown.
+Final delivered-source reconciliation remains required before consumer publication readiness.
 
 ## Historical aggregate-service evidence
 

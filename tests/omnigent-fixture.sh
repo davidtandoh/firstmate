@@ -12,7 +12,7 @@ fm_test_omnigent_service() { # <service-root> <tool-dir>
       compaction:null,shell_tool_name:null,shell_tool_prompt:null};
     {schema_version:1,runtime:{executable:$executable,python:"/usr/bin/python3",generation:("sha256:" + ("a" * 64)),
       package_version:"fixture",source_commit:("b" * 40),state_schema:1},endpoint:"http://127.0.0.1:6767",availability:"ready",
-      allowed_client_environment:["OMNIGENT_AUTH_PROVIDER","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
+      allowed_client_environment:["CODEX_HOME","OMNIGENT_AUTH_PROVIDER","OMNIGENT_CODEX_PATH","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
         "OMNIGENT_LOCAL_SERVER_PORT","OMNIGENT_WEB_BASE_PATH"],
       client_environment:{OMNIGENT_CONFIG_HOME:$config,OMNIGENT_DATA_DIR:$data,OMNIGENT_LOCAL_SERVER_PORT:"6767"},
       native_environment:{interface:"--env KEY=VALUE",max_entries:64,max_total_bytes:65536,ambient_forwarding:false},
@@ -62,7 +62,7 @@ case "$*" in
       printf '{"schema_version":1,"error":{"category":"endpoint_unavailable"}}\n'; exit 1
     fi
     service=$(dirname "$OMNIGENT_CONFIG_HOME")
-    cat "$service/launch-contract.json"
+    jq '.client_environment += (env | with_entries(select(.key == "CODEX_HOME" or .key == "OMNIGENT_CODEX_PATH")))' "$service/launch-contract.json"
     jq -e '.availability == "ready"' "$service/launch-contract.json" >/dev/null 2>&1 || exit 1
     exit 0 ;;
 esac
@@ -70,14 +70,38 @@ python3 - "$0" "$@" <<'PY'
 import json, os, pathlib, subprocess, sys
 service = pathlib.Path(os.environ['OMNIGENT_CONFIG_HOME']).parent
 args = sys.argv[2:]
+selectors = {key: os.environ[key] for key in ('CODEX_HOME', 'OMNIGENT_CODEX_PATH') if key in os.environ}
+if args[:2] == ['runtime', 'end-session']:
+    error = os.environ.get('OMNI_END_ERROR')
+    if error:
+        print(json.dumps({'schema_version': 1, 'error': {'category': error, 'detail': 'synthetic-private'}}))
+        sys.exit(1)
+    binding = json.loads((service / 'binding.json').read_text())
+    expected = {'--session': 'session_id', '--owner-generation': 'owner_generation', '--host-id': 'host_id', '--server': 'endpoint'}
+    if any(args[args.index(flag) + 1] != binding[key] for flag, key in expected.items()):
+        print(json.dumps({'schema_version': 1, 'error': {'category': 'scope_mismatch'}}))
+        sys.exit(1)
+    with (service / 'end-calls.log').open('a') as output:
+        output.write(json.dumps({'argv': args, 'selectors': selectors}) + '\n')
+    result = {'schema_version': 1, 'session_id': binding['session_id'], 'owner_generation': binding['owner_generation'], 'state': 'ended'}
+    if os.environ.get('OMNI_END_SWAP'):
+        result['owner_generation'] = 'foreign-owner'
+    if os.environ.get('FM_FAKE_DIR') and not os.environ.get('OMNI_END_KEEP_ATTACHMENT'):
+        (pathlib.Path(os.environ['FM_FAKE_DIR']) / 'command').write_text('zsh')
+    print(json.dumps(result))
+    sys.exit(0)
 if '--binding-json' in args or '--reattach-binding' in args:
     error = os.environ.get('OMNI_BINDING_ERROR')
     if error:
         print(json.dumps({'schema_version': 1, 'error': {'category': error, 'detail': 'synthetic-private'}}))
         sys.exit(1)
     binding = json.loads((service / 'binding.json').read_text())
+    expected_inputs = service / 'binding-client-environment.json'
     if '--reattach-binding' in args:
         requested = json.loads(pathlib.Path(args[args.index('--reattach-binding') + 1]).read_text())
+        if expected_inputs.exists() and json.loads(expected_inputs.read_text()) != selectors:
+            print(json.dumps({'schema_version': 1, 'error': {'category': 'config_mismatch'}}))
+            sys.exit(1)
         if requested != binding:
             print(json.dumps({'schema_version': 1, 'error': {'category': 'binding_mismatch'}}))
             sys.exit(1)
@@ -89,6 +113,7 @@ if '--binding-json' in args or '--reattach-binding' in args:
             with (service / 'attachments.log').open('a') as output:
                 output.write(json.dumps(args) + '\n')
     else:
+        expected_inputs.write_text(json.dumps(selectors))
         with (service / 'native-launches.log').open('a') as output:
             output.write(json.dumps(args) + '\n')
         print(json.dumps(binding))
