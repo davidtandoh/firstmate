@@ -42,10 +42,11 @@ TASK_TMPS=()
 
 relaunch_cleanup() {
   local d
+  fm_test_cleanup
   for d in "${TASK_TMPS[@]:-}"; do
-    [ -n "$d" ] && rm -rf "$d"
+    [ -n "$d" ] && fm_test_remove_tree "$d"
   done
-  rm -rf "$TMP_ROOT"
+  fm_test_remove_tree "$TMP_ROOT"
 }
 trap relaunch_cleanup EXIT
 
@@ -2130,7 +2131,13 @@ test_herdr_relaunch_resumes_only_the_registered_pi_session() {
     }
     dir=$HERDR_CASE_DIR
     rm -f "$dir/fake/herdr-stopped"
-    sed -i 's/^harness=claude$/harness=pi/' "$dir/home/state/resume-$registered.meta"
+    # The backend records the launch command; no native Pi process is started.
+    fm_fake_exit0 "$dir/fakebin" pi
+    sed 's/^harness=claude$/harness=pi/' "$dir/home/state/resume-$registered.meta" \
+      > "$dir/home/state/resume-$registered.meta.tmp"
+    mv "$dir/home/state/resume-$registered.meta.tmp" "$dir/home/state/resume-$registered.meta"
+    [ "$(meta_field "$dir" "resume-$registered" harness)" = pi ] \
+      || fail "the Pi relaunch fixture did not select its recorded harness"
     # Keep the pane's status authority registered to an existing Pi session,
     # while process-info proves that its previous agent has exited.
     printf '{"result":{"agent":{"agent":"%s","agent_status":"idle","agent_session":{"kind":"path","value":"/tmp/pi-bound-session.jsonl"}}}}\n' \
