@@ -900,6 +900,18 @@ resolve_relaunch_profile() {
   [ "$account_model" != default ] || account_model=
   fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
     "$account_model" "$TARGET_HARNESS" >/dev/null || return 1
+  # A wrapped replacement must be admissible before this transaction stops
+  # its current agent. A telemetry refusal is not authority to end custody.
+  local recorded_omnigent wrapped_mode control_config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+  recorded_omnigent=$(fm_meta_get "$META" omnigent) || die 'cannot read recorded Omnigent mode'
+  case "$recorded_omnigent" in
+    on) wrapped_mode=$(FM_OMNIGENT=on "$SCRIPT_DIR/fm-omnigent.sh" mode "$control_config") || return 1 ;;
+    '') wrapped_mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "$control_config") || return 1 ;;
+    *) die 'invalid recorded Omnigent launch mode' ;;
+  esac
+  if [ "$wrapped_mode" = on ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" check --config "$control_config" "$TARGET_HARNESS" || return 1
+  fi
 }
 
 # safe_checkpoint: prove, before anything is stopped, that the work a relaunch

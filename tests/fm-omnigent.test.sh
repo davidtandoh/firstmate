@@ -43,7 +43,7 @@ jq -n --arg executable "$TMP_ROOT/runtime/bin/omnigent" --arg generation "$gener
    allowed_client_environment:["OMNIGENT_AUTH_PROVIDER","OMNIGENT_CONFIG_HOME","OMNIGENT_DATA_DIR",
                                "OMNIGENT_LOCAL_SERVER_PORT","OMNIGENT_WEB_BASE_PATH"],
    client_environment:{OMNIGENT_CONFIG_HOME:"/private/fixture/config"},
-   native_environment:{max_entries:64,max_total_bytes:65536,ambient_forwarding:false},
+   native_environment:{interface:"--env KEY=VALUE",max_entries:64,max_total_bytes:65536,ambient_forwarding:false},
    telemetry:{owner:"external",admission:"external_policy"}}
 ' > "$TMP_ROOT/contract.json"
 verify_contract() {
@@ -69,6 +69,8 @@ for invalid in \
   '.client_environment.PATH="/foreign"' \
   '.client_environment.OMNIGENT_CONFIG_HOME="/foreign/config"' \
   '.native_environment.ambient_forwarding=true' \
+  '.native_environment.interface="ambient"' \
+  'del(.native_environment.interface)' \
   '.native_environment.max_entries=65' \
   '.telemetry.owner="omnigent"'; do
   jq "$invalid" "$TMP_ROOT/contract.json" > "$TMP_ROOT/invalid-contract.json"
@@ -158,32 +160,35 @@ for invalid in \
   if verify_measured_runtime "$TMP_ROOT/foreign-runtime.json"; then fail "full runtime mismatch accepted: $invalid"; fi
 done
 pass 'the complete measured runtime object matches the independently selected receipt'
-jq -n '{schema_version:1,owner:"pak",session_scope:"personal",work_session_policy:"exclude",
+jq -n '{schema_version:1,owner:"pak",session_scope:"personal",work_session_policy:null,
   capture_enabled:false,collection_required:false,delivery_available:false,admission:"allow",reason:null,
   existing_sessions:"preserve",durable_acceptance:false,redactor_endpoint:null,
-  client_environment:{OMNIGENT_TELEMETRY_ENABLED:"0",OMNIGENT_OTEL_CAPTURE_CONTENT:"0",
-    OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION:"0",OTEL_METRICS_EXPORTER:"none",OTEL_LOGS_EXPORTER:"none"},
+  client_environment:{OMNIGENT_TELEMETRY_ENABLED:"false",OMNIGENT_OTEL_CAPTURE_CONTENT:"false",
+    OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION:"false",OTEL_METRICS_EXPORTER:"none",OTEL_LOGS_EXPORTER:"none"},
   loss:null,retry:{max_attempts:3,memory_queue_items:64,memory_queue_bytes:67108864}}' > "$TMP_ROOT/telemetry-off.json"
 verify_telemetry() {
   jq -L "$ROOT/bin" -se 'include "fm-omnigent-contract"; fm_omnigent_telemetry_verified' "$1" >/dev/null 2>&1
 }
 verify_telemetry "$TMP_ROOT/telemetry-off.json" || fail 'excluded telemetry refused permitted new admission'
 jq '.capture_enabled=true | .redactor_endpoint="http://127.0.0.1:5052" |
-  .client_environment.OMNIGENT_TELEMETRY_ENABLED="1" |
+  .client_environment.OMNIGENT_TELEMETRY_ENABLED="true" | .client_environment.OMNIGENT_OTEL_CAPTURE_CONTENT="true" |
   .client_environment += {OTEL_EXPORTER_OTLP_PROTOCOL:"http/protobuf",
     OTEL_EXPORTER_OTLP_ENDPOINT:"http://127.0.0.1:5052",OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:"http://127.0.0.1:5052/v1/traces",
-    OTEL_EXPORTER_OTLP_TRACES_HEADERS:""} |
+    OTEL_EXPORTER_OTLP_TRACES_HEADERS:"x-mlflow-experiment-id=7"} |
   .admission="allow_with_gap" | .reason="telemetry_gap"' "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/telemetry-gap.json"
 verify_telemetry "$TMP_ROOT/telemetry-gap.json" || fail 'personal trace gap blocked permitted admission'
 jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
   "$TMP_ROOT/telemetry-gap.json" > "$TMP_ROOT/telemetry-required.json"
 verify_telemetry "$TMP_ROOT/telemetry-required.json" || fail 'required collection denial receipt refused'
-jq '.delivery_available=true | .admission="allow" | .reason=null | .loss={dropped_items:0}' \
+jq '.delivery_available=true | .admission="allow" | .reason=null |
+  .loss={accepted_batches:0,delivered_batches:0,dropped_batches:0,queue_rejected_batches:0,retry_attempts:0}' \
   "$TMP_ROOT/telemetry-required.json" > "$TMP_ROOT/telemetry-ready.json"
 verify_telemetry "$TMP_ROOT/telemetry-ready.json" || fail 'available required collection receipt refused'
 for invalid in \
   '.schema_version="1"' \
   '.owner="omnigent"' \
+  '.session_scope="work"' \
+  '.work_session_policy="exclude"' \
   '.capture_enabled="false"' \
   '.admission="allow"' \
   '.reason=null' \
@@ -194,6 +199,13 @@ for invalid in \
   '.client_environment.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://external.example/v1/traces"' \
   '.client_environment.OMNIGENT_DATA_DIR="/foreign"' \
   '.client_environment.OTEL_RESOURCE_ATTRIBUTES="raw-content"' \
+  '.client_environment.OMNIGENT_TELEMETRY_ENABLED="false"' \
+  '.client_environment.OMNIGENT_OTEL_CAPTURE_CONTENT=true' \
+  '.client_environment.OMNIGENT_OTEL_HTTP_CLIENT_INSTRUMENTATION="true"' \
+  '.client_environment.OTEL_METRICS_EXPORTER="otlp"' \
+  '.client_environment.OTEL_EXPORTER_OTLP_PROTOCOL="grpc"' \
+  '.client_environment.OTEL_EXPORTER_OTLP_TRACES_HEADERS="x-mlflow-experiment-id=arbitrary"' \
+  '.loss={dropped_items:0}' \
   '.loss="unknown"' \
   '.retry.max_attempts=0'; do
   jq "$invalid" "$TMP_ROOT/telemetry-required.json" > "$TMP_ROOT/invalid-telemetry.json"
@@ -202,7 +214,54 @@ done
 jq '.client_environment.OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:5052"' \
   "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/invalid-telemetry.json"
 if verify_telemetry "$TMP_ROOT/invalid-telemetry.json"; then fail 'excluded work retained an exporter destination'; fi
+for scope in client employer bigspark-kiro; do
+  jq --arg scope "$scope" '.session_scope=$scope | .work_session_policy="exclude"' \
+    "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/scoped-policy.json"
+  verify_telemetry "$TMP_ROOT/scoped-policy.json" || fail "$scope exclusion refused"
+  jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
+    "$TMP_ROOT/scoped-policy.json" > "$TMP_ROOT/invalid-telemetry.json"
+  if verify_telemetry "$TMP_ROOT/invalid-telemetry.json"; then fail "$scope required collection accepted excluded capture"; fi
+  jq --arg scope "$scope" '.session_scope=$scope | .work_session_policy="tag"' \
+    "$TMP_ROOT/telemetry-gap.json" > "$TMP_ROOT/scoped-policy.json"
+  verify_telemetry "$TMP_ROOT/scoped-policy.json" || fail "$scope redacted tagging refused"
+done
+jq '.redactor_endpoint="http://127.0.0.1:6152" |
+  .client_environment.OTEL_EXPORTER_OTLP_ENDPOINT=.redactor_endpoint |
+  .client_environment.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=(.redactor_endpoint + "/v1/traces")' \
+  "$TMP_ROOT/telemetry-gap.json" > "$TMP_ROOT/custom-redactor.json"
+verify_telemetry "$TMP_ROOT/custom-redactor.json" || fail 'explicit configured temporary redactor port refused'
+for invalid in '.loss.dropped_batches=-1' '.loss.accepted_batches=true' '.loss.retry_attempts=0.5' 'del(.loss.delivered_batches)'; do
+  jq "$invalid" "$TMP_ROOT/telemetry-ready.json" > "$TMP_ROOT/invalid-telemetry.json"
+  if verify_telemetry "$TMP_ROOT/invalid-telemetry.json"; then fail "invalid loss evidence accepted: $invalid"; fi
+done
 pass 'telemetry admission distinguishes gaps and required denial while preserving existing custody'
+jq -n --argjson runtime "$selected_runtime" --arg environment "$TMP_ROOT/runtime" \
+  '{schema_version:1,owner:"pak",runtime:$runtime,
+    installer:{component:"omnigent",generation:"0123456789abcdef0123456789abcdef",
+      environment:$environment,manifest_sha256:("a" * 64)},endpoint:"http://127.0.0.1:6767",
+    client_environment:{OMNIGENT_CONFIG_HOME:"/private/fixture/config",OMNIGENT_DATA_DIR:"/private/fixture/data",
+      OMNIGENT_LOCAL_SERVER_PORT:"6767"}}' > "$TMP_ROOT/selector.json"
+verify_selector() {
+  jq -L "$ROOT/bin" -se 'include "fm-omnigent-contract"; fm_omnigent_selector_verified' "$1" >/dev/null 2>&1
+}
+verify_selector "$TMP_ROOT/selector.json" || fail 'explicit installer-selected runtime receipt refused'
+for invalid in \
+  '.owner="omnigent"' \
+  '.installer.environment={}' \
+  '.installer.environment="relative/environment"' \
+  '.installer.component="collector"' \
+  '.installer.generation=.runtime.generation' \
+  '.runtime.generation=.installer.generation' \
+  '.installer.manifest_sha256=null' \
+  '.runtime.executable="/foreign/omnigent"' \
+  '.endpoint="http://127.0.0.1:9999"' \
+  '.client_environment.OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:5051"' \
+  '.client_environment.OMNIGENT_LOCAL_SERVER_PORT="0"' \
+  '.client_environment.OMNIGENT_DATA_DIR="relative/data"'; do
+  jq "$invalid" "$TMP_ROOT/selector.json" > "$TMP_ROOT/invalid-selector.json"
+  if verify_selector "$TMP_ROOT/invalid-selector.json"; then fail "malformed or inconsistent selector accepted: $invalid"; fi
+done
+pass 'installer identity and exact owner environment refuse malformed or inconsistent selection'
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
@@ -228,9 +287,91 @@ pass 'session detection, explicit home policy, and inherited mode fail closed'
 . "$ROOT/tests/omnigent-fixture.sh"
 fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH"
-OMNI_STATUS="$TMP_ROOT/serve/status.json"
+OMNI_STATUS="$TMP_ROOT/serve/launch-contract.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+if grep -qx 'observe serve status --json' "$TMP_ROOT/serve/calls.log"; then fail 'aggregate trace health still gates launch'; fi
+"$OMNI" start --dry-run codex > "$TMP_ROOT/gap-preview.json"
+jq -e '.telemetry.admission == "allow_with_gap" and .telemetry.delivery_available == false and
+  .telemetry.loss == null and .runtime.generation != .installer_generation' "$TMP_ROOT/gap-preview.json" >/dev/null \
+  || fail 'cold-start preview lost independent telemetry degradation or runtime identity'
+pass 'trace outage does not gate verified runtime admission and loss remains unknown'
+
+# Both owners are queried afresh for activation and retained-runtime rollback.
+cp "$TMP_ROOT/serve/selector.json" "$TMP_ROOT/headless-selector.json"
+cp "$OMNI_STATUS" "$TMP_ROOT/headless-receipt.json"
+web="$TMP_ROOT/serve/generations/web/runtime/bin/omnigent"
+mkdir -p "$(dirname "$web")"
+cp "$TMP_ROOT/serve/runtime/bin/omnigent" "$web"
+jq --arg executable "$web" '.runtime.executable=$executable | .runtime.generation=("sha256:" + ("e" * 64))' \
+  "$TMP_ROOT/headless-receipt.json" > "$TMP_ROOT/web-receipt.json"
+jq --arg environment "$TMP_ROOT/serve/generations/web/runtime" \
+  '{schema_version:1,owner:"pak",runtime,endpoint,client_environment,
+    installer:{component:"omnigent",generation:("f" * 32),environment:$environment,manifest_sha256:("d" * 64)}}' \
+  "$TMP_ROOT/web-receipt.json" > "$TMP_ROOT/web-selector.json"
+for selected in web headless web; do
+  cp "$TMP_ROOT/$selected-selector.json" "$TMP_ROOT/serve/selector.json"
+  cp "$TMP_ROOT/$selected-receipt.json" "$OMNI_STATUS"
+  expected=$(jq -r .runtime.executable "$OMNI_STATUS")
+  for harness in claude codex kiro agy; do
+    "$OMNI" run --dry-run "$harness" > "$TMP_ROOT/preview.json"
+    jq -e --arg expected "$expected" '.executable == $expected' "$TMP_ROOT/preview.json" >/dev/null || fail 'preview cached a generation'
+  done
+  "$OMNI" start codex
+  jq -e --arg expected "$expected" '.executable == $expected' "$OMNI_RESULT" >/dev/null || fail 'launch used a stale selected executable'
+done
+fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+pass 'fresh explicit selection preserves activation and retained-runtime rollback'
+
+if OMNI_NO_ENV=1 "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'native environment capability was not checked'; fi
+grep -q 'native --env interface' "$TMP_ROOT/error" || fail 'capability refusal lost its actionable reason'
+for invalid in '.runtime.generation=("sha256:" + ("f" * 64))' '.runtime.python="/foreign/python"' \
+  '.client_environment.OMNIGENT_CONFIG_HOME="/foreign/config"' '.harnesses += [.harnesses[1]]'; do
+  jq "$invalid" "$TMP_ROOT/headless-receipt.json" > "$OMNI_STATUS"
+  if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail "launch accepted mismatched public receipt: $invalid"; fi
+done
+fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+cp "$TMP_ROOT/serve/telemetry.json" "$TMP_ROOT/permitted-policy.json"
+jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
+  "$TMP_ROOT/permitted-policy.json" > "$TMP_ROOT/serve/telemetry.json"
+rm -f "$OMNI_RESULT"
+if "$OMNI" start codex > "$TMP_ROOT/error" 2>&1; then fail 'required collection admitted a new session without delivery'; fi
+grep -q 'required_collection_unavailable.*existing sessions preserved' "$TMP_ROOT/error" || fail 'admission denial lost its policy/custody distinction'
+[ ! -e "$OMNI_RESULT" ] || fail 'denied policy started a native session'
+cp "$TMP_ROOT/permitted-policy.json" "$TMP_ROOT/serve/telemetry.json"
+pass 'mismatched identity, missing wrapper capability, and required collection refuse before native launch'
+
+mv "$TMP_ROOT/serve/runtime/bin/omnigent" "$TMP_ROOT/serve/runtime/bin/selected-cli"
+ln -s selected-cli "$TMP_ROOT/serve/runtime/bin/omnigent"
+if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'symlink selected executable accepted'; fi
+grep -q 'symlink in selected executable path' "$TMP_ROOT/error" || fail 'symlink refusal lost its safe reason'
+rm "$TMP_ROOT/serve/runtime/bin/omnigent"
+mv "$TMP_ROOT/serve/runtime/bin/selected-cli" "$TMP_ROOT/serve/runtime/bin/omnigent"
+jq -n '{padding:("x" * 131073)}' > "$OMNI_STATUS"
+if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'oversized public receipt accepted'; fi
+grep -q 'exceeds 128 KiB' "$TMP_ROOT/error" || fail 'public receipt size was not bounded'
+for category in auth_denied runtime_unverified runtime_mismatch endpoint_mismatch invalid_endpoint; do
+  jq -n --arg category "$category" \
+    '{schema_version:1,error:{category:$category,detail:"synthetic-private-detail"}}' > "$OMNI_STATUS"
+  rm -f "$OMNI_RESULT"
+  if "$OMNI" start codex > "$TMP_ROOT/error" 2>&1; then fail "public refusal accepted: $category"; fi
+  grep -q "$category" "$TMP_ROOT/error" || fail 'public refusal lost its known category'
+  assert_not_contains "$(cat "$TMP_ROOT/error")" synthetic-private-detail 'public refusal leaked raw owner diagnostics'
+  [ ! -e "$OMNI_RESULT" ] || fail 'public refusal launched a native session'
+done
+fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+pass 'symlink and oversized receipts refuse; authentication and runtime errors retain only safe categories'
+
+jq '.session_scope="client" | .work_session_policy="exclude"' "$TMP_ROOT/telemetry-off.json" > "$TMP_ROOT/serve/telemetry.json"
+AGENT_KIT_OBSERVATION_DIR="$TMP_ROOT/explicit-observation" OTEL_EXPORTER_OTLP_ENDPOINT=https://raw.invalid \
+  OTEL_RESOURCE_ATTRIBUTES='private=synthetic' "$OMNI" run codex 'excluded session'
+jq -e --arg root "$TMP_ROOT/explicit-observation" '
+  .environment.AGENT_KIT_OBSERVATION_DIR == $root and .environment.OMNIGENT_TELEMETRY_ENABLED == "false" and
+  .environment.OMNIGENT_OTEL_CAPTURE_CONTENT == "false" and .environment.OTEL_EXPORTER_OTLP_ENDPOINT == "" and
+  .client_telemetry == "false" and .client_endpoint == null and .client_resource_attributes == null' \
+  "$OMNI_RESULT" >/dev/null || fail 'excluded capture leaked ambient export settings or lost the explicit owner root'
+cp "$TMP_ROOT/permitted-policy.json" "$TMP_ROOT/serve/telemetry.json"
+pass 'excluded work clears stale export settings and explicitly preserves owner root configuration'
 LC_ALL=C "$OMNI" run codex 'locale probe'
 jq -e '.client_encoding == "UTF-8"' "$OMNI_RESULT" >/dev/null \
   || fail 'Omnigent attach must preserve native glyphs under an ASCII supervisor locale'
@@ -263,9 +404,9 @@ jq -e --arg home "FM_HOME=$TMP_ROOT/secondmate" '
 pass 'managed executable receives exact arguments and explicit worker environment'
 
 if OMNI_HEALTH=down "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'unreachable server accepted'; fi
-printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
+printf '{"schema_version":1,"error":{"category":"endpoint_unavailable"}}\n' > "$OMNI_STATUS"
 if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'stopped server accepted'; fi
-grep -q 'not_started' "$TMP_ROOT/error" || fail 'refusal omitted concrete service reason'
+grep -q 'endpoint_unavailable' "$TMP_ROOT/error" || fail 'refusal omitted concrete service category'
 printf '{bad json' > "$OMNI_STATUS"
 if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'malformed service response accepted'; fi
 if "$OMNI" check pi > "$TMP_ROOT/error" 2>&1; then fail 'unverified wrapped harness accepted'; fi
@@ -279,14 +420,14 @@ spawn_tools=$(fm_test_make_spawn_fakebin "$TMP_ROOT/spawn-tools")
 fm_test_spawn_home "$spawn_home" codex
 fm_git_worktree "$spawn_project" "$spawn_wt" omni-fixture
 fm_test_spawn_brief "$spawn_home" omni-test
-printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
+printf '{"schema_version":1,"error":{"category":"endpoint_unavailable"}}\n' > "$OMNI_STATUS"
 if FM_OMNIGENT=on FM_FAKE_LAUNCH_LOG="$TMP_ROOT/launch.log" \
   fm_test_run_spawn "$spawn_home" "$spawn_wt" "$spawn_tools" omni-test "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/error" 2>&1; then
   fail 'spawn proceeded with a stopped Omnigent server'
 fi
 [ ! -e "$spawn_home/state/omni-test.meta" ] || fail 'refused spawn published task metadata'
-grep -q not_started "$TMP_ROOT/error" || fail 'spawn did not report service refusal'
-pass 'spawn refuses before endpoint publication when tracing is unavailable'
+grep -q endpoint_unavailable "$TMP_ROOT/error" || fail 'spawn did not report service refusal'
+pass 'spawn refuses before endpoint publication when Omnigent is unavailable'
 
 # Execute the launch the pane received, using the service double to observe
 # the native argv and environment beyond the daemon boundary.
@@ -339,7 +480,7 @@ child_mode=$(jq -r .environment.FM_OMNIGENT "$OMNI_RESULT")
 pass 'local secondmate receives its isolated home and passes mode to its own workers'
 
 printf 'auto\n' > "$spawn_home/config/omnigent"
-printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
+printf '{"schema_version":1,"error":{"category":"endpoint_unavailable"}}\n' > "$OMNI_STATUS"
 fm_test_spawn_brief "$spawn_home" omni-native
 spawn omni-native "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/output" 2>&1 || fail 'ordinary native launch refused with stopped serve'
 cat > "$spawn_tools/codex" <<'PROBE'
@@ -366,11 +507,11 @@ pass 'wrapped launches refuse guarantees the additive daemon environment cannot 
 
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \
-  '.server_url="https://external.example"' \
+  '.endpoint="https://external.example"' \
   '.client_environment={}' \
   '.client_environment.PATH="/tmp/override"' \
   '.client_environment.OTEL_BAD="line\nbreak"' \
-  '.state_file="relative/serve.json"'; do
+  '.runtime.executable="relative/omnigent"'; do
   fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
   jq "$invalid" "$OMNI_STATUS" > "$TMP_ROOT/invalid.json"
   mv "$TMP_ROOT/invalid.json" "$OMNI_STATUS"

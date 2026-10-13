@@ -571,7 +571,7 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 
 ## Omnigent launch mode (config/omnigent / FM_OMNIGENT)
 
-Omnigent mode wraps Firstmate's resolved native harness in the host's Personal Agent Kit observation service.
+Omnigent mode wraps Firstmate's resolved native harness in the runtime selected by the host's Personal Agent Kit.
 The underlying harness still determines model, effort, quota, hooks, and control commands.
 The integration currently admits Claude, Codex, Kiro, and Antigravity workers, and Claude or Codex secondmates.
 Live acceptance remains incomplete; consult the [verification record](verification/omnigent.md) before using this mode for supervised work.
@@ -579,22 +579,27 @@ Other harnesses and raw launch commands refuse while this mode is enabled.
 
 ### Start a primary
 
-The Personal Agent Kit service must already be running on each participating host.
-Firstmate does not start or repair that service.
+The Kit must provide its runtime selector and separate telemetry policy interface on each participating host.
+The selected Omnigent runtime must provide the matching public launch-contract interface and a reachable endpoint.
+An older installed runtime without that interface refuses; changing its pin requires a separately approved release.
+Firstmate does not install, start, or repair those components.
 From the Firstmate checkout, run:
 
 ```sh
-agent-kit observe serve status --json
 bin/fm-omnigent.sh start claude
 # Or: bin/fm-omnigent.sh start codex
 ```
 
-The launcher resolves the Kit-managed Omnigent executable, server URL, and client environment from the host's status response.
+The launcher uses the Kit's runtime receipt and independently verifies the selected Omnigent public receipt.
+The Kit resolves its observation root from `AGENT_KIT_OBSERVATION_DIR` or its configured default.
+Firstmate lets the Kit resolve that root on both read-only queries and forwards an explicit override to local native descendants.
+Firstmate does not reconstruct the default directory or use `AGENT_KIT_STATE_DIR` for this interface.
 It runs the equivalent of `omnigent claude --server <server_url>` with that environment and explicit native environment propagation.
 A separately launched `omnigent claude` or `omnigent codex` session is also detected through the native `OMNIGENT=1` marker, provided it uses the same working service and native environment interface.
-A missing executable, unsupported interface, stopped service, invalid status, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
+A missing executable, unsupported interface, malformed receipt, runtime mismatch, refused endpoint, or missing UTF-8 locale refuses the launch with a diagnostic.
 The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
-Firstmate never retries the launch without tracing.
+Firstmate never retries a refused wrapped launch through the native CLI.
+The [launch boundary and recovery runbook](omnigent.md) owns independent telemetry admission and preservation of existing sessions during a trace gap.
 
 ### Claude external-import consent
 
@@ -602,7 +607,7 @@ If Claude presents an external-import dialog, verification for that checkout mus
 Agents must leave that dialog unanswered; the [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md#workspace-trust) owns consent persistence and its scope.
 
 1. In an interactive terminal, open the original project checkout used by the workers, for example `cd ~/workspace/firstmate`.
-2. Run `bin/fm-omnigent.sh start claude` with the healthy Kit service already running.
+2. Run `bin/fm-omnigent.sh start claude` with the required launch interfaces available.
 3. When Claude asks to allow external `CLAUDE.md` imports, review the listed files.
    If you approve those imports, use the terminal's arrow keys to select **Yes, allow external imports**, then press Enter yourself.
    If you decline, leave Claude verification gated.
@@ -627,7 +632,7 @@ An explicit file change applies to the next launch.
 Secondmate homes inherit the policy file, and each secondmate receives the resolved session mode in its native environment.
 Remote launch and relaunch requests carry the resolved mode; the remote host resolves its own service and client environment.
 Relaunching or restarting a previously native remote secondmate from a wrapped parent enables wrapping for the replacement.
-A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
+A task records `omnigent=on` when wrapped, so recovery keeps the wrapper even without the original process marker.
 An already-running native remote secondmate must exit before an Omnigent launch can replace it.
 
 Omnigent's native environment interface is additive.

@@ -3,7 +3,50 @@
 This record separates launch propagation, process liveness, native supervision, and trace export.
 [Configuration](../configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent) owns setup and limits; [architecture](../omnigent.md) owns component boundaries.
 
-## Codex final-response acceptance
+## Independent launch acceptance matrix
+
+Source fixtures on 2026-10-13 exercise the Kit schema version 1 runtime selector and telemetry policy, plus the Omnigent schema version 1 public launch receipt.
+These are synthetic owner and native-executable fixtures; they do not establish installed runtime compatibility or native session custody.
+
+| Boundary | Source regression | Mandatory destination acceptance |
+| --- | --- | --- |
+| Cold launch with trace delivery unavailable | Permitted policy starts the selected runtime and reports a gap without aggregate status. | Repeat with the approved installed public runtime pin. |
+| Required collection unavailable | New admission refuses; pre-stop relaunch guard preserves the fake running agent and durable task records. | Verify a real existing native session remains intact. |
+| Capture excluded or enabled | Exact policy settings disable exports or select only the loopback redactor; ambient client export settings are cleared. | Verify destination redaction and trace canary. |
+| Runtime, environment, endpoint, and capability identity | Entire selected runtime equality, exact environment, callable capability types, and native `--env` support fail closed. | Verify independent installed receipt equality and authentication. |
+| Wrapped/native precedence | Marker, home policy, inherited mode, recorded mode, and remote recovery retain their declared precedence. | Verify the approved primary launch configuration. |
+| Maintenance detach and reattachment | Firstmate task/session binding and scoped adoption integration remain pending. | Verify exact native session, PID/start identity, terminal identity, ownership, same-session reattachment once, and duplicate-adoption refusal. |
+| Host reboot or runner replacement | No same-process survival claim. | Establish the session owner's supported limits separately. |
+
+The focused launch and SSH regressions ran with:
+
+```sh
+bash bin/fm-test-run.sh tests/fm-omnigent.test.sh \
+  tests/fm-remote-secondmate-trace-context.test.sh
+```
+
+The driver returned `total=2 failed=0 skipped_gate=0`.
+The full relaunch transaction suite also ran with:
+
+```sh
+bash bin/fm-test-run.sh tests/fm-control-relaunch.test.sh
+```
+
+The driver returned `total=1 failed=0 skipped_gate=0`.
+The suite preserves a fake running agent and durable records when wrapped collection or environment checks refuse.
+Its Pi registration case uses a synthetic executable and portable metadata editing; this is fixture proof, not native Pi acceptance.
+Source success does not authorize deployment, legacy retirement, primary switchover, or a maintenance window.
+Omnigent's session-owner contract supports retained-runner custody only for host-launched Codex on macOS.
+Full runner replacement, runner-crash survival, and same-process survival through OS reboot are not claimed.
+The Firstmate task binding and scoped adoption interface, approved installed fork pin, native and phone continuity, backup/schema validation, and destination canary remain separate acceptance requirements.
+
+## Historical aggregate-service evidence
+
+The following dated live observations used the earlier aggregate status selector.
+They remain evidence for the named versions and boundaries only.
+They do not validate the independent launch contract or prove maintenance survival.
+
+### Codex final-response acceptance
 
 Observed on 2026-10-01 on macOS with Kit-managed Omnigent `0.16.0.dev0 (dc4f1ffa, built 2026-10-01T07:40:01Z)`, Codex `0.159.2`, Herdr `0.9.1`, and MLflow SDK `3.15.2`.
 `agent-kit observe serve status --json` reported `running` with `server_url=http://127.0.0.1:6767`.
@@ -60,7 +103,7 @@ This proves final-response export for the tested worker and runtime versions; th
 It does not prove continuous observation-service availability: the Kit redactor has also safe-stopped with `transcript-not-settled` after MLflow forwarding timeouts.
 That external Kit availability issue is tracked separately from Firstmate's launch integration.
 
-## Codex primary-to-crewmate acceptance
+### Codex primary-to-crewmate acceptance
 
 On 2026-09-29, a wrapped Codex primary executed the real spawn entrypoint with `--relaunch --harness codex --model gpt-6-sol --effort low` for one preallocated, agent-free Herdr endpoint in an existing isolated worktree.
 Using the replacement launch path avoided allocating or changing a shared worktree-pool slot.
@@ -77,9 +120,9 @@ Worker metadata recorded `harness=codex`, `omnigent=on`, `model=gpt-6-sol`, and 
 The worker completed its initial request, then read and acknowledged a durable `fm-send` message by moving it into `handled/` and returning `OMNI_STEER_009_ACK`.
 
 This run used Omnigent `0.16.0.dev0 (d8208e80)` and Codex `0.157.1`.
-The current acceptance above verifies the later runtime's turn-end, exit, and final-response boundaries with one worker; it does not repeat the primary's watcher lifecycle.
+The 2026-10-01 live acceptance above verifies the later runtime's turn-end, exit, and final-response boundaries with one worker; it does not repeat the primary's watcher lifecycle.
 
-## Wrapper attribution and composer boundary
+### Wrapper attribution and composer boundary
 
 On 2026-09-29, Herdr `pane process-info` reported a `python3.12` foreground wrapper.
 On macOS, that response contains the process name, `argv0`, and PID but omits the full arguments.
@@ -92,7 +135,7 @@ Reattaching that same terminal with `LC_ALL=en_US.UTF-8` restored the glyph; the
 Firstmate now selects an installed UTF-8 locale for the attaching client.
 The portable fixture keeps an underscore composer `unknown` and proves that real drafts remain `pending` beside the Omnigent footer.
 The live guard deliberately launches from an ASCII supervisor locale.
-The current acceptance above confirms a fresh native launch and control exit from that ASCII supervisor locale.
+The 2026-10-01 live acceptance above confirms a fresh native launch and control exit from that ASCII supervisor locale.
 
 ### 2026-10-12 conversation footer
 
@@ -128,11 +171,11 @@ Those native-guard failures remain open; the wrapped Claude check above is separ
 Pi, Grok, Kimi, Muse, and Zellij were absent and were reported as unverified.
 This check did not run Herdr lifecycle commands or repeat the Mac mini's parent-message recovery.
 
-## Remaining live boundaries
+### Remaining live boundaries
 
 | Check | Observed result |
 |---|---|
-| Codex turn-end notification and control exit | Passed on the current runtime above. |
+| Codex turn-end notification and control exit | Passed on the 2026-10-01 runtime above. |
 | Codex interrupt and recovery | The replacement launch path passed on an agent-free endpoint; interrupt and replacement of a running worker remain unverified. |
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
 | Claude native exit | Passed on `2.1.286` in the live guard below; busy hooks and steering were not exercised. |
@@ -164,6 +207,9 @@ The tmux test uses real Python processes with deliberately uninformative process
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.
 
 ## Live Herdr guard
+
+The dated result below predates the independent launch contract.
+Refresh this result against the approved installed public runtime before treating the guard as destination acceptance.
 
 ```sh
 HERDR_LAB_HELPER=/absolute/path/to/firstmate/bin/fm-herdr-lab.sh \

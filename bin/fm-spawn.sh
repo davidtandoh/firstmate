@@ -2586,13 +2586,7 @@ esac
 
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   [ "$RAW_LAUNCH" = 0 ] || { echo 'error: Omnigent requires a verified harness, not a raw launch command' >&2; exit 1; }
-  # --env augments the runner environment; it cannot enforce env -i semantics.
-  [ "$LAUNCH_ENV_ENABLED" = 0 ] || { echo 'error: Omnigent cannot enforce config/launch-env-allowlist across its daemon boundary' >&2; exit 1; }
-  if [ "$HARNESS" = claude ] && { [ -e "$CONFIG/claude-account" ] || [ -L "$CONFIG/claude-account" ]; }; then
-    echo 'error: Omnigent cannot enforce config/claude-account credential removal across its daemon boundary' >&2
-    exit 1
-  fi
-  "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
+  "$SCRIPT_DIR/fm-omnigent.sh" check --config "$CONFIG" "$HARNESS" || exit 1
 fi
 
 # muse, gemini, agy, devin, and kiro are verified as CREWMATE/SCOUT adapters only. A secondmate is
@@ -5574,7 +5568,7 @@ LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
 SPAWN_CLAUDE_BIN=claude
 SPAWN_CODEX_BIN=codex
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
-  OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
+  OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run --config $(shell_quote "$CONFIG") $HARNESS"
   case "$HARNESS" in
     claude) SPAWN_CLAUDE_BIN=$OMNIGENT_LAUNCH ;;
     codex) SPAWN_CODEX_BIN=$OMNIGENT_LAUNCH ;;

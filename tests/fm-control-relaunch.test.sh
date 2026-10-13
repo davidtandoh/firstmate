@@ -2447,6 +2447,42 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+test_wrapped_admission_refusal_preserves_the_running_agent() {
+  local dir out rc reason expected id
+  for reason in collection environment; do
+    id="rl-omni-$reason"
+    dir=$(new_case "omni-$reason" "$id")
+    add_ship_task "$dir" "$id" claude
+    printf 'omnigent=on\n' >> "$dir/home/state/$id.meta"
+    (
+      # shellcheck source=tests/omnigent-fixture.sh
+      . "$ROOT/tests/omnigent-fixture.sh"
+      fm_test_omnigent_service "$dir/serve" "$dir/fakebin"
+    ) || fail 'could not prepare isolated owner receipts'
+    if [ "$reason" = collection ]; then
+      jq '.collection_required=true | .admission="deny_new" | .reason="required_collection_unavailable"' \
+        "$dir/serve/telemetry.json" > "$dir/required.json"
+      mv "$dir/required.json" "$dir/serve/telemetry.json"
+      expected=required_collection_unavailable
+    else
+      mkdir -p "$dir/home/config"
+      : > "$dir/home/config/launch-env-allowlist"
+      expected='cannot enforce config/launch-env-allowlist'
+    fi
+    cp "$dir/home/state/$id.meta" "$dir/meta-before"
+    cp "$dir/home/data/$id/brief.md" "$dir/brief-before"
+    out=$(run_control "$dir" "$id" relaunch --note "keep the running turn"); rc=$?
+    expect_code 1 "$rc" 'wrapped policy must refuse unsafe new admission'
+    assert_contains "$out" "$expected" 'refusal must identify the policy requirement'
+    [ "$(cat "$dir/fake/command")" = claude ] || fail 'trace policy refusal stopped the running agent'
+    [ ! -s "$dir/fake/literal" ] || fail 'trace policy refusal sent lifecycle input'
+    cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'trace policy refusal changed the durable record'
+    cmp -s "$dir/brief-before" "$dir/home/data/$id/brief.md" || fail 'trace policy refusal changed the instructions'
+    pass "wrapped $reason refusal occurs before stopping the running agent"
+  done
+}
+
+test_wrapped_admission_refusal_preserves_the_running_agent
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint

@@ -383,11 +383,11 @@ pass 'remote recovery preserves the recorded Omnigent launch mode without ambien
 
 reset_remote_herdr_fixture "$HERDR_STATE"
 : > "$HERDR_LOG"
-printf '{"status":"stopped","reason":"remote_serve_missing"}\n' > "$TMP_ROOT/remote-serve/status.json"
+printf '{"schema_version":1,"error":{"category":"endpoint_unavailable"}}\n' > "$TMP_ROOT/remote-serve/launch-contract.json"
 if remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1; then
   fail 'remote missing service silently launched a worker'
 fi
-grep -q remote_serve_missing "$TMP_ROOT/omni-output" || fail 'remote service refusal lost its concrete reason'
+grep -q endpoint_unavailable "$TMP_ROOT/omni-output" || fail 'remote service refusal lost its concrete category'
 if remote_staged_launch >/dev/null; then fail 'remote refusal still delivered a launch command'; fi
 pass 'remote service unavailability refuses without falling back to a native launch'
 
