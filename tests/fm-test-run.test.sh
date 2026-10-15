@@ -1835,6 +1835,58 @@ assert len(doc["scripts"])==3
   pass "aggregate-json merges lane timing artifacts"
 }
 
+# Exercise CI filtering through the real executable and committed fixture diffs.
+test_ci_event_lane_selection() {
+  local tmp repo full actual lane path
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-select.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  lane=portable-serial
+  full=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane")
+  printf '# changed\n' >>"$repo/tests/fm-daemon.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Change one test'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  [ "$actual" = tests/fm-daemon.test.sh ] || fail "PR must select only the relevant lane members: $actual"
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane portable-parallel-1 --ci-event pull_request --base HEAD^)
+  [ -z "$actual" ] || fail "unrelated PR lane must be empty"
+  for event in push schedule workflow_dispatch; do
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event "$event" --base HEAD^)
+    [ "$actual" = "$full" ] || fail "$event must keep the full lane"
+  done
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base missing-ref)
+  [ "$actual" = "$full" ] || fail "missing base must select full lane"
+  for path in docs/example.md src/unknown.ts bin/fm-test-run.sh tests/lib.sh .github/workflows/ci.yml; do
+    mkdir -p "$repo/$(dirname "$path")"
+    printf '# changed\n' >>"$repo/$path"
+    git -C "$repo" add .
+    git -C "$repo" commit -qm 'Change selection input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    if [ "$path" = docs/example.md ]; then
+      [ -z "$actual" ] || fail "documentation-only PR should select no behavior tests"
+    else
+      [ "$actual" = "$full" ] || fail "$path must fail closed to full lane"
+    fi
+  done
+  git -C "$repo" rm -q src/unknown.ts
+  git -C "$repo" commit -qm 'Remove unknown source'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  [ "$actual" = "$full" ] || fail "removed unknown source must retain full coverage"
+  printf '#!/usr/bin/env bash\nexit 7\n' >"$repo/tests/fm-daemon.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Fail selected test'
+  if (cd "$repo" && bin/fm-test-run.sh --lane "$lane" --ci-event pull_request --base HEAD^ --json "$tmp/result.json") >"$tmp/run.log" 2>&1; then
+    fail "a selected test failure must fail the CI lane"
+  fi
+  assert_contains "$(cat "$tmp/run.log")" 'failed=1' "CI lane must account for selected failure"
+  actual=$(cd "$repo" && bin/fm-test-run.sh --lane portable-parallel-1 --ci-event pull_request --base HEAD^ --json "$tmp/empty.json")
+  assert_contains "$actual" 'total=0 failed=0' "empty CI lane must explicitly succeed"
+  rm -rf "$tmp"
+  pass "CI PR selection intersects lane ownership; full events and unsafe inputs retain full coverage"
+}
+
+test_ci_event_lane_selection
+
 test_list_all_exact_suite_coverage
 test_family_selection
 test_single_script_selection

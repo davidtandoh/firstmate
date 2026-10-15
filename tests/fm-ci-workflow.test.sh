@@ -208,7 +208,7 @@ raise "no run-real-herdr-family step" unless index
 teardown = steps.index { |s| s["id"] == "cleanup-herdr-lab-sessions" }
 raise "no cleanup-herdr-lab-sessions step" unless teardown
 raise "teardown must follow the family-run step" unless teardown > index
-raise "teardown must run under always()" unless steps[teardown]["if"].to_s.strip == "always()"
+raise "teardown must run under always()" unless steps[teardown]["if"].to_s.strip == "always() && steps.selection.outputs.run == \x27true\x27"
 puts steps[index].fetch("timeout-minutes", "none")
 ' "$CI_WORKFLOW" tests-herdr) || fail "could not read the Herdr family-run step"
   case "$step" in ''|*[!0-9]*) fail "the Herdr family-run step needs its own timeout-minutes, got $step" ;; esac
@@ -248,6 +248,51 @@ raise "lint matrix loses or duplicates canonical roots" unless result.success? &
 RUBY
   pass "CI matrices cover every executable serial lane and canonical lint root exactly once"
 }
+
+test_ci_selection_keeps_required_jobs_and_gates_setup() {
+  ruby -ryaml - "$CI_WORKFLOW" <<'RUBY' || fail "CI selection wiring"
+doc = YAML.load_file(ARGV[0])
+events = doc.fetch("on") { doc.fetch(true) }
+raise "main push missing" unless events.fetch("push").fetch("branches") == ["main"]
+raise "nightly full regression missing" if events.fetch("schedule").empty?
+raise "event not forwarded" unless doc.fetch("env").fetch("FM_CI_EVENT") == "${{ github.event_name }}"
+raise "PR base not forwarded" unless doc.fetch("env").fetch("FM_CI_BASE").include?("github.event.pull_request.base.sha")
+jobs = doc.fetch("jobs")
+expected = {
+  "tests-portable-parallel-1" => "Behavior portable parallel 1",
+  "tests-portable-parallel-2" => "Behavior portable parallel 2",
+  "tests-portable-serial" => "Behavior portable serial ${{ matrix.shard }}",
+  "tests-herdr" => "Behavior tests (Herdr)"
+}
+expected.each do |id, name|
+  job = jobs.fetch(id)
+  raise "required context renamed" unless job.fetch("name") == name
+  raise "required job must always report" if job.key?("if")
+  steps = job.fetch("steps")
+  selection = steps.index { |step| step["id"] == "selection" }
+  raise "selection must follow checkout" unless selection == 1
+  raise "complete history required" unless steps[0].fetch("with").fetch("fetch-depth") == 0
+  selector = steps[selection]
+  raise "selection cannot be conditional" if selector.key?("if")
+  command = selector.fetch("run")
+  raise "selection failure must fail job" unless command.start_with?("set -eu\n")
+  raise "selection must use runner" unless command.include?("--list --lane") && command.include?("--ci-event") && command.include?("--base")
+  steps.drop(selection + 1).each do |step|
+    condition = step.fetch("if")
+    raise "expensive work must require selected members" unless ["steps.selection.outputs.run == 'true'", "always() && steps.selection.outputs.run == 'true'"].include?(condition)
+  end
+  run_step = steps.find { |step| step.fetch("run", "").include?("fm-test-run.sh") && step.fetch("run", "").include?("--json") }
+  raise "execution must use same selection" unless run_step.fetch("run").include?("--ci-event") && run_step.fetch("run").include?("--base")
+end
+%w[lint test-coverage invariants macos-stock-bash].each do |id|
+  raise "required guard became conditional" if jobs.fetch(id).key?("if")
+  raise "guard steps became conditional" if jobs.fetch(id).fetch("steps").any? { |step| step.key?("if") && step["if"] != "always()" }
+end
+RUBY
+  pass "PR selection preserves required contexts and unconditionally runs lint and coverage guards"
+}
+
+test_ci_selection_keeps_required_jobs_and_gates_setup
 
 test_ci_matrices_match_executable_partitions
 test_pr_pushes_supersede_within_one_pr

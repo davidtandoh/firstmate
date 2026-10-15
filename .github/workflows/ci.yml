@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '23 3 * * *'
+
+# The runner owns event/path selection. Main pushes and nightly runs stay full.
+env:
+  FM_CI_EVENT: ${{ github.event_name }}
+  FM_CI_BASE: ${{ github.event.pull_request.base.sha || 'origin/main' }}
 
 permissions:
   contents: read
@@ -97,35 +104,54 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Select relevant lane members
+        id: selection
+        env:
+          FM_CI_LANE: portable-parallel-1
+        run: |
+          set -eu
+          selected=$(bin/fm-test-run.sh --list --lane "$FM_CI_LANE" --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE")
+          if [ -n "$selected" ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$selected"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo 'No relevant behavior tests in this lane.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Install pinned ShellCheck
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-shellcheck.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install pinned actionlint
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-actionlint.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install tasks-axi
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           npm install -g tasks-axi
           tasks-axi --version
       - name: Install the Pi package for the Pi extension tests
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           npm install -g @earendil-works/pi-coding-agent
           npm ls -g --depth 0 @earendil-works/pi-coding-agent
       - name: Run portable parallel shard 1
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/fm-test"
-          bin/fm-test-run.sh --lane portable-parallel-1 \
+          bin/fm-test-run.sh --lane portable-parallel-1 --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE" \
             --fail-on-gate-skip 'Pi extension typecheck prerequisite not found' \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-1.json"
       - name: Upload shard 1 timing artifact
-        if: always()
+        if: always() && steps.selection.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: fm-test-timing-portable-parallel-1
@@ -141,29 +167,47 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Select relevant lane members
+        id: selection
+        env:
+          FM_CI_LANE: portable-parallel-2
+        run: |
+          set -eu
+          selected=$(bin/fm-test-run.sh --list --lane "$FM_CI_LANE" --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE")
+          if [ -n "$selected" ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$selected"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo 'No relevant behavior tests in this lane.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Install pinned ShellCheck
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-shellcheck.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install pinned actionlint
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-actionlint.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install tasks-axi
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           npm install -g tasks-axi
           tasks-axi --version
       - name: Run portable parallel shard 2
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/fm-test"
-          bin/fm-test-run.sh --lane portable-parallel-2 \
+          bin/fm-test-run.sh --lane portable-parallel-2 --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE" \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-2.json"
       - name: Upload shard 2 timing artifact
-        if: always()
+        if: always() && steps.selection.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: fm-test-timing-portable-parallel-2
@@ -190,17 +234,34 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Select relevant lane members
+        id: selection
+        env:
+          FM_CI_LANE: portable-serial-${{ matrix.shard }}of${{ strategy.job-total }}
+        run: |
+          set -eu
+          selected=$(bin/fm-test-run.sh --list --lane "$FM_CI_LANE" --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE")
+          if [ -n "$selected" ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$selected"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo 'No relevant behavior tests in this lane.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Install pinned ShellCheck
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-shellcheck.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install pinned actionlint
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-actionlint.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Require tmux for e2e tests
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           command -v tmux >/dev/null || {
@@ -209,6 +270,7 @@ jobs:
           }
           tmux -V
       - name: Install tasks-axi for backlog-handoff delegation
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           npm install -g tasks-axi
@@ -217,11 +279,13 @@ jobs:
       # runtime, so without it they gate-skip and pass silently. It is a public
       # npm package and needs no credential, so CI can hold the real thing.
       - name: Install the Pi package for the Pi extension tests
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           npm install -g @earendil-works/pi-coding-agent
           npm ls -g --depth 0 @earendil-works/pi-coding-agent
       - name: Run portable serial shard ${{ matrix.shard }}
+        if: steps.selection.outputs.run == 'true'
         env:
           # job-total rather than a literal, so shrinking or growing the matrix
           # without matching bin/fm-test-run.sh is refused instead of quietly
@@ -233,11 +297,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fm-test"
           # The Pi package is installed above and CI provides npm and tsc, so
           # any missing typecheck prerequisite is a broken lane, not a valid skip.
-          bin/fm-test-run.sh --lane "$FM_SERIAL_LANE" \
+          bin/fm-test-run.sh --lane "$FM_SERIAL_LANE" --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE" \
             --fail-on-gate-skip 'Pi extension typecheck prerequisite not found' \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-serial-${FM_SERIAL_SHARD}.json"
       - name: Upload portable serial shard ${{ matrix.shard }} timing artifact
-        if: always()
+        if: always() && steps.selection.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: fm-test-timing-portable-serial-${{ matrix.shard }}
@@ -259,7 +323,22 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Select relevant lane members
+        id: selection
+        env:
+          FM_CI_LANE: real-herdr-gated
+        run: |
+          set -eu
+          selected=$(bin/fm-test-run.sh --list --lane "$FM_CI_LANE" --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE")
+          if [ -n "$selected" ]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$selected"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo 'No relevant behavior tests in this lane.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Require tools for real Herdr
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           command -v jq >/dev/null || { echo "::error::jq is required"; exit 1; }
@@ -269,11 +348,13 @@ jobs:
           jq --version
           python3 --version
       - name: Install pinned Herdr
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-install-herdr.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Install pinned Treehouse
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           # Several real-herdr-gated E2E scripts require treehouse for spawn
@@ -281,6 +362,7 @@ jobs:
           bin/fm-install-treehouse.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Assert Herdr pin and protocol floor
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           command -v herdr >/dev/null || { echo "::error::herdr not on PATH after install"; exit 1; }
@@ -303,6 +385,7 @@ jobs:
             exit 1
           }
       - name: Start default Herdr session for fleet-state tripwire
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           # Lab provision requires exactly one running default session so the
@@ -329,11 +412,13 @@ jobs:
           cat "$RUNNER_TEMP/fm-herdr/default-server.log" || true
           exit 1
       - name: Snapshot pre-suite Herdr sessions
+        if: steps.selection.outputs.run == 'true'
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/fm-herdr"
           bin/fm-herdr-ci-cleanup.sh snapshot "$RUNNER_TEMP/fm-herdr/sessions-before.json"
       - name: Run real-Herdr family (serial, required)
+        if: steps.selection.outputs.run == 'true'
         id: run-real-herdr-family
         # Heavy tier step tripwire: above the healthy 7-10 minute wall and far
         # below the job backstop, so a hang fails this step and cleanup runs.
@@ -343,12 +428,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fm-test"
           # Serial only. Fail if any script reports herdr not found. Live
           # harness credential tests stay outside this family (opt-in env only).
-          bin/fm-test-run.sh --family real-herdr-gated \
+          bin/fm-test-run.sh --lane real-herdr-gated --ci-event "$FM_CI_EVENT" --base "$FM_CI_BASE" \
             --fail-on-gate-skip 'herdr not found' \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-herdr.json"
       - name: Cleanup job-owned Herdr lab sessions
         id: cleanup-herdr-lab-sessions
-        if: always()
+        if: always() && steps.selection.outputs.run == 'true'
         run: |
           set -eu
           bin/fm-herdr-ci-cleanup.sh teardown "$RUNNER_TEMP/fm-herdr/sessions-before.json" || {
@@ -358,7 +443,7 @@ jobs:
             exit 1
           }
       - name: Upload Herdr timing and diagnostics
-        if: always()
+        if: always() && steps.selection.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: fm-test-timing-herdr

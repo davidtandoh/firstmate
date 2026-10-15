@@ -41,7 +41,15 @@
 #                   parallel hints, falling back to serial weights if missing.
 #                   Every other selection uses serial weights alone.
 #                   Equal weights are ordered by path under LC_ALL=C.
-#   --base <ref>    with --changed, compare against this ref (default: origin/main)
+#   --base <ref>    with --changed or --ci-event, compare against this ref
+#                   (default: origin/main)
+#   --ci-event <event>
+#                   with --lane, intersect PR lane members with --changed.
+#                   Other events retain the full lane. Unknown paths, missing
+#                   diff history, selector changes, and shared prerequisites
+#                   retain full coverage. --list exposes the same selection so
+#                   CI can skip setup for an empty lane without retiring its
+#                   required job context.
 #   --exclude-family <name>
 #                   drop scripts whose primary family matches <name> after selection
 #                   (repeatable; portable CI lanes exclude real-herdr-gated so the
@@ -176,6 +184,7 @@ AGGREGATE_OUT=
 FAMILY=
 LANE=
 BASE_REF=origin/main
+CI_EVENT=
 JSON_PATH=
 SCRIPTS=()
 EXCLUDE_FAMILIES=()
@@ -1747,6 +1756,45 @@ families_for_changed_path() {
   esac
 }
 
+# Lane ownership and the local changed-file map remain the only test owners.
+# CI adds a conservative fallback rather than silently accepting uncertainty.
+filter_ci_lane() {
+  local paths path changed s
+  [ "$CI_EVENT" = pull_request ] || return 0
+  if ! paths=$(git -C "$ROOT" diff --name-only --no-renames "${BASE_REF}...HEAD"); then
+    log "CI selection: unavailable diff; retaining full lane"
+    return 0
+  fi
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    case "$path" in
+      .github/*|bin/fm-test*|bin/fm-lint*|bin/fm-install*|tests/lib.sh|tests/fixtures.sh|tests/*-helpers.sh|tests/*-fixture.sh|tests/herdr-test-safety.sh|.gitattributes|.shellcheckrc)
+        log "CI selection: shared prerequisite $path; retaining full lane"
+        return 0 ;;
+      tests/*.test.sh|bin/*|.pi/*|.claude/*|.agents/*|skills/*)
+        if [ ! -f "$ROOT/$path" ]; then
+          log "CI selection: removed source $path; retaining full lane"
+          return 0
+        fi ;;
+      README.md|LICENSE|assets/*|docs/*|.gitignore) ;;
+      *)
+        log "CI selection: unknown path $path; retaining full lane"
+        return 0 ;;
+    esac
+  done <<<"$paths"
+  if ! changed=$(bash "$ROOT/bin/fm-test-run.sh" --list --changed --base "$BASE_REF"); then
+    log "CI selection: changed-file map refused; retaining full lane"
+    return 0
+  fi
+  local -a retained=()
+  for s in "${SCRIPTS[@]+"${SCRIPTS[@]}"}"; do
+    if printf '%s\n' "$changed" | grep -Fxq "$s"; then
+      retained+=("$s")
+    fi
+  done
+  SCRIPTS=("${retained[@]+"${retained[@]}"}")
+}
+
 select_changed() {
   local base=$1 path entry fam script_name s
   local -a wanted_families=()
@@ -1970,6 +2018,11 @@ while [ "$#" -gt 0 ]; do
       MODE=changed
       shift
       ;;
+    --ci-event)
+      [ "$#" -gt 1 ] && [ -n "$2" ] || die "--ci-event requires an event name"
+      CI_EVENT=$2
+      shift 2
+      ;;
     --base)
       [ "$#" -gt 1 ] || die "--base requires a git ref"
       BASE_REF=$2
@@ -2161,6 +2214,10 @@ if [ -n "${MODE:-}" ] && [ "$LIST_ONLY" -eq 0 ] && [ "$LIST_SCHEDULED" -eq 0 ]; 
   refuse_primary_checkout_for_task
 fi
 
+if [ -n "$CI_EVENT" ] && [ "$MODE" != lane ]; then
+  die "--ci-event requires --lane"
+fi
+
 case "${MODE:-}" in
   all)
     select_all
@@ -2172,7 +2229,9 @@ case "${MODE:-}" in
     ;;
   lane)
     select_lane "$LANE"
+    filter_ci_lane
     SELECTION_DESC="lane=$LANE"
+    [ -z "$CI_EVENT" ] || SELECTION_DESC="${SELECTION_DESC};ci-event=$CI_EVENT"
     ;;
   proven-isolated)
     select_proven_isolated
