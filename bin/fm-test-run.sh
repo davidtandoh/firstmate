@@ -1740,6 +1740,10 @@ families_for_changed_path() {
     tests/*)
       printf '%s\n' "__unmapped__:$path"
       ;;
+    docs/examples/*)
+      scripts_for_test_reference "$path" \
+        || printf '%s\n' "__unmapped__:$path"
+      ;;
     README.md|LICENSE|assets/*|docs/*|.gitignore)
       ;;
     *)

@@ -1836,6 +1836,31 @@ assert len(doc["scripts"])==3
 }
 
 # Exercise CI filtering through the real executable and committed fixture diffs.
+test_ci_example_selection_keeps_consuming_tests() {
+  local tmp repo actual lane selected
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-example.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  mkdir -p "$repo/docs/examples"
+  cp "$ROOT/docs/examples/crew-dispatch.json" "$repo/docs/examples/crew-dispatch.json"
+  cp "$ROOT/tests/fm-dispatch-resolve.test.sh" "$repo/tests/fm-dispatch-resolve.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Add executable example and consumer'
+  printf '\n' >>"$repo/docs/examples/crew-dispatch.json"
+  git -C "$repo" add docs/examples/crew-dispatch.json
+  git -C "$repo" commit -qm 'Change executable example'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+  [ "$actual" = tests/fm-dispatch-resolve.test.sh ] || fail "example must select its consumer: $actual"
+  selected=
+  for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    selected="${selected}${actual}"
+  done
+  [ "$selected" = tests/fm-dispatch-resolve.test.sh ] || fail "PR lanes must retain the example consumer exactly once: $selected"
+  rm -rf "$tmp"
+  pass "executable documentation examples retain their consuming PR tests"
+}
+
 test_ci_event_lane_selection() {
   local tmp repo full actual lane path
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-select.XXXXXX")
@@ -1885,6 +1910,7 @@ test_ci_event_lane_selection() {
   pass "CI PR selection intersects lane ownership; full events and unsafe inputs retain full coverage"
 }
 
+test_ci_example_selection_keeps_consuming_tests
 test_ci_event_lane_selection
 
 test_list_all_exact_suite_coverage
