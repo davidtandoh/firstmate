@@ -14,9 +14,7 @@ The real-wrapper refresh command is `FM_OMNIGENT_LIVE=1 bash bin/fm-test-run.sh 
 It checks each installed wrapped harness without an initial model prompt, reads the title from its exact owned session, and retains the native liveness, composer, control, and isolated cleanup checks.
 On 2026-10-15, the canonical Herdr lab helper refused before any native session launched because it requires exactly one running default session and this host had none.
 Real-wrapper title proof was therefore not executed.
-No default session was started and the helper was not weakened or repaired.
-The helper repair remains a separate unimplemented follow-up.
-Post-merge confirmation in the Omnigent Sessions list remains pending.
+Confirmation in the Omnigent Sessions list remains unverified.
 
 ## Codex final-response acceptance
 

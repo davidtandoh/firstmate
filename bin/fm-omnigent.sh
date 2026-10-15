@@ -18,11 +18,7 @@
 # The Kit owns capture/export policy. Firstmate neither configures nor starts
 # the server. A failed preflight or launch never falls back to the native CLI.
 # --dry-run prints the resolved executable and service paths without launch.
-# Titles: the top-level primary is firstmate; task workers use <home> · <task>;
-# a secondmate primary uses <home> · firstmate. fm-spawn supplies the exact
-# launch home/task. Only this invocation's fresh wrapper session record is
-# observed, then GET-validated and PATCHed. Naming errors go to stderr without
-# interrupting the native terminal or replacing its exit status.
+# Session title roles and safety boundaries: docs/omnigent.md#session-titles.
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
 # process bound, at most 128 KiB of JSON. No naming retry or session backfill.
 # _title-session is the private bounded API operation used by the stderr reader.

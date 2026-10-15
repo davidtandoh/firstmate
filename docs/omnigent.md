@@ -36,7 +36,8 @@ An ordinary worker title is `<home> · <task>`; a persistent secondmate primary 
 The home label is the launch home's final path component.
 `fm-spawn.sh` supplies the dispatched home and task explicitly, including when the backend daemon does not inherit the supervisor's environment.
 
-`fm-omnigent-title.py` relays this invocation's diagnostic stderr and observes its first exact-server `Web UI` session record.
+`fm-omnigent-title.py` relays this invocation's diagnostic stderr and considers only its first `Web UI` session record.
+If that record is malformed or names another server, naming stops without a session API request.
 The native wrapper remains the foreground process and owns terminal attach, stdin, stdout, signals, and exit status.
 The observer never reads the terminal display or chooses a session from a shared list.
 `fm-omnigent.sh` reads the exact session through the supported API, verifies its ID, wrapper label, and creation time against this launch, then sends `PATCH /v1/sessions/<id>` with the requested title.
