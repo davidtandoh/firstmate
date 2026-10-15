@@ -1,0 +1,13 @@
+$ bin/fm-herdr-lab.sh run fm-lab-omnigent-preflight session list --json
+{"sessions":[{"default":true,"name":"default","running":false,"session_dir":"/Users/davidtandoh/.config/herdr","socket_path":"/Users/davidtandoh/.config/herdr/herdr.sock"},{"default":false,"name":"fm-primary","running":true,"session_dir":"/Users/davidtandoh/.config/herdr/sessions/fm-primary","socket_path":"/Users/davidtandoh/.config/herdr/sessions/fm-primary/herdr.sock"},{"default":false,"name":"fm-remote","running":true,"session_dir":"/Users/davidtandoh/.config/herdr/sessions/fm-remote","socket_path":"/Users/davidtandoh/.config/herdr/sessions/fm-remote/herdr.sock"}]}
+
+$ bin/fm-herdr-lab.sh prepare <generated fm-lab name>
+fm-herdr-lab: fleet-state tripwire requires exactly one running default session
+prepare_exit=1
+
+$ command -v pi
+pi_lookup_exit=1
+
+$ bin/fm-omnigent.sh check pi
+error: Omnigent launch: unverified wrapped harness: pi
+unsupported_harness_exit=1

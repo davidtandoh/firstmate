@@ -1,0 +1,45 @@
+
+$ bin/fm-omnigent.sh run --dry-run claude
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/1c303fc39afb4b57955e8b939bb383c0/runtime/bin/omnigent",
+  "harness": "claude",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}
+exit=0
+
+$ bin/fm-omnigent.sh run --dry-run codex
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/1c303fc39afb4b57955e8b939bb383c0/runtime/bin/omnigent",
+  "harness": "codex",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}
+exit=0
+
+$ bin/fm-omnigent.sh run --dry-run kiro
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/1c303fc39afb4b57955e8b939bb383c0/runtime/bin/omnigent",
+  "harness": "kiro",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}
+exit=0
+
+$ bin/fm-omnigent.sh run --dry-run agy
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/1c303fc39afb4b57955e8b939bb383c0/runtime/bin/omnigent",
+  "harness": "agy",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}
+exit=0
+
+$ bin/fm-omnigent.sh start --dry-run codex
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/1c303fc39afb4b57955e8b939bb383c0/runtime/bin/omnigent",
+  "harness": "codex",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}
+exit=0
