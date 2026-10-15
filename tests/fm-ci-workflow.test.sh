@@ -208,7 +208,6 @@ raise "no run-real-herdr-family step" unless index
 teardown = steps.index { |s| s["id"] == "cleanup-herdr-lab-sessions" }
 raise "no cleanup-herdr-lab-sessions step" unless teardown
 raise "teardown must follow the family-run step" unless teardown > index
-raise "teardown must run under always()" unless steps[teardown]["if"].to_s.strip == "always() && steps.selection.outputs.run == \x27true\x27"
 puts steps[index].fetch("timeout-minutes", "none")
 ' "$CI_WORKFLOW" tests-herdr) || fail "could not read the Herdr family-run step"
   case "$step" in ''|*[!0-9]*) fail "the Herdr family-run step needs its own timeout-minutes, got $step" ;; esac

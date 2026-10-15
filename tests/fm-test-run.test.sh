@@ -1837,7 +1837,7 @@ assert len(doc["scripts"])==3
 
 # Exercise CI filtering through the real executable and committed fixture diffs.
 test_ci_example_selection_keeps_consuming_tests() {
-  local tmp repo actual lane selected
+  local tmp repo actual lane selected expected
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-example.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
@@ -1850,19 +1850,43 @@ test_ci_example_selection_keeps_consuming_tests() {
   git -C "$repo" add docs/examples/crew-dispatch.json
   git -C "$repo" commit -qm 'Change executable example'
   actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
-  [ "$actual" = tests/fm-dispatch-resolve.test.sh ] || fail "example must select its consumer: $actual"
-  selected=
-  for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
-    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
-    selected="${selected}${actual}"
-  done
-  [ "$selected" = tests/fm-dispatch-resolve.test.sh ] || fail "PR lanes must retain the example consumer exactly once: $selected"
+  expected=$(printf '%s\n' tests/fm-dispatch-resolve.test.sh tests/fm-documentation-audiences.test.sh | LC_ALL=C sort)
+  [ "$(printf '%s\n' "$actual" | LC_ALL=C sort)" = "$expected" ] || fail "example must select its consumers: $actual"
+  selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+    (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  done | sed '/^$/d' | LC_ALL=C sort)
+  [ "$selected" = "$expected" ] || fail "PR lanes must retain the example consumers exactly once: $selected"
   rm -rf "$tmp"
   pass "executable documentation examples retain their consuming PR tests"
 }
 
+test_ci_documentation_selection_keeps_audience_guard() {
+  local tmp repo path actual selected lane
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-docs.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  for path in docs/documentation-audiences.json README.md docs/guide.md docs/nested/guide.mdx guide.rst guide.txt; do
+    mkdir -p "$repo/$(dirname "$path")"
+    printf 'invalid inventory or [broken link](missing.md)\n' >"$repo/$path"
+    git -C "$repo" add "$path"
+    git -C "$repo" commit -qm 'Change documentation input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+    [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "$path must select the audience guard: $actual"
+    selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+      (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    done | sed '/^$/d')
+    [ "$selected" = tests/fm-documentation-audiences.test.sh ] || fail "$path must retain the PR audience guard exactly once: $selected"
+  done
+  git -C "$repo" rm -q docs/guide.md
+  git -C "$repo" commit -qm 'Remove documentation input'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+  [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "removed prose must select the audience guard: $actual"
+  rm -rf "$tmp"
+  pass "documentation inventory, prose, and removals retain their audience guard"
+}
+
 test_ci_event_lane_selection() {
-  local tmp repo full actual lane path
+  local tmp repo full actual lane path expected
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-select.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
@@ -1888,7 +1912,8 @@ test_ci_event_lane_selection() {
     git -C "$repo" commit -qm 'Change selection input'
     actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
     if [ "$path" = docs/example.md ]; then
-      [ -z "$actual" ] || fail "documentation-only PR should select no behavior tests"
+      expected=$(printf '%s\n' "$full" | grep -Fx tests/fm-documentation-audiences.test.sh || true)
+      [ "$actual" = "$expected" ] || fail "documentation-only PR must retain its lane's audience guard: $actual"
     else
       [ "$actual" = "$full" ] || fail "$path must fail closed to full lane"
     fi
@@ -1911,6 +1936,7 @@ test_ci_event_lane_selection() {
 }
 
 test_ci_example_selection_keeps_consuming_tests
+test_ci_documentation_selection_keeps_audience_guard
 test_ci_event_lane_selection
 
 test_list_all_exact_suite_coverage
