@@ -3,6 +3,21 @@
 This record separates launch propagation, process liveness, native supervision, and trace export.
 [Configuration](../configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent) owns setup and limits; [architecture](../omnigent.md) owns component boundaries.
 
+## Launch-title verification
+
+The deterministic launch-title regression runs with `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh`.
+Its isolated CLI and API fixtures verify role titles, Unicode, exact-session targeting, launch/GET/PATCH ordering, rejected identities, bounded failures, stderr bytes, foreground exec identity, signals, and native exit status.
+Remote launch and recovery propagation run with `bash bin/fm-test-run.sh tests/fm-remote-secondmate-trace-context.test.sh`.
+These are fixture results, not empirical proof of the vendor's rendered session record.
+
+The real-wrapper refresh command is `FM_OMNIGENT_LIVE=1 bash bin/fm-test-run.sh tests/fm-omnigent-live-e2e.test.sh`.
+It checks each installed wrapped harness without an initial model prompt, reads the title from its exact owned session, and retains the native liveness, composer, control, and isolated cleanup checks.
+On 2026-10-15, the canonical Herdr lab helper refused before any native session launched because it requires exactly one running default session and this host had none.
+Real-wrapper title proof was therefore not executed.
+No default session was started and the helper was not weakened or repaired.
+The helper repair remains a separate unimplemented follow-up.
+Post-merge confirmation in the Omnigent Sessions list remains pending.
+
 ## Codex final-response acceptance
 
 Observed on 2026-10-01 on macOS with Kit-managed Omnigent `0.16.0.dev0 (dc4f1ffa, built 2026-10-01T07:40:01Z)`, Codex `0.159.2`, Herdr `0.9.1`, and MLflow SDK `3.15.2`.

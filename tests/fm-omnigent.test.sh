@@ -29,6 +29,15 @@ done
 pass 'only native Omnigent launch commands identify an agent'
 
 TMP_ROOT=$(fm_test_tmproot fm-omnigent)
+native_pid=''
+cleanup() {
+  if [ -n "$native_pid" ]; then
+    kill -TERM "$native_pid" 2>/dev/null || true
+    wait "$native_pid" 2>/dev/null || true
+  fi
+  fm_test_cleanup
+}
+trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
 OMNI="$ROOT/bin/fm-omnigent.sh"
@@ -60,6 +69,109 @@ export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+
+# The CLI double emits its own fresh session record on stderr. Drive the real
+# launcher, then observe the API requests rather than inspecting launcher text.
+wait_title() {
+  local attempt
+  for attempt in $(seq 1 80); do
+    [ ! -f "$TMP_ROOT/serve/title.json" ] || return 0
+    sleep 0.1
+  done
+  fail 'launch did not PATCH its session title'
+}
+reset_title() { rm -f "$TMP_ROOT/serve/title.json" "$TMP_ROOT/serve/requests.jsonl"; }
+for harness in claude codex; do
+  reset_title
+  env -u FM_TASK_ID -u FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_HOME="$TMP_ROOT/main" \
+    "$OMNI" start "$harness" 2> "$TMP_ROOT/title-error"
+  wait_title
+  jq -e '.title == "firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'main title differs'
+  jq -se 'length == 4 and .[0].url == "http://127.0.0.1:6767/health" and
+    .[1].event == "launch" and .[2].method == "GET" and .[3].method == "PATCH" and
+    .[2].url == "http://127.0.0.1:6767/v1/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and
+    .[3].url == .[2].url and .[3].body == {title:"firstmate"}' \
+    "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail 'title requests escaped exact launch ordering or target'
+  printf 'Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$TMP_ROOT/expected-stderr"
+  cmp "$TMP_ROOT/expected-stderr" "$TMP_ROOT/title-error" || fail 'native stderr changed'
+done
+for harness in claude codex kiro agy; do
+  reset_title
+  native=('literal prompt')
+  [ "$harness" != kiro ] || native=(chat 'literal prompt')
+  [ "$harness" != agy ] || native=(--prompt-interactive 'literal prompt')
+  FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID=title-task "$OMNI" run "$harness" "${native[@]}" 2> "$TMP_ROOT/title-error"
+  wait_title
+  jq -e '.title == "worker-home · title-task"' "$TMP_ROOT/serve/title.json" >/dev/null || fail "$harness worker title differs"
+done
+reset_title
+env -u FM_TASK_ID FM_HOME="$TMP_ROOT/secondmate" FM_PUBLIC_FOLLOWUP_PRIMARY_HOME="$TMP_ROOT/main" \
+  "$OMNI" run codex '' 2> "$TMP_ROOT/title-error"
+wait_title
+jq -e '.title == "secondmate · firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'secondmate primary title differs'
+pass 'main, every wrapped worker, and secondmate primary receive exact role titles'
+
+for title_mode in http-error wrong-id wrong-harness old-session wrong-title invalid-json oversized slow; do
+  reset_title
+  rc=0
+  OMNI_TITLE_MODE=$title_mode OMNI_EXIT=37 "$OMNI" start codex 2> "$TMP_ROOT/title-error" || rc=$?
+  [ "$rc" = 37 ] || fail 'naming changed native exit status'
+  for _ in $(seq 1 160); do
+    if grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error"; then break; fi
+    sleep 0.1
+  done
+  grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error" || fail "$title_mode did not report bounded naming failure"
+  if [ "$title_mode" != wrong-title ]; then
+    [ ! -f "$TMP_ROOT/serve/title.json" ] || fail "$title_mode renamed an unverified session"
+  fi
+done
+for record_mode in missing wrong-server malformed; do
+  reset_title
+  OMNI_RECORD_MODE=$record_mode "$OMNI" start codex 2> "$TMP_ROOT/title-error"
+  for _ in $(seq 1 80); do
+    if grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error"; then break; fi
+    sleep 0.1
+  done
+  grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error" || fail "$record_mode did not report missing launch identity"
+  [ ! -f "$TMP_ROOT/serve/title.json" ] || fail "$record_mode renamed a session"
+  jq -se 'length == 2 and .[0].url == "http://127.0.0.1:6767/health" and .[1].event == "launch"' \
+    "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail "$record_mode issued a session API request without launch identity"
+done
+pass 'naming fails visibly within bounds and preserves the native launch exit status'
+
+reset_title
+OMNI_RECORD_MODE=fragmented OMNI_STDOUT_RECORD=1 "$OMNI" start codex > "$TMP_ROOT/native-stdout" 2> "$TMP_ROOT/title-error"
+wait_title
+jq -e '.id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'stdout decoy selected another session'
+grep -q bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb "$TMP_ROOT/native-stdout" || fail 'native stdout changed'
+printf '\r\033[2KWeb UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$TMP_ROOT/expected-stderr"
+cmp "$TMP_ROOT/expected-stderr" "$TMP_ROOT/title-error" || fail 'fragmented stderr bytes changed'
+
+reset_title
+OMNI_HOLD=1 "$OMNI" start codex > "$TMP_ROOT/native-stdout" 2> "$TMP_ROOT/title-error" &
+native_pid=$!
+wait_title
+jq -e --argjson pid "$native_pid" '.pid == $pid' "$OMNI_RESULT" >/dev/null || fail 'launcher stopped execing the native wrapper'
+kill -TERM "$native_pid"
+rc=0
+wait "$native_pid" || rc=$?
+native_pid=''
+[ "$rc" = 143 ] || fail 'TERM or its exit status was intercepted by title observation'
+
+reset_title
+FM_TEST_OMNIGENT_TITLE_WAIT=1 OMNI_RECORD_MODE=missing OMNI_HOLD=1 \
+  "$OMNI" start codex > "$TMP_ROOT/native-stdout" 2> "$TMP_ROOT/title-error" &
+native_pid=$!
+for _ in $(seq 1 80); do
+  if grep -q 'timed out waiting' "$TMP_ROOT/title-error"; then break; fi
+  sleep 0.1
+done
+grep -q 'timed out waiting' "$TMP_ROOT/title-error" || fail 'missing record was not bounded while native launch stayed alive'
+kill -0 "$native_pid" || fail 'record deadline stopped the native session'
+kill -TERM "$native_pid"
+wait "$native_pid" || true
+native_pid=''
+pass 'private stderr observation preserves bytes, foreground exec identity, signals and bounded record waiting'
 
 # Selection is read for every operation; the retained executable stays present.
 readiness="$TMP_ROOT/serve/readiness.json"
@@ -203,6 +315,8 @@ for kind in ship scout; do
   [ "$kind" != scout ] || args=(--scout)
   FM_OMNIGENT=on spawn "$id" "$spawn_project" "${args[@]}" --harness codex --model gpt-5.4 --effort high > "$TMP_ROOT/output" 2>&1 || fail "wrapped $kind spawn: $(cat "$TMP_ROOT/output")"
   execute_launch
+  wait_title
+  jq -e --arg expected "spawn-home · $id" '.title == $expected' "$TMP_ROOT/serve/title.json" >/dev/null || fail "$kind title lost dispatched home/task"
   jq -e '.argv[0] == "codex" and (.argv | index("gpt-5.4")) != null and
     (.argv | index("model_reasoning_effort=\"high\"")) != null and
     (.argv | any(.[]; startswith("notify="))) and
@@ -221,6 +335,8 @@ printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$sm/.git
 git -C "$sm" init -q -b main
 FM_OMNIGENT=on spawn omni-sm "$sm" --secondmate > "$TMP_ROOT/output" 2>&1 || fail "secondmate spawn: $(cat "$TMP_ROOT/output")"
 execute_launch
+wait_title
+jq -e '.title == "secondmate · firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'spawned secondmate title lost its isolated primary identity'
 jq -e --arg home "$sm" '.environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on" and
   .environment.FM_ROOT_OVERRIDE == "" and (.argv | index("hooks")) == null' "$OMNI_RESULT" >/dev/null || fail 'secondmate lost its home, inherited mode, or primary hooks'
 # This is the mode the child spawn resolves, with no native marker or parent env.

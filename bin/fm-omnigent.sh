@@ -18,6 +18,14 @@
 # The Kit owns capture/export policy. Firstmate neither configures nor starts
 # the server. A failed preflight or launch never falls back to the native CLI.
 # --dry-run prints the resolved executable and service paths without launch.
+# Titles: the top-level primary is firstmate; task workers use <home> · <task>;
+# a secondmate primary uses <home> · firstmate. fm-spawn supplies the exact
+# launch home/task. Only this invocation's fresh wrapper session record is
+# observed, then GET-validated and PATCHed. Naming errors go to stderr without
+# interrupting the native terminal or replacing its exit status.
+# Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
+# process bound, at most 128 KiB of JSON. No naming retry or session backfill.
+# _title-session is the private bounded API operation used by the stderr reader.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -26,6 +34,45 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-path-lib.sh"
 
 fail() { printf 'error: Omnigent launch: %s\n' "$*" >&2; exit 1; }
+title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
+
+session_request() { # <GET|PATCH> [title JSON]
+  local rc=0
+  local LC_ALL=C
+  local args=(--silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' --request "$1")
+  [ "$#" -lt 2 ] || args+=(--header 'Content-Type: application/json' --data "$2")
+  REQUEST_RESULT=$(fm_run_timed 6 curl "${args[@]}" \
+    "${SERVER%/}/v1/sessions/$SESSION_ID" | head -c 131073) || rc=$?
+  [ "$rc" = 0 ] || title_fail "session $SESSION_ID: $1 failed (exit $rc)"
+  [ "${#REQUEST_RESULT}" -le 131072 ] || title_fail "session $SESSION_ID: oversized $1 response"
+  printf '%s' "$REQUEST_RESULT" | jq -se 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 \
+    || title_fail "session $SESSION_ID: invalid $1 response"
+}
+
+title_session() { # <server> <session-id> <harness> <title> <launch epoch>
+  [ "$#" -eq 5 ] || title_fail 'invalid private naming request'
+  SERVER=$1 SESSION_ID=$2
+  local wrapper title=$4 started=$5 payload
+  [[ "$SERVER" =~ ^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$ ]] || title_fail 'invalid server'
+  [[ "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || title_fail 'invalid session id'
+  [[ "$started" =~ ^[0-9]+$ ]] || title_fail 'invalid launch epoch'
+  case "$3" in
+    claude) wrapper=claude-code-native-ui ;;
+    codex) wrapper=codex-native-ui ;;
+    kiro) wrapper=kiro-native-ui ;;
+    agy) wrapper=antigravity-native-ui ;;
+    *) title_fail 'invalid harness' ;;
+  esac
+  session_request GET
+  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$wrapper" --argjson started "$started" '
+    .id == $id and .labels["omnigent.wrapper"] == $wrapper and
+    (.created_at | type == "number" and . >= $started)
+  ' >/dev/null 2>&1 || title_fail "session $SESSION_ID: launch identity verification failed"
+  payload=$(jq -cn --arg title "$title" '{title:$title}')
+  session_request PATCH "$payload"
+  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg title "$title" '.id == $id and .title == $title' >/dev/null 2>&1 \
+    || title_fail "session $SESSION_ID: PATCH did not confirm the requested title"
+}
 mode() {
   local file=$1/omnigent value=auto inherited=${FM_OMNIGENT:-}
   case "$inherited" in ''|on|off) ;; *) fail 'FM_OMNIGENT must be on or off' ;; esac
@@ -106,6 +153,7 @@ resolve_service() {
 OP=${1:---help}
 shift || true
 case "$OP" in
+  _title-session) title_session "$@"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
   check|run|start) ;;
   -h|--help) sed -n '2,/^set /{ /^#/s/^# \{0,1\}//p; }' "$0"; exit ;;
@@ -184,4 +232,20 @@ client_locale=$(locale -a | LC_ALL=C awk -v current="$client_locale" '
   END { print selected ? selected : (neutral ? neutral : (english ? english : first)) }
 ') || fail 'cannot list installed locales for the native terminal attach'
 [ -n "$client_locale" ] || fail 'an installed UTF-8 locale is required for the native terminal attach'
-exec env "${CLIENT_ENV[@]}" LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}"
+command -v python3 >/dev/null 2>&1 || fail 'python3 is required for launch title observation'
+TITLE=firstmate
+TITLE_HOME=${FM_HOME:-${FM_ROOT_OVERRIDE:-${SCRIPT_DIR%/bin}}}
+fm_basename_to TITLE_HOME "$TITLE_HOME"
+if [ "$OP" = run ] && [ -n "${FM_TASK_ID:-}" ]; then
+  TITLE="$TITLE_HOME · $FM_TASK_ID"
+elif [ -n "${FM_PUBLIC_FOLLOWUP_PRIMARY_HOME:-}" ]; then
+  TITLE="$TITLE_HOME · firstmate"
+fi
+printf '%s' "$TITLE" | jq -eRs 'length > 0 and (test("[\u0000-\u001f\u007f]") | not)' >/dev/null || fail 'invalid session title identity'
+TITLE_STARTED=$(date +%s)
+# Keep the native wrapper as the foreground exec owner. Only its diagnostic
+# stderr enters the invocation-private reader; terminal attach/stdin/stdout,
+# signals and native exit status retain the existing transport owner.
+exec env "${CLIENT_ENV[@]}" LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}" \
+  2> >(python3 "$SCRIPT_DIR/fm-omnigent-title.py" --server "$SERVER" --harness "$HARNESS" \
+    --title "$TITLE" --started "$TITLE_STARTED" --launcher "$SCRIPT_DIR/fm-omnigent.sh")
