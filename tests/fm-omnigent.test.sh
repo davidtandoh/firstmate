@@ -74,7 +74,7 @@ OMNI_RESULT="$TMP_ROOT/serve/result.json"
 # launcher, then observe the API requests rather than inspecting launcher text.
 wait_title() {
   local attempt
-  for attempt in $(seq 1 80); do
+  for ((attempt = 1; attempt <= 80; attempt++)); do
     [ ! -f "$TMP_ROOT/serve/title.json" ] || return 0
     sleep 0.1
   done
