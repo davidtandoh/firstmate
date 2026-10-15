@@ -10,6 +10,8 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+fm_git_identity
+
 RUNNER="$ROOT/bin/fm-test-run.sh"
 
 assert_present "$RUNNER" "bin/fm-test-run.sh is missing"
