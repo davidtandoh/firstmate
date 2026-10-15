@@ -148,8 +148,8 @@
 # a split above that target. Neither figure is an execution timeout or proof of
 # observed headroom: refresh growing files from CI measurements.
 # --changed is conservative: it over-selects related families rather than
-# under-selecting, and never expands to the complete suite unless --all. The one
-# place it is deliberately narrow is a bin/ path with no curated family: a test
+# under-selecting, and never expands to the complete suite unless --all.
+# For a bin/ path with no curated family, a test
 # that names it is selected as that SCRIPT, because the reference is per-script
 # evidence. Consumer bin/ scripts still resolve through the curated map, so
 # recorded family-level coupling still expands to the whole family.
