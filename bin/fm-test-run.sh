@@ -1426,7 +1426,7 @@ families_for_unmapped_bin() {
 families_for_changed_path() {
   local path=$1 fixture_ref
   case "$path" in
-    *.md|*.mdx|*.rst|*.txt|docs/examples/*|docs/documentation-audiences.json)
+    *.md|*.mdx|*.rst|*.txt|docs/examples/*|docs/documentation-audiences.json|assets/*)
       printf '%s\n' "__script__:fm-documentation-audiences.test.sh"
       ;;
   esac

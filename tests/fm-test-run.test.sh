@@ -715,7 +715,7 @@ test_empty_selection_emits_summary() {
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-run-empty.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
-  printf 'documentation only\n' >"$repo/README.md"
+  printf 'license only\n' >"$repo/LICENSE"
   out=$(cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --json "$tmp/artifacts/timing.json" 2>"$tmp/err") \
     || fail "empty valid changed selection must pass"
   printf '%s\n' "$out" | grep -Eq \
@@ -1877,10 +1877,21 @@ test_ci_documentation_selection_keeps_audience_guard() {
     done | sed '/^$/d')
     [ "$selected" = tests/fm-documentation-audiences.test.sh ] || fail "$path must retain the PR audience guard exactly once: $selected"
   done
-  git -C "$repo" rm -q docs/guide.md
-  git -C "$repo" commit -qm 'Remove documentation input'
-  actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
-  [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "removed prose must select the audience guard: $actual"
+  mkdir -p "$repo/assets"
+  printf 'image fixture\n' >"$repo/assets/banner.png"
+  printf '![Banner](assets/banner.png)\n' >"$repo/README.md"
+  git -C "$repo" add README.md assets/banner.png
+  git -C "$repo" commit -qm 'Add linked asset'
+  for path in docs/guide.md assets/banner.png; do
+    git -C "$repo" rm -q "$path"
+    git -C "$repo" commit -qm 'Remove documentation input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+    [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "removed $path must select the audience guard: $actual"
+    selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+      (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    done | sed '/^$/d')
+    [ "$selected" = tests/fm-documentation-audiences.test.sh ] || fail "removed $path must retain the PR audience guard exactly once: $selected"
+  done
   rm -rf "$tmp"
   pass "documentation inventory, prose, and removals retain their audience guard"
 }
