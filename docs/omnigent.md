@@ -20,7 +20,9 @@ Quota dispatch continues to use the native harness identity.
 
 `bin/fm-omnigent.sh` queries the local Kit status for every preflight and again when the pane executes its launch.
 Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
-The launcher accepts the retained headless runtime when only web-readiness requirements are missing.
+The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
+The reports must agree on a running service and its server URL.
+The selected executable must be a regular executable file beneath the status file's parent directory, with no symlink from that directory through the executable.
 A separate Omnigent executable on `PATH` can be stale.
 The launcher checks the native `--env` capability and server health before invoking that runtime.
 A failure never executes the original native command as a fallback.

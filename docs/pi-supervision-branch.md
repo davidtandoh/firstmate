@@ -359,9 +359,11 @@ The mirror never carries tool calls, tool results, operational injections, or th
 Mirroring happens at two points:
 
 - The idle path mirrors at main's turn end.
-- At `before_agent_start`, Pi's authoritative prompt is staged verbatim before SessionManager persists that user entry.
+- At a user `before_agent_start` event, Pi's authoritative prompt is staged verbatim before SessionManager persists that user entry.
   The complete current captain message therefore precedes any branch wake accepted after that boundary.
   The later persisted copy is suppressed, and older dialog entries remain bounded.
+
+Custom events at this boundary do not stage captain dialog.
 
 The mirror cursor is durable (`state/.branch-mirror-cursor`), so within one main session only not-yet-mirrored dialog is replayed.
 
@@ -420,6 +422,7 @@ The other half is processing, because a blocker, a decision, or a ready PR needs
    Main sorts the outcomes by that state, and its reply to the captain covers only the still-open ones, as if the settled ones had never been listed; a settled one needs only the acknowledgement below.
    A listed row without a valid age breaks the store's contract, so the extension reports it to main as a visible note and sends no request; every row stays unprocessed and is presented once the store is healthy.
 2. That request opens exactly one main turn.
+   At a custom `before_agent_start` event, only content matching the queued processing request identifies that turn as opened by the request.
 3. Main closes it only by calling `fm_branch_processed` with the highest sequence the request listed.
    That call advances a processed marker, which `bin/fm-branch-outcome.sh` keeps separately from the read cursor and never moves past it or backwards.
 
