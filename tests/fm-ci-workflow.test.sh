@@ -208,7 +208,6 @@ raise "no run-real-herdr-family step" unless index
 teardown = steps.index { |s| s["id"] == "cleanup-herdr-lab-sessions" }
 raise "no cleanup-herdr-lab-sessions step" unless teardown
 raise "teardown must follow the family-run step" unless teardown > index
-raise "teardown must run under always()" unless steps[teardown]["if"].to_s.strip == "always()"
 puts steps[index].fetch("timeout-minutes", "none")
 ' "$CI_WORKFLOW" tests-herdr) || fail "could not read the Herdr family-run step"
   case "$step" in ''|*[!0-9]*) fail "the Herdr family-run step needs its own timeout-minutes, got $step" ;; esac
@@ -248,6 +247,141 @@ raise "lint matrix loses or duplicates canonical roots" unless result.success? &
 RUBY
   pass "CI matrices cover every executable serial lane and canonical lint root exactly once"
 }
+
+test_ci_selection_keeps_required_jobs_and_gates_setup() {
+  ruby -ryaml -ropen3 -rtmpdir -rfileutils - "$CI_WORKFLOW" <<'RUBY' || fail "CI selection wiring"
+doc = YAML.load_file(ARGV[0])
+events = doc.fetch("on") { doc.fetch(true) }
+raise "main push missing" unless events.fetch("push").fetch("branches") == ["main"]
+raise "nightly full regression missing" if events.fetch("schedule").empty?
+resolve = lambda do |raw, context|
+  raw.to_s.gsub(/\$\{\{(.+?)\}\}/) do
+    Regexp.last_match(1).split("||").map do |token|
+      token = token.strip
+      token.start_with?("'") && token.end_with?("'") ? token[1..-2] : context.fetch(token).to_s
+    end.find { |value| !value.empty? }.to_s
+  end
+end
+condition_value = lambda do |raw, selected, success|
+  expression = raw.strip.sub(/\A\$\{\{\s*/, "").sub(/\s*\}\}\z/, "")
+  terms = expression.split("&&").map(&:strip)
+  values = terms.map do |term|
+    case term
+    when "always()" then true
+    when "success()" then success
+    else
+      match = /\Asteps\.selection\.outputs\.run\s*==\s*'([^']*)'\z/.match(term)
+      raise "unsupported condition: #{term}" unless match
+      selected == match[1]
+    end
+  end
+  values.all? && (terms.include?("always()") || success)
+end
+jobs = doc.fetch("jobs")
+expected = {
+  "tests-portable-parallel-1" => "Behavior portable parallel 1",
+  "tests-portable-parallel-2" => "Behavior portable parallel 2",
+  "tests-portable-serial" => "Behavior portable serial ${{ matrix.shard }}",
+  "tests-herdr" => "Behavior tests (Herdr)"
+}
+expected.each do |id, name|
+  job = jobs.fetch(id)
+  raise "required context renamed" unless job.fetch("name") == name
+  raise "required job must always report" if job.key?("if")
+  steps = job.fetch("steps")
+  selection = steps.index { |step| step["id"] == "selection" }
+  raise "selection must follow checkout" unless selection == 1
+  raise "complete history required" unless steps[0].fetch("with").fetch("fetch-depth") == 0
+  selector = steps[selection]
+  raise "selection cannot be conditional" if selector.key?("if")
+  steps.drop(selection + 1).each do |step|
+    condition = step.fetch("if")
+    [true, false].each do |success|
+      raise "unselected lane ran setup" if condition_value.call(condition, "false", success)
+    end
+    raise "selected lane skipped work" unless condition_value.call(condition, "true", true)
+    if step["uses"] == "actions/upload-artifact@v4" || step["id"] == "cleanup-herdr-lab-sessions"
+      raise "failure skipped evidence or cleanup" unless condition_value.call(condition, "true", false)
+    end
+  end
+  run_steps = steps.select { |step| step.fetch("name", "").start_with?("Run ") }
+  raise "expected one behavior execution step" unless run_steps.length == 1
+  run_step = run_steps.fetch(0)
+  shards = job.fetch("strategy", {}).fetch("matrix", {}).fetch("shard", [nil])
+  shards.each do |shard|
+    lane = case id
+           when "tests-portable-parallel-1" then "portable-parallel-1"
+           when "tests-portable-parallel-2" then "portable-parallel-2"
+           when "tests-portable-serial" then "portable-serial-#{shard}of#{shards.length}"
+           when "tests-herdr" then "real-herdr-gated"
+           end
+    %w[pull_request push schedule].each do |event|
+      context = {"github.event_name" => event,
+                 "github.event.pull_request.base.sha" => event == "pull_request" ? "pr-base-sha" : "",
+                 "matrix.shard" => shard, "strategy.job-total" => shards.length}
+      base = event == "pull_request" ? "pr-base-sha" : "origin/main"
+      Dir.mktmpdir("fm-workflow-") do |dir|
+        FileUtils.mkdir_p(File.join(dir, "bin"))
+        stub = File.join(dir, "bin/fm-test-run.sh")
+        File.write(stub, <<~SH)
+          #!/usr/bin/env bash
+          set -euo pipefail
+          printf '%s\\n' "$@" > "$ARG_LOG"
+          printf '%s' "$STUB_SELECTION"
+          exit "$STUB_STATUS"
+        SH
+        File.chmod(0755, stub)
+        env = doc.fetch("env").transform_values { |value| resolve.call(value, context) }
+        env.merge!({"ARG_LOG" => File.join(dir, "args"), "RUNNER_TEMP" => dir,
+                    "GITHUB_OUTPUT" => File.join(dir, "output"),
+                    "GITHUB_STEP_SUMMARY" => File.join(dir, "summary")})
+        [["tests/selected.test.sh", 0, "true"], ["", 0, "false"], ["", 23, nil]].each do |output, code, expected_run|
+          FileUtils.rm_f([env.fetch("GITHUB_OUTPUT"), env.fetch("ARG_LOG")])
+          step_env = selector.fetch("env").transform_values { |value| resolve.call(value, context) }
+          stdout, stderr, status = Open3.capture3(env.merge(step_env).merge("STUB_SELECTION" => output, "STUB_STATUS" => code.to_s),
+                                                "bash", "-e", "-c", resolve.call(selector.fetch("run"), context), chdir: dir)
+          raise "selector status #{id}: #{stderr}" unless status.exitstatus == code
+          args = File.readlines(env.fetch("ARG_LOG"), chomp: true)
+          raise "selection arguments #{id}: #{args}" unless args == ["--list", "--lane", lane, "--ci-event", event, "--base", base]
+          if expected_run
+            raise "incorrect selection output" unless File.read(env.fetch("GITHUB_OUTPUT")) == "run=#{expected_run}\n"
+            raise "selected tests not reported" unless output.empty? || stdout.lines.map(&:strip).include?(output)
+            raise "empty selection not explained" if output.empty? && !File.size?(env.fetch("GITHUB_STEP_SUMMARY"))
+          else
+            raise "failed selection published a verdict" if File.exist?(env.fetch("GITHUB_OUTPUT"))
+          end
+        end
+        step_env = run_step.fetch("env", {}).transform_values { |value| resolve.call(value, context) }
+        [0, 23].each do |code|
+          FileUtils.rm_f(env.fetch("ARG_LOG"))
+          _, stderr, status = Open3.capture3(env.merge(step_env).merge("STUB_SELECTION" => "", "STUB_STATUS" => code.to_s),
+                                            "bash", "-e", "-c", resolve.call(run_step.fetch("run"), context), chdir: dir)
+          raise "execution status #{id}: #{stderr}" unless status.exitstatus == code
+          args = File.readlines(env.fetch("ARG_LOG"), chomp: true)
+          expected_args = ["--lane", lane, "--ci-event", event, "--base", base]
+          gate = case id
+                 when "tests-portable-parallel-1", "tests-portable-serial" then "Pi extension typecheck prerequisite not found"
+                 when "tests-herdr" then "herdr not found"
+                 end
+          expected_args += ["--fail-on-gate-skip", gate] if gate
+          timing = id == "tests-herdr" ? "herdr" : lane
+          timing = "portable-serial-#{shard}" if id == "tests-portable-serial"
+          expected_args += ["--json", File.join(dir, "fm-test/fm-test-timing-#{timing}.json")]
+          raise "execution arguments #{id}: #{args}" unless args == expected_args
+        end
+      end
+    end
+  end
+end
+%w[lint test-coverage invariants macos-stock-bash].each do |id|
+  raise "required guard became conditional" if jobs.fetch(id).key?("if")
+  raise "guard steps became conditional" if jobs.fetch(id).fetch("steps").any? { |step| step.key?("if") && step["if"] != "always()" }
+end
+RUBY
+  pass "PR selection preserves required contexts and unconditionally runs lint and coverage guards"
+}
+
+test_ci_selection_keeps_required_jobs_and_gates_setup
 
 test_ci_matrices_match_executable_partitions
 test_pr_pushes_supersede_within_one_pr

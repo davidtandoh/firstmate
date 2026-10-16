@@ -10,6 +10,8 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+fm_git_identity
+
 RUNNER="$ROOT/bin/fm-test-run.sh"
 
 assert_present "$RUNNER" "bin/fm-test-run.sh is missing"
@@ -715,7 +717,7 @@ test_empty_selection_emits_summary() {
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-run-empty.XXXXXX")
   repo="$tmp/repo"
   init_changed_fixture_repo "$repo"
-  printf 'documentation only\n' >"$repo/README.md"
+  printf 'license only\n' >"$repo/LICENSE"
   out=$(cd "$repo" && bin/fm-test-run.sh --changed --base HEAD --json "$tmp/artifacts/timing.json" 2>"$tmp/err") \
     || fail "empty valid changed selection must pass"
   printf '%s\n' "$out" | grep -Eq \
@@ -1834,6 +1836,121 @@ assert len(doc["scripts"])==3
   rm -rf "$tmp"
   pass "aggregate-json merges lane timing artifacts"
 }
+
+# Exercise CI filtering through the real executable and committed fixture diffs.
+test_ci_example_selection_keeps_consuming_tests() {
+  local tmp repo actual lane selected expected
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-example.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  mkdir -p "$repo/docs/examples"
+  cp "$ROOT/docs/examples/crew-dispatch.json" "$repo/docs/examples/crew-dispatch.json"
+  cp "$ROOT/tests/fm-dispatch-resolve.test.sh" "$repo/tests/fm-dispatch-resolve.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Add executable example and consumer'
+  printf '\n' >>"$repo/docs/examples/crew-dispatch.json"
+  git -C "$repo" add docs/examples/crew-dispatch.json
+  git -C "$repo" commit -qm 'Change executable example'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+  expected=$(printf '%s\n' tests/fm-dispatch-resolve.test.sh tests/fm-documentation-audiences.test.sh | LC_ALL=C sort)
+  [ "$(printf '%s\n' "$actual" | LC_ALL=C sort)" = "$expected" ] || fail "example must select its consumers: $actual"
+  selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+    (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  done | sed '/^$/d' | LC_ALL=C sort)
+  [ "$selected" = "$expected" ] || fail "PR lanes must retain the example consumers exactly once: $selected"
+  rm -rf "$tmp"
+  pass "executable documentation examples retain their consuming PR tests"
+}
+
+test_ci_documentation_selection_keeps_audience_guard() {
+  local tmp repo path actual selected lane
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-docs.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  for path in docs/documentation-audiences.json README.md docs/guide.md docs/nested/guide.mdx guide.rst guide.txt; do
+    mkdir -p "$repo/$(dirname "$path")"
+    printf 'invalid inventory or [broken link](missing.md)\n' >"$repo/$path"
+    git -C "$repo" add "$path"
+    git -C "$repo" commit -qm 'Change documentation input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+    [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "$path must select the audience guard: $actual"
+    selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+      (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    done | sed '/^$/d')
+    [ "$selected" = tests/fm-documentation-audiences.test.sh ] || fail "$path must retain the PR audience guard exactly once: $selected"
+  done
+  mkdir -p "$repo/assets"
+  printf 'image fixture\n' >"$repo/assets/banner.png"
+  printf '![Banner](assets/banner.png)\n' >"$repo/README.md"
+  git -C "$repo" add README.md assets/banner.png
+  git -C "$repo" commit -qm 'Add linked asset'
+  for path in docs/guide.md assets/banner.png; do
+    git -C "$repo" rm -q "$path"
+    git -C "$repo" commit -qm 'Remove documentation input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --changed --base HEAD^)
+    [ "$actual" = tests/fm-documentation-audiences.test.sh ] || fail "removed $path must select the audience guard: $actual"
+    selected=$(for lane in portable-parallel-1 portable-parallel-2 portable-serial real-herdr-gated; do
+      (cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    done | sed '/^$/d')
+    [ "$selected" = tests/fm-documentation-audiences.test.sh ] || fail "removed $path must retain the PR audience guard exactly once: $selected"
+  done
+  rm -rf "$tmp"
+  pass "documentation inventory, prose, and removals retain their audience guard"
+}
+
+test_ci_event_lane_selection() {
+  local tmp repo full actual lane path expected
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/fm-test-ci-select.XXXXXX")
+  repo="$tmp/repo"
+  init_changed_fixture_repo "$repo"
+  lane=portable-serial
+  full=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane")
+  printf '# changed\n' >>"$repo/tests/fm-daemon.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Change one test'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  [ "$actual" = tests/fm-daemon.test.sh ] || fail "PR must select only the relevant lane members: $actual"
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane portable-parallel-1 --ci-event pull_request --base HEAD^)
+  [ -z "$actual" ] || fail "unrelated PR lane must be empty"
+  for event in push schedule workflow_dispatch; do
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event "$event" --base HEAD^)
+    [ "$actual" = "$full" ] || fail "$event must keep the full lane"
+  done
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base missing-ref)
+  [ "$actual" = "$full" ] || fail "missing base must select full lane"
+  for path in docs/example.md src/unknown.ts bin/fm-test-run.sh tests/lib.sh .github/workflows/ci.yml; do
+    mkdir -p "$repo/$(dirname "$path")"
+    printf '# changed\n' >>"$repo/$path"
+    git -C "$repo" add .
+    git -C "$repo" commit -qm 'Change selection input'
+    actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+    if [ "$path" = docs/example.md ]; then
+      expected=$(printf '%s\n' "$full" | grep -Fx tests/fm-documentation-audiences.test.sh || true)
+      [ "$actual" = "$expected" ] || fail "documentation-only PR must retain its lane's audience guard: $actual"
+    else
+      [ "$actual" = "$full" ] || fail "$path must fail closed to full lane"
+    fi
+  done
+  git -C "$repo" rm -q src/unknown.ts
+  git -C "$repo" commit -qm 'Remove unknown source'
+  actual=$(cd "$repo" && bin/fm-test-run.sh --list --lane "$lane" --ci-event pull_request --base HEAD^)
+  [ "$actual" = "$full" ] || fail "removed unknown source must retain full coverage"
+  printf '#!/usr/bin/env bash\nexit 7\n' >"$repo/tests/fm-daemon.test.sh"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm 'Fail selected test'
+  if (cd "$repo" && bin/fm-test-run.sh --lane "$lane" --ci-event pull_request --base HEAD^ --json "$tmp/result.json") >"$tmp/run.log" 2>&1; then
+    fail "a selected test failure must fail the CI lane"
+  fi
+  assert_contains "$(cat "$tmp/run.log")" 'failed=1' "CI lane must account for selected failure"
+  actual=$(cd "$repo" && bin/fm-test-run.sh --lane portable-parallel-1 --ci-event pull_request --base HEAD^ --json "$tmp/empty.json")
+  assert_contains "$actual" 'total=0 failed=0' "empty CI lane must explicitly succeed"
+  rm -rf "$tmp"
+  pass "CI PR selection intersects lane ownership; full events and unsafe inputs retain full coverage"
+}
+
+test_ci_example_selection_keeps_consuming_tests
+test_ci_documentation_selection_keeps_audience_guard
+test_ci_event_lane_selection
 
 test_list_all_exact_suite_coverage
 test_family_selection
