@@ -5,6 +5,8 @@ flowchart LR
     primary[Firstmate session] --> spawn[fm-spawn: resolve native profile]
     spawn --> launcher[fm-omnigent: host-local preflight]
     launcher --> service[Kit-managed Omnigent]
+    launcher -.-> titles[Invocation-private title observer]
+    titles --> service
     service --> worker[Native harness with Firstmate hooks]
     spawn --> remote[Remote secondmate launch request]
     remote --> launcher
@@ -26,6 +28,25 @@ The selected executable must be a regular executable file beneath the status fil
 A separate Omnigent executable on `PATH` can be stale.
 The launcher checks the native `--env` capability and server health before invoking that runtime.
 A failure never executes the original native command as a fallback.
+
+## Session titles
+
+The top-level primary title is `firstmate`.
+An ordinary worker title is `<home> · <task>`; a persistent secondmate primary title is `<secondmate-home> · firstmate`.
+The home label is the launch home's final path component.
+`fm-spawn.sh` supplies the dispatched home and task explicitly, including when the backend daemon does not inherit the supervisor's environment.
+
+`fm-omnigent-title.py` relays this invocation's diagnostic stderr and considers only its first `Web UI` session record.
+If that record is malformed or names another server, naming stops without a session API request.
+The native wrapper remains the foreground process and owns terminal attach, stdin, stdout, signals, and exit status.
+The observer never reads the terminal display or chooses a session from a shared list.
+`fm-omnigent.sh` reads the exact session through the supported API, verifies its ID, wrapper label, and creation time against this launch, then sends `PATCH /v1/sessions/<id>` with the requested title.
+Record waiting, response size, and API requests are bounded; the launcher header owns the exact mechanics.
+Naming errors appear on stderr without interrupting the native terminal or changing its exit status.
+The observer handles launch titles only; it does not rename resumed sessions or later conversations created inside the native harness.
+[Verification](verification/omnigent.md#launch-title-verification) distinguishes deterministic coverage from real-wrapper proof.
+
+## Native environment and supervision
 
 The service starts native terminals in a different process tree.
 Shell inheritance into the CLI alone does not reach those terminals.

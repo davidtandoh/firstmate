@@ -13,7 +13,7 @@ fm_live_gate default-on FM_OMNIGENT_LIVE herdr agent-kit jq claude codex
 server=$("$ROOT/bin/fm-omnigent.sh" run --dry-run codex | jq -er .server_url)
 herdr_forget_inherited_pane
 HERDR_LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
-HERDR_LAB_SESSION=$("$HERDR_LAB_HELPER" name omnigent-launch)
+HERDR_LAB_SESSION=$("$HERDR_LAB_HELPER" name omnigent-session-names)
 TMP_ROOT=$(fm_test_tmproot fm-omnigent-live)
 mkdir -p "$TMP_ROOT/home/state" "$TMP_ROOT/home/data" "$TMP_ROOT/home/config" "$TMP_ROOT/tools" "$TMP_ROOT/cwd"
 owned_panes=()
@@ -113,9 +113,18 @@ for harness in claude codex kiro agy; do
   tid=$(printf '%s' "$tab" | jq -er .result.tab.tab_id)
   args=()
   launch_env=()
+  title_task="title-proof-$harness"
+  title_parent=''
+  expected_title="home · $title_task"
   case "$harness" in
-    claude) args=(--dangerously-skip-permissions '') ;;
-    codex) args=(--dangerously-bypass-approvals-and-sandbox --disable hooks '') ;;
+    claude)
+      args=(--dangerously-skip-permissions '')
+      title_task=''; expected_title=firstmate
+      ;;
+    codex)
+      args=(--dangerously-bypass-approvals-and-sandbox --disable hooks '')
+      title_task=''; title_parent="$TMP_ROOT/parent"; expected_title='home · firstmate'
+      ;;
     kiro)
       # Match fm-spawn's disposable TUI settings without changing user config.
       mkdir -p "$TMP_ROOT/kiro-home/settings"
@@ -126,7 +135,9 @@ for harness in claude codex kiro agy; do
     agy) args=(--dangerously-skip-permissions) ;;
   esac
   # An ASCII supervisor locale must not corrupt the wrapper's tmux attach.
-  launch=$(printf '%q ' env -u FM_HOME -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE LC_ALL=C "${launch_env[@]+${launch_env[@]}}" "$ROOT/bin/fm-omnigent.sh" run "$harness" "${args[@]}")
+  launch=$(printf '%q ' env -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE \
+    LC_ALL=C "FM_HOME=$TMP_ROOT/home" "FM_TASK_ID=$title_task" "FM_PUBLIC_FOLLOWUP_PRIMARY_HOME=$title_parent" \
+    "${launch_env[@]+${launch_env[@]}}" "$ROOT/bin/fm-omnigent.sh" run "$harness" "${args[@]}")
   lab pane run "$pane" "$launch" >/dev/null
   state=''
   for _ in $(seq 1 100); do
@@ -170,6 +181,14 @@ for harness in claude codex kiro agy; do
   done
   [[ "$session" =~ ^[a-f0-9]{32}$ ]] || fail "$harness $native_version: no session footer in owned pane"
   owned_sessions+=("$session")
+  title=''
+  for _ in $(seq 1 80); do
+    title=$(curl --silent --show-error --fail --max-time 5 "${server%/}/v1/sessions/$session" | jq -er '.title // empty') || title=''
+    [ "$title" != "$expected_title" ] || break
+    sleep 0.2
+  done
+  [ "$title" = "$expected_title" ] || fail "$harness $native_version: exact owned session title is '$title', expected '$expected_title'"
+  pass "Omnigent $harness $native_version: exact launch session title '$title'"
   # Antigravity's shell-style prompt is intentionally unknown. Control must
   # refuse it, rather than relaxing pending-input safety to satisfy this test.
   expected_composer=empty
