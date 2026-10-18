@@ -5575,6 +5575,15 @@ SPAWN_CLAUDE_BIN=claude
 SPAWN_CODEX_BIN=codex
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
+  if [ "$KIND" = secondmate ]; then
+    # The primary's own FM_HOME is set by the existing secondmate launch
+    # prefix below. Clear a stale task marker from a retained pane shell.
+    OMNIGENT_LAUNCH="env FM_TASK_ID= $OMNIGENT_LAUNCH"
+  else
+    # Backend daemons and cleared launch environments need not inherit the
+    # supervisor shell. Freeze the actual dispatch identity in the command.
+    OMNIGENT_LAUNCH="env FM_HOME=$(shell_quote "$FM_HOME") FM_TASK_ID=$(shell_quote "$ID") $OMNIGENT_LAUNCH"
+  fi
   case "$HARNESS" in
     claude) SPAWN_CLAUDE_BIN=$OMNIGENT_LAUNCH ;;
     codex) SPAWN_CODEX_BIN=$OMNIGENT_LAUNCH ;;

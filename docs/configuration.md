@@ -594,7 +594,7 @@ bin/fm-omnigent.sh start claude
 The [launch boundary](omnigent.md) owns runtime selection from the host's status and readiness reports, including activation and headless rollback.
 The launcher runs the equivalent of `omnigent claude --server <server_url>` with the service's client environment and explicit native environment propagation.
 A separately launched `omnigent claude` or `omnigent codex` session is also detected through the native `OMNIGENT=1` marker, provided it uses the same working service and native environment interface.
-A missing executable, unsupported interface, stopped service, invalid status or readiness report, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
+A missing executable or `python3`, unsupported interface, stopped service, invalid status or readiness report, unhealthy server, or missing UTF-8 locale refuses the launch with a diagnostic.
 The attaching client uses an installed UTF-8 locale so Omnigent's tmux transport preserves native composer glyphs.
 Firstmate never retries the launch without tracing.
 
@@ -636,7 +636,7 @@ Omnigent's native environment interface is additive.
 Firstmate refuses wrapped launches when `config/launch-env-allowlist` is enabled or when a Claude launch has `config/claude-account`, because those contracts require removal of inherited credentials or variables.
 Do not remove a required account pin to bypass this refusal.
 The Kit owns content capture, redaction, export, and MLflow availability.
-The [launch architecture](omnigent.md) describes the boundary; `bin/fm-omnigent.sh --help` owns exact command mechanics.
+The [launch architecture](omnigent.md) describes the boundary and [session titles](omnigent.md#session-titles); `bin/fm-omnigent.sh --help` owns exact command mechanics.
 
 ## Fleet activity ledger (config/fleet-ledger)
 
