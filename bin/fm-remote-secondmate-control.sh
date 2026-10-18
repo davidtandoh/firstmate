@@ -333,6 +333,8 @@ cmd_capture() {
   case "$lines" in ''|*[!0-9]*|0) die "capture line count must be positive" ;; esac
   [ "$lines" -le 100 ] || die "capture line count exceeds 100"
   remote_endpoint_require "$id"
+  # Drain beyond the output bound so a successful backend cannot fail with
+  # SIGPIPE; pipefail still preserves a genuine backend failure.
   fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$lines" "fm-$id" | {
     head -c 65536
     cat >/dev/null
