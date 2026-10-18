@@ -593,6 +593,102 @@ EOF
   pass "session-start digest renders data/captain-shared.md with the shared read-only label"
 }
 
+test_remote_cutover_generation_recovery() {
+  local home source out record before empty_hash
+  home="$TMP_ROOT/remote-cutover"
+  source="$TMP_ROOT/cutover-source"
+  mkdir -p "$home/data" "$home/config"
+  write_shared "$source" 'same published content'
+  remote_put_shared "$home" "$source" 20 >/dev/null || fail "cannot seed cutover receiver"
+  record="$home/data/.fm-inherit-captain-shared.md.generation"
+  before=$(cat "$record")
+  out=$(remote_put_shared "$home" "$source" 4) || fail "identical cutover payload did not recover: $out"
+  assert_contains "$out" 'generation=20' "recovery did not report the retained generation"
+  [ "$(cat "$record")" = "$before" ] || fail "recovery lowered the receiver generation"
+  # Changing only the payload must keep the old-writer exclusion intact.
+  write_shared "$source" 'stale different content'
+  if out=$(remote_put_shared "$home" "$source" 4); then fail "stale changed payload was accepted"; fi
+  assert_contains "$out" 'superseded' "stale rejection lost its reason"
+  assert_grep 'same published content' "$home/data/captain-shared.md" "stale writer changed destination"
+  # Matching the commitment is insufficient when the destination has drifted.
+  write_shared "$source" 'same published content'
+  chmod u+w "$home/data/captain-shared.md"
+  if remote_put_shared "$home" "$source" 4 >/dev/null; then fail "stale confirmation accepted writable shared preferences"; fi
+  printf 'local edit\n' >> "$home/data/captain-shared.md"
+  if remote_put_shared "$home" "$source" 4 >/dev/null; then fail "stale writer repaired destination drift"; fi
+  assert_grep 'local edit' "$home/data/captain-shared.md" "stale recovery overwrote local drift"
+  : > "$TMP_ROOT/cutover-empty"
+  empty_hash=$(fm_inherit_sha256 "$TMP_ROOT/cutover-empty")
+  FM_HOME="$home" "$ROOT/bin/fm-remote-inherit.sh" absent config/crew-harness 0 "$empty_hash" 20 >/dev/null \
+    || fail "cannot seed absent generation"
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-remote-inherit.sh" absent config/crew-harness 0 "$empty_hash" 4) \
+    || fail "matching absence did not confirm"
+  assert_contains "$out" 'generation=20' "absence lost retained generation"
+  printf 'local config\n' > "$home/config/crew-harness"
+  if FM_HOME="$home" "$ROOT/bin/fm-remote-inherit.sh" absent config/crew-harness 0 "$empty_hash" 4 >/dev/null 2>&1; then
+    fail "stale absence removed destination drift"
+  fi
+  assert_grep 'local config' "$home/config/crew-harness" "stale absence changed destination"
+  pass "cutover confirms identical bytes without lowering the generation or admitting stale writes"
+}
+
+test_remote_push_adopts_generation_only_after_complete_confirmation() {
+  local parent remote fakebin source bytes hash out next counter before
+  parent="$TMP_ROOT/cutover-parent"
+  remote="$TMP_ROOT/cutover-remote"
+  fakebin="$TMP_ROOT/cutover-bin"
+  mkdir -p "$parent/data" "$parent/config" "$parent/state" "$remote/data" "$remote/config" "$fakebin"
+  printf -- '- sm - fixture (host: arbitrary-alias; root: /srv/code; home: /srv/home; scope: x; projects: p; added 2026-10-18)\n' \
+    > "$parent/data/secondmates.md"
+  cat > "$fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+args=()
+while IFS= read -r -d '' arg; do args+=("$arg"); done < <(printf '%s' "$4" | base64 --decode)
+exec env FM_HOME="$FM_TEST_REMOTE" "$FM_TEST_ROOT/bin/${args[0]}" "${args[@]:1}"
+SH
+  chmod +x "$fakebin/ssh"
+  source="$parent/config/crew-harness"
+  printf 'codex\n' > "$source"
+  bytes=$(LC_ALL=C wc -c < "$source" | tr -d ' ')
+  hash=$(fm_inherit_sha256 "$source")
+  FM_HOME="$remote" "$ROOT/bin/fm-remote-inherit.sh" put config/crew-harness "$bytes" "$hash" 20 < "$source" >/dev/null \
+    || fail "cannot seed remote config generation"
+  write_shared "$parent/data/captain-shared.md" 'same shared content'
+  remote_put_shared "$remote" "$parent/data/captain-shared.md" 30 >/dev/null || fail "cannot seed shared generation"
+  counter="$parent/state/.remote-inherit-sm.generation"
+  printf '3\n' > "$counter"
+  out=$(FM_HOME="$parent" FM_ROOT_OVERRIDE="$ROOT" FM_SSH_BIN="$fakebin/ssh" \
+    FM_TEST_REMOTE="$remote" FM_TEST_ROOT="$ROOT" FM_INHERITABLE_CONFIG=crew-harness \
+    "$ROOT/bin/fm-remote-inherit-push.sh" sm 4 2>&1) || fail "cutover push did not recover: $out"
+  # Drive the same public generation helper the locked bootstrap uses.
+  next=$(bash -c '. "$1/bin/fm-secondmate-nudge-lib.sh"; fm_remote_inherit_generation_next "$2/state" sm' _ "$ROOT" "$parent") \
+    || fail "next generation allocation failed"
+  [ "$next" -gt 30 ] || fail "parent did not retain the largest confirmed receiver generation"
+  printf 'pi\n' > "$source"
+  out=$(FM_HOME="$parent" FM_ROOT_OVERRIDE="$ROOT" FM_SSH_BIN="$fakebin/ssh" \
+    FM_TEST_REMOTE="$remote" FM_TEST_ROOT="$ROOT" FM_INHERITABLE_CONFIG=crew-harness \
+    "$ROOT/bin/fm-remote-inherit-push.sh" sm "$next" 2>&1) || fail "new write after recovery failed: $out"
+  cmp -s "$source" "$remote/config/crew-harness" || fail "new write after recovery did not publish"
+  # A partial match must not raise the parent counter above unmatched content.
+  printf '3\n' > "$counter"
+  write_shared "$parent/data/captain-shared.md" 'old parent shared content'
+  before=$(cat "$remote/data/.fm-inherit-captain-shared.md.generation")
+  if out=$(FM_HOME="$parent" FM_ROOT_OVERRIDE="$ROOT" FM_SSH_BIN="$fakebin/ssh" \
+    FM_TEST_REMOTE="$remote" FM_TEST_ROOT="$ROOT" FM_INHERITABLE_CONFIG=crew-harness \
+    "$ROOT/bin/fm-remote-inherit-push.sh" sm 4 2>&1); then fail "partially matching cutover push succeeded"; fi
+  [ "$(cat "$counter")" = 3 ] || fail "partial confirmation advanced the parent counter"
+  [ "$(cat "$remote/data/.fm-inherit-captain-shared.md.generation")" = "$before" ] \
+    || fail "partial confirmation changed the unmatched receiver generation"
+  pass "a complete cutover push adopts the maximum generation; a partial match retains exclusion"
+}
+
+test_remote_cutover_generation_recovery
+test_remote_push_adopts_generation_only_after_complete_confirmation
 test_first_copy_readonly_and_local_files_preserved
 test_true_divergence_after_inherit_still_quarantines
 test_interrupted_publication_matching_source_does_not_quarantine

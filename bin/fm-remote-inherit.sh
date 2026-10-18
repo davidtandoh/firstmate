@@ -8,7 +8,10 @@
 # Only the inherited-material allowlist is writable or removable. Writes are
 # atomic ordinary-file replacements. data/captain-shared.md is read-only and is
 # quarantined before removal or before replacing bytes not last published here.
-set -eu
+# A lower generation can only confirm an identical committed payload whose
+# destination still matches. It returns unchanged with generation=<retained>
+# and performs no write, chmod, removal, or generation rollback.
+set -euo pipefail
 
 FM_HOME=${FM_HOME:?FM_HOME is required}
 MAX_BYTES=1048576
@@ -107,7 +110,17 @@ commit_generation() {
     case "$existing_command" in put|absent) ;; *) die "inheritance generation record is malformed" ;; esac
     [ "$existing_command" != put ] || LAST_PUBLISHED_HASH=$(printf '%s' "$existing_hash" | tr 'A-F' 'a-f')
     if [ "$existing_generation" -gt "$GENERATION" ]; then
-      die "inheritance write generation is superseded"
+      if [ "$existing_bytes" = "$EXPECTED_BYTES" ] \
+        && [ "$existing_hash" = "$EXPECTED_HASH" ] \
+        && [ "$existing_command" = "$COMMAND" ]; then
+        if { [ "$COMMAND" = put ] && cmp -s "$TMP" "$DEST" \
+          && { [ "$REL" != data/captain-shared.md ] || [ "$(fm_inherit_file_mode "$DEST")" = "$FM_SHARED_CAPTAIN_MODE" ]; }; } \
+          || { [ "$COMMAND" = absent ] && [ ! -e "$DEST" ]; }; then
+          printf 'unchanged: %s generation=%s\n' "$REL" "$existing_generation"
+          exit 0
+        fi
+      fi
+      die "inheritance write generation is superseded; committed payload or destination differs, restore the authoritative parent state before retrying"
     fi
     if [ "$existing_generation" -eq "$GENERATION" ]; then
       [ "$existing_bytes" = "$EXPECTED_BYTES" ] \

@@ -1266,6 +1266,28 @@ test_bootstrap_syncs_remote_home_to_primary_commit() {
   [ "$(head_of "$w/coderoot")" = "$coderoot_before" ] \
     || fail "session start moved the host's own Firstmate copy"
   pass "R8 session start converges a remote home on the primary's default-branch commit"
+
+  # Model a cutover that copied identical settings but missed the parent's
+  # generation counter. Publish a later receiver generation through the public
+  # transfer path, then run the real startup convergence again with counter 3.
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$w/main" \
+    FM_STATE_OVERRIDE="$home/state" FM_CONFIG_INHERIT_LIVE=1 \
+    FM_SSH_BIN="$fakebin/fake-ssh" FM_REMOTE_CODE_ROOT="$w/coderoot" \
+    FM_TEST_REPO_ROOT="$ROOT" FM_INHERITABLE_CONFIG='' \
+    "$ROOT/bin/fm-remote-inherit-push.sh" sm 20 2>&1) || fail "cannot seed cutover publication: $out"
+  printf '3\n' > "$home/state/.remote-inherit-sm.generation"
+  out=$(PATH="$fakebin:$BASE_PATH" \
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$w/main" FM_STATE_OVERRIDE="$home/state" \
+    FM_BOOTSTRAP_NETWORK=only \
+    FM_SSH_BIN="$fakebin/fake-ssh" FM_REMOTE_CODE_ROOT="$w/coderoot" \
+    FM_TEST_REPO_ROOT="$ROOT" \
+    FM_INHERITABLE_CONFIG='' FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_SEND_SETTLE=0 \
+    "$ROOT/bin/fm-bootstrap.sh" 2>&1)
+  assert_not_contains "$out" 'remote inheritance failed' "startup did not recover identical cutover settings"
+  [ "$(cat "$home/state/.remote-inherit-sm.generation")" -gt 20 ] \
+    || fail "startup did not retain the receiver generation floor"
+  [ "$(head_of "$w/sm")" = "$c2" ] || fail "cutover recovery changed the tracked target"
+  pass "R8b session start recovers a missing parent generation counter on unchanged remote settings"
 }
 
 # --- R10: an outdated host refuses, and the report says how to fix it ----------

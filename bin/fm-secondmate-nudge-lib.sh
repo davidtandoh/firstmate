@@ -20,8 +20,10 @@ fm_remote_inherit_transaction_lock_path() { # <state-dir> <id>
   printf '%s/.remote-inherit-%s.lock\n' "$state" "$id"
 }
 
-fm_remote_inherit_generation_next() { # <state-dir> <id>
-  local state=$1 id=$2 path current next tmp
+fm_remote_inherit_generation_next() { # <state-dir> <id> [confirmed-floor]
+  # The transaction owner may adopt a receiver floor only after the entire
+  # inherited-material push succeeded. An older unmatched payload never does.
+  local state=$1 id=$2 floor=${3:-0} path current next tmp
   case "$id" in *[!/A-Za-z0-9._-]*|''|*/*) return 1 ;; esac
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
   path="$state/.remote-inherit-$id.generation"
@@ -32,7 +34,10 @@ fm_remote_inherit_generation_next() { # <state-dir> <id>
     case "$current" in ''|*[!0-9]*) return 1 ;; esac
     [ "${#current}" -le 17 ] || return 1
   fi
-  next=$((current + 1))
+  case "$floor" in ''|*[!0-9]*) return 1 ;; esac
+  [ "${#floor}" -le 17 ] || return 1
+  if [ "$floor" -gt "$current" ]; then current=$floor; fi
+  next=$((10#$current + 1))
   tmp=$(umask 077; mktemp "$state/.remote-inherit-generation.XXXXXX") || return 1
   printf '%s\n' "$next" > "$tmp" || { rm -f -- "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }

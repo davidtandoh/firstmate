@@ -62,8 +62,11 @@
 # fm-procevent-when.sh rebind-all to republish those bindings against the new
 # bytes; a failure there is swallowed rather than failing the update.
 #
-# Usage: fm-update.sh [--help]
-set -eu
+# --root-only performs only this code root's guarded origin update and watch
+# rebind, without traversing its fleet. Remote update uses this leaf operation
+# even when the route reaches the parent checkout itself.
+# Usage: fm-update.sh [--root-only] [--help]
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -77,12 +80,14 @@ SECONDMATES_MD="$FM_HOME/data/secondmates.md"
 
 "$SCRIPT_DIR/fm-guard.sh" || true
 
-usage() { echo "usage: fm-update.sh [--help]" >&2; }
+usage() { echo "usage: fm-update.sh [--root-only] [--help]" >&2; }
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   usage
   exit 0
 fi
+root_only=no
+if [ "${1:-}" = --root-only ]; then root_only=yes; shift; fi
 [ $# -eq 0 ] || { usage; exit 1; }
 
 # --- main firstmate repo ---------------------------------------------------
@@ -103,6 +108,7 @@ if [ "$FF_STATUS" = "updated" ]; then
   # this test suite uses to point fm-update.sh at a fixture checkout).
   FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" "$SCRIPT_DIR/fm-procevent-when.sh" rebind-all || true
 fi
+[ "$root_only" = no ] || exit 0
 
 # --- secondmates -----------------------------------------------------------
 # Every live secondmate this pass leaves on origin's tip is restarted, whether it
@@ -227,7 +233,10 @@ if [ -f "$SECONDMATES_MD" ]; then
           *) echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: malformed update result" >&2 ;;
         esac
       else
-        echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: ${remote_out%%$'\n'*}" >&2
+        remote_rc=$?
+        remote_reason=$(printf '%s\n' "$remote_out" | sed '/^[[:space:]]*$/d' | sed -n '1p')
+        [ -n "$remote_reason" ] || remote_reason="remote update failed (exit $remote_rc; no diagnostic output)"
+        echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: $remote_reason" >&2
       fi
     else
       process_secondmate "$id" "$home" "" origin yes

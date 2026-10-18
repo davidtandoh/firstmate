@@ -556,6 +556,98 @@ test_primary_update_rebinds_local_watch() {
   pass "T12 a self-update rebinds a locally armed watch on the primary"
 }
 
+test_remote_update_does_not_sweep_code_root_fleet() {
+  local placement w code out root_reflog home_reflog
+  for placement in colocated distinct; do
+    w=$(new_world "remote-$placement")
+    git clone -q "$w/origin.git" "$w/sm"
+    printf 'sm\n' > "$w/sm/.fm-secondmate-home"
+    if [ "$placement" = colocated ]; then
+      # A different spelling still names the parent's actual code-root object.
+      ln -s "$w/main" "$w/code-alias"
+      code="$w/code-alias"
+      [ "$code" -ef "$w/main" ] || fail "fixture root identity differs"
+    else
+      git clone -q "$w/origin.git" "$w/code"
+      code="$w/code"
+      [ ! "$code" -ef "$w/main" ] || fail "distinct fixture shares a root"
+    fi
+    mkdir -p "$code/data" "$code/state"
+    printf 'state/\ndata/\n.fm-secondmate-home\n' >> "$code/.git/info/exclude"
+    printf -- '- sm - fixture (host: arbitrary-alias; root: %s; home: %s; scope: x; projects: p; added 2026-10-18)\n' \
+      "$code" "$w/sm" > "$code/data/secondmates.md"
+    # Run the real host-local update against a root with its own registry.
+    # Any nested transport call proves fleet recursion; no SSH or backend runs.
+    cat > "$w/fakebin/refuse-ssh" <<'SH'
+#!/usr/bin/env bash
+printf 'unexpected nested update\n' >> "$FM_TEST_NESTED_LOG"
+exit 92
+SH
+    chmod +x "$w/fakebin/refuse-ssh"
+    bump_origin "$w" instr
+    out=$(FM_HOME="$w/sm" FM_ROOT_OVERRIDE="$code" FM_SSH_BIN="$w/fakebin/refuse-ssh" \
+      FM_TEST_NESTED_LOG="$w/nested" "$ROOT/bin/fm-remote-secondmate-control.sh" update sm 2>&1) \
+      || fail "remote $placement update failed: $out"
+    assert_absent "$w/nested" "remote update re-entered the code-root fleet"
+    [ "$(git -C "$code" rev-parse HEAD)" = "$(git -C "$w/seed" rev-parse HEAD)" ] \
+      || fail "remote code root did not advance"
+    [ "$(git -C "$w/sm" rev-parse HEAD)" = "$(git -C "$code" rev-parse HEAD)" ] \
+      || fail "remote home did not follow code root"
+    pass "remote $placement update refreshes root and home without traversing the root's fleet"
+
+    # Now drive the complete parent -> transport -> host-local path, including
+    # the case where the parent has already advanced the same root this pass.
+    cp "$code/data/secondmates.md" "$w/home/data/secondmates.md"
+    cat > "$w/fakebin/loopback-ssh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'transport\n' >> "$FM_TEST_TRANSPORT_LOG"
+[ "${FM_TEST_DEPTH:-0}" = 0 ] || exit 92
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+args=()
+while IFS= read -r -d '' arg; do args+=("$arg"); done < <(printf '%s' "$4" | base64 --decode)
+exec env FM_TEST_DEPTH=1 FM_HOME="$FM_TEST_REMOTE_HOME" FM_ROOT_OVERRIDE="$FM_TEST_CODE_ROOT" \
+  "$FM_TEST_SOURCE_ROOT/bin/${args[0]}" "${args[@]:1}"
+SH
+    chmod +x "$w/fakebin/loopback-ssh"
+    bump_origin "$w" instr
+    root_reflog=$(git -C "$code" reflog --format=%H | wc -l | tr -d ' ')
+    home_reflog=$(git -C "$w/sm" reflog --format=%H | wc -l | tr -d ' ')
+    out=$(FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" FM_SSH_BIN="$w/fakebin/loopback-ssh" \
+      FM_TEST_REMOTE_HOME="$w/sm" FM_TEST_CODE_ROOT="$code" FM_TEST_SOURCE_ROOT="$ROOT" \
+      FM_TEST_TRANSPORT_LOG="$w/transport.log" "$UPDATE" 2>&1) || fail "parent $placement update failed: $out"
+    [ "$(wc -l < "$w/transport.log" | tr -d ' ')" = 1 ] || fail "parent update re-entered transport"
+    [ "$(git -C "$code" reflog --format=%H | wc -l | tr -d ' ')" -eq "$((root_reflog + 1))" ] \
+      || fail "code root advanced more or less than once"
+    [ "$(git -C "$w/sm" reflog --format=%H | wc -l | tr -d ' ')" -eq "$((home_reflog + 1))" ] \
+      || fail "home advanced more or less than once"
+    [ "$(git -C "$w/sm" rev-parse HEAD)" = "$(git -C "$w/seed" rev-parse HEAD)" ] \
+      || fail "parent update left remote home behind"
+    pass "parent $placement update advances each actual checkout once through one remote call"
+  done
+}
+
+test_remote_update_failure_has_reason() {
+  local w out
+  w=$(new_world remote-silent)
+  cat > "$w/fakebin/silent-ssh" <<'SH'
+#!/usr/bin/env bash
+exit 255
+SH
+  chmod +x "$w/fakebin/silent-ssh"
+  printf -- '- sm - fixture (host: arbitrary-alias; root: /srv/code; home: /srv/home; scope: x; projects: p; added 2026-10-18)\n' \
+    > "$w/home/data/secondmates.md"
+  out=$(FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" FM_SSH_BIN="$w/fakebin/silent-ssh" \
+    "$UPDATE" 2>&1) || fail "primary update unexpectedly failed: $out"
+  assert_contains "$out" 'remote update failed (exit 255; no diagnostic output)' "silent transport lost its reason"
+  pass "a silent remote update failure reports its exit status"
+}
+
+test_remote_update_does_not_sweep_code_root_fleet
+test_remote_update_failure_has_reason
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
