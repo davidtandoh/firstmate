@@ -1,0 +1,30 @@
+FM_TEST_BEGIN 2026-10-19T09:00:16Z tests/fm-wake-drain-unread-status.test.sh family=watcher-wake-lock expected_gate_skip=none
+ok - long sessions get one optional suggestion per lock generation; young sessions stay quiet
+ok - a note: answer buried under a later routine note: is surfaced with both lines
+ok - already-presented note: lines are not re-surfaced on the next drain
+ok - a brand-new note: after presentation is surfaced without replaying handled lines
+ok - a queued status signal annotates every unread note, not only the newest
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 73796.1792400425.T79i5q
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 73796.1792400425.T79i5q
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 73796.1792400425.T79i5q
+ok - a pending-reply resolution buried under a later note surfaces once and closes OPEN DECISIONS
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 76478.1792400428.kvwTmx
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 76478.1792400428.kvwTmx
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 76478.1792400428.kvwTmx
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 76478.1792400428.kvwTmx
+ok - a self-announced pending-reply close does not wake yet still surfaces once in UNREAD STATUS
+ok - unread status over the former byte cap preserves every line
+ok - presentation cursor advances only through its captured endpoint
+ok - a reused task id starts its replacement status log unread at byte zero
+ok - fallback identity still presents and advances status state
+ok - snapshot failures are reported visibly
+ok - OPEN DECISIONS still folds needs-decision/blocked independently of unread notes
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 89133.1792400438.SdnNqu
+ok - an empty-queue backstop presentation still preserves the status for its later signal annotation
+ok - routine working and branch-covered done lines print nothing on an empty-queue drain
+FM_TEST_END 2026-10-19T09:00:40Z tests/fm-wake-drain-unread-status.test.sh exit=0 duration_ms=23767 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=23832
+FM_TEST_SUMMARY_FAMILY family=watcher-wake-lock count=1 duration_ms=23767 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-wake-drain-unread-status.test.sh duration_ms=23767
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M59P192KW7VX65HF78KQQV6X/wake-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=23832

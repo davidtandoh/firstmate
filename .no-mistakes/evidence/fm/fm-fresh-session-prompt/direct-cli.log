@@ -1,0 +1,28 @@
+
+[young] exit=0
+receipt=absent
+
+[long] exit=0
+SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /stow and starting a fresh session when convenient (optional).
+receipt=99429:1792224077
+
+[repeated] exit=0
+receipt=99429:1792224077
+
+[new-generation] exit=0
+SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /stow and starting a fresh session when convenient (optional).
+receipt=99429:1792220477
+
+[branch] exit=0
+receipt=absent
+
+[secondmate] exit=0
+receipt=absent
+
+[malformed] exit=0
+receipt=absent
+
+[absent] exit=0
+receipt=absent
+
+All direct CLI assertions passed. No harness or daemon was launched; lock ages were set explicitly.
