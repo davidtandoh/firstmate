@@ -1,0 +1,58 @@
+[
+  {
+    "command": [
+      "agent-kit",
+      "observe",
+      "serve",
+      "status",
+      "--json"
+    ],
+    "exit": 2,
+    "scenario": "Installed Omnigent service readiness",
+    "stderr": "",
+    "stdout": "{\"client_environment\":{},\"codex\":null,\"experiment_id\":null,\"login\":{\"label\":\"ai.agentkit.observe-serve\",\"plist\":\"/Users/davidtandoh/Library/LaunchAgents/ai.agentkit.observe-serve.plist\",\"service_file\":\"/Users/davidtandoh/.agents/state/observation/serve/service.json\",\"service_sha256\":\"3e3e6346a30e9ba2236ffb8b4e8eb5d63b4e669f068640ad636aac1396b7111e\",\"sha256\":\"a5ea7ad6d5e1380a046908647b64233d4c65407ee57867fa258614cb357c3a20\",\"state\":\"current\"},\"mlflow\":{\"version\":\"3.15.2\"},\"mlflow_url\":null,\"mode\":\"local\",\"omnigent\":{\"commit\":\"f165e117cfefa08df674d5a837025f51b7834536\",\"repository\":\"https://github.com/davidtandoh/omnigent.git\",\"version\":\"0.18.0\"},\"omnigent_port\":{\"configured\":52131,\"drift\":false,\"observed\":null,\"source\":\"service\"},\"reason\":\"serve_redactor_source_drift\",\"redaction_url\":null,\"redactor_log\":\"/Users/davidtandoh/.agents/state/observation/serve/redactor.stderr.log\",\"redactor_sha256\":\"8b31ca9b273f942b38a9b1f5ca04c882bfce1544cb957572a682480358fa0187\",\"schema_version\":\"1\",\"serve_id\":\"e81369ad4d616e41908537072b30fb1e\",\"server_url\":null,\"session_scope\":\"personal\",\"state_file\":\"/Users/davidtandoh/.agents/state/observation/serve/serve.json\",\"status\":\"drifted\",\"upstream_url\":null,\"work_session_policy\":null}\n"
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "run",
+      "--dry-run",
+      "claude"
+    ],
+    "exit": 1,
+    "scenario": "Real launcher refuses unavailable Omnigent before launching",
+    "stderr": "error: Omnigent launch: agent-kit observe serve is unavailable: serve_redactor_source_drift\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-fresh-session.sh"
+    ],
+    "exit": 1,
+    "scenario": "Worker cannot replace main primary",
+    "stderr": "error: fresh session: only the main primary can refresh\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-fresh-session.sh"
+    ],
+    "exit": 1,
+    "scenario": "Secondmate cannot replace main primary",
+    "stderr": "error: fresh session: only the main primary can refresh\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bash",
+      "bin/fm-fresh-session.sh"
+    ],
+    "exit": 1,
+    "scenario": "Non-Omnigent caller cannot replace primary",
+    "stderr": "error: fresh session: requires a Claude Omnigent session\n",
+    "stdout": ""
+  }
+]

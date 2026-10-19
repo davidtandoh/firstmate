@@ -1,0 +1,14 @@
+FM_TEST_BEGIN 2026-10-19T18:08:39Z tests/fm-fresh-session.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - dry-run and failed launches preserve the old owner and never close it
+ok - replacement claims ownership before old-session stop
+ok - completed handoff permits stale-anchor recovery with the retained token
+ok - existing tmux server preserves set, unset, and empty caller account environments
+ok - failed old-session stop preserves replacement ownership and reports failure
+ok - ordinary, mismatched, revoked, oversized, and same-session claims cannot take over
+ok - replacement death after claim restores the live original owner
+FM_TEST_END 2026-10-19T18:08:53Z tests/fm-fresh-session.test.sh exit=0 duration_ms=13730 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=13787
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=13730 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-fresh-session.test.sh duration_ms=13730
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M5ANBMFPHGE7J8VSRAT2RH3V/fresh-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=13787
