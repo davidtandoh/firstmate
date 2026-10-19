@@ -114,7 +114,7 @@ The drain coordinates that fold and its annotations through a locked fleet-wide 
 The main home's drain also gives long sessions a one-line, optional suggestion to run `/stow` and start a fresh session, including through the session-start digest's wake-queue section.
 The age threshold and once-per-lock receipt are owned by `bin/fm-wake-drain.sh`'s header; lock age is a cheap proxy for session length, not a transcript-entry count or a guarantee of tracing coverage.
 The suggestion never blocks, ends, or restarts the session, and branch actors and secondmate homes do not emit it.
-While the away-mode daemon owns supervision, the drain defers the suggestion and its receipt until a later captain-facing presentation.
+While the away-mode or quiet-mode daemon owns supervision, the drain defers the suggestion and its receipt until a later captain-facing presentation.
 `tests/fm-wake-drain-unread-status.test.sh` covers the reminder through the real drain interface.
 [`pi-supervision-branch.md`](pi-supervision-branch.md#lost-wake-outcome-backstop) owns the bounded lost-wake backstop that uses the latter offset.
 A queued signal annotation prints every status line still unread at that cursor, while the fleet-wide UNREAD STATUS section prints `note:` lines and reserved-key pending-reply resolutions once even on an empty-queue drain because those verbs never enter the OPEN DECISIONS fold.
