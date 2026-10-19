@@ -16,8 +16,9 @@
 # locked drain rotates such leftovers away before doing anything else.
 # FM_STATUS_PRESENTATION_LOCK_TIMEOUT sets the positive whole-second wait for
 # presentation-path locks (default 10); queue mutation locks remain blocking.
-# On main-home/main-actor presentations, suggest /stow and a fresh session once
-# the live session lock is at least 48 hours old, once per pid/mtime generation.
+# On main-home/main-actor presentations, suggest /fresh for Claude Omnigent or
+# /stow and a new session once the live session lock is at least 48 hours old,
+# once per pid/mtime generation.
 # This age proxy does not count transcript entries or enforce a session limit.
 # The optional receipt is state/.fresh-session-prompt, serialized under the
 # status-presentation lock; failure to read/write it never blocks the drain.
@@ -799,7 +800,7 @@ print_session_suggestion() {
     previous=$(head -c 64 "$receipt" 2>/dev/null) || previous=''
   fi
   [ "$previous" != "$generation" ] || return 0
-  printf 'SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /stow and starting a fresh session when convenient (optional).\n' || return 0
+  printf 'SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /fresh for a one-step Claude Omnigent restart, or /stow and starting a fresh session when convenient (optional).\n' || return 0
   tmp=$(mktemp "$STATE/.fresh-session-prompt.XXXXXX") || return 0
   if ! { printf '%s\n' "$generation" > "$tmp" && _fm_atomic_replace "$tmp" "$receipt"; }; then
     rm -f -- "$tmp"

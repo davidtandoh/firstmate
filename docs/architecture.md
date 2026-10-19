@@ -111,7 +111,8 @@ A declared external wait or an attended verified captain-held transfer trades th
 Crew status files are append-only wake-event logs, not current-state fields.
 Because of that, a per-wake read of only the latest line can bury an earlier still-open `needs-decision`/`blocked` under later unrelated appends; `fm-wake-drain.sh` prints a separate, fleet-wide OPEN DECISIONS section on every presentation (including the empty-queue path session-start relies on), built through `fm-classify-lib.sh`'s cursor-backed incremental scan using the authoritative `status_open_decisions` fold semantics so the buried decision keeps surfacing until that fold closes it while each presentation folds only new status-log appends.
 The drain coordinates that fold and its annotations through a locked fleet-wide snapshot whose `.status-presentation-cursor` manifest records each status file's identity plus independent annotation and outcome-backstop byte offsets.
-The main home's drain also gives long sessions a one-line, optional suggestion to run `/stow` and start a fresh session, including through the session-start digest's wake-queue section.
+The main home's drain gives long sessions an optional one-line suggestion, including in the session-start digest's wake-queue section.
+The suggestion offers [`/fresh`](../.agents/skills/fresh/SKILL.md) for Claude Omnigent or `/stow` followed by a new session.
 The age threshold and once-per-lock receipt are owned by `bin/fm-wake-drain.sh`'s header; lock age is a cheap proxy for session length, not a transcript-entry count or a guarantee of tracing coverage.
 The suggestion never blocks, ends, or restarts the session, and branch actors and secondmate homes do not emit it.
 While the away-mode or quiet-mode daemon owns supervision, the drain defers the suggestion and its receipt until a later captain-facing presentation.

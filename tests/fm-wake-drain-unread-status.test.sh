@@ -473,7 +473,7 @@ test_long_session_suggestion() {
   done
   rm -f "$state/.afk"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "long session drain failed"
-  grep -F 'consider /stow and starting a fresh session' "$out" >/dev/null || fail "long session suggestion missing"
+  grep -F 'consider /fresh for a one-step Claude Omnigent restart' "$out" >/dev/null || fail "long session suggestion missing"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "repeat drain failed"
   ! grep -F 'SESSION SUGGESTION' "$out" >/dev/null || fail "suggestion repeated for the same session"
   # A fresh lock generation must not inherit the previous generation's receipt.
