@@ -361,6 +361,14 @@
       "audience": "operator-example"
     },
     {
+      "path": "docs/examples/velocity-audit.plist",
+      "audience": "operator-example"
+    },
+    {
+      "path": "docs/velocity-audit.md",
+      "audience": "operator-current"
+    },
+    {
       "path": "docs/fm-test-isolation-proof.md",
       "audience": "maintainer-verification"
     },
