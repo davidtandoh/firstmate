@@ -786,6 +786,7 @@ print_session_suggestion() {
   local pid mtime now generation previous='' tmp receipt="$STATE/.fresh-session-prompt"
   [ "$ACTOR" = main ] || return 0
   [ ! -e "$FM_HOME/.fm-secondmate-parent" ] || return 0
+  ! fm_afk_daemon_owns_supervision "$STATE" || return 0
   [ -f "$STATE/.lock" ] && [ ! -L "$STATE/.lock" ] || return 0
   pid=$(head -c 32 "$STATE/.lock" 2>/dev/null) || return 0
   case "$pid" in ''|*[!0-9]*) return 0 ;; esac

@@ -450,7 +450,7 @@ test_routine_working_and_covered_done_stay_silent_on_the_empty_queue() {
 }
 
 test_long_session_suggestion() {
-  local dir state out old
+  local dir state out old mode
   dir=$(make_case long-session)
   state="$dir/state"
   out="$dir/drain.out"
@@ -461,6 +461,17 @@ test_long_session_suggestion() {
   ! grep -F 'SESSION SUGGESTION' "$out" >/dev/null || fail "young session was prompted"
   old=$(( $(date +%s) - 49 * 3600 ))
   perl -e 'utime($ARGV[0], $ARGV[0], $ARGV[1]) or exit 1' "$old" "$state/.lock"
+  mkdir -p "$state/.supervise-daemon.lock"
+  printf '%s\n' "$$" > "$state/.supervise-daemon.lock/pid"
+  bash -c '. "$1/bin/fm-wake-lib.sh"; fm_pid_identity "$2"' _ "$ROOT" "$$" \
+    > "$state/.supervise-daemon.lock/pid-identity" || fail "could not record daemon identity"
+  for mode in away quiet; do
+    printf '%s\n' "$mode" > "$state/.afk"
+    FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "$mode daemon drain failed"
+    ! grep -F 'SESSION SUGGESTION' "$out" >/dev/null || fail "$mode daemon consumed suggestion"
+    [ ! -e "$state/.fresh-session-prompt" ] || fail "$mode daemon recorded suggestion receipt"
+  done
+  rm -f "$state/.afk"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "long session drain failed"
   grep -F 'consider /stow and starting a fresh session' "$out" >/dev/null || fail "long session suggestion missing"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out" || fail "repeat drain failed"
