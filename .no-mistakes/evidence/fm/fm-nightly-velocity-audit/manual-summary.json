@@ -1,0 +1,54 @@
+{
+  "dry_run_unchanged": true,
+  "events": [
+    {
+      "at": 1792350245,
+      "summary": "waiting for access",
+      "verb": "blocked"
+    },
+    {
+      "at": 1792436644,
+      "summary": "access granted",
+      "verb": "resolved"
+    }
+  ],
+  "nightly_first": {
+    "acknowledged": false,
+    "announced": true,
+    "id": "1792436647-IujVXI",
+    "outcome": "created",
+    "path": "/Users/davidtandoh/.no-mistakes/evidence/01M5ARD5N5FGSYBZPNX320REM5/manual-home/state/inbox/1792436647-IujVXI.note",
+    "request_id": "velocity-audit-2026-10-19",
+    "saved": true,
+    "schema": "fm-inbox-note.v1"
+  },
+  "nightly_retry": {
+    "acknowledged": false,
+    "announced": true,
+    "id": "1792436647-IujVXI",
+    "outcome": "replay",
+    "path": "/Users/davidtandoh/.no-mistakes/evidence/01M5ARD5N5FGSYBZPNX320REM5/manual-home/state/inbox/1792436647-IujVXI.note",
+    "request_id": "velocity-audit-2026-10-19",
+    "saved": true,
+    "schema": "fm-inbox-note.v1"
+  },
+  "preceding_event": {
+    "at": 1792350244,
+    "summary": "before window",
+    "verb": "working"
+  },
+  "prs": [
+    {
+      "created_at": "2026-10-19T18:14:50Z",
+      "merged_at": null,
+      "source": "gh-axi",
+      "url": "https://github.com/davidtandoh/firstmate/pull/25"
+    }
+  ],
+  "source_status_unchanged": true,
+  "unsafe_path_exit": 1,
+  "window": {
+    "end_exclusive": 1792436645,
+    "start": 1792350245
+  }
+}

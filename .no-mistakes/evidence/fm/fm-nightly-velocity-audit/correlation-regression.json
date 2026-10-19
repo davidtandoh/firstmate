@@ -1,0 +1,26 @@
+{
+  "after_commit": "0b51d92",
+  "after_events": [
+    {
+      "at": 1792350245,
+      "summary": "waiting for access",
+      "verb": "blocked"
+    },
+    {
+      "at": 1792436644,
+      "summary": "access granted",
+      "verb": "resolved"
+    }
+  ],
+  "before_commit": "05e0132",
+  "before_events": [
+    {
+      "at": 1792436644,
+      "summary": "access granted",
+      "verb": "resolved"
+    }
+  ],
+  "before_exit": 0,
+  "regression_reproduced": true,
+  "setup_note": "Initial in-memory launcher lacked __file__; supplied original path and re-drove. Baseline retains bracket-first resolved but loses bare-correlation blocked."
+}

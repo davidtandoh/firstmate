@@ -1,0 +1,4 @@
+working [at=1792350244]: before window
+blocked corr=0123456789abcdef [key=access] [at=1792350245]: waiting for access
+resolved [key=access] corr=0123456789abcdef [at=1792436644]: access granted
+done [at=1792436645]: excluded end boundary
