@@ -88,4 +88,4 @@ Log tails disclose omitted prefixes, and optional missing sources appear in `lim
 ## Verify
 
 Run `bin/fm-test-run.sh tests/fm-velocity-facts.test.sh` for isolated collector and nightly inbox coverage.
-The suite uses temporary homes and exercises window boundaries, optional forge enrichment, bounded logs, retry behavior, unsafe paths, and dry-run isolation.
+The suite uses temporary homes and exercises window boundaries, supported correlation-token status records, optional forge enrichment, bounded logs, retry behavior, unsafe paths, and dry-run isolation.
