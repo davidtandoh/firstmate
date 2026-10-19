@@ -16,6 +16,11 @@
 # locked drain rotates such leftovers away before doing anything else.
 # FM_STATUS_PRESENTATION_LOCK_TIMEOUT sets the positive whole-second wait for
 # presentation-path locks (default 10); queue mutation locks remain blocking.
+# On main-home/main-actor presentations, suggest /stow and a fresh session once
+# the live session lock is at least 48 hours old, once per pid/mtime generation.
+# This age proxy does not count transcript entries or enforce a session limit.
+# The optional receipt is state/.fresh-session-prompt, serialized under the
+# status-presentation lock; failure to read/write it never blocks the drain.
 set -u
 
 SCRIPT_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)"
@@ -777,6 +782,30 @@ print_status_sections() {
   rm -f -- "$prepared"
 }
 
+print_session_suggestion() {
+  local pid mtime now generation previous='' tmp receipt="$STATE/.fresh-session-prompt"
+  [ "$ACTOR" = main ] || return 0
+  [ ! -e "$FM_HOME/.fm-secondmate-parent" ] || return 0
+  [ -f "$STATE/.lock" ] && [ ! -L "$STATE/.lock" ] || return 0
+  pid=$(head -c 32 "$STATE/.lock" 2>/dev/null) || return 0
+  case "$pid" in ''|*[!0-9]*) return 0 ;; esac
+  kill -0 "$pid" 2>/dev/null || return 0
+  mtime=$(fm_path_mtime "$STATE/.lock") || return 0
+  fm_epoch_seconds_to now
+  [ "$((now - mtime))" -ge 172800 ] || return 0
+  generation="$pid:$mtime"
+  if [ -f "$receipt" ] && [ ! -L "$receipt" ]; then
+    previous=$(head -c 64 "$receipt" 2>/dev/null) || previous=''
+  fi
+  [ "$previous" != "$generation" ] || return 0
+  printf 'SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /stow and starting a fresh session when convenient (optional).\n' || return 0
+  tmp=$(mktemp "$STATE/.fresh-session-prompt.XXXXXX") || return 0
+  if ! { printf '%s\n' "$generation" > "$tmp" && _fm_atomic_replace "$tmp" "$receipt"; }; then
+    rm -f -- "$tmp"
+  fi
+  return 0
+}
+
 print_status_presentation() {  # [<deduped-raw-rows>]
   local rows=${1:-} lock="$STATE/.status-presentation-lock" snapshot annotation_manifest fully_presented='' rc=0
   local lock_rc holder_pid
@@ -793,6 +822,7 @@ print_status_presentation() {  # [<deduped-raw-rows>]
     fi
     return 1
   fi
+  print_session_suggestion
   snapshot=$(status_presentation_snapshot "$STATE") || {
     printf 'STATUS PRESENTATION INCOMPLETE: status snapshot could not be read.\n'
     rc=1
