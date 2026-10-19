@@ -7,10 +7,11 @@ This record separates launch propagation, process liveness, native supervision, 
 
 On 2026-10-19, `bash bin/fm-test-run.sh tests/fm-fresh-session.test.sh` returned `total=1 failed=0 skipped_gate=0`.
 The isolated fixtures exercised launch ordering, unchanged ownership on preflight failure, launch failure and timeout, takeover rejection, old-session stop failure, and restoration after the replacement exits.
+The regression suite also covers stale-anchor recovery after a completed handoff with the retained token, and preservation of set, unset, and empty caller account environments across an existing tmux server.
 `tests/fm-omnigent.test.sh` also covers the fresh primary's title, initial prompt, and explicit native handoff environment.
 These fixtures do not prove a real Claude primary's full stow-to-replacement transition.
 
-Real-session verification remains unexecuted.
+The complete real-session handoff remains unverified.
 On the same date, `agent-kit observe serve status --json` reported Omnigent `0.18.0`, `status=drifted`, and `reason=serve_redactor_source_drift`.
 The existing launcher refuses that service state before creating a replacement.
 Other primary harnesses and secondmate homes remain outside the fresh command's supported scope.
