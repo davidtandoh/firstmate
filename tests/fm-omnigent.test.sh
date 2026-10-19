@@ -95,6 +95,15 @@ for harness in claude codex; do
   printf 'Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$TMP_ROOT/expected-stderr"
   cmp "$TMP_ROOT/expected-stderr" "$TMP_ROOT/title-error" || fail 'native stderr changed'
 done
+reset_title
+env -u FM_TASK_ID -u FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_HOME="$TMP_ROOT/main" FM_FRESH_TOKEN=handoff-proof \
+  "$OMNI" run claude 'Continue Firstmate' 2> "$TMP_ROOT/title-error"
+wait_title
+jq -e '.title == "firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'fresh primary title differs'
+jq -e '.environment.FM_FRESH_TOKEN == "handoff-proof" and .environment.FM_TASK_ID == "" and
+  (.argv | index("--prompt")) != null' "$OMNI_RESULT" >/dev/null || fail 'fresh launch lost token or initial prompt'
+pass 'fresh primary launch keeps the firstmate title and forwards its handoff token'
+
 for harness in claude codex kiro agy; do
   reset_title
   native=('literal prompt')

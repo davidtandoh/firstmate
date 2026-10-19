@@ -799,7 +799,7 @@ print_session_suggestion() {
     previous=$(head -c 64 "$receipt" 2>/dev/null) || previous=''
   fi
   [ "$previous" != "$generation" ] || return 0
-  printf 'SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /stow and starting a fresh session when convenient (optional).\n' || return 0
+  printf 'SESSION SUGGESTION: This session has held the lock for at least 48 hours; consider /fresh for a one-step Claude Omnigent restart, or /stow and starting a fresh session when convenient (optional).\n' || return 0
   tmp=$(mktemp "$STATE/.fresh-session-prompt.XXXXXX") || return 0
   if ! { printf '%s\n' "$generation" > "$tmp" && _fm_atomic_replace "$tmp" "$receipt"; }; then
     rm -f -- "$tmp"

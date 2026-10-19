@@ -46,6 +46,33 @@ Naming errors appear on stderr without interrupting the native terminal or chang
 The observer handles launch titles only; it does not rename resumed sessions or later conversations created inside the native harness.
 [Verification](verification/omnigent.md#launch-title-verification) distinguishes deterministic coverage from real-wrapper proof.
 
+## Fresh main sessions
+
+The main Claude primary can use [`/fresh`](../.agents/skills/fresh/SKILL.md) to complete `/stow` and replace its long-running Omnigent session in one step.
+The replacement starts in the same Firstmate home with the title `firstmate`.
+Workers, secondmates, and other primary harnesses are outside this command's scope.
+
+```mermaid
+sequenceDiagram
+    participant Old as Current primary
+    participant Lock as Home lock
+    participant New as Fresh primary
+    Old->>Old: Complete stow
+    Old->>New: Launch with single-use handoff token
+    New->>Lock: Claim under the acquisition mutex
+    Lock-->>Old: Confirm replacement ownership
+    Old->>Old: Stop old Omnigent session
+```
+
+The current primary retains charge until the replacement owns the lock.
+`bin/fm-fresh-session.sh` owns the bounded handoff and recovery mechanics; its header and `--help` describe the exact command.
+`bin/fm-lock.sh` validates the handoff token under its existing acquisition mutex before replacing a live owner.
+An ordinary session without the token still cannot take over a live lock.
+The launcher runs in a dedicated detached tmux session because the existing Omnigent CLI owns a foreground terminal attachment.
+It uses the existing launcher and title observer, and sends the old session a stop event that preserves its history.
+A startup failure preserves the old owner; a stop failure reports the replacement URL while preserving the new owner.
+`tests/fm-fresh-session.test.sh` exercises the command's ordering, failure recovery, and lock boundary with isolated tool doubles.
+
 ## Native environment and supervision
 
 The service starts native terminals in a different process tree.

@@ -212,7 +212,7 @@ if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
   fi
   fm_harness_pid_alive "$old"
   case "$?" in
-    0) refuse_live_owner "$old" ;;
+    0) [ -n "${FM_FRESH_TOKEN:-}" ] || refuse_live_owner "$old" ;;
     2) refuse_unreadable_owner "$old" ;;
   esac
 fi
@@ -227,6 +227,35 @@ if ! fm_lock_try_acquire "$CLAIM_LOCK"; then
 fi
 CLAIM_LOCK_HELD=1
 
+# A /fresh successor may replace only the specific live owner that issued its
+# single-use token. This exception is checked again inside the ordinary claim
+# mutex, so timeout revocation and simultaneous startups cannot both win.
+fresh_takeover=0
+if [ -n "${FM_FRESH_TOKEN:-}" ]; then
+  fresh_request="$STATE/.fresh-handoff"
+  fresh_session=${HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID:-}
+  fresh_json=
+  if [ -f "$fresh_request" ] && [ ! -L "$fresh_request" ]; then
+    fresh_json=$(head -c 4097 "$fresh_request" 2>/dev/null || true)
+  fi
+  if [ ! -f "$fresh_request" ] || [ -L "$fresh_request" ] ||
+    ! fm_session_lock_trusted_session_id >/dev/null ||
+    ! [[ "$fresh_session" =~ ^[a-f0-9]{32}$ ]] ||
+    ! [ "${#fresh_json}" -le 4096 ] ||
+    ! printf '%s' "$fresh_json" | jq -se --arg token "$FM_FRESH_TOKEN" \
+      --arg old "$(head -c 32 "$LOCK")" --arg session "$fresh_session" \
+      --arg claude "$(fm_session_lock_trusted_session_id)" '
+        length == 1 and (.[0] |
+          .token == $token and .old_pid == $old and .old_session != $session and
+          (.old_session | type == "string" and test("^[a-f0-9]{32}$")) and
+          (.old_claude | type == "string" and length > 0) and .old_claude != $claude)
+      ' >/dev/null 2>&1; then
+    echo 'error: fresh-session handoff is invalid or revoked; operate read-only' >&2
+    exit 1
+  fi
+  fresh_takeover=1
+fi
+
 if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
   if [ ! -f "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is not a regular file; operate read-only until resolved" >&2
@@ -236,7 +265,7 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
-  if [ "$old" != "$me" ]; then
+  if [ "$old" != "$me" ] && [ "$fresh_takeover" -eq 0 ]; then
     fm_harness_pid_alive "$old"
     case "$?" in
       0)
@@ -252,6 +281,18 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
         ;;
       2) refuse_unreadable_owner "$old" ;;
     esac
+  fi
+fi
+if [ "$fresh_takeover" -eq 1 ]; then
+  # Publish the receipt before changing ownership. The caller accepts it only
+  # after line 1 also names this verified live anchor.
+  fresh_receipt=$(mktemp "$STATE/.fresh-claimed.XXXXXX") || exit 1
+  if (umask 077; jq -cn --arg token "$FM_FRESH_TOKEN" --arg pid "$me" --arg session "$fresh_session" \
+    '{token:$token,pid:$pid,session:$session}' > "$fresh_receipt") && mv -f "$fresh_receipt" "$STATE/.fresh-claimed"; then
+    :
+  else
+    rm -f "$fresh_receipt"
+    exit 1
   fi
 fi
 # The sidecar goes first: a fresh pid beside a previous session's id would let

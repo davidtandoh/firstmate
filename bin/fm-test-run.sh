@@ -301,7 +301,7 @@ family_for_basename() {
     fm-crew-state.test.sh|fm-captain-hold-lifecycle.test.sh|\
     fm-documentation-audiences.test.sh|fm-ensure-agents-md.test.sh|fm-forge-detect.test.sh|fm-grok-harness.test.sh|\
     fm-fork-free-helpers.test.sh|\
-    fm-harness-precedence.test.sh|fm-omnigent.test.sh|\
+    fm-harness-precedence.test.sh|fm-omnigent.test.sh|fm-fresh-session.test.sh|\
     fm-kimi-harness.test.sh|fm-devin-harness.test.sh|fm-muse-harness.test.sh|fm-rovo-harness.test.sh|fm-agy-harness.test.sh|fm-kiro-harness.test.sh|fm-omp-harness.test.sh|fm-herdr-lab.test.sh|fm-lint.test.sh|\
     fm-lint-workflows.test.sh|\
     fm-operational-input.test.sh|fm-pi-primary-types.test.sh|\
@@ -1487,6 +1487,8 @@ families_for_changed_path() {
       printf '%s\n' backend-dispatch
       printf '%s\n' real-herdr-gated
       ;;
+    bin/fm-fresh-session.sh)
+      printf '%s\n' pure-contract-unit ;;
     bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh)
       # The shared harness-process classifier feeds both the tmux and Herdr
       # liveness verdicts, so a change to it is proven by both backends' suites.
