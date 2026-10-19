@@ -6,6 +6,8 @@ The [README](../README.md) carries the high-level diagram and a short synopsis.
 This document expands every part of it.
 firstmate's supervisor contract and routing index for conditional procedures is [`AGENTS.md`](../AGENTS.md); this is the human-facing companion.
 
+The optional [nightly velocity audit](velocity-audit.md) collects bounded home evidence outside model sessions, queues one normal scout intake through the existing inbox, and returns proposed improvements through the existing report and decision paths.
+
 ## Event-driven supervision
 
 The declared-wait vocabulary, including the legacy "external wait" label, is owned by [`bin/fm-classify-lib.sh`](../bin/fm-classify-lib.sh); worker declaration instructions and the ship worker's scratch-location and clean-worktree contract are owned by [`bin/fm-brief.sh`](../bin/fm-brief.sh).
