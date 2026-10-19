@@ -231,31 +231,6 @@ CLAIM_LOCK_HELD=1
 # single-use token. This exception is checked again inside the ordinary claim
 # mutex, so timeout revocation and simultaneous startups cannot both win.
 fresh_takeover=0
-if [ -n "${FM_FRESH_TOKEN:-}" ]; then
-  fresh_request="$STATE/.fresh-handoff"
-  fresh_session=${HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID:-}
-  fresh_json=
-  if [ -f "$fresh_request" ] && [ ! -L "$fresh_request" ]; then
-    fresh_json=$(head -c 4097 "$fresh_request" 2>/dev/null || true)
-  fi
-  if [ ! -f "$fresh_request" ] || [ -L "$fresh_request" ] ||
-    ! fm_session_lock_trusted_session_id >/dev/null ||
-    ! [[ "$fresh_session" =~ ^[a-f0-9]{32}$ ]] ||
-    ! [ "${#fresh_json}" -le 4096 ] ||
-    ! printf '%s' "$fresh_json" | jq -se --arg token "$FM_FRESH_TOKEN" \
-      --arg old "$(head -c 32 "$LOCK")" --arg session "$fresh_session" \
-      --arg claude "$(fm_session_lock_trusted_session_id)" '
-        length == 1 and (.[0] |
-          .token == $token and .old_pid == $old and .old_session != $session and
-          (.old_session | type == "string" and test("^[a-f0-9]{32}$")) and
-          (.old_claude | type == "string" and length > 0) and .old_claude != $claude)
-      ' >/dev/null 2>&1; then
-    echo 'error: fresh-session handoff is invalid or revoked; operate read-only' >&2
-    exit 1
-  fi
-  fresh_takeover=1
-fi
-
 if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
   if [ ! -f "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is not a regular file; operate read-only until resolved" >&2
@@ -265,6 +240,30 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
+  if [ -n "${FM_FRESH_TOKEN:-}" ] && fm_harness_pid_alive "$old"; then
+    fresh_request="$STATE/.fresh-handoff"
+    fresh_session=${HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID:-}
+    fresh_json=
+    if [ -f "$fresh_request" ] && [ ! -L "$fresh_request" ]; then
+      fresh_json=$(head -c 4097 "$fresh_request" 2>/dev/null || true)
+    fi
+    if [ ! -f "$fresh_request" ] || [ -L "$fresh_request" ] ||
+      ! fm_session_lock_trusted_session_id >/dev/null ||
+      ! [[ "$fresh_session" =~ ^[a-f0-9]{32}$ ]] ||
+      ! [ "${#fresh_json}" -le 4096 ] ||
+      ! printf '%s' "$fresh_json" | jq -se --arg token "$FM_FRESH_TOKEN" \
+        --arg old "$(head -c 32 "$LOCK")" --arg session "$fresh_session" \
+        --arg claude "$(fm_session_lock_trusted_session_id)" '
+          length == 1 and (.[0] |
+            .token == $token and .old_pid == $old and .old_session != $session and
+            (.old_session | type == "string" and test("^[a-f0-9]{32}$")) and
+            (.old_claude | type == "string" and length > 0) and .old_claude != $claude)
+        ' >/dev/null 2>&1; then
+      echo 'error: fresh-session handoff is invalid or revoked; operate read-only' >&2
+      exit 1
+    fi
+    fresh_takeover=1
+  fi
   if [ "$old" != "$me" ] && [ "$fresh_takeover" -eq 0 ]; then
     fm_harness_pid_alive "$old"
     case "$?" in

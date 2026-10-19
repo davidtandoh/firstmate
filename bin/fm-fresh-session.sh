@@ -71,7 +71,11 @@ token=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
   '{token:$token,old_pid:$old,old_session:$session,old_claude:$claude}' > "$request")
 fm_lock_release "$claim"; held=0
 terminal="fm-fresh-$token"
-printf -v command '%q ' env "FM_HOME=$FM_HOME" "FM_STATE_OVERRIDE=$STATE" \
+account_env=(-u CLAUDE_CONFIG_DIR)
+if [ "${CLAUDE_CONFIG_DIR+x}" = x ]; then
+  account_env=("CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR")
+fi
+printf -v command '%q ' env "${account_env[@]}" "FM_HOME=$FM_HOME" "FM_STATE_OVERRIDE=$STATE" \
   "FM_ROOT_OVERRIDE=${SCRIPT_DIR%/bin}" "FM_DATA_OVERRIDE=${FM_DATA_OVERRIDE:-$FM_HOME/data}" \
   "FM_CONFIG_OVERRIDE=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "FM_PROJECTS_OVERRIDE=${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}" \
   "FM_BACKEND=${FM_BACKEND:-}" "FM_TASK_ID=" "FM_PUBLIC_FOLLOWUP_PRIMARY_HOME=" "FM_TRACE_CONTEXT=" \

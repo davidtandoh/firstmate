@@ -4,9 +4,13 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 TMP_ROOT=$(fm_test_tmproot fm-fresh-session)
 old_pid='' new_pid=''
+real_tmux=$(command -v tmux)
+tmux_socket="fm-fresh-test-$$"
+export REAL_TMUX=$real_tmux TMUX_SOCKET=$tmux_socket
 cleanup() {
   [ -z "$old_pid" ] || kill "$old_pid" 2>/dev/null || true
   [ -z "$new_pid" ] || kill "$new_pid" 2>/dev/null || true
+  "$real_tmux" -L "$tmux_socket" kill-server 2>/dev/null || true
   fm_test_cleanup
 }
 trap cleanup EXIT
@@ -45,6 +49,9 @@ if [ "$2" = --dry-run ]; then
   [ "${CASE:-}" != preflight-fail ] || exit 1
   echo '{"server_url":"http://127.0.0.1:6767"}'
 else
+  printf '%s\n' "$FM_FRESH_TOKEN" > "$FM_HOME/fresh-token"
+  jq -cn --arg present "${CLAUDE_CONFIG_DIR+x}" --arg value "${CLAUDE_CONFIG_DIR:-}" \
+    '{present:$present,value:$value}' > "$FM_HOME/account-environment"
   echo launch >> "$FM_HOME/events"
   [ "$(cat "$FM_HOME/state/.lock")" = "$OLD_PID" ]
   [ "${CASE:-}" != launch-fail ] || exit 1
@@ -59,6 +66,9 @@ SH
 cat > "$TMP_ROOT/tools/tmux" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ "${REAL_TMUX_LAUNCH:-}" = 1 ]; then
+  exec "$REAL_TMUX" -L "$TMUX_SOCKET" "$@"
+fi
 if [ "$1" = new-session ]; then
   while [ "$#" -gt 1 ]; do shift; done
   bash -c "$1"
@@ -110,6 +120,53 @@ bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1 || { cat "$TMP_RO
 printf 'preflight\nlaunch\nclaimed\nstop\n' > "$TMP_ROOT/expected"
 cmp "$TMP_ROOT/expected" "$FM_HOME/events" || fail 'handoff order differs'
 pass 'replacement claims ownership before old-session stop'
+[ ! -e "$FM_HOME/state/.fresh-handoff" ] || fail 'successful handoff retained its request'
+kill "$NEW_PID"
+wait "$NEW_PID" 2>/dev/null || true
+if ! CLAUDE_PID=$OLD_PID CLAUDE_CODE_SESSION_ID=new-session \
+  HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  FM_FRESH_TOKEN="$(cat "$FM_HOME/fresh-token")" \
+  bash "$FM_HOME/bin/fm-lock.sh" > "$TMP_ROOT/out" 2>&1; then
+  cat "$TMP_ROOT/out"
+  fail 'completed handoff blocked stale-anchor recovery'
+fi
+[ "$(cat "$FM_HOME/state/.lock")" = "$OLD_PID" ] || fail 'recovery did not publish the recycled anchor'
+[ "$(cat "$FM_HOME/state/.lock-session")" = new-session ] || fail 'recovery lost the replacement session'
+[ ! -e "$FM_HOME/state/.fresh-claimed" ] || fail 'stale recovery published a takeover receipt'
+pass 'completed handoff permits stale-anchor recovery with the retained token'
+sleep 300 & new_pid=$!
+export NEW_PID=$new_pid
+
+CLAUDE_CONFIG_DIR="$TMP_ROOT/server-account" "$REAL_TMUX" -L "$TMUX_SOCKET" \
+  -f /dev/null new-session -d -s anchor 'sleep 300'
+"$REAL_TMUX" -L "$TMUX_SOCKET" set-option -g default-shell /bin/bash
+for server_account in set unset; do
+  if [ "$server_account" = set ]; then
+    "$REAL_TMUX" -L "$TMUX_SOCKET" set-environment -g CLAUDE_CONFIG_DIR "$TMP_ROOT/server-account"
+  else
+    "$REAL_TMUX" -L "$TMUX_SOCKET" set-environment -gu CLAUDE_CONFIG_DIR
+  fi
+  for caller_account in set unset empty; do
+    reset
+    case "$caller_account" in
+      set) export CLAUDE_CONFIG_DIR="$TMP_ROOT/current account's config" ;;
+      unset) unset CLAUDE_CONFIG_DIR ;;
+      empty) export CLAUDE_CONFIG_DIR= ;;
+    esac
+    jq -cn --arg present "${CLAUDE_CONFIG_DIR+x}" --arg value "${CLAUDE_CONFIG_DIR:-}" \
+      '{present:$present,value:$value}' > "$TMP_ROOT/expected-account"
+    if ! REAL_TMUX_LAUNCH=1 bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1; then
+      cat "$TMP_ROOT/out"
+      fail "$caller_account caller account with $server_account server account failed"
+    fi
+    cmp "$TMP_ROOT/expected-account" "$FM_HOME/account-environment" \
+      || fail "$caller_account caller account changed across $server_account tmux environment"
+  done
+done
+"$REAL_TMUX" -L "$TMUX_SOCKET" kill-server
+unset CLAUDE_CONFIG_DIR
+pass 'existing tmux server preserves set, unset, and empty caller account environments'
+
 reset
 if CASE=stop-fail bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1; then fail 'failed stop hidden'; fi
 [ "$(cat "$FM_HOME/state/.lock")" = "$NEW_PID" ] || fail 'failed close stole new ownership'
@@ -124,7 +181,9 @@ for case_name in missing-token wrong-token wrong-owner same-claude same-omnigent
   case "$case_name" in
     missing-token) token= ;;
     wrong-token) token=wrong ;;
-    wrong-owner) echo 1 > "$FM_HOME/state/.lock" ;;
+    wrong-owner)
+      jq '.old_pid = "1"' "$FM_HOME/state/.fresh-handoff" > "$TMP_ROOT/request"
+      mv "$TMP_ROOT/request" "$FM_HOME/state/.fresh-handoff" ;;
     same-claude) CLAUDE_CODE_SESSION_ID=old-session; echo unrelated > "$FM_HOME/state/.lock-session" ;;
     same-omnigent) HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ;;
     revoked) rm "$FM_HOME/state/.fresh-handoff" ;;
