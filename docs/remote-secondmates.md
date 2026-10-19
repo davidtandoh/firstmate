@@ -650,6 +650,7 @@ Changed live routes receive a marked instruction to re-read the transferred file
 The primary records that remote nudge before delivery and retries it during locked startup convergence after a failed send.
 Local secondmates retain their generation-specific local pointer contract.
 Remote transfers do not copy those primary-local instruction paths.
+For generation recovery after a parent-home move, see the [inherited-material convergence contract](../.agents/skills/secondmate-provisioning/SKILL.md#charter-and-seed).
 
 ### Relaunch a live remote second mate
 

@@ -9,18 +9,24 @@
 # fail closed as documented by that owner. FM_CONFIG_INHERIT_LIVE=1 marks a live
 # convergence push into an already-running home and skips session-scoped items,
 # exactly as the local propagation path does.
-set -eu
+# Callers hold fm_remote_inherit_transaction_lock_path through generation
+# allocation and this whole push. Only a fully successful push may adopt the
+# largest receiver-confirmed generation into that same parent counter.
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
 # shellcheck source=bin/fm-config-inherit-lib.sh
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+# shellcheck source=bin/fm-secondmate-nudge-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 sha256_file() {
@@ -44,6 +50,7 @@ EMPTY="$TMP/empty"
 EMPTY_HASH=$(sha256_file "$EMPTY") || die "cannot hash empty inheritance payload"
 
 ITEMS=$(fm_config_inherit_items)
+CONFIRMED_FLOOR=$GENERATION
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
   if [ "${FM_CONFIG_INHERIT_LIVE:-0}" = 1 ]; then
@@ -76,11 +83,24 @@ while IFS= read -r rel; do
     [ -f "$snapshot" ] && [ ! -L "$snapshot" ] || die "inherited source snapshot is unsafe: $source"
     bytes=$(LC_ALL=C wc -c < "$snapshot" | tr -d ' ')
     hash=$(sha256_file "$snapshot") || die "cannot hash inherited source: $source"
-    "$SCRIPT_DIR/fm-on.sh" --stdin "$ID" fm-remote-inherit.sh put "$rel" "$bytes" "$hash" "$GENERATION" < "$snapshot"
+    result=$("$SCRIPT_DIR/fm-on.sh" --stdin "$ID" fm-remote-inherit.sh put "$rel" "$bytes" "$hash" "$GENERATION" < "$snapshot")
   else
     # This loop's heredoc is its control stream, not remote command input.
-    "$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-inherit.sh absent "$rel" 0 "$EMPTY_HASH" "$GENERATION" < /dev/null
+    result=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-inherit.sh absent "$rel" 0 "$EMPTY_HASH" "$GENERATION" < /dev/null)
   fi
+  printf '%s\n' "$result"
+  case "$result" in
+    "unchanged: $rel generation="*)
+      confirmed=${result#"unchanged: $rel generation="}
+      case "$confirmed" in ''|*[!0-9]*) die "invalid confirmed inheritance generation" ;; esac
+      [ "${#confirmed}" -le 17 ] || die "confirmed inheritance generation exceeds the parent counter range"
+      if [ "$confirmed" -gt "$CONFIRMED_FLOOR" ]; then CONFIRMED_FLOOR=$confirmed; fi
+      ;;
+  esac
 done <<EOF
 $ITEMS
 EOF
+if [ "$CONFIRMED_FLOOR" -gt "$GENERATION" ]; then
+  fm_remote_inherit_generation_next "$STATE" "$ID" "$CONFIRMED_FLOOR" >/dev/null \
+    || die "cannot retain confirmed remote inheritance generation"
+fi

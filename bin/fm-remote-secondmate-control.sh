@@ -52,7 +52,7 @@
 # the default-off path. print_route echoes the carrier the endpoint actually
 # holds, including for an already-alive endpoint that was not relaunched, so the
 # parent records the identity the agent really received rather than an intent.
-set -eu
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -333,7 +333,12 @@ cmd_capture() {
   case "$lines" in ''|*[!0-9]*|0) die "capture line count must be positive" ;; esac
   [ "$lines" -le 100 ] || die "capture line count exceeds 100"
   remote_endpoint_require "$id"
-  fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$lines" "fm-$id" | head -c 65536
+  # Drain beyond the output bound so a successful backend cannot fail with
+  # SIGPIPE; pipefail still preserves a genuine backend failure.
+  fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$lines" "fm-$id" | {
+    head -c 65536
+    cat >/dev/null
+  }
 }
 
 cmd_observe() {
@@ -400,11 +405,11 @@ cmd_update() {
   validate_id "$id"
   validate_home "$id"
   if ! update_out=$(FM_HOME="$FM_ROOT" FM_ROOT_OVERRIDE="$FM_ROOT" \
-    "$SCRIPT_DIR/fm-update.sh" 2>&1); then
+    "$SCRIPT_DIR/fm-update.sh" --root-only 2>&1); then
     [ -z "$update_out" ] || printf '%s\n' "$update_out" >&2
     die "remote code root update failed"
   fi
-  root_status=$(printf '%s\n' "$update_out" | grep '^firstmate:' | tail -1)
+  root_status=$(printf '%s\n' "$update_out" | sed -n '/^firstmate:/p' | tail -1)
   case "$root_status" in
     'firstmate: updated '*|'firstmate: already current'*) ;;
     *)
