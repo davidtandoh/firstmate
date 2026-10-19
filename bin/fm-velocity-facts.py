@@ -34,7 +34,7 @@ import time
 READ_LIMIT = 262144
 OUTPUT_LIMIT = 2097152
 EVENT_LIMIT = 2000
-STATUS = re.compile(r'^([a-z][a-z-]*)(?:\s+\[[^\n]*\])?:')
+STATUS = re.compile(r'^([a-z][a-z-]*)(?:\s+corr=[0-9A-Fa-f]{16}|\s*\[[^\]\n]*\])*\s*:')
 STAMP = re.compile(r'\[at=([0-9]+)\]')
 PR = re.compile(r'https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/pull/([0-9]+)')
 

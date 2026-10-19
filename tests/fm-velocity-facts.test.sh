@@ -86,6 +86,38 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(len(facts['tasks'][0]['events']), 1)
         self.assertLess(path.stat().st_size, 2097152)
 
+    def test_correlation_status_records(self):
+        corr = '0123456789aBcDeF'
+        heads = [
+            'corr=' + corr,
+            '[corr={}]'.format(corr),
+            'corr={} [key=access]'.format(corr),
+            '[key=access] corr=' + corr,
+            'corr={} corr=fedcba9876543210'.format(corr),
+        ]
+        lines = []
+        expected = []
+        for index, head in enumerate(heads):
+            for verb in ('blocked', 'resolved'):
+                summary = '{} {}: access'.format(verb, index)
+                lines.append('{} {} [at={}]: {}'.format(verb, head, NOW - 1, summary))
+                expected.append({'at': NOW - 1, 'verb': verb, 'summary': summary})
+        lines.extend([
+            'blocked corr={} [at={}]: carried wait'.format(corr, NOW - 90000),
+            'working corr={}: legacy'.format(corr),
+            'blocked corr=short [at={}]: invalid'.format(NOW - 1),
+            'resolved corr={}0 [at={}]: invalid'.format(corr, NOW - 1),
+            'resolved corr={} prose [at={}]: invalid'.format(corr, NOW - 1),
+            'corr={} resolved [at={}]: invalid'.format(corr, NOW - 1),
+        ])
+        (self.home / 'state/task.status').write_text('\n'.join(lines) + '\n')
+        result = self.run_collector()
+        facts = json.loads(Path(result['path']).read_text())
+        self.assertEqual(facts['tasks'][0]['events'], expected)
+        self.assertEqual(facts['tasks'][0]['preceding_event'],
+                         {'at': NOW - 90000, 'verb': 'blocked', 'summary': 'carried wait'})
+        self.assertEqual(facts['untimed_status_lines'], 1)
+
     def test_carried_wait_and_secondary_telemetry(self):
         (self.home / 'state/task.meta').write_text('kind=scout\n')
         (self.home / 'state/task.status').write_text('paused [at={}]: long wait\n'.format(NOW - 90000))
