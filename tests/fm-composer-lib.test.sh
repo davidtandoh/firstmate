@@ -926,7 +926,7 @@ test_matrix_opencode_leftbar_signals() {
 test_matrix_opencode_leftbar_cwd_furniture() {
   # Keep RGB 128 furniture visible to test structural recognition independently
   # of the fork gray-ghost ceiling. Default stripping has separate coverage.
-  local FM_COMPOSER_GHOST_GRAY_LUMA_MAX=128
+  local -x FM_COMPOSER_GHOST_GRAY_LUMA_MAX=128
   # Real idle OpenCode 1.18.31, captured live on 2026-09-18 from a firstmate
   # tmux worker pane (fixtures/opencode-1.18.31-cwd/opencode-1.18.31-idle-cwd.ansi,
   # the styled 20-row tail exactly as fm_tmux_composer_capture feeds it, real

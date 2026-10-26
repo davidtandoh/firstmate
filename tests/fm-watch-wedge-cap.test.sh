@@ -25,6 +25,13 @@ ack_stopped_cycle() {  # <state>
   sequence=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$/\1/p' "$err")
   generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through [0-9][0-9]* --recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$err")
   rm -f "$err"
+  # An acknowledged, empty episode stays acknowledged when the watcher stops
+  # without new work. The drain correctly offers no second acknowledgement.
+  if [ -z "$sequence" ] && [ -z "$generation" ]; then
+    [ ! -s "$state/.wake-queue" ] \
+      && grep -Eq '^acked:(handling|downtime):[A-Za-z0-9._-]+$' "$state/.watcher-down"
+    return "$?"
+  fi
   [ -n "$sequence" ] && [ -n "$generation" ] || return 1
   FM_STATE_OVERRIDE="$state" "$DRAIN" --ack-through "$sequence" \
     --recovery-generation "$generation"
@@ -743,12 +750,10 @@ test_wedge_cap_reads_an_unreadable_counter_as_a_fresh_one() {
   pass "an escalation counter the shell cannot compare is read as a fresh count of 1, never as a count the arithmetic wrapped around"
 }
 
-# 8. The cap-fire path is durable: rolling back on a marker-write failure
-# restores the escalation counter and stale timer, and a rollback failure
-# itself writes a transient sentinel that silences the wedge for
-# FM_ROLLBACK_SENTINEL_TTL_SECS.
-test_wedge_cap_rollback_writes_sentinel_on_marker_failure() {
-  local dir state out capture_file window key pane_hash sig pid n max marker_window sentinel
+# 8. A failed counter write silences escalation through the sentinel, including
+# an invalid TTL, while a gone endpoint still gets reported.
+test_wedge_cap_failed_counter_sentinel_still_reports_gone_endpoint() {
+  local dir state out capture_file window key pane_hash sig pid n max sentinel
   dir=$(make_case wedge-cap-rollback); state="$dir/state"; capture_file="$dir/pane.txt"
   out="$dir/watch.out"
   fakebin="$dir/fakebin"
@@ -764,16 +769,10 @@ test_wedge_cap_rollback_writes_sentinel_on_marker_failure() {
   max=1
   export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
   prime_and_ack "$dir" "$max" || fail "prime-and-ack failed"
-  marker_window="$state/.wedge-permanent-$key"
   sentinel="$state/.wedge-rollback-failed-$key"
 
-  # Two planted write failures in one poll: the cap-marker path is
-  # a non-empty directory (so that write fails), and the escalation-counter
-  # path is a directory (so the rollback's own counter reset fails too). A
-  # failed rollback must leave a sentinel rather than silently preserving the
-  # saturated counter, which would re-fire the wedge on every poll - the
-  # wake-queue flood this bounds.
-  mkdir -p "$marker_window/blocker"
+  # The directory refuses both the initial count write and its rollback.
+  # The watcher must stop before publication and leave a silence sentinel.
   mkdir -p "$state/.wedge-escalations-$key"
   echo $(( $(date +%s) - 500 )) > "$state/.stale-since-$key"
   : > "$out"
@@ -787,10 +786,11 @@ test_wedge_cap_rollback_writes_sentinel_on_marker_failure() {
   # errexit inside a case would change the error semantics of every case after it.
   wait_for_exit "$pid" 100
   round_status=$?
-  [ "$round_status" -eq 1 ] || fail "cap-fire round expected exit 1 on the failed marker write, got $round_status: $(cat "$out")"
+  [ "$round_status" -eq 1 ] || fail "counter-failure round expected exit 1, got $round_status: $(cat "$out")"
   [ -e "$sentinel" ] || fail "rollback-failed sentinel was not written after the rollback itself failed"
   unset FM_FAKE_CREW_STATE
-  ack_stopped_cycle "$state" || fail "ack after the cap-fire round failed"
+  [ "$(queued_wakes_carrying "$state" "$window" "PERMANENTLY-WEDGED")" -eq 0 ] \
+    || fail "the failed count write published a terminal wake"
 
   # Drive one more poll: the sentinel short-circuits the wedge path. Within
   # FM_ROLLBACK_SENTINEL_TTL_SECS no new wake may be published at all.
@@ -807,9 +807,7 @@ test_wedge_cap_rollback_writes_sentinel_on_marker_failure() {
   pid=$!
   wait_for_exit "$pid" 100 || true
   grep -F "possible wedge" "$out" >/dev/null && fail "sentinel short-circuit still published a wedge wake"
-  # The cap-fire round already queued its terminal wake (it appended before the
-  # marker write it then failed on), so compare against the snapshot rather than
-  # against an empty queue: no NEW stale row may appear while the sentinel holds.
+  # No stale row may appear while the sentinel holds.
   [ "$(cat "$state/.wake-queue" 2>/dev/null || true)" = "$queue_before" ] \
     || fail "sentinel short-circuit queued another wake: $(cat "$state/.wake-queue" 2>/dev/null)"
   grep -F "rollback-failed sentinel active" "$state/.watch-triage.log" >/dev/null \
@@ -1819,7 +1817,7 @@ test_wedge_cap_expires_after_horizon
 test_wedge_cap_operator_can_rm_marker
 test_wedge_cap_validates_invalid_overrides
 test_wedge_cap_reads_an_unreadable_counter_as_a_fresh_one
-test_wedge_cap_rollback_writes_sentinel_on_marker_failure
+test_wedge_cap_failed_counter_sentinel_still_reports_gone_endpoint
 test_wedge_cap_unwritable_escalation_count_fails_safe
 test_wedge_cap_sentinel_probe_keeps_its_cadence
 test_wedge_cap_unwritable_counter_reset_fails_safe
