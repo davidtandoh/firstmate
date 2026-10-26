@@ -22,7 +22,7 @@ Every captain-facing outcome that leaves durable evidence in the mate home is pu
 
 | Outcome | Durable evidence in the mate home | Published by |
 |---|---|---|
-| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` on the next poll with the child's line; `bin/fm-pr-check.sh` at registration with the canonical URL |
+| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` on the next poll with the child's line; `bin/fm-pr-check.sh` at registration with the canonical URL, or after the green report when [`config/ready-after-green`](configuration.md#pr-ready-line-after-green-configready-after-green) is set |
 | Scout child findings | the child's `done:` line plus `data/<child>/report.md` | `bin/fm-inactive-reconcile.sh` on the next poll, with the report pointer |
 | Child failed | the child's `failed:` line | `bin/fm-inactive-reconcile.sh` on the next poll |
 | Child decision escalated to the captain | the task held for the captain in the mate backlog | `bin/fm-captain-hold.sh hold`, and its answer by `answer` |
@@ -84,6 +84,7 @@ Codex's inability to reason during a foreground tool call remains an upstream ch
 `tests/fm-captain-hold-lifecycle.test.sh` covers a mate home publishing a hold, its answer, and a distinct occurrence on re-hold, and a main home publishing nothing.
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
+It also covers the registration-time ready line and its withholding until checks are green under `config/ready-after-green`.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
 `tests/fm-session-start.test.sh` covers local and remote lock-refusal episodes, repeat suppression, source closure on verified recovery, reopening across repeated recovery cycles, and main-home silence.
 `tests/fm-pending-reply.test.sh` covers request and recovery backstops, completion grace, deadline-based mirror evidence, late-reply closure, and helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
