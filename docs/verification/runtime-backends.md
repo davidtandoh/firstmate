@@ -692,19 +692,8 @@ Error: Unknown feature flag: no_such_feature
 
 The last arm is what makes the control safe to depend on: an unknown feature name is a hard error, so a release that renames or drops the flag fails the launch loudly instead of silently restoring the modal.
 
-The same launch with the hook layer disabled reached the composer with no modal, answered the prompt, and fired the turn-end program that rides the launch rather than any hook:
-
-```sh
-codex --dangerously-bypass-approvals-and-sandbox --disable hooks \
-  -c "notify=[\"bash\",\"-c\",\"touch $TURNEND\"]" "Say ACK and stop."
-```
-
-```text
-> Say ACK and stop.
-- ACK, captain.
-$ ls "$TURNEND"
-<turn-end file present>
-```
+The hook-disabled probe reached the composer with no modal, answered `Say ACK and stop.`, and invoked its notification program independently of hooks.
+That probe established hook independence only; [Codex native notifications](#codex-native-notifications) owns current completion verification.
 
 `tests/fm-codex-hook-layer-live-e2e.test.sh` is the command that refreshes this record.
 It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact flags against the installed Codex, and fails naming the harness and version if the hook layer comes back on.

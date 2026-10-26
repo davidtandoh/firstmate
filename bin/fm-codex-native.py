@@ -5,11 +5,15 @@ from __future__ import annotations
 Called through fm-codex-native.sh, which owns the metadata lock and generation
 validation. No global native-session search. Wrapped binding prefers
 HARNESS_CODEX_NATIVE_BRIDGE_DIR; otherwise exactly CODEX_HOME's parent is tried.
+The parent candidate supports wrapped notify callbacks that omit the bridge
+environment variable; it does not authorize searching other directories.
 The bridge must name that private CODEX_HOME and the task's current worktree.
 Only the bound canonical rollout is read (three UUID-derived dates, at most
 4096 entries per date, 1 MiB header and 512 KiB tail). Unknown or unsafe
 evidence fails closed.
 Direct notify initially binds only a completion of the exact launch brief.
+Direct launches pin the effective CODEX_HOME, defaulting to ~/.codex when unset
+or empty; direct notification binding uses the same default.
 One overload retry receipt is allowed per spawn generation, before delivery.
 The receipt survives uncertain delivery, so recovery cannot double-submit.
 """

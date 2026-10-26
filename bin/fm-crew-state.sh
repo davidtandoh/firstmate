@@ -26,6 +26,11 @@
 #
 #   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|codex-native|none> · <detail>
 #
+# For ordinary Codex workers, the canonical native failure override below
+# applies to every reconciled result except done; retain the reconciled source
+# and detail so an attributed pipeline gate remains visible.
+# The native reader owns binding checks; the recovery skill owns retry policy.
+#
 # Logic, in order:
 #   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
 #      recording remote_host= is a remote secondmate: its worktree and endpoint
