@@ -1,8 +1,36 @@
 #!/usr/bin/env bash
 # Generation-bound native Codex notification, reconciliation and retry behavior.
 set -euo pipefail
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 TMP_ROOT=$(fm_test_tmproot fm-codex-notify)
+for home_mode in default explicit; do
+  case_root="$TMP_ROOT/launch-$home_mode"
+  home="$case_root/home"
+  fakebin=$(fm_test_make_spawn_fakebin "$case_root/fake")
+  fm_test_spawn_home "$home" codex
+  fm_test_spawn_brief "$home" direct-home
+  fm_git_worktree "$case_root/project" "$case_root/wt" "wt-$home_mode"
+  (
+    unset CODEX_HOME
+    expected="$home/user-home/.codex"
+    if [ "$home_mode" = explicit ]; then
+      expected="$case_root/custom codex home"
+      export CODEX_HOME="$expected"
+    fi
+    FM_FAKE_LAUNCH_LOG="$case_root/launch.log" \
+      fm_test_run_spawn "$home" "$case_root/wt" "$fakebin" direct-home "$case_root/project" --scout \
+      > "$case_root/spawn.out" || fail "direct $home_mode spawn: $(cat "$case_root/spawn.out")"
+    cat > "$fakebin/codex" <<'SH'
+#!/bin/sh
+printf '%s\n' "$CODEX_HOME"
+SH
+    chmod +x "$fakebin/codex"
+    seen=$(env -i HOME="$case_root/pane-home" CODEX_HOME="$case_root/wrong-home" \
+      PATH="$fakebin:$PATH" /bin/bash -c "$(cat "$case_root/launch.log")")
+    assert_equals "$expected" "$seen" "direct $home_mode launch must pin its native home"
+  )
+done
+pass 'direct launches pin the default or explicit native home across pane environments'
 python3 - "$ROOT" "$TMP_ROOT" <<'PY'
 from __future__ import annotations
 import json, os, pathlib, subprocess, sys
@@ -75,11 +103,11 @@ events({'type':'task_started','turn_id':turn},{'type':'task_complete','turn_id':
 current=json.loads(run('read'))
 assert current['state']=='failed' and current['code']=='server_overloaded',current
 crew=subprocess.check_output(['bash',str(root/'bin/fm-crew-state.sh'),'task'],env=dict(env,FM_STATE_OVERRIDE=str(state)),text=True)
-assert 'state: failed' in crew and 'source: codex-native' in crew and 'server_overloaded' in crew,crew
+assert crew.rstrip('\n').split(' · ')[:3] == ['state: failed', 'source: codex-native', 'canonical turn '+turn+' failed: server_overloaded: Selected model is at capacity.'],crew
 snapshot=lab/'snapshot.meta'
 snapshot.write_bytes(meta.read_bytes())
 snapshot_crew=subprocess.check_output(['bash',str(root/'bin/fm-crew-state.sh'),'task'],env=dict(env,FM_STATE_OVERRIDE=str(state),FM_CREW_STATE_META_OVERRIDE=str(snapshot)),text=True)
-assert 'state: failed' in snapshot_crew and 'source: codex-native' in snapshot_crew,snapshot_crew
+assert snapshot_crew == crew,(snapshot_crew,crew)
 # New turn and successful completion cannot retain the old failure.
 native['active_turn_id']='next-turn'
 native_state()
@@ -131,4 +159,39 @@ assert json.loads(run('read'))['state']=='unknown'
 notify(ok=False)
 assert not marker.exists()
 print('ok - nontransient errors and unsafe sources cannot trigger recovery or completion')
+command = ['bash',str(root/'bin/fm-codex-native.sh')]
+state = lab/'direct-state'
+state.mkdir()
+meta = state/'task.meta'
+meta.write_text('worktree={}\nharness=codex\nkind=scout\nspawn_gen={}\nomnigent=off\n'.format(wt,gen))
+marker = state/'task.turn-ended'
+direct_payload = dict(payload, **{'input-messages':['\u2063FIRSTMATE_OP: v1 launch-brief: '+brief.read_text()]})
+for home_mode in ('unset', 'empty', 'explicit'):
+    env.pop('CODEX_HOME',None)
+    home = lab/'.codex'
+    if home_mode == 'empty':
+        env['CODEX_HOME']=''
+    elif home_mode == 'explicit':
+        home = lab/'explicit codex home'
+        env['CODEX_HOME']=str(home)
+    rollout = home/'sessions'/'2026'/'10'/'26'/('rollout-2026-10-26T10-57-16-'+thread+'.jsonl')
+    rollout.parent.mkdir(parents=True,exist_ok=True)
+    events({'type':'task_complete','turn_id':turn,'error':error})
+    assert json.loads(notify(direct_payload))['accepted'] is True
+    binding=json.loads((state/'task.codex-native.json').read_text())
+    assert binding['codex_home']==str(home),binding
+    assert json.loads(marker.read_text())=={'generation':gen,'thread_id':thread,'turn_id':turn}
+    assert json.loads(run('read'))['code']=='server_overloaded'
+    marker.unlink()
+    (state/'task.codex-native.json').unlink()
+    assert json.loads(run('read'))['state']=='unknown'
+env['CODEX_HOME']='relative-home'
+notify(direct_payload,ok=False)
+assert not marker.exists() and not (state/'task.codex-native.json').exists()
+env.pop('CODEX_HOME')
+notify(payload,ok=False)
+notify(dict(direct_payload,**{'cwd':str(lab/'foreign')}),ok=False)
+notify(direct_payload,generation='stale-generation',ok=False)
+assert not marker.exists() and not (state/'task.codex-native.json').exists()
+print('ok - direct default, empty and explicit homes preserve completion and failure evidence; unbound events fail closed')
 PY

@@ -206,7 +206,7 @@ SEP=' · '
 # Emit the one canonical line and exit 0. Detail is optional.
 emit() {  # <state> <source> [detail]
   if [ -n "${CODEX_FAILURE:-}" ] && [ "$1" != "done" ]; then
-    printf 'state: failed%s source: codex-native%s%s%sreconciled %s: %s\n' \
+    printf 'state: failed%ssource: codex-native%s%s%sreconciled %s: %s\n' \
       "$SEP" "$SEP" "$CODEX_FAILURE" "$SEP" "$2" "${3:-$1}"
     exit 0
   fi

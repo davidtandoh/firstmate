@@ -209,7 +209,7 @@ def notify(args, meta):
             inputs = payload.get('input-messages')
             if inputs != ['\u2063FIRSTMATE_OP: v1 launch-brief: ' + brief]:
                 raise NativeError('direct notification does not complete the launch brief')
-            home = os.environ.get('CODEX_HOME', '')
+            home = os.environ.get('CODEX_HOME') or str(Path.home() / '.codex')
             if not Path(home).is_absolute():
                 raise NativeError('direct CODEX_HOME missing')
             binding = {'thread_id': thread, 'codex_home': home}

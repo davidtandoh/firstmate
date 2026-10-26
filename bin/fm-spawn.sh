@@ -5580,6 +5580,9 @@ LAUNCH=${LAUNCH//__OMPWORKERCFG__/$sq_ompcfg}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
 SPAWN_CLAUDE_BIN=claude
 SPAWN_CODEX_BIN=codex
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$SPAWN_OMNIGENT_MODE" != on ]; then
+  SPAWN_CODEX_BIN="env CODEX_HOME=$(shell_quote "${CODEX_HOME:-$HOME/.codex}") codex"
+fi
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
   if [ "$KIND" = secondmate ]; then
