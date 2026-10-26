@@ -1,0 +1,19 @@
+$ bash bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-t0slohc0 
+exit= 0 
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-t0slohc0
+
+$ bash bin/fm-watch-checkpoint.sh --seconds 1 
+exit= 124 
+checkpoint: no actionable wake within 1s
+
+Quiet checkpoint returned control and released its process lock.
+$ bash bin/fm-watch-checkpoint.sh --seconds 8 
+exit= 0 
+check: rearm-resurface
+
+Disposable home removed.
+Traceback (most recent call last):
+  File "/Users/davidtandoh/.no-mistakes/evidence/01M5WESWRRZJQ6D2Q870Z8QD96/manual-watcher.py", line 19, in <module>
+    assert 'signal:' in out
+           ^^^^^^^^^^^^^^^^
+AssertionError

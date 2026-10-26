@@ -1,0 +1,4 @@
+ancestor 3143fcfc2ad02a0e95ba2c65cbca029bc06ead0a reachable from 7c0244d2d93dd4b188ea4632d06a9fe5d10e56a0 exit 0
+ancestor 127f0f30a4b272b68ec9196bf47d4db90ad40617 reachable from 7c0244d2d93dd4b188ea4632d06a9fe5d10e56a0 exit 0
+ancestor 94c776a5e5063556523005fb5312f22e4a3593b5 reachable from 7c0244d2d93dd4b188ea4632d06a9fe5d10e56a0 exit 0
+Both published histories and the two-parent merge remain reachable; fork parent includes PR #27.

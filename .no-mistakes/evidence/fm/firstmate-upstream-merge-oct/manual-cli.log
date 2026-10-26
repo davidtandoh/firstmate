@@ -1,0 +1,18 @@
+$ bash bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-cli-t5zco2sm 
+exit= 0 
+ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-cli-t5zco2sm
+
+$ bash bin/fm-record-export.sh sync 
+exit= 0 
+ 
+$ bash bin/fm-record-export.sh archive-task task-a 
+exit= 0 
+ 
+Verified 300 live documents and 150 archived messages byte-for-byte with RLIMIT_NOFILE=64.
+$ bash bin/fm-spawn.sh manual-refusal /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-cli-t5zco2sm/projects/demo claude --scout --backend t3code 
+exit= 1 
+ fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-cli-t5zco2sm
+error: omnigent=on conflicts with backend=t3code; T3 Code cannot run the Omnigent wrapper
+
+Verified Omnigent/T3 conflict refused with no worker metadata or project allocation.
+Disposable home removed.

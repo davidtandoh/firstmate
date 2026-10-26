@@ -1,0 +1,30 @@
+$ bash bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-pdg3czcl 
+exit= 0 
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-pdg3czcl
+
+$ bash bin/fm-watch-checkpoint.sh --seconds 1 
+exit= 124 
+checkpoint: no actionable wake within 1s
+
+Quiet checkpoint returned control and released its process lock.
+$ bash bin/fm-wake-drain.sh 
+exit= 0 
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 4785.1793031662.n3eEqx
+
+$ bash bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 4785.1793031662.n3eEqx 
+exit= 0 
+
+$ bash bin/fm-watch-checkpoint.sh --seconds 8 
+exit= 0 
+signal: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-pdg3czcl/state/demo.status
+
+$ bash bin/fm-wake-drain.sh 
+exit= 0 
+1793031666	2	signal	demo.status	signal: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5WESWRRZJQ6D2Q870Z8QD96/.test-watcher-pdg3czcl/state/demo.status
+wake annotation: latest wake-EVENT observed at drain, not current state: demo.status: done: manual watcher acceptance
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+demo done: manual watcher acceptance
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 5940.1793031665.f6rPP4
+
+A later completed task surfaced through the real watcher and durable drain after a quiet checkpoint.
+Disposable home removed.
