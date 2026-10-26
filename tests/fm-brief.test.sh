@@ -1465,6 +1465,26 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   pass "fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool"
 }
 
+test_default_briefs_require_attached_waits() {
+  local home kind brief
+  home="$TMP_ROOT/default-attached-waits"
+  mkdir -p "$home/data"
+  for kind in ship scout; do
+    if [ "$kind" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "attached-$kind" firstmate --scout >/dev/null
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "attached-$kind" firstmate --mode no-mistakes >/dev/null
+    fi
+    brief="$home/data/attached-$kind/brief.md"
+    assert_grep 'write_stdin' "$brief" 'default brief omitted Codex attachment guidance'
+    assert_grep 'actual completion wake' "$brief" 'default brief permits an unattached turn ending'
+    # shellcheck disable=SC2016 # Literal command markup in generated guidance.
+    assert_grep 'never send the same `respond` again' "$brief" 'default brief permits duplicate gate responses'
+  done
+  pass 'default ship and scout briefs require attached waits and forbid duplicate gate responses'
+}
+
+test_default_briefs_require_attached_waits
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header

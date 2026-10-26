@@ -15,11 +15,13 @@ fm_test_omnigent_service() { # <service-root> <tool-dir>
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "\$*" = 'observe serve status --readiness --json' ]; then
+  if [ "\${OMNI_DELAY_STAGE:-}" = readiness ]; then sleep "\${OMNI_STAGE_DELAY:-0}"; fi
   cat '$service/readiness.json'
   jq -e '.status == "ready" or .status == "unavailable"' '$service/readiness.json' >/dev/null 2>&1 || exit 2
   exit 0
 fi
 [ "\$*" = 'observe serve status --json' ] || exit 2
+if [ "\${OMNI_DELAY_STAGE:-}" = status ]; then sleep "\${OMNI_STAGE_DELAY:-0}"; fi
 cat '$service/status.json'
 jq -e '.status == "running"' '$service/status.json' >/dev/null 2>&1 || exit 2
 SHIM

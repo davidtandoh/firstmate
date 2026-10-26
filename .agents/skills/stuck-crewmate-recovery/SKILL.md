@@ -67,6 +67,15 @@ Never restart, stop, or update the shared daemon on a crewmate's claim.
 It is one instance serving every lane and home, so a restart kills other lanes' in-flight runs.
 Only positive socket refusal or absence is a daemon-down finding; escalate that finding, or a failed run record that names a daemon error, to the captain.
 
+## Canonical Codex failures
+
+For Codex, an idle-looking composer can coexist with active canonical work; follow the Codex reference before nudging.
+Use `bin/fm-crew-state.sh` to reconcile a bound canonical failure against retained delivery and pipeline evidence; its header owns result precedence.
+Inspect the retained drive return and attributed gate before recovery; a provider failure is separate from daemon failure and never authorizes replaying a gate answer.
+For `server_overloaded`, use `bin/fm-codex-native.sh retry` once on that same task and model; the script header owns arguments, generation binding, and the durable retry limit.
+If that retry fails, delivery is uncertain, or the next canonical turn fails again, preserve the task and surface the failure instead of changing models or retrying again.
+An unbound or unreadable native record remains unknown and does not authorize this retry.
+
 ## Live-endpoint escalation
 
 Escalate in order:

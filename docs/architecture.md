@@ -10,6 +10,10 @@ The optional [nightly velocity audit](velocity-audit.md) collects bounded home e
 
 ## Event-driven supervision
 
+For Codex workers, `bin/fm-spawn.sh` passes a generation-bound notify handler to the harness.
+`bin/fm-codex-native.sh` binds the worker to its canonical native thread, qualifies completion notifications, and supplies canonical failures to `bin/fm-crew-state.sh` without opening the general Codex busy-state gate.
+The [recovery skill](../.agents/skills/stuck-crewmate-recovery/SKILL.md#canonical-codex-failures) owns the single same-task overload retry procedure; the script header owns its receipt and identity checks.
+
 The declared-wait vocabulary, including the legacy "external wait" label, is owned by [`bin/fm-classify-lib.sh`](../bin/fm-classify-lib.sh); worker declaration instructions and the ship worker's scratch-location and clean-worktree contract are owned by [`bin/fm-brief.sh`](../bin/fm-brief.sh).
 
 A zero-token bash watcher (`bin/fm-watch.sh`) sleeps on the fleet, classifies detected wakes in bash, and wakes the first mate only when something is actionable.

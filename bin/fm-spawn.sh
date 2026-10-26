@@ -2334,7 +2334,7 @@ launch_template() {
     if [ "$kind" = secondmate ]; then
       printf '%s' '__CODEXBIN__ __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     else
-      printf '%s' '__CODEXBIN__ __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      printf '%s' '__CODEXBIN__ __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c __CODEXNOTIFY__ "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     fi
     ;;
   opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow"}__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
@@ -5175,8 +5175,8 @@ EOF
     # the app-server protocol, and its lifecycle hooks did not fire for a
     # firstmate-launched worker. Codex therefore classifies unknown with
     # an explicit reason rather than falling back to idle, and no busy
-    # wiring is installed. The turn-end NOTIFICATION marker still rides
-    # the launch command via -c notify=[...] and __TURNEND__.
+    # wiring is installed. The separate notification handler qualifies the
+    # canonical completion with this launch generation; it does not prove idle.
     ;;
   grok*)
     # grok fires a Stop hook at every turn boundary (verified, grok 0.2.73), the
@@ -5565,6 +5565,13 @@ if [ "$HARNESS" = rovo ]; then
 fi
 LAUNCH=${LAUNCH//__BRIEF__/$sq_brief}
 LAUNCH=${LAUNCH//__TURNEND__/$sq_turnend}
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ]; then
+  CODEX_NOTIFY=$(jq -cn --arg handler "$FM_ROOT/bin/fm-codex-native.sh" \
+    --arg state "$STATE_REAL" --arg id "$ID" --arg gen "$SPAWN_GEN" --arg brief "$BRIEF" \
+    '["bash",$handler,"notify",$state,$id,$gen,$brief]')
+  sq_codex_notify=$(shell_quote "notify=$CODEX_NOTIFY")
+  LAUNCH=${LAUNCH//__CODEXNOTIFY__/$sq_codex_notify}
+fi
 LAUNCH=${LAUNCH//__PIEXT__/$sq_piext}
 LAUNCH=${LAUNCH//__PITURNEND__/$sq_piturnend}
 LAUNCH=${LAUNCH//__PIWATCH__/$sq_piwatch}
@@ -5573,6 +5580,9 @@ LAUNCH=${LAUNCH//__OMPWORKERCFG__/$sq_ompcfg}
 LAUNCH=${LAUNCH//__OPINPUT__/$sq_opinput}
 SPAWN_CLAUDE_BIN=claude
 SPAWN_CODEX_BIN=codex
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$SPAWN_OMNIGENT_MODE" != on ]; then
+  SPAWN_CODEX_BIN="env CODEX_HOME=$(shell_quote "${CODEX_HOME:-$HOME/.codex}") codex"
+fi
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
   if [ "$KIND" = secondmate ]; then

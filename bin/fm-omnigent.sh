@@ -21,6 +21,12 @@
 # Session title roles and safety boundaries: docs/omnigent.md#session-titles.
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
 # process bound, at most 128 KiB of JSON. No naming retry or session backfill.
+# Preflight shares a 50-second external-command budget (status 20s, readiness
+# 15s, capability 10s, health 5s), retaining Kit process-identity verification.
+# FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
+# or failing also report their name, elapsed time and bound on stderr.
+# Kit's internal status stages remain Kit-owned; this boundary measures the
+# complete status command rather than guessing which internal probe was slow.
 # _title-session is the private bounded API operation used by the stderr reader.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,8 +34,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-path-lib.sh
 . "$SCRIPT_DIR/fm-path-lib.sh"
+# shellcheck source=bin/fm-timing-lib.sh
+. "$SCRIPT_DIR/fm-timing-lib.sh"
 
-fail() { printf 'error: Omnigent launch: %s\n' "$*" >&2; exit 1; }
+fail() {
+  [ -z "${PREFLIGHT_STARTED:-}" ] || fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" failed
+  printf 'error: Omnigent launch: %s\n' "$*" >&2
+  exit 1
+}
 title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
 
 session_request() { # <GET|PATCH> [title JSON]
@@ -84,13 +96,43 @@ mode() {
   esac
 }
 
+preflight_stage() { # <stage> <stage-cap-seconds> <command...>
+  local stage=$1 cap=$2 start now remaining bound rc=0 elapsed
+  shift 2
+  start=$(fm_timing_now_ms)
+  remaining=$(( (PREFLIGHT_DEADLINE - start) / 1000 ))
+  if [ "$remaining" -lt 1 ]; then
+    printf 'error: Omnigent preflight stage=%s timed out: total budget exhausted\n' "$stage" >&2
+    return 124
+  fi
+  bound=$cap
+  [ "$remaining" -ge "$cap" ] || bound=$remaining
+  fm_run_timed "$bound" "$@" || rc=$?
+  now=$(fm_timing_now_ms)
+  elapsed=$(( now - start ))
+  fm_timing_record omnigent-preflight "$stage" "$start" "exit-$rc"
+  if [ "$elapsed" -ge 3000 ] || [ "$rc" -ne 0 ]; then
+    printf 'Omnigent preflight stage=%s elapsed_ms=%s bound_s=%s exit=%s' "$stage" "$elapsed" "$bound" "$rc" >&2
+    if fm_timed_out "$rc"; then printf ' timed out' >&2; fi
+    printf '\n' >&2
+  fi
+  return "$rc"
+}
+
 resolve_service() {
-  local status readiness reason help health candidate service_root status_rc=0 readiness_rc=0
+  local status readiness reason help health candidate service_root status_rc=0 readiness_rc=0 budget=50
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then
+    budget=${FM_TEST_OMNIGENT_PREFLIGHT_BUDGET:-50}
+    case "$budget" in ''|*[!0-9]*) fail 'invalid test preflight budget' ;; esac
+    [ "$budget" -ge 1 ] && [ "$budget" -le 50 ] || fail 'invalid test preflight budget'
+  fi
+  PREFLIGHT_STARTED=$(fm_timing_now_ms)
+  PREFLIGHT_DEADLINE=$(( PREFLIGHT_STARTED + budget * 1000 ))
   case "$HARNESS" in claude|codex|kiro|agy) ;; *) fail "unverified wrapped harness: $HARNESS" ;; esac
   command -v agent-kit >/dev/null 2>&1 || fail 'agent-kit is required on this host'
   command -v jq >/dev/null 2>&1 || fail 'jq is required on this host'
   command -v curl >/dev/null 2>&1 || fail 'curl is required on this host'
-  status=$(fm_run_timed 15 agent-kit observe serve status --json < /dev/null | head -c 131073) || status_rc=$?
+  status=$(preflight_stage status 20 agent-kit observe serve status --json < /dev/null | head -c 131073) || status_rc=$?
   fm_timed_out "$status_rc" && fail 'agent-kit observe serve status --json timed out'
   [ "${#status}" -le 131072 ] || fail 'serve status exceeds 128 KiB'
   printf '%s' "$status" | jq -se 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 || fail 'invalid serve status JSON'
@@ -108,7 +150,7 @@ resolve_service() {
   ' >/dev/null 2>&1 || fail 'serve status lacks a valid local server, state path, or client environment'
   SERVER=$(printf '%s' "$status" | jq -r .server_url)
   STATE_FILE=$(printf '%s' "$status" | jq -r .state_file)
-  readiness=$(fm_run_timed 15 agent-kit observe serve status --readiness --json < /dev/null | head -c 131073) || readiness_rc=$?
+  readiness=$(preflight_stage readiness 15 agent-kit observe serve status --readiness --json < /dev/null | head -c 131073) || readiness_rc=$?
   fm_timed_out "$readiness_rc" && fail 'serve readiness timed out'
   [ "${#readiness}" -le 131072 ] || fail 'serve readiness exceeds 128 KiB'
   # Headless rollback remains usable even though the web-readiness gate is not
@@ -138,10 +180,12 @@ resolve_service() {
     fm_dirname_to candidate "$candidate"
   done
   [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "managed executable is missing: $OMNIGENT_BIN"
-  help=$(fm_run_timed 10 "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
+  help=$(preflight_stage capability 10 "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
-  health=$(curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
+  health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
   printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
+  fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
+  PREFLIGHT_STARTED=
   CLIENT_ENV=()
   while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$status" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
 }

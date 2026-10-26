@@ -12,8 +12,8 @@ Limits fail closed except log tails, which disclose the omitted prefix.
 Missing optional sources and unavailable forge data remain explicit gaps.
 Sources are a best-effort sequential observation, not a transactional snapshot.
 
-The collector owns these read and exclusive-output primitives because existing
-Python record readers have no shared bounded no-follow filesystem interface.
+Shared bounded reads and canonical JSON live in fm_record_io.py.
+The collector owns its exclusive daily-snapshot publication.
 """
 from __future__ import annotations
 
@@ -31,6 +31,8 @@ import sys
 import tempfile
 import time
 
+from fm_record_io import RecordError, canonical, read_regular, safe_path
+
 READ_LIMIT = 262144
 OUTPUT_LIMIT = 2097152
 EVENT_LIMIT = 2000
@@ -43,43 +45,21 @@ class FactsError(Exception):
     """A source or destination violates the collection contract."""
 
 
-def canonical(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True) + '\n'
-
-
-def safe_path(home, path):
-    """Reject symlink components within the explicitly selected home."""
-    relative = path.relative_to(home)
-    current = home
-    for part in relative.parts:
-        current = current / part
-        if current.is_symlink():
-            raise FactsError('symlink refused: {}'.format(current))
-
-
 def read_record(home, path, limitations, tail=False, limit=READ_LIMIT):
-    safe_path(home, path)
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        safe_path(home, path)
+    except RecordError as error:
+        raise FactsError(str(error)) from error
+    try:
+        raw, truncated = read_regular(path, limit, tail=tail)
     except FileNotFoundError:
         limitations.append('missing: {}'.format(path.relative_to(home)))
         return ''
-    with os.fdopen(fd, 'rb') as handle:
-        info = os.fstat(handle.fileno())
-        if not stat.S_ISREG(info.st_mode):
-            raise FactsError('not a regular file: {}'.format(path))
-        truncated = info.st_size > limit
-        if truncated and not tail:
-            raise FactsError('source exceeds byte limit: {}'.format(path))
-        if truncated:
-            handle.seek(-limit, os.SEEK_END)
-            limitations.append('tail only: {}'.format(path.relative_to(home)))
-        raw = handle.read(limit + 1)
-        if len(raw) > limit:
-            raise FactsError('source grew beyond read limit: {}'.format(path))
-        if truncated:
-            raw = raw.partition(b'\n')[2]
-        return raw.decode('utf-8')
+    except RecordError as error:
+        raise FactsError(str(error)) from error
+    if truncated:
+        limitations.append('tail only: {}'.format(path.relative_to(home)))
+    return raw.decode('utf-8')
 
 
 def in_window(epoch, now):
