@@ -24,7 +24,7 @@
 # Output is one stable, parseable, token-tight line firstmate can read every
 # heartbeat:
 #
-#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|none> · <detail>
+#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|codex-native|none> · <detail>
 #
 # Logic, in order:
 #   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
@@ -205,6 +205,11 @@ SEP=' · '
 
 # Emit the one canonical line and exit 0. Detail is optional.
 emit() {  # <state> <source> [detail]
+  if [ -n "${CODEX_FAILURE:-}" ] && [ "$1" != "done" ]; then
+    printf 'state: failed%s source: codex-native%s%s%sreconciled %s: %s\n' \
+      "$SEP" "$SEP" "$CODEX_FAILURE" "$SEP" "$2" "${3:-$1}"
+    exit 0
+  fi
   local line="state: $1${SEP}source: $2"
   [ -n "${3:-}" ] && line="$line${SEP}$3"
   printf '%s\n' "$line"
@@ -339,6 +344,18 @@ crew_busy_verdict() {  # <target>
   tail40=$(fm_backend_capture "$TASK_BACKEND" "$1" 40 "$EXPECTED_LABEL" 2>/dev/null) || tail40=''
   fm_busy_classify "$TASK_BACKEND" "$1" "$HARNESS" "$ID" "$STATE" "$tail40"
 }
+
+# A canonical native error is task-execution failure even under an old pause or
+# an active daemon run. Ready delivery remains done; the daemon's own gate state
+# stays visible in the reconciliation detail. This does not open Codex's general
+# semantic busy-state gate.
+CODEX_FAILURE=
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ]; then
+  CODEX_NATIVE=$("$SCRIPT_DIR/fm-codex-native.sh" read "$STATE" "$ID" "$META" 2>/dev/null) || CODEX_NATIVE=
+  CODEX_FAILURE=$(printf '%s' "$CODEX_NATIVE" | jq -r '
+    select(.state == "failed") | "canonical turn \(.turn_id) failed: \(.code): \(.message)"
+  ' 2>/dev/null) || CODEX_FAILURE=
+fi
 
 # --- no-mistakes run lookup (authoritative when a run matches this branch) --
 # trim, strip_quotes, the bounded nm_run call, nm_field's TOON parse, and the

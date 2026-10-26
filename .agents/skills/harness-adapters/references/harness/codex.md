@@ -6,7 +6,7 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 
 | Fact | Value |
 |---|---|
-| Busy state | Unknown until a semantic source is live-verified: the app-server turn lifecycle is unreachable for a pane worker, and project lifecycle hooks did not fire for a Firstmate-launched worker. |
+| Busy state | General semantic busy classification stays unknown; bound native failure and completion evidence is handled separately by `bin/fm-codex-native.sh`. |
 | Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
 | Interrupt | Single Escape. |
 | Skill invocation | `$<skill>`, for example `$no-mistakes`; `/<skill>` is Claude-only and Codex rejects it as "Unrecognized command". |
@@ -20,13 +20,22 @@ A directory trust dialog appears on the first run for a repository root: "Do you
 Accept it with Enter and verify the instructions begin processing.
 The decision persists for the repository, so later worktrees of the same project skip it.
 
+## Canonical activity before recovery
+
+The `Ask Codex to do anything` composer remains visible during active work, including tool calls.
+An idle-looking prompt alone does not justify a startup nudge.
+For a wrapped task, inspect only its generation-bound canonical thread through `bin/fm-codex-native.sh` and the recorded native bridge before deciding that work stopped.
+If canonical activity cannot be established, preserve unknown rather than treating the prompt or a notification marker as idle proof.
+The native evidence boundary and bounded overload recovery are owned by that script and the [recovery skill](../../../stuck-crewmate-recovery/SKILL.md#canonical-codex-failures).
+Live refresh evidence is in [runtime backend verification](../../../../../docs/verification/runtime-backends.md#codex-native-notifications).
+
 ## Hook trust
 
 A second dialog, "Hooks need review - N hooks are new or changed", appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
 It is unanswerable rather than merely inconvenient: its selection starts on "Review hooks", which is neither trusting nor declining, and Firstmate's key plane carries Enter, Escape and Ctrl-C with no arrow navigation.
 Writing Codex's own trust store to pre-accept it would manufacture an operator consent that was never given.
 So crewmate and scout launches disable Codex's hook layer outright (`bin/fm-spawn.sh`'s launch template owns the flag), which is the opposite of `--dangerously-bypass-hook-trust` - that flag RUNS the untrusted hooks.
-A crewmate loses nothing: its turn-end signal is the `-c notify=` program on the same launch, and the Firstmate hooks in a project's `.codex/hooks.json` are primary-session infrastructure that stands down in a child worktree.
+A crewmate keeps a qualified turn-end notification through the `-c notify=` program on the same launch, and the Firstmate hooks in a project's `.codex/hooks.json` are primary-session infrastructure that stands down in a child worktree.
 A secondmate is a primary in its own home and keeps its hooks, so an unanswerable modal there is still possible and is the operator's own hook review to settle.
 
 ## Skill popup

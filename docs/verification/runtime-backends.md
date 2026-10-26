@@ -2616,3 +2616,27 @@ Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which
 This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
 `bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
 Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+
+## Codex native notifications
+
+Verified on 2026-10-26 with codex-cli 0.164.0.
+The general semantic Codex busy-state gate remains closed.
+The native notification boundary uses task generation and canonical thread identity; `bin/fm-codex-native.sh` owns its mechanics and limits.
+
+Refresh the credentialed direct and wrapped checks with:
+
+```sh
+FM_CODEX_NOTIFY_LIVE=1 bash bin/fm-test-run.sh tests/fm-codex-notify-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+ok - codex-cli 0.164.0 direct: tools start without a nudge; returned gate is handled once; canonical completion signals
+ok - codex-cli 0.164.0 wrapped: tools start without a nudge; returned gate is handled once; canonical completion signals
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=44984
+```
+
+The portable companion is `bash bin/fm-test-run.sh tests/fm-codex-notify.test.sh`.
+It verifies auxiliary and early event rejection, single canonical completion notification, generation and worktree refusal, canonical overload visibility over a paused declaration, snapshot reads, and the one-retry receipt.
+Other harnesses do not use this Codex notification adapter; secondmates retain their primary hook path, and the notification handler does not depend on a terminal backend.
