@@ -1,0 +1,40 @@
+  send the same `respond` again, because it would answer whichever gate parks next without you reading it.
+     Name what you are waiting for and what will let you resume; do not repeat the declaration on every poll.
+     Do not declare active implementation or reasoning as a wait.
+     Firstmate may still raise one first-sight alert; the declared wait then uses the existing long recheck cadence instead of repeated possible-
+  wedge alarms.
+     When you know when the wait clears, include `until <YYYY-MM-DDTHH:MMZ>` (UTC) for a recheck at that time.
+     Follow the resolution rule below when the wait clears, then resume the task.
+     Use `blocked:` when you are stuck and need help.
+  Run python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/gate.py, read its returned gate, and handle that
+  gate exactly once before replying COMPLETE.
+
+
+• I’ll run the harness, read its gate, and handle it once before replying COMPLETE.
+
+• Exited (status 1) pwd; rg --files -g '*status*' -g '*STATUS*' -g 'AGENTS.md' -g '*'
+  └ /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/wt
+
+• Ran python3 -c 'import os,time; print({k:v for k,v in os.environ.items() if any(s in k.upper() for s in ("STATUS","FIRSTMATE"))}); open("status", "…
+  └ {}
+    + Show details
+
+• Ran python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/gate.py
+  └ {"gate": "approval", "action": "Run python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/gate.py respond …
+    + 1 line (⌃t to expand)
+
+• Ran python3 -c 'open("status", "a").write("active: gate.py returned the approval gate; handling its requested response once.\n")'
+  └ (no output)
+
+• Ran python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/gate.py respond
+  └ Gate handled; completion confirmed.
+
+• COMPLETE
+
+  Worked for 27s • 11:36
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.XQIb8c/wt · Follow v1 launch brief
+  ? for shortcuts                                                                                                           ⚠ 2 warnings · f2 to view

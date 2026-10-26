@@ -1,0 +1,1 @@
+{"command": ["bash", "bin/fm-omnigent.sh", "run", "--dry-run", "codex"], "duration_ms": 2009, "exit": 0, "gate_skip": false}

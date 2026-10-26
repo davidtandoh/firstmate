@@ -1,0 +1,127 @@
+[
+  {
+    "ordinal": 1,
+    "payload": {
+      "collaboration_mode_kind": "default",
+      "model_context_window": 475000,
+      "root_turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+      "started_at": 1793014449,
+      "turn_attribution": {
+        "initiating_agent_path": null,
+        "parent_turn_id": null,
+        "root_turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+        "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+        "turn_trigger": null
+      },
+      "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+      "type": "task_started"
+    },
+    "timestamp": "2026-10-26T11:34:09.842Z",
+    "type": "event_msg"
+  },
+  {
+    "ordinal": 15,
+    "payload": {
+      "call_id": "call_584a2e82450d46a7b8a46d419bf658a6",
+      "id": "ctc_087bd2d9c0ac74f9016adf3abba438819195c8cea5766f8dd7",
+      "input": "text(await tools.exec_command({cmd:\"python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.QrqnY0/gate.py\",max_output_tokens:2000}));\n",
+      "internal_chat_message_metadata_passthrough": {
+        "create_time": 1793014459.6451006,
+        "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf"
+      },
+      "name": "exec",
+      "status": "completed",
+      "type": "custom_tool_call"
+    },
+    "timestamp": "2026-10-26T11:34:20.538Z",
+    "type": "response_item"
+  },
+  {
+    "metadata": {
+      "client_authored": false,
+      "fallback_token_limit_override": 12000
+    },
+    "ordinal": 18,
+    "payload": {
+      "call_id": "call_584a2e82450d46a7b8a46d419bf658a6",
+      "id": "ctco_01a177fd-7ce5-7362-a656-0a356f5d7a79",
+      "internal_chat_message_metadata_passthrough": {
+        "create_time": 1793014463.71702,
+        "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf"
+      },
+      "output": [
+        {
+          "text": "Script completed\nWall time 3.1 seconds\nOutput:\n",
+          "type": "input_text"
+        },
+        {
+          "text": "{\"chunk_id\":\"b2492c\",\"wall_time_seconds\":2.965185958,\"exit_code\":0,\"original_token_count\":44,\"output\":\"{\\\"gate\\\": \\\"approval\\\", \\\"action\\\": \\\"Run python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.QrqnY0/gate.py respond exactly once, then finish.\\\"}\\n\"}",
+          "type": "input_text"
+        }
+      ],
+      "type": "custom_tool_call_output"
+    },
+    "timestamp": "2026-10-26T11:34:23.717Z",
+    "type": "response_item"
+  },
+  {
+    "ordinal": 20,
+    "payload": {
+      "call_id": "call_92ff0ce05186492699623a8e4c1fb81f",
+      "id": "ctc_087bd2d9c0ac74f9016adf3ac22a388191b4f745543d764ac9",
+      "input": "text(await tools.exec_command({cmd:\"python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.QrqnY0/gate.py respond\",max_output_tokens:2000}));\n",
+      "internal_chat_message_metadata_passthrough": {
+        "create_time": 1793014466.1737025,
+        "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf"
+      },
+      "name": "exec",
+      "status": "completed",
+      "type": "custom_tool_call"
+    },
+    "timestamp": "2026-10-26T11:34:26.877Z",
+    "type": "response_item"
+  },
+  {
+    "metadata": {
+      "client_authored": false,
+      "fallback_token_limit_override": 12000
+    },
+    "ordinal": 23,
+    "payload": {
+      "call_id": "call_92ff0ce05186492699623a8e4c1fb81f",
+      "id": "ctco_01a177fd-8994-7fd1-a958-72e2bf7f9c03",
+      "internal_chat_message_metadata_passthrough": {
+        "create_time": 1793014466.964153,
+        "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf"
+      },
+      "output": [
+        {
+          "text": "Script completed\nWall time 0.1 seconds\nOutput:\n",
+          "type": "input_text"
+        },
+        {
+          "text": "{\"chunk_id\":\"d774ac\",\"wall_time_seconds\":0.000005834,\"exit_code\":0,\"original_token_count\":9,\"output\":\"Gate handled; completion confirmed.\\n\"}",
+          "type": "input_text"
+        }
+      ],
+      "type": "custom_tool_call_output"
+    },
+    "timestamp": "2026-10-26T11:34:26.964Z",
+    "type": "response_item"
+  },
+  {
+    "ordinal": 29,
+    "payload": {
+      "completed_at": 1793014470,
+      "duration_ms": 20989,
+      "last_agent_message": "COMPLETE",
+      "root_turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+      "started_at": 1793014449,
+      "time_to_first_token_ms": 9017,
+      "turn_id": "01a177fd-46ad-7e11-a721-c1fb51360faf",
+      "type": "task_complete"
+    },
+    "timestamp": "2026-10-26T11:34:30.830Z",
+    "type": "event_msg"
+  }
+]

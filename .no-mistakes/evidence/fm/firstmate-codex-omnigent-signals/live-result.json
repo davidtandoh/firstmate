@@ -1,0 +1,1 @@
+{"command": ["bash", "/Users/davidtandoh/.no-mistakes/evidence/01M5VZ4DT92FQFVTJPRH5V2Z6W/live-evidence-driver.sh"], "duration_ms": 58605, "exit": 0, "gate_skip": false, "modification": "Retain terminal captures and native completion records before existing cleanup.", "source_test": "tests/fm-codex-notify-live-e2e.test.sh"}
