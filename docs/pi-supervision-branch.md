@@ -367,8 +367,6 @@ Mirroring happens at two points:
   The complete current captain message therefore precedes any branch wake accepted after the prompt-bearing boundary.
   The later persisted copy is suppressed, and older dialog entries remain bounded.
 
-Custom events at this boundary do not stage captain dialog.
-
 The mirror cursor is durable (`state/.branch-mirror-cursor`), so within one main session only not-yet-mirrored dialog is replayed.
 
 ### Re-anchoring at each main session start

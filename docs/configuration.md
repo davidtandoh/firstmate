@@ -633,6 +633,7 @@ The underlying harness still determines model, effort, quota, hooks, and control
 The integration currently admits Claude, Codex, Kiro, and Antigravity workers, and Claude or Codex secondmates.
 Live acceptance remains incomplete; consult the [verification record](verification/omnigent.md) before using this mode for supervised work.
 Other harnesses and raw launch commands refuse while this mode is enabled.
+The `t3code` backend refuses both spawn and relaunch when Omnigent mode is on, before allocating a task endpoint or worktree, because T3 Code cannot run the Omnigent wrapper.
 
 ### Start a primary
 

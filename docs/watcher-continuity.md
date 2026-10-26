@@ -93,15 +93,12 @@ While supervision is still needed and away mode remains inactive, an actionable 
 
 ### Claude session-lock ownership
 
-The hook handles the session lock as follows:
-
-- A numeric session-lock owner that fails the shared `fm_harness_pid_alive` predicate is reclaimed through `bin/fm-lock.sh` before auto-arm state changes.
-- A live owner the session does not own, an absent lock, or a malformed lock keeps the competing hook inert.
+An absent or malformed lock, or a live owner the session does not own, keeps the competing hook inert.
 
 Whether the session owns that lock is the shared `fm_session_lock_owned_by_self` verdict in `bin/fm-session-lock-lib.sh`.
 That verdict accepts either of two cases:
 
-- A recorded pid inside the current harness ancestry.
+- A recorded session identity inside the current harness ancestry, including the library's verified Windows process-boundary bridge.
 - A live lock recorded under this same trusted Claude session id.
 
 With that verdict, a background session keeps arming after its transient helper chain is recycled.

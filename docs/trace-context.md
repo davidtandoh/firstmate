@@ -23,9 +23,9 @@ When enabled, for each spawn Firstmate resolves one W3C `traceparent` carrier fo
 This feature parents no SDK span by itself.
 
 Because the injected carrier and the recorded carrier are the same string, an observer that reads the metadata reconstructs exactly the identity the child received.
-The delivery sits at the unconditional pre-launch environment site, so it covers ship and scout spawns across `claude`, `codex`, `opencode`, `pi`, `pi-signed`, `grok`, `kimi`, `cursor`, `gemini`, `muse`, `rovo`, `agy`, `devin`, `kiro`, `commandcode`, `polytoken`, and `cortex`, plus Secondmate spawns across that same set except the deliberately crewmate-only `gemini`, `muse`, `rovo`, `agy`, `devin`, `kiro`, `commandcode`, `polytoken`, and `cortex` adapters.
+The delivery sits at the unconditional pre-launch environment site, so it covers ship, scout, and Secondmate spawns for every harness supported for that task shape; [harness configuration](configuration.md#harness-support) owns those limits.
 This is the same coverage `GOTMPDIR` already has and requires no trace-specific `launch_template()` behavior.
-Ship and scout spawns reach that site on every pane-typed spawn backend (`tmux`, `herdr`, `zellij`, `orca`, `cmux`, `paseo`, `rex`); a Secondmate reaches it on every pane backend that accepts a Secondmate spawn (`tmux`, `herdr`, `zellij`, `rex`), because `bin/fm-spawn.sh` rejects a Secondmate on `orca`, `cmux`, and `paseo`.
+Ship and scout spawns reach that site on every pane-typed spawn backend; a Secondmate reaches it on every pane backend that accepts a Secondmate spawn, subject to the [runtime backend limits](configuration.md#runtime-backend-configbackend--fm_backend).
 `t3code` has no pane, so its `claude` and `codex` ship, scout, and Secondmate spawns receive the same `TRACEPARENT` value under the same conditions through the backend's [per-directory harness environment](t3code-backend.md#per-directory-harness-environment) instead.
 
 ### Remote Secondmate routes

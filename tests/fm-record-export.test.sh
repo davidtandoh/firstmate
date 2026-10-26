@@ -503,10 +503,10 @@ test_archive_refuses_a_corrupt_committed_manifest() {
     case "$case_name" in
       wrong-task) sed 's/"task": "task-a"/"task": "another-task"/' "$manifest" > "$home/manifest.tmp" ;;
       trailing-garbage) cp "$manifest" "$home/manifest.tmp"; printf 'not-json\n' >> "$home/manifest.tmp" ;;
-      duplicate-key) sed '/"captured_at":/a\  "captured_at": "2000-01-01T00:00:00Z",' "$manifest" > "$home/manifest.tmp" ;;
+      duplicate-key) awk '{ print; if (/"captured_at":/) print "  \"captured_at\": \"2000-01-01T00:00:00Z\"," }' "$manifest" > "$home/manifest.tmp" ;;
       wrong-type) sed 's/"captured_at": "[^"]*"/"captured_at": 1/' "$manifest" > "$home/manifest.tmp" ;;
-      extra-root) sed '/"complete": true/a\  "unexpected": true,' "$manifest" > "$home/manifest.tmp" ;;
-      extra-entry) sed '0,/"sha256": "[^"]*"/s//& , "unexpected": true/' "$manifest" > "$home/manifest.tmp" ;;
+      extra-root) awk '{ print; if (/"complete": true/) print "  \"unexpected\": true," }' "$manifest" > "$home/manifest.tmp" ;;
+      extra-entry) awk '!changed && /"sha256":/ { sub(/"sha256": "[^"]*"/, "& , \"unexpected\": true"); changed=1 } { print }' "$manifest" > "$home/manifest.tmp" ;;
     esac
     mv "$home/manifest.tmp" "$manifest"
     rc=0

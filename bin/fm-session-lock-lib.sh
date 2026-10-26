@@ -139,9 +139,10 @@ fm_harness_process_matches() {  # <comm> <args>
 # parent link from a shell it spawns does NOT cross the Cygwin boundary: Cygwin
 # reports that shell's PPID as 1. So no amount of walking ppid can ever reach the
 # harness, and the contiguous-run model below cannot be satisfied by the Cygwin
-# process table alone. The Windows process table does hold the real parent chain,
-# and `ps -W` lists Windows processes keyed by WINPID, so identity is recovered
-# from there instead.
+# process table alone. PID 1 can also be absent from that table, which is a
+# boundary only on Cygwin-family systems when no harness has been found.
+# The bridge verifies the harness-published identity against `ps -W`, keyed by
+# WINPID, instead of following Windows parent links.
 #
 # Windows pids live in a DIFFERENT namespace from Cygwin pids: `kill -0` on a
 # Windows pid reports "No such process" even while that process is running, and a

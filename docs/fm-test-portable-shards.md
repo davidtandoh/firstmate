@@ -5,13 +5,14 @@
 
 ## Pull-request selection
 
-Pull requests run lint, inventory coverage, repository invariants, and stock macOS Bash compatibility on every head.
+By default, pull requests run lint, inventory coverage, repository invariants, and stock macOS Bash compatibility on every head.
 Behavior jobs use the runner's existing changed-file map and execute only selected tests that belong to their canonical lane.
 An empty lane reports success without installing its prerequisites or running behavior tests.
-Job names and the separate `Require no-mistakes` workflow remain unchanged.
+[CONTRIBUTING.md](../CONTRIBUTING.md#maintaining-required-checks) owns the required job contexts; the separate `Require no-mistakes` workflow remains unchanged.
 A selected test failure or a selection-command failure fails its job; an empty lane is an explicit selection result, not a substitute for a failed run.
 
-Main pushes and nightly scheduled runs execute every lane in full.
+By default, main pushes and nightly scheduled runs execute every lane in full.
+[CONTRIBUTING.md](../CONTRIBUTING.md#development) owns the fork CI opt-outs.
 Unavailable diff history, unknown paths, and changes to the selector or common prerequisites retain the full lane on pull requests.
 The runner header and `--help` own the exact event, base, and fallback mechanics.
 [`tests/fm-test-run.test.sh`](../tests/fm-test-run.test.sh) exercises selection through committed fixture diffs, and [`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) verifies event wiring, setup conditions, and stable required job contexts.
