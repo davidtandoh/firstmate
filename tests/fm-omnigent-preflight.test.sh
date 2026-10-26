@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Status-stage timing and a shared bounded preflight, without a live service.
 set -euo pipefail
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/tests/omnigent-fixture.sh"
 TMP_ROOT=$(fm_test_tmproot fm-omnigent-preflight)

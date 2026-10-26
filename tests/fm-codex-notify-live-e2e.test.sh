@@ -2,6 +2,7 @@
 # Credentialed direct + wrapped native completion and attached gate-return guard.
 # Uses a private tmux socket and only the sessions this guard creates; no Herdr.
 set -euo pipefail
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 fm_live_gate opt-in FM_CODEX_NOTIFY_LIVE codex tmux agent-kit jq curl
 TMP_ROOT=$(fm_test_tmproot fm-codex-notify-live)

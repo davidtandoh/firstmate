@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Generation-bound native Codex notification, reconciliation and retry behavior.
 set -euo pipefail
+# shellcheck source=tests/fixtures.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 TMP_ROOT=$(fm_test_tmproot fm-codex-notify)
 for home_mode in default explicit; do
