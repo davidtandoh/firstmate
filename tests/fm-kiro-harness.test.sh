@@ -383,8 +383,17 @@ case "$*" in
 esac
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
-  list-windows) exit 0 ;;
-  has-session|new-session|new-window|kill-window) exit 0 ;;
+  list-windows)
+    [ ! -f "$FM_FAKE_LAUNCH_LOG.windows" ] || cat "$FM_FAKE_LAUNCH_LOG.windows"
+    exit 0 ;;
+  new-window)
+    prev=
+    for arg in "$@"; do
+      [ "$prev" != -n ] || printf '%s\n' "$arg" >> "$FM_FAKE_LAUNCH_LOG.windows"
+      prev=$arg
+    done
+    exit 0 ;;
+  has-session|new-session|kill-window) exit 0 ;;
   send-keys)
     literal=; prev=
     for arg in "$@"; do
@@ -465,6 +474,7 @@ Exercise Kiro dispatch.
 ## Firstmate spec
 Verify launch and hook wiring.
 EOF
+  printf 'manual\n' > "$home/config/backlog-backend"
   printf 'kiro\n' > "$home/config/crew-harness"
   # Most cases pin the V2 engine they were written against; KIRO_TEST_ENGINE
   # names another token, or `absent` to leave config/kiro-engine unset (v3).
