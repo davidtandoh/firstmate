@@ -2250,6 +2250,10 @@ if [ "$RELAUNCH" -eq 0 ]; then
   else
     BACKEND=$(fm_backend_name)
   fi
+  if [ "$BACKEND" = t3code ] && [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+    echo "error: omnigent=on conflicts with backend=t3code; T3 Code cannot run the Omnigent wrapper" >&2
+    exit 1
+  fi
   fm_backend_validate_spawn "$BACKEND" || exit 1
   fm_backend_source "$BACKEND" || exit 1
   if [ "$BACKEND" = orca ] && [ "$KIND" = secondmate ]; then
@@ -2338,6 +2342,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
   fm_backend_validate_task_endpoint "$RELAUNCH_META" "$ID" || exit 1
   BACKEND=$FM_BACKEND_VALIDATED_BACKEND
   RELAUNCH_TARGET=$FM_BACKEND_VALIDATED_TARGET
+  if [ "$BACKEND" = t3code ] && [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+    echo "error: omnigent=on conflicts with backend=t3code; T3 Code cannot run the Omnigent wrapper" >&2
+    exit 1
+  fi
   fm_backend_validate_spawn "$BACKEND" || exit 1
   fm_backend_source "$BACKEND" || exit 1
   # A relaunch must PROVE the previous agent is gone before it launches another

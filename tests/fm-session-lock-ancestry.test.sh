@@ -514,6 +514,7 @@ if [ "$mode" = W ]; then
   [ -n "${FM_TEST_WIN_TABLE:-}" ] && printf '%s\n' "$FM_TEST_WIN_TABLE"
   exit 0
 fi
+if [ "$pid" = 1 ] && [ "${FM_TEST_MISSING_PID1:-0}" = 1 ]; then exit 1; fi
 # The Cygwin-side table. 700 is an MSYS-native harness; everything else is an
 # ordinary shell whose parent link is severed exactly as the real ps reports it.
 case "$pid" in
@@ -553,6 +554,24 @@ test_windows_session_is_identified_from_its_published_pid() {
   FM_TEST_WIN_TABLE="$WIN_TABLE" FM_TEST_SESSION_ID=S1 FM_TEST_CLAUDE_PID=7204 lib_eval "$fakebin" "fm_session_lock_owned_by_self '$dir/state'" \
     || fail "the session holding the lock did not recognize itself as the owner"
   pass "session-lock: a Windows session is identified from its published pid across the severed parent link"
+}
+
+test_missing_pid1_reaches_only_the_windows_bridge() {
+  local fakebin got rc=0
+  fakebin=$(cygwin_fakebin "$TMP_ROOT/win-missing-pid1")
+  got=$(FM_TEST_MISSING_PID1=1 FM_TEST_WIN_TABLE="$WIN_TABLE" FM_TEST_SESSION_ID=S1 FM_TEST_CLAUDE_PID=7204 \
+    lib_eval "$fakebin" 'fm_harness_ancestry_pid') || fail "missing Windows PID 1 hid the verified bridge"
+  [ "$got" = win:7204 ] || fail "missing Windows PID 1 resolved '$got'"
+  FM_TEST_MISSING_PID1=1 lib_eval "$fakebin" '
+    fm_win_boundary_applies() { return 1; }
+    fm_harness_ancestry_pids
+  ' >/dev/null || rc=$?
+  expect_code 2 "$rc" "unreadable POSIX PID 1 must fail closed"
+  rc=0
+  FM_TEST_MISSING_PID1=1 FM_TEST_WIN_TABLE="$WIN_TABLE" FM_TEST_SESSION_ID=S1 FM_TEST_CLAUDE_PID=4321 \
+    lib_eval "$fakebin" 'fm_harness_ancestry_pid' >/dev/null || rc=$?
+  expect_code 1 "$rc" "missing Windows PID 1 must not trust a non-harness claim"
+  pass "session-lock: missing PID 1 reaches only a verified Windows bridge"
 }
 
 test_windows_published_pid_is_confirmed_before_it_is_trusted() {
@@ -1621,6 +1640,7 @@ test_unreadable_identity_is_not_foreign_ownership_or_death
 test_same_session_id_owns_a_recycled_background_chain
 test_anchor_pid_is_the_model_loop_process_only_for_a_trusted_id
 test_windows_session_is_identified_from_its_published_pid
+test_missing_pid1_reaches_only_the_windows_bridge
 test_windows_published_pid_is_confirmed_before_it_is_trusted
 test_windows_pid_is_never_resolved_as_a_cygwin_pid
 test_a_published_identity_is_accepted_by_the_gates_that_read_the_lock

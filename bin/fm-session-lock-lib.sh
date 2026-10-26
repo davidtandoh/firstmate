@@ -293,8 +293,12 @@ fm_harness_ancestry_pids() {  # [start-pid]
   local pid=${1:-$$} comm args extending=0 printed=0 args_readable
   case "$pid" in ''|*[!0-9]*|0) return 2 ;; esac
   for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
-    comm=$(fm_ps_comm "$pid") || return 2
-    [ -n "$comm" ] || return 2
+    if ! comm=$(fm_ps_comm "$pid") || [ -z "$comm" ]; then
+      if [ "$pid" = 1 ] && [ "$printed" -eq 0 ] && fm_win_boundary_applies; then
+        break
+      fi
+      return 2
+    fi
     args_readable=1
     args=$(fm_ps_args "$pid") || args_readable=0
     if fm_harness_process_matches "$comm" "$args"; then

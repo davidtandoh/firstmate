@@ -1838,6 +1838,21 @@ t3_worker_spawn() {
     "$ROOT/bin/fm-spawn.sh" "$id" "$WORKER_PROJ" "$harness" --scout --backend t3code "$@" 2>&1
 }
 
+test_spawn_refuses_omnigent() {
+  local id out rc
+  id=$(t3_uid t3omnigent)
+  t3_case spawn-refuse-omnigent
+  printf 'on\n' > "$CONFIG/omnigent"
+  t3_worker_setup "$id"
+  out=$(t3_worker_spawn "$id" claude --model claude-sonnet-5); rc=$?
+  expect_code 1 "$rc" "T3 Code must refuse Omnigent wrapping"$'\n'"$out"
+  assert_contains "$out" "omnigent=on conflicts with backend=t3code" "refusal must name the conflict"
+  [ -z "$(t3_dispatch_types)" ] || fail "Omnigent refusal dispatched a T3 mutation"
+  [ "$(t3_log_line_of 'r.tool === "treehouse"')" -eq 0 ] || fail "Omnigent refusal leased a slot"
+  assert_absent "$CASE_DIR/state/$id.meta" "Omnigent refusal recorded a task"
+  pass "fm-spawn.sh: Omnigent with T3 Code refuses before allocation"
+}
+
 test_spawn_refuses_launch_settings_t3_cannot_honor() {  # <config-file> <content> <expected-error> [harness]
   local file=$1 content=$2 expect=$3 harness=${4:-claude} model id out rc
   case "$harness" in claude) model=claude-sonnet-5 ;; codex) model=gpt-5.6-sol ;; esac
@@ -2794,6 +2809,7 @@ test_spawn_refuses_launch_settings_t3_cannot_honor codex-approval-mode approve-f
 test_spawn_refuses_launch_settings_t3_cannot_honor codex-permission-mode restricted "config/codex-permission-mode=restricted" codex
 test_spawn_codex_accepts_bypass_approval_mode
 test_spawn_refuses_launch_settings_t3_cannot_honor launch-env-allowlist HOME "config/launch-env-allowlist"
+test_spawn_refuses_omnigent
 test_spawn_refuses_raw_launch_command
 test_spawn_abort_returns_lease_only_after_archive ok
 test_spawn_abort_returns_lease_only_after_archive fail

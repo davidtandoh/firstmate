@@ -25,6 +25,32 @@ run_export() {  # <home> <args...>
   FM_HOME="$home" "$EXPORTER" "$@"
 }
 
+test_many_sources_fit_a_bounded_descriptor_limit() {
+  local home export_root index rc=0
+  home=$(make_home bounded-descriptors)
+  export_root="$TMP_ROOT/export-bounded-descriptors"
+  printf '%s\n' "$export_root" > "$home/config/record-export-root"
+  mkdir -p "$home/state/task-a.inbox/handled"
+  printf 'spawn_gen=bounded\n' > "$home/state/task-a.meta"
+  for index in $(seq 1 150); do
+    mkdir -p "$home/data/task-$index"
+    printf 'brief %s\n' "$index" > "$home/data/task-$index/brief.md"
+    printf 'report %s\n' "$index" > "$home/data/task-$index/report.md"
+    printf 'message %s\n' "$index" > "$home/state/task-a.inbox/handled/$index.msg"
+  done
+  (ulimit -n 64; run_export "$home" sync) > "$home/stdout" 2> "$home/stderr" || rc=$?
+  expect_code 0 "$rc" "large live export with 64 descriptors: $(cat "$home/stderr")"
+  (ulimit -n 64; run_export "$home" archive-task task-a) > "$home/stdout" 2> "$home/stderr" || rc=$?
+  expect_code 0 "$rc" "large archive with 64 descriptors: $(cat "$home/stderr")"
+  for index in $(seq 1 150); do
+    cmp -s "$home/data/task-$index/brief.md" "$export_root/live/data/task-$index/brief.md" || fail "missing brief $index"
+    cmp -s "$home/data/task-$index/report.md" "$export_root/live/data/task-$index/report.md" || fail "missing report $index"
+    cmp -s "$home/state/task-a.inbox/handled/$index.msg" "$export_root/archive/task-a/bounded/inbox/handled/$index.msg" || fail "missing archived message $index"
+  done
+  jq -e '.files | length == 151' "$export_root/archive/task-a/bounded/manifest.v1.json" >/dev/null || fail "incomplete bounded archive manifest"
+  pass "live and archive exports keep descriptor use bounded across many sources"
+}
+
 test_sync_is_off_when_config_is_absent() {
   local home rc=0
   home=$(make_home sync-off)
@@ -568,7 +594,7 @@ test_archive_retry_removes_stale_files_from_a_partial_generation() {
 }
 
 test_archive_revalidates_sources_immediately_before_publication() {
-  local home export_root archive archive_pid rc=0 wait_count=0 index
+  local home export_root archive rc=0
   home=$(make_home archive-final-revalidate)
   export_root="$TMP_ROOT/export-archive-final-revalidate"
   printf '%s\n' "$export_root" > "$home/config/record-export-root"
@@ -577,25 +603,38 @@ test_archive_revalidates_sources_immediately_before_publication() {
     || fail "final revalidation setup could not initialize its root: $(cat "$home/sync.err")"
   archive="$export_root/archive/task-a/final-revalidate-generation"
   mkdir -p "$archive/inbox"
-  index=0
-  while [ "$index" -lt 10000 ]; do
-    printf 'stale %s\n' "$index" > "$archive/inbox/$(printf '%05d' "$index").msg"
-    index=$((index + 1))
-  done
+  printf 'stale\n' > "$archive/inbox/00000.msg"
+  python3 - "$ROOT/bin/fm-record-export.py" "$home" <<'PYTEST' || rc=$?
+import importlib.util
+import os
+import sys
+from unittest.mock import patch
 
-  run_export "$home" archive-task task-a > "$home/archive.out" 2> "$home/archive.err" &
-  archive_pid=$!
-  while [ -e "$archive/inbox/00000.msg" ]; do
-    kill -0 "$archive_pid" 2>/dev/null || break
-    wait_count=$((wait_count + 1))
-    [ "$wait_count" -le 1000 ] || break
-    sleep 0.01
-  done
-  [ ! -e "$archive/inbox/00000.msg" ] \
-    || { wait "$archive_pid" || true; fail "archive did not begin replacing its stale partial generation"; }
-  printf 'changed after final comparison\n' >> "$home/state/task-a.status"
-  wait "$archive_pid" || rc=$?
-  [ "$rc" -ne 0 ] || fail "archive committed after a source changed during stale-generation replacement"
+spec = importlib.util.spec_from_file_location("record_export", sys.argv[1])
+exporter = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = exporter
+spec.loader.exec_module(exporter)
+home = sys.argv[2]
+remove_tree = exporter.remove_tree_at
+changed = []
+
+def remove_and_change(parent_fd, name):
+    remove_tree(parent_fd, name)
+    if name == "final-revalidate-generation":
+        with open(os.path.join(home, "state", "task-a.status"), "ab") as stream:
+            stream.write(b"changed after final comparison\n")
+        changed.append(True)
+
+with patch.object(exporter, "remove_tree_at", remove_and_change):
+    try:
+        exporter.archive_task(home, os.path.join(home, "config"), os.path.join(home, "data"), os.path.join(home, "state"), "task-a")
+    except exporter.ExportError:
+        if changed != [True]:
+            raise AssertionError("archive failed before the source mutation")
+    else:
+        raise AssertionError("archive committed after a source changed during stale-generation replacement")
+PYTEST
+  expect_code 0 "$rc" "final archive source revalidation"
   assert_absent "$archive/manifest.v1.json" "archive committed a manifest after its final source comparison"
   assert_present "$home/state/task-a.meta" "final comparison race removed live metadata"
   pass "teardown archive revalidates sources immediately before publication"
@@ -768,6 +807,7 @@ test_export_root_stays_cold_to_firstmate_readers() {
   pass "presentation, wake, classification, and snapshot readers leave the export root cold"
 }
 
+test_many_sources_fit_a_bounded_descriptor_limit
 test_sync_is_off_when_config_is_absent
 test_sync_copies_only_the_v1_allowlist
 test_sync_replaces_files_atomically
