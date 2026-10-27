@@ -1042,6 +1042,7 @@ EOF
       [ "$first_line" = '# Current worker role contract' ] ||
         fail "$project_kind $kind did not put worker identity first"
       assert_grep 'follow this brief instead of that supervisor contract' "$brief" "$project_kind $kind omitted worker authority"
+      assert_grep 'Internal no-mistakes validation phases are workers too' "$brief" "$project_kind $kind omitted nested validation workers"
       assert_grep "$home/state/$id.inbox" "$brief" "$project_kind $kind omitted its exact steering inbox"
       assert_grep 'When this task works on Firstmate itself' "$brief" "$project_kind $kind made the exception unconditional"
       assert_grep 'Project instructions still govern the work wherever they do not conflict with this worker identity' "$brief" "$project_kind $kind displaced project guidance"

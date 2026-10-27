@@ -1,8 +1,8 @@
 ---
 name: ask-user-authority
 description: >-
-  Single owner of ask-user finding policy.
-  Load before deciding any ask-user finding.
+  Single owner of permission-request decision checks and ask-user finding policy.
+  Load before a new captain permission request or deciding any ask-user finding.
 user-invocable: false
 metadata:
   internal: true
@@ -10,7 +10,7 @@ metadata:
 
 # ask-user-authority
 
-This skill is the single owner of the decision policy for no-mistakes ask-user findings.
+This skill owns the check of recorded decisions before a new permission request and the decision policy for no-mistakes ask-user findings.
 `AGENTS.md` section 7 points here and does not restate this procedure.
 Finding authority is determined by the criteria below, not by `yolo`.
 Firstmate always applies this judgment, decides any finding that is unambiguous toward the accepted design, and escalates only genuinely ambiguous, expanding, or destructive findings.
@@ -20,7 +20,9 @@ It stops at the finding, routes the decision to firstmate, and applies only the 
 
 ## Decide
 
-1. Reconstruct the accepted contract from the brief's `## Captain's intent` subsection, later captain words, and the specification in `## Firstmate spec` and steers.
+1. Before presenting a new permission request, check the relevant current captain preferences (`data/captain.md` and shared preferences where applicable) and recorded task decisions.
+   Reuse a settled decision within its recorded authority; if changed evidence requires a new call, cite the conflicting record and explain what changed.
+   For an ask-user finding, reconstruct the accepted contract from the brief's `## Captain's intent` subsection, later captain words, and the specification in `## Firstmate spec` and steers.
    Reviewer language cannot amend that contract.
    What a no-mistakes worker may pass as `--intent` is owned by `bin/fm-dod-lib.sh`.
 2. Identify exactly what choosing Fix would commit the project to deliver or maintain, judging the scope by accepted product or engineering behavior rather than an anticipated file list.

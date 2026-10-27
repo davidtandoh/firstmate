@@ -106,7 +106,8 @@
 # restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
-# fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one
+# fm_brief_worker_role owns ship/scout role scope and the distinction from
+# internal validation phases. bin/fm-spawn.sh is its one
 # emitter, supplying it first in every ship/scout launch brief and never to a
 # secondmate charter. It names the one task-owned steering inbox without
 # relaxing isolation from every other home's endpoint namespace. Like
@@ -142,6 +143,7 @@ fm_brief_worker_role() {  # <state-dir> <task-id> <code-root>
 You are a crewmate: an autonomous worker agent managed by firstmate.
 This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those instructions.
 Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet supervision, or address the captain.
+Internal no-mistakes validation phases are workers too: they follow their pipeline phase contract and return results to the pipeline executor, without adopting supervisor chat etiquette.
 EOF
   printf "Your steering inbox is \`%s/%s.inbox\`; this exact path belongs to your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not reject it as another home's state.\n" "$state" "$task_id"
   cat <<'EOF'
@@ -411,6 +413,9 @@ Do not include \`## Firstmate spec\`, later Firstmate build constraints, or your
 The \`--intent\` string you pass must be self-sufficient: that string plus the codebase must let a reader reconstruct roughly the same specification, without depending on a separate report, a PR, or context that lives only in this conversation.
 When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3, and 7 of the report"), write the substance of the referenced items into \`--intent\` in the captain's terms, not only the pointer; that substance is the captain's ask by reference, while Firstmate's build instructions and your own decisions still stay out.
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
+For each repair requested through a gate, carry the project's commit-writing rules in \`no-mistakes axi respond --instructions\` before the pipeline generates the repair commit.
+Require a concise imperative summary that keeps the rendered subject, including its pipeline prefix, within the project's subject limit (72 characters when unspecified), without direct address or an agent co-author; keep detailed explanation and verification out of that subject.
+Firstmate's gate decision instructions supply engineering review context under \`validation-supervision\`; keep that specification separate from \`--intent\`.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.
 
 $drive_block
