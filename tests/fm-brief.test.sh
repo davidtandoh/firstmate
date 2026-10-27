@@ -523,6 +523,12 @@ test_no_mistakes_dod_wording() {
     "no-mistakes DOD must require a self-sufficient --intent string"
   assert_grep "write the substance of the referenced items into \`--intent\`" "$brief" \
     "no-mistakes DOD must tell the worker to resolve report, decision, and PR references into substance"
+  assert_grep 'For each repair requested through a gate, carry the project' "$brief" \
+    "no-mistakes DOD must deliver project writing rules to repair requests"
+  assert_grep 'including its pipeline prefix' "$brief" \
+    "repair guidance must account for the complete generated commit subject"
+  assert_grep "Firstmate's gate decision instructions supply engineering review context" "$brief" \
+    "no-mistakes DOD must use the supervisor's separate engineering context handoff"
 
   # The --yes ban is a fleet-wide prohibition, not a preference, and it must not
   # claim an enforcement the tool does not provide: this is instruction only.

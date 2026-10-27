@@ -11,7 +11,7 @@ metadata:
 For a no-mistakes ship, trigger validation on the same worker after its implementation commit, using the harness invocation owned by `harness-adapters`.
 The task worker that starts a no-mistakes run drives the pipeline and owns every `no-mistakes axi run` and `no-mistakes axi respond` call through the next gate or outcome.
 Firstmate never invokes `no-mistakes axi respond` for a crew-owned run.
-`bin/fm-dod-lib.sh` owns the worker-side `--intent` contract.
+`bin/fm-dod-lib.sh` owns the worker-side `--intent` contract and the repair-commit writing guidance carried through gate instructions; include that handoff when triggering validation.
 Once validation starts, prefer routing new requirements to follow-up work rather than expanding the current task, unless a new requirement completely invalidates the work being validated; however, the smallest downstream changes needed to keep already accepted product or engineering behavior correct, add behavioral tests where an executable contract exists, or keep documentation accurate remain within the current task even when they touch files not named at intake, and corrections required to satisfy already accepted intent are not new requirements.
 
 Only a current, explicit captain instruction that completely invalidates the work being validated keeps the task with the same worker instead of routing it to follow-up work or handing it to a replacement.
@@ -23,6 +23,9 @@ Once ownership is settled, validate exactly once against that final head so no o
 
 An ask-user finding returns as `needs-decision`; firstmate loads `ask-user-authority` and either decides or escalates per that skill.
 Send the same worker one exact decision naming the decision key, step, action, affected finding IDs, instructions where needed, and exact response command, passing `--resolve-key` so the worker's open decision record closes at answer time.
+For a fix response, carry the accepted constraint, its provenance, and the decision it supersedes through the active gate's `--instructions` channel, which supplies repair and later review context.
+When a later engineering steer arrives, include that context in the next applicable fix response rather than leaving it only in the worker's chat.
+Label Firstmate's engineering decisions as specification, keep them separate from captain words and `--intent`, and include the repair-commit writing guidance owned by `bin/fm-dod-lib.sh` before requesting a repair.
 Require the matching `resolved` event, forbid `--yes`, and require the worker to process every synchronous return until completion or a genuinely new escalation.
 Resume fleet supervision immediately after the decision lands.
 
