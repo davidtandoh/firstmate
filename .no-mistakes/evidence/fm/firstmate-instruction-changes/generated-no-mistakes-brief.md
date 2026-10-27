@@ -13,23 +13,23 @@ If the task will start, stop, delete, restart, profile, or otherwise drive Herdr
 Do not add Herdr lifecycle commands to this unguarded brief by hand.
 
 # Setup
-You are in a disposable git worktree of firstmate, at a detached HEAD on a clean default branch.
+You are in a disposable git worktree of example-project, at a detached HEAD on a clean default branch.
 
 **Verify isolation before anything else.** Run `pwd -P` and `git rev-parse --show-toplevel`; both must resolve to the disposable task worktree you were launched in, such as a treehouse pool path or an Orca-managed worktree, not the primary checkout firstmate operates from.
 The path check is authoritative: `git rev-parse --git-dir` and `git rev-parse --git-common-dir` can help inspect the repo, but they do not prove you are outside the primary checkout.
 If the top-level path is the primary checkout or not the worktree you were launched in, STOP - do not branch or commit here - append `blocked [at=<epoch>]: launched in primary checkout, not an isolated worktree` to the status file and stop.
 
-1. First action: create your branch: `git checkout -b fm/instruction-validation --`
+1. First action: create your branch: `git checkout -b fm/validation-contract --`
 2. Run `no-mistakes doctor`; if it reports the repo is not initialized here, run `no-mistakes init`.
 
 # Rules
 1. Never push to the default branch. Never merge a PR.
-2. Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/data/instruction-validation/` or a temporary directory.
+2. Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/data/validation-contract/` or a temporary directory.
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
-   `echo "{state} [at=<epoch>]: {one short line}" >> '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.status' && { [ ! -e '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/config/fleet-ledger' ] || '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/bin/fm-fleet-ledger.sh' appended '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/config' '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.status' >/dev/null 2>&1 || true; }`
+   `echo "{state} [at=<epoch>]: {one short line}" >> '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.status' && { [ ! -e '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/config/fleet-ledger' ] || '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/bin/fm-fleet-ledger.sh' appended '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/config' '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.status' >/dev/null 2>&1 || true; }`
    States: working, needs-decision, blocked, paused, done, failed.
    Substitute `<epoch>` with the current Unix time in seconds - run `date +%s` and write the number it printed; a stamp that is not plain digits records no time at all.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
@@ -57,8 +57,8 @@ If the top-level path is the primary checkout or not the worktree you were launc
 5. If you hit the same obstacle twice, append `blocked [at=<epoch>]: {why}` and stop; firstmate will help.
 6. If a decision belongs above the implementation worker (product choices, destructive actions),
    append `needs-decision [at=<epoch>]: {summary of options}` and stop. Firstmate will reply with the decision.
-   For a no-mistakes ask-user gate specifically, escalate all ask-user findings as one event plus one snapshot file, using that same shape even when the gate holds only a single ask-user finding: write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority), to `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/data/instruction-validation/nm-<run>-findings.txt`, then report the gate with
-   `needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/data/instruction-validation/nm-<run>-findings.txt`
+   For a no-mistakes ask-user gate specifically, escalate all ask-user findings as one event plus one snapshot file, using that same shape even when the gate holds only a single ask-user finding: write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority), to `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/data/validation-contract/nm-<run>-findings.txt`, then report the gate with
+   `needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/data/validation-contract/nm-<run>-findings.txt`
    naming every ask-user finding id from that gate. The status line only points at the file; it never restates or summarizes a finding's content.
    A decision or blocker you opened stays open until a `resolved` line carrying its exact key lands; a later `done:` or `working:` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append `resolved [at=<epoch>]: {how it cleared}` yourself (same `[key=<slug>]` if you opened it with one) as you resume.
@@ -89,18 +89,18 @@ If the top-level path is the primary checkout or not the worktree you were launc
    Pass this rule to every sub-agent you launch.
 
 # Firstmate instruction inbox
-Firstmate steers you through durable message files in '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.inbox'.
-When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list them with `find '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.inbox' -maxdepth 1 -name '*.msg' 2>/dev/null | sort -V`, read the complete contents of each record (including its final line even when it is not newline-terminated) and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.inbox'/NNN.msg '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/.test-instruction-home.vyd_s8jw/state/instruction-validation.inbox'/handled/`.
+Firstmate steers you through durable message files in '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.inbox'.
+When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list them with `find '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.inbox' -maxdepth 1 -name '*.msg' 2>/dev/null | sort -V`, read the complete contents of each record (including its final line even when it is not newline-terminated) and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.inbox'/NNN.msg '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/.test-delivery.r4h23t1r/state/validation-contract.inbox'/handled/`.
 Prefer the format-aware `fm_task_inbox_body` reader from `bin/fm-task-inbox-lib.sh` when it is available. If you read manually, a header line `body-terminator=1` means the writer added exactly one synthetic final newline to terminate the record file; that marked newline is not part of the logical message body, so remove only it and preserve any intentional trailing newlines. Legacy records without that marker may end without a newline; read them through the file end.
 The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
 
 # Project memory
 A project's `AGENTS.md` or `CLAUDE.md` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
-A correction edits only the wrong text: do not run `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5Y8XP1A7WNFPGNPG4MFPVNH/bin/fm-ensure-agents-md.sh`, create either file, or add sections, headings, or pointers alongside it.
+A correction edits only the wrong text: do not run `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M5YBT0Y95NHB6XZWQ2KQXXM8/bin/fm-ensure-agents-md.sh`, create either file, or add sections, headings, or pointers alongside it.
 
 # Definition of done
 Delivery contract: mode=no-mistakes
-Ship branch: fm/instruction-validation
+Ship branch: fm/validation-contract
 The task is complete only when committed on your branch.
 When you believe it is complete, append `done [at=<epoch>]: {summary}` to the status file and stop.
 Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.
