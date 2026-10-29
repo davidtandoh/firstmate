@@ -2,8 +2,8 @@
 # Claude account collection and project binding. Sourced by the reporter,
 # typed dispatch resolver, and spawn path.
 # fm_quota_snapshot emits the quota-axi snapshot unchanged on single-account
-# installations. config/claude-guidex-account opts in and selects the second
-# account root. When configured, it collects the ordinary personal
+# installations. An existing $HOME/.claude_b enables the second account.
+# When present, it collects the ordinary personal
 # login with CLAUDE_CONFIG_DIR unset and the GuideX login with its exact root
 # selected. quota-axi alone reads credentials, caches, and quota semantics;
 # --no-credential-refresh forbids delegated login renewal. No auth data is read
@@ -23,18 +23,9 @@
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-worker-account-lib.sh"
 
-# fm_claude_guidex_root [<config-dir>] prints the configured second root.
-# A missing setting disables automatic routing without probing either login.
 fm_claude_guidex_root() {
-  local config=${1:-${FM_CONFIG_OVERRIDE:-${FM_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/config}} selection root
-  selection=$(fm_worker_account_resolve claude "$config" 'config/claude-guidex-account' claude-guidex-account) || return 1
-  [ -n "$selection" ] || return 0
-  if [ "${selection%%$'\t'*}" = ordinary ]; then
-    echo 'error: config/claude-guidex-account must select an absolute second-account directory' >&2
-    return 1
-  fi
-  root=${selection#*$'\t'}
-  printf '%s\n' "${root%%$'\t'*}"
+  [ -d "$HOME/.claude_b" ] || return 0
+  printf '%s\n' "$HOME/.claude_b"
 }
 
 fm_claude_repo_lane() {

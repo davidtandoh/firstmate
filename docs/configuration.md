@@ -1594,17 +1594,14 @@ A remote secondmate is launched on its host from its own home's configuration, s
 
 ### Automatic Claude accounts
 
-Automatic routing is opt-in through the local `config/claude-guidex-account` file.
-The file contains one absolute path to an existing second-account configuration directory, such as `/Users/example/.claude_b`, with an optional final newline.
-The selector keeps its exact spelling; `ordinary` and relative paths are invalid.
-Without this file, Claude spawn and relaunch retain their existing account behavior: no automatic selector, authentication probe, credential clearing, or routing refusal.
-The presence of `~/.claude_b` alone does not enable routing.
-When configured, Claude ships and scouts select an existing account from the source repository before creating their task worktree.
-Repositories whose physical path is under `~/workspace/guidex` use the configured GuideX account; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
+Automatic routing is active when the second login directory `$HOME/.claude_b` exists.
+Without that directory, Claude spawn and relaunch retain their existing account behavior.
+Claude ships and scouts select an existing account from the source repository before creating their task worktree.
+Repositories whose physical path is under `~/workspace/guidex` use the GuideX account; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
 A `projects/guidex_*` registration qualifies only when its resolved path is inside that directory.
 A non-empty explicit `CLAUDE_CONFIG_DIR` takes precedence.
 Explicit selectors retain their exact spelling, including tilde, relative paths, trailing slashes, and symlinks.
-Automatic GuideX selection uses the configured absolute selector.
+Automatic GuideX selection uses the absolute `$HOME/.claude_b` selector.
 The status probe and launch receive the same selector.
 Explicit account pins remain authoritative.
 Both dispatch consumers bind quota to the effective account pin before applying repository or Fable routing.
@@ -1619,10 +1616,10 @@ Ordinary personal launches on older builds keep the daemon's ambient default and
 T3 Code refuses automatic routing because its provider instance owns the account.
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
-When `config/claude-guidex-account` is configured, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
+When `$HOME/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
 Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
 Equal allowances use the repository's account.
-The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor; the GuideX account has no reserve floor.
+The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor and applicable rule floor; the GuideX account has no reserve floor.
 Typed dispatch includes that floor in its launch arguments, which spawn and relaunch both accept.
 The task record preserves the floor for relaunch with the same harness and model when the floor argument is omitted.
 An explicit `null` clears the recorded profile floor; selecting a replacement profile can supply its new floor.

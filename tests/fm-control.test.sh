@@ -744,7 +744,6 @@ test_claude_account_relaunch_preflight() {
     add_task "$dir" "$id" codex
     alive_as "$dir" codex
     mkdir -p "$dir/user-home/workspace" "$dir/user-home/.claude_b" "$dir/home/config"
-    printf '%s\n' "$dir/user-home/.claude_b" > "$dir/home/config/claude-guidex-account"
     ln -s "$dir" "$dir/user-home/workspace/guidex"
     cat > "$dir/fakebin/claude" <<SH
 #!/usr/bin/env bash
@@ -753,10 +752,10 @@ printf '%s\n' "\${CLAUDE_CONFIG_DIR-unset}" >> '$dir/auth-checks'
 [ -f "\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}/signed-in" ]
 SH
     chmod +x "$dir/fakebin/claude"
-    if [ "$scenario" = unconfigured ]; then rm "$dir/home/config/claude-guidex-account"; fi
+    if [ "$scenario" = unconfigured ]; then rmdir "$dir/user-home/.claude_b"; fi
     expected='not signed in'
     if [ "$scenario" != signed-out ] && [ "$scenario" != omnigent-signed-out ]; then
-      touch "$dir/user-home/.claude_b/signed-in"
+      [ "$scenario" = unconfigured ] || touch "$dir/user-home/.claude_b/signed-in"
       expected='requires --note'
     fi
     ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )

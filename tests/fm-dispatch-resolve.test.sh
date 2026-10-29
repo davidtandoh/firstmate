@@ -1219,7 +1219,6 @@ jq '.rules[3].use=[
   {harness:"codex",model:"fallback"}]' "$BASE_RULES" > "$RULES"
 write_response "$RESPONSE" rule_4 0.9
 mkdir -p "$HOME_DIR/.claude_b"
-printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
 account_quota() { # personal weekly, GuideX weekly, personal all_models, GuideX all_models
   jq -n --argjson p "$1" --argjson g "$2" --argjson pa "$3" --argjson ga "$4" '
     def row($key;$weekly;$all):
@@ -1275,14 +1274,12 @@ assert_contains "$out" 'account=claude-explicit' 'custom pin does not borrow a k
 assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin stays unmeasured'
 assert_contains "$out" "profile: --harness 'codex'" 'custom pin cannot rank against another login quota'
 rmdir "$HOME_DIR/.claude_b"
-rm "$HOME_DIR/config/claude-guidex-account"
 jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey)),(.providers[2] | del(.accountKey))]' "$QUOTA" > "$TMP_ROOT/pin-schema5.json"
 mv "$TMP_ROOT/pin-schema5.json" "$QUOTA"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin does not borrow a legacy provider row'
 assert_contains "$out" "profile: --harness 'codex'" 'custom pin is unranked with schema 5'
 mkdir -p "$HOME_DIR/.claude_b"
-printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
 account_quota 80 20 50 70
 cp "$RULES" "$TMP_ROOT/profile-floor-rules.json"
 jq '.rules[3].floor={provider:"claude",scope:"all_models",min_percent:40}' "$RULES" > "$TMP_ROOT/rule-floor.json"
@@ -1312,13 +1309,32 @@ assert_contains "$out" 'status: clear' 'model-aware rule floor retains eligible 
 assert_contains "$out" 'account=claude-guidex' 'unpinned personal repository Fable rule uses the selected account'
 assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'GuideX Fable stays in the matching rule'
 assert_not_contains "$out" 'fall through to default' 'personal rule-floor shortfall cannot reject GuideX Fable'
+account_quota 80 20 50 70
+jq '.rules[3].floor.min_percent=60' "$RULES" > "$TMP_ROOT/strict-rule-floor.json"
+cp "$RULES" "$TMP_ROOT/model-rule-floor-original.json"
+cp "$TMP_ROOT/strict-rule-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' '60% rule floor retains eligible GuideX Fable'
+assert_contains "$out" 'account=claude-guidex' 'rule reserve participates in shared account selection'
+assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'rule reserve reaches the launch interface'
+account_quota 80 20 70 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-home' 'personal account remains eligible above the rule reserve'
+assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'personal launch retains the rule reserve'
+jq '.rules[3].use.floor={scope:"all_models",min_percent:80}' "$RULES" > "$TMP_ROOT/combined-floor.json"
+cp "$TMP_ROOT/combined-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'stricter profile reserve remains authoritative'
+assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":80}'" 'launch carries the stronger reserve'
+cp "$TMP_ROOT/model-rule-floor-original.json" "$RULES"
+account_quota 80 20 30 70
 jq '.rules[3].use=[{harness:"claude",model:"sonnet"},{harness:"claude",model:"fable"},{harness:"codex",model:"other"}]' "$RULES" > "$TMP_ROOT/array-rule-floor.json"
 cp "$TMP_ROOT/array-rule-floor.json" "$RULES"
 jq '(.providers[] | select(.accountKey == "claude-home") | .quotaSemantics.effectiveAvailability[].selection.spendPriority)=10' "$QUOTA" > "$TMP_ROOT/priority-rule-floor.json"
 cp "$TMP_ROOT/priority-rule-floor.json" "$QUOTA"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'passing Fable wins over higher-priority personal Sonnet below the rule floor'
-assert_contains "$out" 'not eligible: rule floor all_models below 40%' 'multi-profile evidence reports the rejected personal candidate'
+assert_contains "$out" 'not eligible: profile floor all_models below 40%' 'multi-profile evidence reports the rejected personal candidate'
 printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" "profile: --harness 'codex' --model 'rule-fallback'" 'ordinary pin keeps the configured rule fallback'

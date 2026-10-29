@@ -407,7 +407,6 @@ spawn_project="$spawn_home/user-home/workspace/guidex/app"
 spawn_wt="$TMP_ROOT/guidex-worktree"
 fm_git_worktree "$spawn_project" "$spawn_wt" guidex-fixture
 mkdir -p "$spawn_home/projects" "$spawn_home/user-home/.claude_b"
-printf '%s\n' "$spawn_home/user-home/.claude_b" > "$spawn_home/config/claude-guidex-account"
 ln -s "$spawn_project" "$spawn_home/projects/guidex_app"
 cat > "$spawn_tools/claude" <<SH
 #!/usr/bin/env bash

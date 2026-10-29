@@ -491,8 +491,7 @@ test_unconfigured_automatic_routing_is_inert() {
   for lane in personal guidex; do
     new_case "unconfigured-$lane" claude
     id="acct-unconfigured-$lane"
-    # An existing second login alone does not opt this home into routing.
-    mkdir -p "$HOME_DIR/user-home/.claude_b" "$HOME_DIR/user-home/workspace"
+    mkdir -p "$HOME_DIR/user-home/workspace"
     if [ "$lane" = guidex ]; then
       ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
     fi
@@ -515,7 +514,6 @@ test_automatic_native_accounts() {
     new_case "automatic-$lane" claude
     id="acct-auto-$lane"
     mkdir -p "$HOME_DIR/user-home/.claude_b"
-    printf '%s\n' "$HOME_DIR/user-home/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
     if [ "$lane" = guidex ]; then
       mkdir -p "$HOME_DIR/user-home/workspace"
       ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"

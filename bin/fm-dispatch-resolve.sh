@@ -411,6 +411,12 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def rows($p; $lane): (prov($p; $lane) | .quotaSemantics.effectiveAvailability // []);
   def bare($m): ($m | split("/") | last);
   def provider_of($c): ($c.provider // $pmap[$c.harness] // null);
+  def rule_profile($c; $rule):
+    if $c.harness == "claude" and $rule.floor.provider == "claude" and
+      ($c.floor == null or $c.floor.scope == $rule.floor.scope) then
+      $c + {floor: {scope: $rule.floor.scope,
+        min_percent: ([$c.floor.min_percent // 0, $rule.floor.min_percent] | max)}}
+    else $c end;
   def lane_of($c):
     if $c.harness == "claude" then
       if $claude_explicit != "" then $claude_explicit
@@ -433,7 +439,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def rule_floor_state($rule; $c):
     floor_state($rule.floor; $rule.floor.provider;
       if $rule.floor.provider == "claude" then
-        if provider_of($c) == "claude" then lane_of($c)
+        if provider_of($c) == "claude" then lane_of(rule_profile($c; $rule))
         elif $claude_explicit != "" then $claude_explicit else $claude_repo end
       else "" end);
   def evidence($rows):
@@ -485,7 +491,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
       end
     end) + (if $c.harness == "claude" then {account: $lane} else {} end);
   def evaluate_rule($c; $rule):
-    evaluate($c) |
+    rule_profile($c; $rule) as $c | evaluate($c) |
     if .eligible then
       rule_floor_state($rule; $c) as $state |
       if $state == "below" then
