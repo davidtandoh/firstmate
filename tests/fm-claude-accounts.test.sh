@@ -45,9 +45,11 @@ expect_account 'personal floor removes the larger allowance' "$HOME/workspace/ot
 fixture 80 20 50 70
 out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor '{"scope":"all_models","min_percent":60}')
 assert_contains "$out" 'account: claude-guidex' 'preview uses the selected 60% personal reserve'
+out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project "$HOME/workspace/other" --model fable --dry-run --claude-floor '[{"scope":"model:fable","min_percent":10},{"scope":"all_models","min_percent":60}]')
+assert_contains "$out" 'account: claude-guidex' 'preview applies the complete scoped floor list'
 out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor null)
 assert_contains "$out" 'account: claude-home' 'preview null preserves only the personal baseline'
-for invalid in '' '{"scope":"all_models","min_percent":101}' '{"scope":"all_models"}' 'null null'; do
+for invalid in '' '{"scope":"all_models","min_percent":101}' '{"scope":"all_models"}' 'null null' '[null]' '[{"scope":"all_models","min_percent":101}]' '42'; do
   if CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor "$invalid" > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'preview accepted an invalid profile floor'; fi
   assert_contains "$(cat "$TMP_ROOT/err")" 'invalid --claude-floor' 'preview validates floors before explicit-selector handling'
 done

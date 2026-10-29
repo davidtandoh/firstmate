@@ -10,11 +10,11 @@
 # or printed here. Schema 6 keys are claude-home and claude-guidex.
 # fm_claude_repo_lane <project path or registration> <projects root> resolves
 # physical paths; only a path under the physical ~/workspace/guidex qualifies.
-# fm_claude_account_lane <snapshot JSON> <model> <repo lane> [<profile floor JSON>]
+# fm_claude_account_lane <snapshot JSON> <model> <repo lane> [<scoped floor JSON>]
 # delegates selection to the shared quota jq contract. Empty means unknown;
 # unavailable means both measured accounts are ineligible, so dispatch falls
 # through to its other configured profiles. Fable ties use the repository lane.
-# fm_claude_spawn_root <project> <projects root> <model> <claude executable> [<profile floor JSON>]
+# fm_claude_spawn_root <project> <projects root> <model> <claude executable> [<scoped floor JSON>]
 # prints the automatic root, or an empty line for the ordinary personal login.
 # The executable argument makes the status-only probe independently testable.
 
@@ -82,10 +82,14 @@ fm_claude_dispatch_lane() {
 }
 
 fm_claude_floor_json() {
-  jq -csS 'if length != 1 then error("expected one Claude floor") else .[0] |
-    if . == null or (type == "object" and (.scope | type == "string" and length > 0) and
-      (.min_percent | type == "number" and . >= 0 and . <= 100))
-    then . else error("invalid Claude floor") end end' <<< "$1"
+  jq -csS "$FM_QUOTA_ROW_JQ"'
+    if length != 1 then error("expected one Claude floor value") else .[0] |
+      (if . == null then [] elif type == "object" then [.] else . end) |
+      if type != "array" then error("invalid Claude floors")
+      elif all(.[]; type == "object" and (.scope | type == "string" and length > 0) and
+        (.min_percent | type == "number" and . >= 0 and . <= 100))
+      then claude_floors(.) else error("invalid Claude floors") end
+    end' <<< "$1"
 }
 
 fm_claude_spawn_root() {

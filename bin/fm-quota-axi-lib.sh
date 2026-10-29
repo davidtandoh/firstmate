@@ -60,6 +60,9 @@ FM_QUOTA_ROW_JQ='
     if length > 0 then min else null end;
   # Firstmate owns these two account keys. Only its account collector emits
   # them; a legacy single-account snapshot still uses quota_row fallback.
+  def claude_floors($floor):
+    (if $floor == null then [] elif ($floor | type) == "array" then $floor else [$floor] end) |
+    group_by(.scope) | map({scope: .[0].scope, min_percent: (map(.min_percent) | max)});
   def claude_task_lane($snapshot; $model; $repo_lane; $floor):
     if (claude_is_fable($model) | not) then $repo_lane
     elif ([$snapshot.providers[]? | select(.provider == "claude" and
@@ -70,7 +73,7 @@ FM_QUOTA_ROW_JQ='
         [$row.quotaSemantics.effectiveAvailability[]? |
           select(quota_scope_matches(.scope; $model))] as $bounds |
         (if $row.accountKey == "claude-home" then
-          [{scope:"all_models", min_percent:40}] + (if $floor == null then [] else [$floor] end)
+          [{scope:"all_models", min_percent:40}] + claude_floors($floor)
          else [{scope:"all_models", min_percent:0}] end) as $floors |
         if ($row.state.status // "fresh") != "fresh" then "unknown"
         elif ($weekly != null and $weekly <= 0) or

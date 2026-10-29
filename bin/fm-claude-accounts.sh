@@ -2,7 +2,7 @@
 # Report the two local Claude account rows, or preview a task account choice.
 # Usage: fm-claude-accounts.sh [--json] [--snapshot <quota.json>]
 #        fm-claude-accounts.sh --dry-run --project <path|projects/name> --model <id> [--snapshot <quota.json>] [--claude-floor <JSON>]
-# --claude-floor supplies the selected profile floor for --dry-run.
+# --claude-floor supplies the scoped floor list (or a legacy single floor) for --dry-run.
 # --dry-run reads quota and prints the account and Claude configuration selector;
 # it never launches a worker, changes login, or writes configuration.
 # --snapshot uses captured quota without contacting quota-axi.

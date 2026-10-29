@@ -1620,9 +1620,12 @@ When `$HOME/.claude_b` exists, the account collector asks `quota-axi` for each l
 Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
 Equal allowances use the repository's account.
 The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor and applicable rule floor; the GuideX account has no reserve floor.
-Typed dispatch includes that floor in its launch arguments, which spawn and relaunch both accept.
-The task record preserves the floor for relaunch with the same harness and model when the floor argument is omitted.
-An explicit `null` clears the recorded profile floor; selecting a replacement profile can supply its new floor.
+Typed dispatch combines the profile and applicable Claude rule floors into a list of scoped floors in its launch arguments.
+The shared account selector applies every floor to the personal account; the GuideX account remains exempt.
+Repeated scopes retain the highest minimum.
+Spawn and relaunch accept this list and preserve it in the task record for the same harness and model when the argument is omitted.
+Old single-floor records are read as one-item lists.
+An explicit `null` or empty list clears the recorded floors; selecting a replacement profile can supply new floors.
 Account exhaustion excludes that account.
 Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
 If neither measured account is eligible, dispatch considers the remaining configured profiles.

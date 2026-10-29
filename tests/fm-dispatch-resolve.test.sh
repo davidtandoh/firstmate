@@ -1237,7 +1237,7 @@ cp "$TMP_ROOT/floor-rules.json" "$RULES"
 account_quota 80 20 50 70
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'account=claude-guidex' '60% personal reserve selects GuideX'
-assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'dispatch carries the selected floor to spawn'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'dispatch carries the selected floor to spawn'
 cp "$TMP_ROOT/prior-floor-rules.json" "$RULES"
 account_quota 70 20 60 15
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
@@ -1316,16 +1316,23 @@ cp "$TMP_ROOT/strict-rule-floor.json" "$RULES"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" 'status: clear' '60% rule floor retains eligible GuideX Fable'
 assert_contains "$out" 'account=claude-guidex' 'rule reserve participates in shared account selection'
-assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'rule reserve reaches the launch interface'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'rule reserve reaches the launch interface'
 account_quota 80 20 70 70
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" 'account=claude-home' 'personal account remains eligible above the rule reserve'
-assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'personal launch retains the rule reserve'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'personal launch retains the rule reserve'
 jq '.rules[3].use.floor={scope:"all_models",min_percent:80}' "$RULES" > "$TMP_ROOT/combined-floor.json"
 cp "$TMP_ROOT/combined-floor.json" "$RULES"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" 'account=claude-guidex' 'stricter profile reserve remains authoritative'
-assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":80}'" 'launch carries the stronger reserve'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":80}]'" 'launch carries the stronger reserve'
+account_quota 80 20 50 70
+jq '.rules[3].use.floor={scope:"model:fable",min_percent:10}' "$RULES" > "$TMP_ROOT/scoped-floor.json"
+cp "$TMP_ROOT/scoped-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'different-scope rule and profile floors retain eligible Fable'
+assert_contains "$out" 'account=claude-guidex' 'both scoped floors participate in account selection'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60},{\"scope\":\"model:fable\",\"min_percent\":10}]'" 'launch receives both scoped floors'
 cp "$TMP_ROOT/model-rule-floor-original.json" "$RULES"
 account_quota 80 20 30 70
 jq '.rules[3].use=[{harness:"claude",model:"sonnet"},{harness:"claude",model:"fable"},{harness:"codex",model:"other"}]' "$RULES" > "$TMP_ROOT/array-rule-floor.json"

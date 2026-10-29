@@ -99,7 +99,7 @@
 #   cwd check refuses any endpoint that still reports another copy; a Herdr shell
 #   that has drifted out of the recorded worktree is told once to return, and
 #   only a shell that will not go refuses.
-#   --claude-floor <JSON> carries the selected Claude profile floor through relaunch.
+#   --claude-floor <JSON> carries the Claude scoped floor list through relaunch.
 #   --harness <name> is the explicit per-spawn harness/profile adapter. The old
 #   positional harness arg still works for back-compat.
 #   --model <name> and --effort <low|medium|high|xhigh|max|ultra> are concrete profile

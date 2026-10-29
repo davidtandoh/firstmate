@@ -412,10 +412,9 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def bare($m): ($m | split("/") | last);
   def provider_of($c): ($c.provider // $pmap[$c.harness] // null);
   def rule_profile($c; $rule):
-    if $c.harness == "claude" and $rule.floor.provider == "claude" and
-      ($c.floor == null or $c.floor.scope == $rule.floor.scope) then
-      $c + {floor: {scope: $rule.floor.scope,
-        min_percent: ([$c.floor.min_percent // 0, $rule.floor.min_percent] | max)}}
+    if $c.harness == "claude" then
+      $c + {floor: claude_floors(claude_floors($c.floor) +
+        (if $rule.floor.provider == "claude" then [$rule.floor] else [] end))}
     else $c end;
   def lane_of($c):
     if $c.harness == "claude" then
@@ -426,7 +425,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
     (prov($p; $lane) != null and (["known", "partial"] | index(prov($p; $lane).quotaSemantics.status)) != null);
   def applicable($p; $lane; $m):
     [rows($p; $lane)[] | select(quota_scope_matches(.scope; $m))];
-  def floor_state($f; $p; $lane):
+  def single_floor_state($f; $p; $lane):
     if $f == null then "none"
     elif $p == "claude" and $lane == "claude-guidex" then "none"
     elif prov($p; $lane) == null or (measured($p; $lane) | not) then "unknown"
@@ -436,6 +435,13 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         else "ok"
         end
     end;
+  def floor_state($f; $p; $lane):
+    [claude_floors($f)[] | single_floor_state(.; $p; $lane)] as $states |
+    if any($states[]; . == "below") then "below"
+    elif any($states[]; . == "unknown") then "unknown"
+    elif ($states | length) == 0 then "none" else "ok" end;
+  def floor_with_state($f; $p; $lane; $state):
+    first(claude_floors($f)[] | select(single_floor_state(.; $p; $lane) == $state));
   def rule_floor_state($rule; $c):
     floor_state($rule.floor; $rule.floor.provider;
       if $rule.floor.provider == "claude" then
@@ -465,19 +471,21 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         ($rows | map(select(.status == "known" and (.effectivePercentRemaining | type) == "number" and .effectivePercentRemaining <= 0)) | first) as $bad |
         {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: $bad.effectivePercentRemaining, runway: $bad.runway.status, eligible: false, reason: "0% remaining at \($bad.scope)"}
       elif $profile_floor_state == "below" then
+        floor_with_state($c.floor; $p; $lane; "below") as $limit |
         ([rows($p; $lane)[] | select(
-          .scope == $c.floor.scope and
-          .effectivePercentRemaining < $c.floor.min_percent
+          .scope == $limit.scope and
+          .effectivePercentRemaining < $limit.min_percent
         )] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: ($floor_row.scope // $c.floor.scope), pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: false, reason: "profile floor \($c.floor.scope) below \($c.floor.min_percent)%"}
+        {profile: $c, provider: $p, bounds: $bounds, scope: ($floor_row.scope // $limit.scope), pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: false, reason: "profile floor \($limit.scope) below \($limit.min_percent)%"}
       elif (measured($p; $lane) | not) then
         ($rows | first) as $row |
         {profile: $c, provider: $p, bounds: $bounds, scope: ($row.scope // null), pct: ($row.effectivePercentRemaining // null), runway: ($row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "provider \($p) unmeasured (\(prov($p; $lane).quotaSemantics.status))"}
       elif ($rows | length) == 0 then
         {profile: $c, provider: $p, bounds: $bounds, eligible: true, unranked: true, unknown: true, reason: "no applicable quota row for provider \($p)"}
       elif $profile_floor_state == "unknown" then
-        ([rows($p; $lane)[] | select(.scope == $c.floor.scope)] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $c.floor.scope, pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "profile floor \($c.floor.scope) is unverifiable: not rankable"}
+        floor_with_state($c.floor; $p; $lane; "unknown") as $limit |
+        ([rows($p; $lane)[] | select(.scope == $limit.scope)] | first) as $floor_row |
+        {profile: $c, provider: $p, bounds: $bounds, scope: $limit.scope, pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "profile floor \($limit.scope) is unverifiable: not rankable"}
       elif any($rows[]; .status != "known") then
         ($rows | map(select(.status != "known")) | first) as $bad |
         {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, eligible: true, unranked: true, unknown: true, reason: "quota row \($bad.scope) unknown: not rankable"}
@@ -613,6 +621,6 @@ TEXT=$(jq -r '
   (if .chosen then "  profile: --harness \(.chosen.profile.harness | shell_arg)"
       + (if .chosen.profile.model then " --model \(.chosen.profile.model | shell_arg)" else "" end)
       + (if .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)
-      + (if .chosen.profile.harness == "claude" and .chosen.profile.floor then " --claude-floor \(.chosen.profile.floor | tojson | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
+      + (if .chosen.profile.harness == "claude" and (.chosen.profile.floor | length) > 0 then " --claude-floor \(.chosen.profile.floor | tojson | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
 printf '%s\n' "$TEXT"
 exit 0

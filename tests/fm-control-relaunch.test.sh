@@ -369,7 +369,7 @@ SH
 # --- 1. same-harness relaunch -----------------------------------------------
 
 test_claude_floor_null_relaunch() {
-  local dir out rc id=rl-floor launch
+  local dir out rc id=rl-floor launch floors
   dir=$(new_case claude-floor "$id")
   add_ship_task "$dir" "$id" claude
   mkdir -p "$dir/user-home/.claude_b" "$dir/home/config"
@@ -386,7 +386,7 @@ SH
 set -euo pipefail
 if [ "$*" = 'auth status' ]; then
   printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" >> "$HOME/auth-checks"
-  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then printf '{"loggedIn":false}\n'; exit 1; fi
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ ! -f "$HOME/guidex-signed-in" ]; then printf '{"loggedIn":false}\n'; exit 1; fi
   printf '{"loggedIn":true}\n'
 else
   printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" > "$HOME/launch-selector"
@@ -404,7 +404,7 @@ SH
   out=$(run_control "$dir" "$id" relaunch --claude-floor null --note 'clear floor'); rc=$?
   expect_code 0 "$rc" "explicit null must validate and launch personal despite signed-out GuideX: $out"
   [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'preflight and replacement validated different accounts'
-  [ "$(meta_field "$dir" "$id" claude_floor)" = null ] || fail 'explicit null did not clear the recorded floor'
+  [ "$(meta_field "$dir" "$id" claude_floor)" = '[]' ] || fail 'explicit null did not clear the recorded floor'
   launch=$(tail -1 "$dir/fake/literal")
   [ -n "$launch" ] || fail 'replacement launch command missing'
   HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR="$dir/user-home/.claude_b" bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'replacement command did not execute'
@@ -413,6 +413,21 @@ SH
   out=$(run_control "$dir" "$id" relaunch --note 'keep cleared floor'); rc=$?
   expect_code 0 "$rc" "omitted floor after clearing must preserve null: $out"
   [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'cleared floor was restored on the next relaunch'
+  floors='[{"scope":"all_models","min_percent":60},{"scope":"model:fable","min_percent":10}]'
+  touch "$dir/user-home/guidex-signed-in"
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --claude-floor "$floors" --note 'apply scoped floors'); rc=$?
+  expect_code 0 "$rc" "scoped floors must validate and launch GuideX: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = "$(printf '%s\n%s' "$dir/user-home/.claude_b" "$dir/user-home/.claude_b")" ] || fail 'scoped-floor preflight and spawn selected different accounts'
+  jq -en --argjson actual "$(meta_field "$dir" "$id" claude_floor)" --argjson expected "$floors" '$actual == $expected' >/dev/null || fail 'spawn did not persist the complete floor list'
+  launch=$(tail -1 "$dir/fake/literal")
+  HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR='' bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'scoped-floor launch command did not execute'
+  [ "$(cat "$dir/user-home/launch-selector")" = "$dir/user-home/.claude_b" ] || fail 'scoped-floor launch used a different account'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain scoped floors'); rc=$?
+  expect_code 0 "$rc" "relaunch must preserve both scopes: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = "$(printf '%s\n%s' "$dir/user-home/.claude_b" "$dir/user-home/.claude_b")" ] || fail 'relaunch lost a scoped floor'
+  jq -en --argjson actual "$(meta_field "$dir" "$id" claude_floor)" --argjson expected "$floors" '$actual == $expected' >/dev/null || fail 'relaunch lost the persisted floor list'
   pass 'explicit null clears the Claude reserve consistently before stop and at replacement launch'
 }
 
