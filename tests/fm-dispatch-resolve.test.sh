@@ -1127,6 +1127,14 @@ account_quota() { # personal weekly, GuideX weekly, personal all_models, GuideX 
       {provider:"codex",accountKey:"codex-home",quotaSemantics:{status:"known",effectiveAvailability:[
         {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:0.1}}]}}]}' > "$QUOTA"
 }
+jq '.rules[3].use[0].floor.min_percent=60' "$RULES" > "$TMP_ROOT/floor-rules.json"
+cp "$RULES" "$TMP_ROOT/prior-floor-rules.json"
+cp "$TMP_ROOT/floor-rules.json" "$RULES"
+account_quota 80 20 50 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-guidex' '60% personal reserve selects GuideX'
+assert_contains "$out" "--claude-floor '{\"scope\":\"all_models\",\"min_percent\":60}'" 'dispatch carries the selected floor to spawn'
+cp "$TMP_ROOT/prior-floor-rules.json" "$RULES"
 account_quota 70 20 60 15
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'account=claude-home' 'Fable can use personal account for GuideX repository'

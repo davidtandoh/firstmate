@@ -6,7 +6,7 @@ fm_test_omnigent_service() { # <service-root> <tool-dir>
   local service=$1 tools=$2
   mkdir -p "$service/runtime/bin" "$tools"
   jq -n --arg state "$service/serve.json" --arg config "$service/config" \
-    '{status:"running",server_url:"http://127.0.0.1:6767",state_file:$state,client_environment:{OMNIGENT_CONFIG_HOME:$config}}' > "$service/status.json"
+    '{omnigent:{repository:"https://github.com/davidtandoh/omnigent.git",commit:"bea4e262f08245deabed86a9b1eb4cafbcac1423"},status:"running",server_url:"http://127.0.0.1:6767",state_file:$state,client_environment:{OMNIGENT_CONFIG_HOME:$config}}' > "$service/status.json"
   jq -n --arg executable "$service/runtime/bin/omnigent" \
     '{schema_version:"1",status:"unavailable",reasons:["serve_setup_headless_only","serve_web_assets_missing"],
       managed_status:{status:"running"},managed_service:{server_url:"http://127.0.0.1:6767"},

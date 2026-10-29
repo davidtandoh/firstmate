@@ -1472,14 +1472,18 @@ Other pinned roots remain unmeasured, including with a legacy quota snapshot.
 Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
 Omnigent launches pass the selected directory verbatim through the native environment interface; an explicit empty selector requests the ordinary personal account.
-These launches require Omnigent's native Claude account enforcement, which checks the effective child selector and sign-in status before creating its terminal.
+Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17).
+An unrecognized service build refuses a non-empty selected account before launch or before relaunch stops the current worker.
+Ordinary personal launches on older builds keep the daemon's ambient default and send no account override.
 T3 Code refuses automatic routing because its provider instance owns the account.
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
 When `~/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
 Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
 Equal allowances use the repository's account.
-The personal account requires at least 40% `all_models` remaining; the GuideX account has no reserve floor.
+The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor; the GuideX account has no reserve floor.
+Typed dispatch includes that floor in its launch arguments, which spawn and relaunch both accept.
+The task record preserves the floor for relaunch with the same harness and model; selecting a replacement profile can supply its new floor.
 Account exhaustion excludes that account.
 Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
 If neither measured account is eligible, dispatch considers the remaining configured profiles.

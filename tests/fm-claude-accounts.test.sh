@@ -180,6 +180,9 @@ grep -q '^unset|.*|auth status$' "$TMP_ROOT/auth-calls" || fail 'personal Fable 
 fixture 20 80
 selected_root=$(CLAUDE_CONFIG_DIR='' fm_claude_spawn_root "$HOME/workspace/other" "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status")
 [ "$selected_root" = "$HOME/.claude_b" ] || fail 'Fable spawn did not use the larger GuideX weekly allowance'
+fixture 80 20 50 70
+selected_root=$(CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status" '{"scope":"all_models","min_percent":60}')
+[ "$selected_root" = "$HOME/.claude_b" ] || fail 'spawn ignored the selected 60% profile floor'
 fixture 0 0
 if CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status" > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'spawn selected an exhausted Fable account'; fi
 assert_contains "$(cat "$TMP_ROOT/err")" 'remaining dispatch profiles' 'spawn requests fallback instead of launching exhausted Fable'

@@ -13,7 +13,7 @@
 # delegates selection to the shared quota jq contract. Empty means unknown;
 # unavailable means both measured accounts are ineligible, so dispatch falls
 # through to its other configured profiles. Fable ties use the repository lane.
-# fm_claude_spawn_root <project> <projects root> <model> <claude executable>
+# fm_claude_spawn_root <project> <projects root> <model> <claude executable> [<profile floor JSON>]
 # prints the automatic root, or an empty line for the ordinary personal login.
 # The executable argument makes the status-only probe independently testable.
 
@@ -67,8 +67,15 @@ fm_claude_dispatch_lane() {
   fi
 }
 
+fm_claude_floor_json() {
+  jq -csS 'if length != 1 then error("expected one Claude floor") else .[0] |
+    if . == null or (type == "object" and (.scope | type == "string" and length > 0) and
+      (.min_percent | type == "number" and . >= 0 and . <= 100))
+    then . else error("invalid Claude floor") end end' <<< "$1"
+}
+
 fm_claude_spawn_root() {
-  local project=$1 projects=$2 model=$3 executable=$4 repo lane root snapshot fable
+  local project=$1 projects=$2 model=$3 executable=$4 floor=${5:-null} repo lane root snapshot fable
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
     printf '%s\n' "$CLAUDE_CONFIG_DIR"
     return $?
@@ -78,7 +85,7 @@ fm_claude_spawn_root() {
   fable=$(jq -rn --arg model "$model" "$FM_QUOTA_ROW_JQ"'claude_is_fable($model)') || return 1
   if [ "$fable" = true ] && [ -d "$HOME/.claude_b" ]; then
     snapshot=$(fm_quota_snapshot) || { echo 'error: cannot collect Claude account quota' >&2; return 1; }
-    lane=$(fm_claude_account_lane "$snapshot" "$model" "$repo") || return 1
+    lane=$(fm_claude_account_lane "$snapshot" "$model" "$repo" "$floor") || return 1
     case "$lane" in
       claude-home|claude-guidex) ;;
       *) echo "error: Claude Fable accounts ${lane:-unknown}; resolve the remaining dispatch profiles" >&2; return 1 ;;

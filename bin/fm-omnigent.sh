@@ -184,6 +184,17 @@ resolve_service() {
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
   health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
   printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
+  CLAUDE_ACCOUNT_ENFORCEMENT=0
+  if printf '%s' "$status" | jq -e '
+    .omnigent.repository == "https://github.com/davidtandoh/omnigent.git" and
+    (.omnigent.commit == "ee228c44a98dd36c149f73025905817b003282c0" or
+     .omnigent.commit == "bea4e262f08245deabed86a9b1eb4cafbcac1423")
+  ' >/dev/null 2>&1; then
+    CLAUDE_ACCOUNT_ENFORCEMENT=1
+  fi
+  if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ]; then
+    fail 'running daemon lacks verified exact Claude account enforcement; choose another worker or update Omnigent before selecting this account'
+  fi
   fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
   PREFLIGHT_STARTED=
   CLIENT_ENV=()
@@ -219,7 +230,9 @@ for name in $ENV_NAMES; do
   case "$name" in
     # An explicit empty selector clears a daemon's inherited account. Native
     # Claude enforcement in Omnigent preserves non-empty selectors verbatim.
-    CLAUDE_CONFIG_DIR) if [ "$HARNESS" = claude ] || [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name-}"); fi ;;
+    CLAUDE_CONFIG_DIR) if [ "$HARNESS" = claude ]; then
+      [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ] || ARGS+=(--env "$name=${!name-}")
+    elif [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi ;;
     # These owners treat empty as unset. Explicit empties also prevent stale
     # daemon routing or trace state from reappearing in a fresh native session.
     FM_*|HERDR_*|TRACEPARENT) ARGS+=(--env "$name=${!name-}") ;;

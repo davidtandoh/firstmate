@@ -69,6 +69,14 @@ export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
+jq '.omnigent.commit="f165e117cfefa08df674d5a837025f51b7834536"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
+jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'legacy personal launch received an account override'
+if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
+grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
+cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
 
 # The CLI double emits its own fresh session record on stderr. Drive the real
 # launcher, then observe the API requests rather than inspecting launcher text.
@@ -420,6 +428,28 @@ for lane in guidex home; do
     jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"
   done
 done
+jq 'del(.omnigent)' "$OMNI_STATUS" > "$TMP_ROOT/legacy-status.json"
+cp "$OMNI_STATUS" "$TMP_ROOT/current-status.json"
+cp "$TMP_ROOT/legacy-status.json" "$OMNI_STATUS"
+fm_test_spawn_brief "$spawn_home" omni-legacy-guidex
+spawn_wt="$TMP_ROOT/guidex-worktree"
+if spawn omni-legacy-guidex projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon spawn accepted GuideX'; fi
+[ ! -e "$spawn_home/state/omni-legacy-guidex.meta" ] || fail 'legacy refusal published metadata'
+cp "$TMP_ROOT/current-status.json" "$OMNI_STATUS"
+cat > "$spawn_tools/quota-axi" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+weekly=80 all=50
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then weekly=20 all=70; fi
+jq -n --argjson weekly "$weekly" --argjson all "$all" '{schemaVersion:5,providers:[{provider:"claude",state:{status:"fresh"},windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"}},{scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"}}]}}]}'
+SH
+chmod +x "$spawn_tools/quota-axi"
+fm_test_spawn_brief "$spawn_home" omni-floor
+spawn omni-floor projects/guidex_app --mode no-mistakes --yolo off --harness claude --model fable --claude-floor '{"scope":"all_models","min_percent":60}' > "$TMP_ROOT/error" 2>&1 || fail "floor spawn refused: $(cat "$TMP_ROOT/error")"
+execute_launch
+wait_title
+jq -e --arg root "$spawn_home/user-home/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'spawn spent personal allowance below its selected reserve'
+sed -n 's/^claude_floor=//p' "$spawn_home/state/omni-floor.meta" | jq -e '. == {scope:"all_models",min_percent:60}' >/dev/null || fail 'spawn did not persist the selected floor'
 grep -q "^$spawn_home/user-home/.claude_b|fixture-user|fixture-user$" "$TMP_ROOT/claude-auth" || fail 'GuideX sign-in check lost the selector or login environment'
 touch "$TMP_ROOT/claude-signed-out"
 fm_test_spawn_brief "$spawn_home" omni-signed-out

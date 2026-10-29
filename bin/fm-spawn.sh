@@ -96,6 +96,7 @@
 #   cwd check refuses any endpoint that still reports another copy; a Herdr shell
 #   that has drifted out of the recorded worktree is told once to return, and
 #   only a shell that will not go refuses.
+#   --claude-floor <JSON> carries the selected Claude profile floor through relaunch.
 #   --harness <name> is the explicit per-spawn harness/profile adapter. The old
 #   positional harness arg still works for back-compat.
 #   --model <name> and --effort <low|medium|high|xhigh|max|ultra> are concrete profile
@@ -962,6 +963,7 @@ KIND=ship
 KIND_SET=0
 HARNESS_ARG=
 MODEL=
+CLAUDE_FLOOR=null
 EFFORT=
 BACKEND_ARG=
 MODE=
@@ -999,6 +1001,7 @@ for a in "$@"; do
       HARNESS_ARG=$a
       HARNESS_SET=1
       ;;
+    claude-floor) CLAUDE_FLOOR=$a ;;
     model)
       MODEL=$a
       MODEL_SET=1
@@ -1059,6 +1062,7 @@ for a in "$@"; do
     HARNESS_ARG=${a#--harness=}
     HARNESS_SET=1
     ;;
+  --claude-floor) want_value=claude-floor ;;
   --model) want_value=model ;;
   --model=*)
     MODEL=${a#--model=}
@@ -2020,6 +2024,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
+  [ "$CLAUDE_FLOOR" = null ] || shared_args+=(--claude-floor "$CLAUDE_FLOOR")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
@@ -3454,15 +3459,26 @@ RAW_COMMAND=
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
 WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
+if [ "$RELAUNCH" = 1 ] && [ "$CLAUDE_FLOOR" = null ] &&
+   [ "$HARNESS" = claude ] && [ "$RELAUNCH_PRIOR_HARNESS" = claude ] &&
+   [ "${MODEL:-default}" = "$(fm_meta_get "$RELAUNCH_META" model)" ]; then
+  CLAUDE_FLOOR=$(fm_meta_get "$RELAUNCH_META" claude_floor)
+  CLAUDE_FLOOR=${CLAUDE_FLOOR:-null}
+fi
+. "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+CLAUDE_FLOOR=$(fm_claude_floor_json "$CLAUDE_FLOOR") || { echo 'error: invalid --claude-floor' >&2; exit 1; }
 CLAUDE_AUTO_SELECTED=0
 if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ] && [ -z "$WORKER_ACCOUNT" ]; then
   if [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
     [ "$RAW_LAUNCH" = 0 ] || { echo 'error: automatic Claude account routing requires a canonical harness launch' >&2; exit 1; }
     # shellcheck source=bin/fm-claude-accounts-lib.sh
     . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
-    CLAUDE_AUTO_ROOT=$(fm_claude_spawn_root "$PROJ" "$PROJECTS" "$MODEL" "$(type -P claude)") || exit 1
+    CLAUDE_AUTO_ROOT=$(fm_claude_spawn_root "$PROJ" "$PROJECTS" "$MODEL" "$(type -P claude)" "$CLAUDE_FLOOR") || exit 1
     CLAUDE_AUTO_SELECTED=1
   fi
+fi
+if [ "$HARNESS" = claude ] && [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+  CLAUDE_CONFIG_DIR="${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" "$SCRIPT_DIR/fm-omnigent.sh" check claude || exit 1
 fi
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
@@ -7057,7 +7073,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -7087,6 +7103,7 @@ preserve_relaunch_meta() {
   [ "$EXTERNAL_REVIEW" = 0 ] || echo "forge=external"
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_remote=$EXTERNAL_BACKUP_REMOTE"
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_prefix=$EXTERNAL_BACKUP_PREFIX"
+  echo "claude_floor=$CLAUDE_FLOOR"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
   # The detected OpenCode major, recorded so fm-control sends the exit key this
