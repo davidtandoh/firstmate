@@ -21,7 +21,9 @@ export OLD_PID=$old_pid NEW_PID=$new_pid
 export HOME="$TMP_ROOT/user" FM_HOME="$TMP_ROOT/main" FM_STATE_OVERRIDE="$TMP_ROOT/main/state"
 export CLAUDE_PID=$old_pid CLAUDE_CODE_SESSION_ID=old-session
 export HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-export FM_TEST_FRESH_WAIT=2 OMNIGENT=1
+# Normal handoffs include a real tmux launch and lock publication under load.
+# Only the explicit timeout case needs a short claim deadline.
+export FM_TEST_FRESH_WAIT=15 OMNIGENT=1
 mkdir -p "$FM_HOME/bin" "$FM_HOME/state" "$HOME" "$TMP_ROOT/tools"
 for script in fm-cursor-lib.sh fm-hook-host-lib.sh fm-fresh-session.sh fm-lock.sh fm-session-lock-lib.sh fm-wake-lib.sh fm-path-lib.sh fm-timeout-lib.sh; do
   cp "$ROOT/bin/$script" "$FM_HOME/bin/$script"
@@ -102,7 +104,7 @@ bash "$FM_HOME/bin/fm-fresh-session.sh" --dry-run > "$TMP_ROOT/out"
 for CASE in preflight-fail launch-fail timeout; do
   export CASE
   reset
-  if bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1; then fail "$CASE succeeded"; fi
+  if FM_TEST_FRESH_WAIT=2 bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1; then fail "$CASE succeeded"; fi
   case "$CASE" in
     preflight-fail) expected='preflight failed' ;;
     launch-fail) expected='launch failed' ;;
