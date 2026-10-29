@@ -428,6 +428,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def single_floor_state($f; $p; $lane):
     if $f == null then "none"
     elif $p == "claude" and $lane == "claude-guidex" then "none"
+    elif $p == "claude" and $lane == "unavailable" then "below"
     elif prov($p; $lane) == null or (measured($p; $lane) | not) then "unknown"
     else [rows($p; $lane)[] | select(.scope == $f.scope)] as $matches
       | if ($matches | length) == 0 or any($matches[]; .status != "known") then "unknown"

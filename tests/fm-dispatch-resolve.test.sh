@@ -1309,6 +1309,18 @@ assert_contains "$out" 'status: clear' 'model-aware rule floor retains eligible 
 assert_contains "$out" 'account=claude-guidex' 'unpinned personal repository Fable rule uses the selected account'
 assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'GuideX Fable stays in the matching rule'
 assert_not_contains "$out" 'fall through to default' 'personal rule-floor shortfall cannot reject GuideX Fable'
+account_quota 80 0 30 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'known account ineligibility reaches the configured default'
+assert_contains "$out" "profile: --harness 'codex' --model 'rule-fallback'" 'personal reserve and exhausted GuideX select the default fallback'
+assert_contains "$out" 'fall through to default' 'known ineligibility preserves rule fallback'
+assert_not_contains "$out" 'unverifiable' 'unavailable account selection is not missing quota evidence'
+jq '(.providers[] | select(.accountKey == "claude-guidex")) |= (del(.windows) | .quotaSemantics.effectiveAvailability |= map(select(.scope != "model:fable")))' "$QUOTA" > "$TMP_ROOT/unknown-weekly.json"
+cp "$TMP_ROOT/unknown-weekly.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: escalate' 'unknown GuideX weekly allowance remains unknown'
+assert_contains "$out" 'unverifiable' 'missing quota evidence cannot authorize default fallback'
+assert_not_contains "$out" 'profile: --harness' 'unknown account selection emits no launch profile'
 account_quota 80 20 50 70
 jq '.rules[3].floor.min_percent=60' "$RULES" > "$TMP_ROOT/strict-rule-floor.json"
 cp "$RULES" "$TMP_ROOT/model-rule-floor-original.json"
