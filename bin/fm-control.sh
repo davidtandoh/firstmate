@@ -5,7 +5,7 @@
 # Usage: fm-control.sh <task-id> interrupt
 #        fm-control.sh <task-id> exit
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
-#                                         [--effort <level>]
+#                                         [--effort <level>] [--claude-floor <JSON>]
 #                                         (--note <text> | --note-file <path>)
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
@@ -264,6 +264,8 @@ fi
 
 NEW_HARNESS=
 NEW_MODEL=
+NEW_CLAUDE_FLOOR=null
+CLAUDE_FLOOR_SET=0
 NEW_EFFORT=
 HARNESS_SET=0
 MODEL_SET=0
@@ -278,6 +280,7 @@ for control_arg in "$@"; do
     esac
     case "$control_want_value" in
       harness) NEW_HARNESS=$control_arg; HARNESS_SET=1 ;;
+      claude-floor) NEW_CLAUDE_FLOOR=$control_arg; CLAUDE_FLOOR_SET=1 ;;
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
@@ -293,6 +296,7 @@ for control_arg in "$@"; do
   case "$control_arg" in
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
+    --claude-floor) control_want_value=claude-floor ;;
     --model) control_want_value=model ;;
     --model=*) NEW_MODEL=${control_arg#--model=}; MODEL_SET=1 ;;
     --effort) control_want_value=effort ;;
@@ -314,7 +318,7 @@ if [ -n "$control_want_value" ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$CLAUDE_FLOOR_SET" = 0 ] \
     || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
 fi
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
@@ -866,6 +870,7 @@ PRIOR_MODEL=
 PRIOR_EFFORT=
 TARGET_HARNESS=$HARNESS
 TARGET_MODEL=
+TARGET_CLAUDE_FLOOR=null
 TARGET_EFFORT=
 
 journal_write() {  # <phase> [extra-line]...
@@ -1041,6 +1046,14 @@ resolve_relaunch_profile() {
   else
     TARGET_EFFORT=default
   fi
+  TARGET_CLAUDE_FLOOR=null
+  if [ "$CLAUDE_FLOOR_SET" = 1 ]; then
+    [ "$TARGET_HARNESS" = claude ] || die "--claude-floor requires Claude"
+    TARGET_CLAUDE_FLOOR=$NEW_CLAUDE_FLOOR
+  elif [ "$TARGET_HARNESS" = claude ] && [ "$TARGET_HARNESS" = "$PRIOR_HARNESS" ] && [ "$TARGET_MODEL" = "$PRIOR_MODEL" ]; then
+    TARGET_CLAUDE_FLOOR=$(fm_meta_get "$META" claude_floor)
+    TARGET_CLAUDE_FLOOR=${TARGET_CLAUDE_FLOOR:-null}
+  fi
   if [ "$TARGET_EFFORT" = ultra ]; then
     "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$TARGET_HARNESS" "$TARGET_MODEL" "$TARGET_EFFORT" || return 1
   fi
@@ -1050,8 +1063,39 @@ resolve_relaunch_profile() {
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" "" "$account_mate" >/dev/null || return 1
+  local account_selection account_config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
+  account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "$account_config" \
+    "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
+  if [ "$TARGET_HARNESS" = claude ]; then
+    # shellcheck source=bin/fm-claude-accounts-lib.sh
+    . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+    TARGET_CLAUDE_FLOOR=$(fm_claude_floor_json "$TARGET_CLAUDE_FLOOR") || die "invalid --claude-floor"
+    local account_mode recorded_mode account_guidex account_root=${CLAUDE_CONFIG_DIR:-}
+    account_mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "$account_config") || return 1
+    recorded_mode=$(fm_meta_get "$META" omnigent)
+    case "$recorded_mode" in
+      on) account_mode=on ;;
+      '') ;;
+      *) die 'invalid recorded Omnigent launch mode' ;;
+    esac
+    if [ "$account_mode" = on ] && [ -n "$account_selection" ]; then
+      die 'Omnigent cannot enforce config/claude-account credential removal across its daemon boundary; existing worker was not stopped'
+    fi
+    account_guidex=
+    if [ "$KIND" != secondmate ] && [ -z "$account_selection" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+      account_guidex=$(fm_claude_guidex_root "$account_config") || return 1
+    fi
+    if [ -n "$account_guidex" ]; then
+      [ "$BACKEND" != t3code ] || die "backend=t3code cannot enforce automatic Claude account routing because its provider instance owns the account"
+      # shellcheck source=bin/fm-claude-accounts-lib.sh
+      . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+      account_root=$(fm_claude_spawn_root "$(fm_meta_get "$META" project)" "${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}" \
+        "$account_model" "$(type -P claude)" "$TARGET_CLAUDE_FLOOR") || return 1
+    fi
+    if [ "$account_mode" = on ]; then
+      CLAUDE_CONFIG_DIR="$account_root" "$SCRIPT_DIR/fm-omnigent.sh" check claude || return 1
+    fi
+  fi
   fm_omp_profile_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
     "$account_mate" >/dev/null || return 1
   # Likewise polytoken's launch profile and wiring refusals
@@ -1226,6 +1270,7 @@ do_relaunch() {
   RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
   journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
+  [ "$TARGET_HARNESS" != claude ] || spawn_args+=(--claude-floor "$TARGET_CLAUDE_FLOOR")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Contracts for the Omnigent launch boundary and its observed process shapes.
+# Run with --claude-accounts for focused Claude account boundary checks.
 set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/bin/fm-agent-process-lib.sh"
 
+if [ "${1:-}" != --claude-accounts ]; then
 for harness in claude codex kiro agy antigravity; do
   got=$(fm_agent_process_classify_name python3.12 python3 "/home/user/serve/runtime/bin/python3 /home/user/serve/runtime/bin/omnigent $harness --server http://127.0.0.1:6767")
   [ "$got" = agent ] || fail "Omnigent $harness Python wrapper should be an agent, got $got"
@@ -27,6 +29,7 @@ for args in \
   [ "$got" = other ] || fail "non-agent command was classified $got: $args"
 done
 pass 'only native Omnigent launch commands identify an agent'
+fi
 
 TMP_ROOT=$(fm_test_tmproot fm-omnigent)
 native_pid=''
@@ -41,6 +44,7 @@ trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
 OMNI="$ROOT/bin/fm-omnigent.sh"
+if [ "${1:-}" != --claude-accounts ]; then
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
@@ -62,6 +66,7 @@ ln -s "$TMP_ROOT/home" "$TMP_ROOT/config/omnigent"
 if mode > "$TMP_ROOT/error" 2>&1; then fail 'symlink home policy accepted'; fi
 rm "$TMP_ROOT/config/omnigent"
 pass 'session detection, explicit home policy, and inherited mode fail closed'
+fi
 
 . "$ROOT/tests/omnigent-fixture.sh"
 fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
@@ -69,6 +74,17 @@ export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
+cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
+jq '.omnigent.commit="f165e117cfefa08df674d5a837025f51b7834536"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
+jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'legacy personal launch received an account override'
+if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
+grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
+cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
+env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'unconfigured default'
+jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'unset default selector was changed at the daemon boundary'
+
 
 # The CLI double emits its own fresh session record on stderr. Drive the real
 # launcher, then observe the API requests rather than inspecting launcher text.
@@ -81,6 +97,7 @@ wait_title() {
   fail 'launch did not PATCH its session title'
 }
 reset_title() { rm -f "$TMP_ROOT/serve/title.json" "$TMP_ROOT/serve/requests.jsonl"; }
+if [ "${1:-}" != --claude-accounts ]; then
 for harness in claude codex; do
   reset_title
   env -u FM_TASK_ID -u FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_HOME="$TMP_ROOT/main" \
@@ -282,6 +299,7 @@ printf '{bad json' > "$OMNI_STATUS"
 if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'malformed service response accepted'; fi
 if "$OMNI" check pi > "$TMP_ROOT/error" 2>&1; then fail 'unverified wrapped harness accepted'; fi
 pass 'missing, unreachable, malformed service and unverified harness refuse'
+fi
 
 . "$ROOT/tests/fixtures.sh"
 spawn_home="$TMP_ROOT/spawn-home"
@@ -290,6 +308,7 @@ spawn_wt="$TMP_ROOT/worktree"
 spawn_tools=$(fm_test_make_spawn_fakebin "$TMP_ROOT/spawn-tools")
 fm_test_spawn_home "$spawn_home" codex
 fm_git_worktree "$spawn_project" "$spawn_wt" omni-fixture
+if [ "${1:-}" != --claude-accounts ]; then
 fm_test_spawn_brief "$spawn_home" omni-test
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
 if FM_OMNIGENT=on FM_FAKE_LAUNCH_LOG="$TMP_ROOT/launch.log" \
@@ -299,6 +318,7 @@ fi
 [ ! -e "$spawn_home/state/omni-test.meta" ] || fail 'refused spawn published task metadata'
 grep -q not_started "$TMP_ROOT/error" || fail 'spawn did not report service refusal'
 pass 'spawn refuses before endpoint publication when tracing is unavailable'
+fi
 
 # Execute the launch the pane received, using the service double to observe
 # the native argv and environment beyond the daemon boundary.
@@ -317,6 +337,7 @@ execute_launch() {
   env -i HOME="$TMP_ROOT/home" PATH="$spawn_tools:$PATH" TERM=xterm /bin/sh -c "$preamble
 $launch"
 }
+if [ "${1:-}" != --claude-accounts ]; then
 for kind in ship scout; do
   id="omni-$kind"
   fm_test_spawn_brief "$spawn_home" "$id"
@@ -365,6 +386,7 @@ PROBE
 chmod +x "$spawn_tools/codex"
 [ "$(execute_launch)" = native-codex ] || fail 'ordinary native launch did not execute the original harness'
 pass 'ordinary sessions preserve direct launch while serve is unavailable'
+fi
 
 # Restrictions must refuse before launching and must not weaken either policy.
 printf 'on\n' > "$spawn_home/config/omnigent"
@@ -379,6 +401,83 @@ if spawn omni-restricted "$spawn_project" --mode no-mistakes --yolo off --harnes
 grep -q 'cannot enforce config/claude-account' "$TMP_ROOT/error" || fail 'account refusal omitted requirement'
 [ "$(cat "$spawn_home/config/claude-account")" = personal ] || fail 'spawn altered the account pin'
 pass 'wrapped launches refuse guarantees the additive daemon environment cannot enforce'
+
+rm "$spawn_home/config/claude-account"
+spawn_project="$spawn_home/user-home/workspace/guidex/app"
+spawn_wt="$TMP_ROOT/guidex-worktree"
+fm_git_worktree "$spawn_project" "$spawn_wt" guidex-fixture
+mkdir -p "$spawn_home/projects" "$spawn_home/user-home/.claude_b"
+ln -s "$spawn_project" "$spawn_home/projects/guidex_app"
+cat > "$spawn_tools/claude" <<SH
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "\$*" = 'auth status' ]; then
+  printf '%s|%s|%s\n' "\${CLAUDE_CONFIG_DIR-unset}" "\${USER-missing}" "\${LOGNAME-missing}" >> '$TMP_ROOT/claude-auth'
+  [ ! -e '$TMP_ROOT/claude-signed-out' ]
+else
+  printf 'Claude Code fixture\n'
+fi
+SH
+chmod +x "$spawn_tools/claude"
+personal_project="$TMP_ROOT/personal-project"
+fm_git_worktree "$personal_project" "$TMP_ROOT/personal-worktree" personal-fixture
+for lane in guidex home; do
+  if [ "$lane" = guidex ]; then
+    project=projects/guidex_app
+    spawn_wt="$TMP_ROOT/guidex-worktree"
+    expected_root="$spawn_home/user-home/.claude_b"
+  else
+    project=$personal_project
+    spawn_wt="$TMP_ROOT/personal-worktree"
+    expected_root=''
+  fi
+  for kind in ship scout; do
+    id="omni-$lane-$kind"
+    fm_test_spawn_brief "$spawn_home" "$id"
+    args=(--mode no-mistakes --yolo off)
+    [ "$kind" != scout ] || args=(--scout)
+    USER=fixture-user LOGNAME=fixture-user spawn "$id" "$project" "${args[@]}" --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1 || fail "automatic Omnigent $lane $kind refused: $(cat "$TMP_ROOT/error")"
+    execute_launch
+    wait_title
+    jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"
+  done
+done
+jq 'del(.omnigent)' "$OMNI_STATUS" > "$TMP_ROOT/legacy-status.json"
+cp "$OMNI_STATUS" "$TMP_ROOT/current-status.json"
+cp "$TMP_ROOT/legacy-status.json" "$OMNI_STATUS"
+fm_test_spawn_brief "$spawn_home" omni-legacy-guidex
+spawn_wt="$TMP_ROOT/guidex-worktree"
+if spawn omni-legacy-guidex projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon spawn accepted GuideX'; fi
+[ ! -e "$spawn_home/state/omni-legacy-guidex.meta" ] || fail 'legacy refusal published metadata'
+cp "$TMP_ROOT/current-status.json" "$OMNI_STATUS"
+cat > "$spawn_tools/quota-axi" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+weekly=80 all=50
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then weekly=20 all=70; fi
+jq -n --argjson weekly "$weekly" --argjson all "$all" '{schemaVersion:5,providers:[{provider:"claude",state:{status:"fresh"},windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"}},{scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"}}]}}]}'
+SH
+chmod +x "$spawn_tools/quota-axi"
+fm_test_spawn_brief "$spawn_home" omni-floor
+spawn omni-floor projects/guidex_app --mode no-mistakes --yolo off --harness claude --model fable --claude-floor '{"scope":"all_models","min_percent":60}' > "$TMP_ROOT/error" 2>&1 || fail "floor spawn refused: $(cat "$TMP_ROOT/error")"
+execute_launch
+wait_title
+jq -e --arg root "$spawn_home/user-home/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'spawn spent personal allowance below its selected reserve'
+sed -n 's/^claude_floor=//p' "$spawn_home/state/omni-floor.meta" | jq -e '. == [{scope:"all_models",min_percent:60}]' >/dev/null || fail 'spawn did not persist the selected floor'
+grep -q "^$spawn_home/user-home/.claude_b|fixture-user|fixture-user$" "$TMP_ROOT/claude-auth" || fail 'GuideX sign-in check lost the selector or login environment'
+touch "$TMP_ROOT/claude-signed-out"
+fm_test_spawn_brief "$spawn_home" omni-signed-out
+spawn_wt="$TMP_ROOT/guidex-worktree"
+if spawn omni-signed-out projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'signed-out automatic account accepted'; fi
+[ ! -e "$spawn_home/state/omni-signed-out.meta" ] || fail 'signed-out account published metadata'
+pass 'Omnigent ships and scouts forward exact automatic accounts and refuse signed-out logins before mutation'
+
+CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" "$OMNI" run claude --model sonnet
+jq -e --arg root "$TMP_ROOT/profile-link/" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'Omnigent rewrote an explicit selector'
+pass 'Omnigent preserves the exact explicit Claude selector'
+if [ "${1:-}" = --claude-accounts ]; then
+  exit 0
+fi
 
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \

@@ -147,8 +147,16 @@ else
 fi
 printf '%s\n' "$*" >> "${QUOTA_AXI_CALLS:?}"
 [ "${FAKE_QUOTA_FAIL:-0}" = 1 ] && exit 1
-[ "${1:-}" = --json ] || exit 2
-cat "${QUOTA_AXI_FIXTURE:?}"
+case "${1:-}" in --json|--provider) ;; *) exit 2 ;; esac
+if [ -d "$HOME/.claude_b" ]; then
+  if [ "${CLAUDE_CONFIG_DIR:-}" = "$HOME/.claude_b" ]; then
+    jq '.providers |= map(select(.provider == "claude" and .accountKey == "claude-guidex"))' "${QUOTA_AXI_FIXTURE:?}"
+  else
+    jq '.providers |= map(select(.provider != "claude" or .accountKey == "claude-home"))' "${QUOTA_AXI_FIXTURE:?}"
+  fi
+else
+  cat "${QUOTA_AXI_FIXTURE:?}"
+fi
 SH
 chmod +x "$FAKEBIN/quota-axi"
 
@@ -165,7 +173,7 @@ reset_log() {
 run() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" HOME="$HOME_DIR" CLAUDE_CONFIG_DIR='' FM_HOME="$HOME_DIR" FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -327,7 +335,7 @@ assert_contains "$out" 'dispatch-resolve:' "TOON block header"
 assert_contains "$out" '  status: clear' "clear status"
 assert_contains "$out" '  rule: rule_4 (A simple bug fix with a stated root cause.)   confidence: 0.9' "rule and confidence line"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "argmax picks the highest spendPriority"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "every candidate is accounted for"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "every candidate is accounted for"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "unmeasured provider stays listed as eligible and unranked"
 assert_contains "$out" '  note: 1 eligible candidate(s) unranked (kimi)' "clear results flag eligible unranked candidates once"
 assert_not_contains "$out" '--effort' "cursor profile without effort emits no --effort"
@@ -616,7 +624,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "ambiguous exits 0"
 assert_contains "$out" '  status: ambiguous' "below the floor is ambiguous"
 assert_contains "$out" '  reason: confidence 0.41 below floor 0.6' "ambiguous names the floor"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "ambiguous preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "ambiguous preserves matched candidate evidence"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "ambiguous preserves eligible unranked candidate evidence"
 assert_not_contains "$out" '  profile:' "ambiguous emits no profile line"
 pass "ambiguous: confidence below the fixed floor hands the decision back"
@@ -770,7 +778,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "escalate exits 0"
 assert_contains "$out" '  status: escalate' "approval-gated rule escalates"
 assert_contains "$out" "  reason: rule requires the captain's explicit approval before dispatch" "escalate names the approval gate"
-assert_contains "$out" 'candidate: claude:fable  provider=claude  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:fable  provider=claude  account=claude-home  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
 assert_not_contains "$out" '  profile:' "escalate emits no profile line"
 pass "escalate: a rule declared approval: captain never yields a profile"
 
@@ -885,13 +893,13 @@ jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAva
 ]' "$QUOTA" > "$BOUNDED"
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$BOUNDED" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
 assert_contains "$out" 'bounds=all_models:79%/projected_exhaustion,model:sonnet:99%/through_reset' "all applicable quota bounds are disclosed"
 
 EXHAUSTED_WIDE="$TMP_ROOT/exhausted-wide.json"
 jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models")) |= (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now")' "$BOUNDED" > "$EXHAUSTED_WIDE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$EXHAUSTED_WIDE" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
 assert_contains "$out" '-> not eligible: runway exhausted_now at all_models' "a healthy exact row cannot bypass an exhausted account-wide bound"
 pass "provider-wide and exact quota rows combine into one limiting candidate"
 
@@ -1201,5 +1209,169 @@ run code out err --help
 expect_code 0 "$code" "--help exits 0"
 assert_contains "$out" 'Usage:' "--help prints usage"
 pass "configuration errors exit 2 before any network call"
+
+# Claude account evidence must match the account spawn will use. Keep the
+# classifier and its four rule choices unchanged; only the selected lane varies.
+mkdir -p "$HOME_DIR/workspace/guidex/app" "$HOME_DIR/workspace/personal" "$HOME_DIR/projects"
+ln -s "$HOME_DIR/workspace/guidex/app" "$HOME_DIR/projects/guidex_app"
+jq '.rules[3].use=[
+  {harness:"claude",model:"claude-fable-5-1",floor:{scope:"all_models",min_percent:40}},
+  {harness:"codex",model:"fallback"}]' "$BASE_RULES" > "$RULES"
+write_response "$RESPONSE" rule_4 0.9
+mkdir -p "$HOME_DIR/.claude_b"
+account_quota() { # personal weekly, GuideX weekly, personal all_models, GuideX all_models
+  jq -n --argjson p "$1" --argjson g "$2" --argjson pa "$3" --argjson ga "$4" '
+    def row($key;$weekly;$all):
+      {provider:"claude",accountKey:$key,state:{status:"fresh"},
+       windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],
+       quotaSemantics:{status:"known",effectiveAvailability:[
+         {scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"},selection:{spendPriority:1}},
+         {scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"},selection:{spendPriority:1}}]}};
+    {schemaVersion:6,providers:[row("claude-home";$p;$pa),row("claude-guidex";$g;$ga),
+      {provider:"codex",accountKey:"codex-home",quotaSemantics:{status:"known",effectiveAvailability:[
+        {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:0.1}}]}}]}' > "$QUOTA"
+}
+jq '.rules[3].use[0].floor.min_percent=60' "$RULES" > "$TMP_ROOT/floor-rules.json"
+cp "$RULES" "$TMP_ROOT/prior-floor-rules.json"
+cp "$TMP_ROOT/floor-rules.json" "$RULES"
+account_quota 80 20 50 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-guidex' '60% personal reserve selects GuideX'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'dispatch carries the selected floor to spawn'
+cp "$TMP_ROOT/prior-floor-rules.json" "$RULES"
+account_quota 70 20 60 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-home' 'Fable can use personal account for GuideX repository'
+assert_contains "$out" "profile: --harness 'claude' --model 'claude-fable-5-1'" 'Fable remains selected'
+account_quota 20 70 60 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'Fable can use GuideX account for personal repository'
+assert_contains "$out" "profile: --harness 'claude'" 'GuideX Fable ignores personal all_models floor'
+account_quota 0 0 39 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'both exhausted use the remaining dispatch profiles'
+jq '.rules[3].use[0].model="sonnet"' "$RULES" > "$TMP_ROOT/non-fable-rules.json"
+mv "$TMP_ROOT/non-fable-rules.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-guidex' 'GuideX non-Fable uses repository account'
+assert_contains "$out" "profile: --harness 'claude' --model 'sonnet'" 'GuideX non-Fable has no personal floor'
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'personal non-Fable retains configured floor'
+account_quota 70 80 30 70
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-home' 'ordinary pin overrides GuideX repository routing'
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'ordinary pin retains personal floor'
+mkdir -p "$HOME_DIR/.claude_b" "$HOME_DIR/custom-profile"
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-account"
+account_quota 90 20 80 10
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'GuideX pin overrides personal repository routing'
+assert_contains "$out" "profile: --harness 'claude'" 'GuideX pin has no personal floor'
+printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-explicit' 'custom pin does not borrow a known account'
+assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin stays unmeasured'
+assert_contains "$out" "profile: --harness 'codex'" 'custom pin cannot rank against another login quota'
+rmdir "$HOME_DIR/.claude_b"
+jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey)),(.providers[2] | del(.accountKey))]' "$QUOTA" > "$TMP_ROOT/pin-schema5.json"
+mv "$TMP_ROOT/pin-schema5.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin does not borrow a legacy provider row'
+assert_contains "$out" "profile: --harness 'codex'" 'custom pin is unranked with schema 5'
+mkdir -p "$HOME_DIR/.claude_b"
+account_quota 80 20 50 70
+cp "$RULES" "$TMP_ROOT/profile-floor-rules.json"
+jq '.rules[3].floor={provider:"claude",scope:"all_models",min_percent:40}' "$RULES" > "$TMP_ROOT/rule-floor.json"
+cp "$TMP_ROOT/rule-floor.json" "$RULES"
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'status: clear' 'ordinary pin gives the Claude rule floor known personal evidence'
+assert_contains "$out" 'account=claude-home' 'rule and profile use the same pinned account'
+account_quota 80 20 30 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'fall through to default' 'personal rule floor shortfall stays authoritative'
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-account"
+account_quota 80 20 50 10
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'GuideX rule binding has no personal reserve'
+assert_contains "$out" 'account=claude-guidex' 'GuideX pin overrides the personal repository for rule and profile'
+printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'status: escalate' 'custom rule-floor account remains unmeasured'
+assert_contains "$out" 'unverifiable' 'unknown custom account cannot borrow a known rule-floor row'
+rm "$HOME_DIR/config/claude-account"
+account_quota 80 20 30 70
+jq '.rules[3].use={harness:"claude",model:"fable"} | .default={harness:"codex",model:"rule-fallback"}' "$RULES" > "$TMP_ROOT/model-rule-floor.json"
+cp "$TMP_ROOT/model-rule-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'model-aware rule floor retains eligible GuideX Fable'
+assert_contains "$out" 'account=claude-guidex' 'unpinned personal repository Fable rule uses the selected account'
+assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'GuideX Fable stays in the matching rule'
+assert_not_contains "$out" 'fall through to default' 'personal rule-floor shortfall cannot reject GuideX Fable'
+account_quota 80 0 30 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'known account ineligibility reaches the configured default'
+assert_contains "$out" "profile: --harness 'codex' --model 'rule-fallback'" 'personal reserve and exhausted GuideX select the default fallback'
+assert_contains "$out" 'fall through to default' 'known ineligibility preserves rule fallback'
+assert_not_contains "$out" 'unverifiable' 'unavailable account selection is not missing quota evidence'
+jq '(.providers[] | select(.accountKey == "claude-guidex")) |= (del(.windows) | .quotaSemantics.effectiveAvailability |= map(select(.scope != "model:fable")))' "$QUOTA" > "$TMP_ROOT/unknown-weekly.json"
+cp "$TMP_ROOT/unknown-weekly.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: escalate' 'unknown GuideX weekly allowance remains unknown'
+assert_contains "$out" 'unverifiable' 'missing quota evidence cannot authorize default fallback'
+assert_not_contains "$out" 'profile: --harness' 'unknown account selection emits no launch profile'
+account_quota 80 20 50 70
+jq '.rules[3].floor.min_percent=60' "$RULES" > "$TMP_ROOT/strict-rule-floor.json"
+cp "$RULES" "$TMP_ROOT/model-rule-floor-original.json"
+cp "$TMP_ROOT/strict-rule-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' '60% rule floor retains eligible GuideX Fable'
+assert_contains "$out" 'account=claude-guidex' 'rule reserve participates in shared account selection'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'rule reserve reaches the launch interface'
+account_quota 80 20 70 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-home' 'personal account remains eligible above the rule reserve'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60}]'" 'personal launch retains the rule reserve'
+jq '.rules[3].use.floor={scope:"all_models",min_percent:80}' "$RULES" > "$TMP_ROOT/combined-floor.json"
+cp "$TMP_ROOT/combined-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'stricter profile reserve remains authoritative'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":80}]'" 'launch carries the stronger reserve'
+account_quota 80 20 50 70
+jq '.rules[3].use.floor={scope:"model:fable",min_percent:10}' "$RULES" > "$TMP_ROOT/scoped-floor.json"
+cp "$TMP_ROOT/scoped-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'different-scope rule and profile floors retain eligible Fable'
+assert_contains "$out" 'account=claude-guidex' 'both scoped floors participate in account selection'
+assert_contains "$out" "--claude-floor '[{\"scope\":\"all_models\",\"min_percent\":60},{\"scope\":\"model:fable\",\"min_percent\":10}]'" 'launch receives both scoped floors'
+cp "$TMP_ROOT/model-rule-floor-original.json" "$RULES"
+account_quota 80 20 30 70
+jq '.rules[3].use=[{harness:"claude",model:"sonnet"},{harness:"claude",model:"fable"},{harness:"codex",model:"other"}]' "$RULES" > "$TMP_ROOT/array-rule-floor.json"
+cp "$TMP_ROOT/array-rule-floor.json" "$RULES"
+jq '(.providers[] | select(.accountKey == "claude-home") | .quotaSemantics.effectiveAvailability[].selection.spendPriority)=10' "$QUOTA" > "$TMP_ROOT/priority-rule-floor.json"
+cp "$TMP_ROOT/priority-rule-floor.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'passing Fable wins over higher-priority personal Sonnet below the rule floor'
+assert_contains "$out" 'not eligible: profile floor all_models below 40%' 'multi-profile evidence reports the rejected personal candidate'
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" "profile: --harness 'codex' --model 'rule-fallback'" 'ordinary pin keeps the configured rule fallback'
+printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: escalate' 'custom pin cannot authorize a rule by borrowing GuideX quota'
+assert_contains "$out" 'unverifiable' 'unknown account remains distinct from a known shortfall'
+rm "$HOME_DIR/config/claude-account"
+jq '.rules[3].floor={provider:"codex",scope:"all_models",min_percent:95}' "$RULES" > "$TMP_ROOT/other-provider-floor.json"
+cp "$TMP_ROOT/other-provider-floor.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: escalate' 'other-provider rule floor still requires its default account row'
+jq '.providers += [(.providers[] | select(.provider == "codex") | .accountKey="default")]' "$QUOTA" > "$TMP_ROOT/default-rule-floor.json"
+cp "$TMP_ROOT/default-rule-floor.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" "profile: --harness 'codex' --model 'rule-fallback'" 'other-provider rule floor still gates every profile before default routing'
+assert_contains "$out" 'fall through to default' 'other-provider rule-floor shortfall keeps its explanation'
+cp "$TMP_ROOT/profile-floor-rules.json" "$RULES"
+pass 'typed dispatch binds Claude quota and floors to the selected task account'
 
 printf '# all fm-dispatch-resolve tests passed\n'

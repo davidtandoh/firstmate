@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # fm-control.sh relaunch: the transactional replace-the-agent verb.
+# Run with --claude-accounts for focused Claude account and floor checks.
 #
 # Relaunch is the only control verb that changes durable records, so these
 # tests pin the transaction itself, hermetically (stubbed session provider, no
@@ -193,6 +194,9 @@ new_case() {
   printf '%s\n' "fm-$id" > "$dir/fake/windows"
   printf '%s' fmses > "$dir/fake/session-name"
   make_tmux_stub "$dir"
+  make_claude_auth_stub "$dir"
+  mkdir -p "$dir/user-home/.claude"
+  : > "$dir/user-home/.claude/.credentials.json"
   printf '%s\n' "$dir"
 }
 
@@ -363,6 +367,69 @@ SH
 }
 
 # --- 1. same-harness relaunch -----------------------------------------------
+
+test_claude_floor_null_relaunch() {
+  local dir out rc id=rl-floor launch floors
+  dir=$(new_case claude-floor "$id")
+  add_ship_task "$dir" "$id" claude
+  mkdir -p "$dir/user-home/.claude_b" "$dir/home/config"
+  printf 'model=fable\nclaude_floor={"scope":"all_models","min_percent":60}\n' >> "$dir/home/state/$id.meta"
+  cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+weekly=80 all=50
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then weekly=20 all=70; fi
+jq -n --argjson weekly "$weekly" --argjson all "$all" '{schemaVersion:5,providers:[{provider:"claude",state:{status:"fresh"},windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"}},{scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"}}]}}]}'
+SH
+  cat > "$dir/fakebin/claude" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$*" = 'auth status' ]; then
+  printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" >> "$HOME/auth-checks"
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ ! -f "$HOME/guidex-signed-in" ]; then printf '{"loggedIn":false}\n'; exit 1; fi
+  printf '{"loggedIn":true}\n'
+else
+  printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" > "$HOME/launch-selector"
+fi
+SH
+  chmod +x "$dir/fakebin/quota-axi" "$dir/fakebin/claude"
+  cp "$dir/home/state/$id.meta" "$dir/meta-before"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain floor'); rc=$?
+  expect_code 1 "$rc" "omitted floor must retain the signed-out GuideX selection: $out"
+  assert_contains "$out" 'not signed in' 'known unusable account refuses before stop'
+  [ "$(cat "$dir/fake/command")" = claude ] || fail 'retained floor stopped the current worker'
+  [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'retained floor sent lifecycle input before refusal'
+  cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'refused relaunch changed the recorded floor'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --claude-floor null --note 'clear floor'); rc=$?
+  expect_code 0 "$rc" "explicit null must validate and launch personal despite signed-out GuideX: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'preflight and replacement validated different accounts'
+  [ "$(meta_field "$dir" "$id" claude_floor)" = '[]' ] || fail 'explicit null did not clear the recorded floor'
+  launch=$(tail -1 "$dir/fake/literal")
+  [ -n "$launch" ] || fail 'replacement launch command missing'
+  HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR="$dir/user-home/.claude_b" bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'replacement command did not execute'
+  [ "$(cat "$dir/user-home/launch-selector")" = unset ] || fail 'actual replacement command selected the signed-out account'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --note 'keep cleared floor'); rc=$?
+  expect_code 0 "$rc" "omitted floor after clearing must preserve null: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'cleared floor was restored on the next relaunch'
+  floors='[{"scope":"all_models","min_percent":60},{"scope":"model:fable","min_percent":10}]'
+  touch "$dir/user-home/guidex-signed-in"
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --claude-floor "$floors" --note 'apply scoped floors'); rc=$?
+  expect_code 0 "$rc" "scoped floors must validate and launch GuideX: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = "$(printf '%s\n%s' "$dir/user-home/.claude_b" "$dir/user-home/.claude_b")" ] || fail 'scoped-floor preflight and spawn selected different accounts'
+  jq -en --argjson actual "$(meta_field "$dir" "$id" claude_floor)" --argjson expected "$floors" '$actual == $expected' >/dev/null || fail 'spawn did not persist the complete floor list'
+  launch=$(tail -1 "$dir/fake/literal")
+  HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR='' bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'scoped-floor launch command did not execute'
+  [ "$(cat "$dir/user-home/launch-selector")" = "$dir/user-home/.claude_b" ] || fail 'scoped-floor launch used a different account'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain scoped floors'); rc=$?
+  expect_code 0 "$rc" "relaunch must preserve both scopes: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = "$(printf '%s\n%s' "$dir/user-home/.claude_b" "$dir/user-home/.claude_b")" ] || fail 'relaunch lost a scoped floor'
+  jq -en --argjson actual "$(meta_field "$dir" "$id" claude_floor)" --argjson expected "$floors" '$actual == $expected' >/dev/null || fail 'relaunch lost the persisted floor list'
+  pass 'explicit null clears the Claude reserve consistently before stop and at replacement launch'
+}
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
@@ -2627,7 +2694,10 @@ test_herdr_relaunch_resumes_only_the_registered_pi_session() {
     }
     dir=$HERDR_CASE_DIR
     rm -f "$dir/fake/herdr-stopped"
-    sed -i 's/^harness=claude$/harness=pi/' "$dir/home/state/resume-$registered.meta"
+    printf '#!/usr/bin/env bash\nprintf "Options: --tui-mode\\n"\n' > "$dir/fakebin/pi"
+    chmod +x "$dir/fakebin/pi"
+    sed 's/^harness=claude$/harness=pi/' "$dir/home/state/resume-$registered.meta" > "$dir/home/state/resume-$registered.meta.tmp"
+    mv "$dir/home/state/resume-$registered.meta.tmp" "$dir/home/state/resume-$registered.meta"
     # Keep the pane's status authority registered to an existing Pi session,
     # while process-info proves that its previous agent has exited.
     printf '{"result":{"agent":{"agent":"%s","agent_status":"idle","agent_session":{"kind":"path","value":"/tmp/pi-bound-session.jsonl"}}}}\n' \
@@ -2967,6 +3037,20 @@ SH
     || fail "the dialog file must be gone when the control lock is released, got: $(cat "$trace" 2>/dev/null)"
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
+
+if [ "${1:-}" = --claude-accounts ]; then
+  test_claude_floor_null_relaunch
+  test_signed_out_worker_account_pin_refuses_before_stop
+  test_worker_account_pin_follows_the_relaunch
+  exit 0
+fi
+
+if [ "${1:-}" = --claude-floors ]; then
+  test_claude_floor_null_relaunch
+  exit 0
+fi
+
+test_claude_floor_null_relaunch
 
 test_relaunch_off_opencode_removes_tracked_wiring
 test_exit_and_relaunch_remove_the_dialog_file

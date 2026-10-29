@@ -1539,7 +1539,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
-The pin is opt-in: without a home-wide or per-secondmate pin, pane-backed Claude launches keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+The pin is opt-in; [automatic Claude accounts](#automatic-claude-accounts) owns unpinned Claude ship and scout routing.
 Unpinned Pi launches use the destination pane's ambient account.
 
 Both files are local and gitignored.
@@ -1556,6 +1556,8 @@ Both files are local and gitignored.
 
 A final newline is optional; any other line, a relative path, or a control character such as a CR refuses.
 For Claude, `ordinary` unsets `CLAUDE_CONFIG_DIR` rather than pointing it at `~/.claude`, because Claude reads `$CLAUDE_CONFIG_DIR/.claude.json` and keys its macOS Keychain entry to any directory that is set ([authentication, "Credential management"](https://code.claude.com/docs/en/authentication#credential-management)).
+The exact selector string matters: a literal `~`, trailing slash, relative path, or resolved symlink can name a different Keychain entry.
+Use the same absolute selector for login, status checks, and launch; preserve its symlink spelling.
 
 A Pi root can hold several provider logins at once, so the root alone does not say which account a launch spends.
 A pinned Pi launch therefore needs `--model <provider>/<id>` naming a declared provider, and Firstmate also passes `--provider <that provider>` so Pi cannot resolve the model under another signed-in provider.
@@ -1573,11 +1575,12 @@ The refusal names the variable; remove that assignment from the raw command, or 
 
 Before any worker endpoint, local copy, or task record exists, and before a relaunch stops the running worker, Firstmate asks the runner itself whether the pinned account is signed in: `claude auth status` for Claude, and `pi auth check --provider <provider> --json --no-refresh` for Pi, falling back to `pi --list-models <provider>` for a provider an extension registers.
 The check runs with only `HOME`, `PATH`, `TMPDIR`, `USER`, `LOGNAME`, and the pinned root in its environment, so a credential variable in firstmate's own environment cannot answer for an empty root.
+Preserve `USER` and `LOGNAME` during a status check; omitting `USER` can make macOS report an authenticated account as signed out.
 
 A pinned Claude launch also unsets the environment credentials Claude ranks above a stored login, such as `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, and the Bedrock and Vertex switches ([authentication precedence](https://code.claude.com/docs/en/authentication#authentication-precedence)).
 Pi ranks a root's stored logins above environment variables, so a pinned Pi launch unsets nothing.
 
-A home that authenticates Claude through environment credentials on purpose should leave the pin absent.
+For unpinned Claude ships and scouts, [automatic Claude accounts](#automatic-claude-accounts) owns credential handling as well as selector precedence.
 
 ### Failures, reporting, and inheritance
 
@@ -1588,6 +1591,49 @@ Pins are not inherited into secondmate homes: the secondmate's own workers read 
 A remote secondmate is launched on its host from its own home's configuration, so create the file in that remote home.
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
+
+### Automatic Claude accounts
+
+Automatic routing is active when the second login directory `$HOME/.claude_b` exists.
+Without that directory, Claude spawn and relaunch retain their existing account behavior.
+Claude ships and scouts select an existing account from the source repository before creating their task worktree.
+Repositories whose physical path is under `~/workspace/guidex` use the GuideX account; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
+A `projects/guidex_*` registration qualifies only when its resolved path is inside that directory.
+A non-empty explicit `CLAUDE_CONFIG_DIR` takes precedence.
+Explicit selectors retain their exact spelling, including tilde, relative paths, trailing slashes, and symlinks.
+Automatic GuideX selection uses the absolute `$HOME/.claude_b` selector.
+The status probe and launch receive the same selector.
+Explicit account pins remain authoritative.
+Both dispatch consumers bind quota to the effective account pin before applying repository or Fable routing.
+An ordinary pin uses personal quota and its floor; a GuideX pin uses GuideX quota without that floor.
+Other pinned roots remain unmeasured, including with a legacy quota snapshot.
+Relaunch validates automatic account availability and enforcement before stopping the existing worker.
+Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
+Omnigent launches pass the selected directory verbatim through the native environment interface; an explicit empty selector requests the ordinary personal account.
+Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17).
+An unrecognized service build refuses a non-empty selected account before launch or before relaunch stops the current worker.
+Ordinary personal launches on older builds keep the daemon's ambient default and send no account override.
+T3 Code refuses automatic routing because its provider instance owns the account.
+Unpinned raw Claude commands require an explicit selector instead of automatic routing.
+
+When `$HOME/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
+Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
+Equal allowances use the repository's account.
+The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor and applicable rule floor; the GuideX account has no reserve floor.
+Typed dispatch combines the profile and applicable Claude rule floors into a list of scoped floors in its launch arguments.
+The shared account selector applies every floor to the personal account; the GuideX account remains exempt.
+Repeated scopes retain the highest minimum.
+Spawn and relaunch accept this list and preserve it in the task record for the same harness and model when the argument is omitted.
+Old single-floor records are read as one-item lists.
+An explicit `null` or empty list clears the recorded floors; selecting a replacement profile can supply new floors.
+Account exhaustion excludes that account.
+Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
+If neither measured account is eligible, dispatch considers the remaining configured profiles.
+Other Claude models keep the repository account split and their configured personal-account floor.
+
+[`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`, including the effective home account pin; its header owns the command flags.
+[`bin/fm-claude-accounts-lib.sh`](../bin/fm-claude-accounts-lib.sh) owns collection and selector handling, and [`bin/fm-quota-axi-lib.sh`](../bin/fm-quota-axi-lib.sh) owns the shared account and scope join.
+Credential reads remain inside `quota-axi` and `claude auth status`; Firstmate does not copy credentials or change either login.
 
 ### Per-secondmate account pins
 
@@ -1870,9 +1916,11 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 **Rule quota floors**
 
 - A rule `floor` names the quota-axi `provider` and `scope` whose `effectivePercentRemaining` must be at least `min_percent` for the rule's profiles to apply.
-- A provider-only rule floor on an expanded provider binds to its `default` account row.
-- An absent or unknown row or unmeasured provider makes the floor unverifiable and escalates without authorizing default routing.
-- A known percentage below the floor makes the tool resolve among `default` profiles instead.
+- A Claude rule floor uses each candidate model and effective account through [automatic Claude accounts](#automatic-claude-accounts), including Fable account spreading.
+A multi-profile rule retains candidates that pass their rule floor and excludes candidates with a known shortfall.
+Other provider-only rule floors on expanded providers bind to the `default` account row.
+- If no candidate passes and any candidate has unknown rule-floor evidence, the tool escalates without authorizing default routing.
+- If every candidate has a known rule-floor shortfall, the tool resolves among `default` profiles instead.
 
 **Provider identifiers and mappings**
 

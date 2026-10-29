@@ -702,6 +702,26 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+The automatic Claude account path reuses that sign-in classifier.
+Verified 2026-10-29 on macOS with Claude Code 2.1.312:
+
+```sh
+bash bin/fm-test-run.sh tests/fm-worker-account-live-e2e.test.sh
+```
+
+```text
+ok - claude 2.1.312 (Claude Code): the pin check accepts a signed-in root and refuses an empty one despite an ambient API key
+skip-runner: pi is not installed, so its pin check was not exercised
+skip-runner: pi-signed is not installed, so its pin check was not exercised
+# worker account live guard checked: claude
+```
+
+This synthetic-root check verifies the vendor status classifier, not access to a user's macOS Keychain from every runtime session.
+`tests/fm-claude-accounts.test.sh` verifies exact explicit selectors, preserved login environment, and partial quota evidence.
+`tests/fm-worker-account.test.sh` executes automatic native child commands under conflicting daemon credentials and selectors and verifies that homes without the second login directory perform no automatic authentication or account selection.
+`tests/fm-omnigent.test.sh` verifies exact account forwarding for Omnigent ships and scouts and signed-out refusal before task creation.
+Secondmate account pins retain their existing account ownership; other harnesses do not use automatic Claude account selection.
+
 ## Secondmate busy contract
 
 Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.

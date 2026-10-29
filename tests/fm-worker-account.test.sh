@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Behavior tests for the opt-in per-home worker account pin
 # (config/claude-account, config/pi-account; bin/fm-worker-account-lib.sh).
+# Run with --claude-accounts for focused native Claude account checks.
 #
 # Each case drives the real fm-spawn.sh through the shared fake tmux, which
 # records the launch command, then runs that command in a synthetic pane whose
@@ -485,6 +486,69 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_unconfigured_automatic_routing_is_inert() {
+  local lane out rc id
+  for lane in personal guidex; do
+    new_case "unconfigured-$lane" claude
+    id="acct-unconfigured-$lane"
+    mkdir -p "$HOME_DIR/user-home/workspace"
+    if [ "$lane" = guidex ]; then
+      ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
+    fi
+    fm_test_spawn_brief "$HOME_DIR" "$id"
+    out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" FM_TEST_CLAUDE_CONFIG_DIR='' \
+      fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --mode no-mistakes --yolo off --harness claude --model sonnet); rc=$?
+    expect_code 0 "$rc" "unconfigured $lane spawn must retain prior behavior: $out"
+    assert_absent "$CASE/claude-checks" 'unconfigured spawn must not check authentication'
+    assert_no_grep 'account=' "$HOME_DIR/state/$id.meta" 'unconfigured spawn must not pin an account'
+    run_pane
+    assert_grep "CLAUDE_CONFIG_DIR=$CASE/ambient-claude" "$CASE/claude-worker" 'unconfigured launch keeps the pane account'
+    assert_grep 'ANTHROPIC_API_KEY=ambient-pane-key' "$CASE/claude-worker" 'unconfigured launch leaves credentials alone'
+  done
+  pass 'unconfigured personal and GuideX Claude spawns perform no automatic account work'
+}
+
+test_automatic_native_accounts() {
+  local lane out rc id
+  for lane in guidex personal; do
+    new_case "automatic-$lane" claude
+    id="acct-auto-$lane"
+    mkdir -p "$HOME_DIR/user-home/.claude_b"
+    if [ "$lane" = guidex ]; then
+      mkdir -p "$HOME_DIR/user-home/workspace"
+      ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
+      signed_in_claude_root "$HOME_DIR/user-home/.claude_b"
+    else
+      signed_in_claude_root "$HOME_DIR/user-home/.claude"
+    fi
+    fm_test_spawn_brief "$HOME_DIR" "$id"
+    out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" FM_TEST_CLAUDE_CONFIG_DIR='' ANTHROPIC_API_KEY=invoker-key \
+      fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --mode no-mistakes --yolo off --harness claude --model sonnet); rc=$?
+    expect_code 0 "$rc" "automatic native $lane spawn should succeed: $out"
+    run_pane
+    if [ "$lane" = guidex ]; then
+      assert_grep "CLAUDE_CONFIG_DIR=$HOME_DIR/user-home/.claude_b" "$CASE/claude-worker" 'GuideX worker uses its repository login'
+    else
+      assert_grep 'CLAUDE_CONFIG_DIR=unset' "$CASE/claude-worker" 'personal worker clears daemon selector'
+    fi
+    assert_grep 'ANTHROPIC_API_KEY=unset' "$CASE/claude-worker" 'automatic launch sheds daemon API key'
+    assert_grep 'CLAUDE_CODE_OAUTH_TOKEN=unset' "$CASE/claude-worker" 'automatic launch sheds daemon OAuth token'
+    assert_grep 'CLAUDE_CODE_USE_BEDROCK=unset' "$CASE/claude-worker" 'automatic launch sheds daemon provider override'
+  done
+  pass 'native automatic routing enforces personal and GuideX accounts in the actual child'
+}
+
+if [ "${1:-}" = --claude-accounts ]; then
+  test_unconfigured_automatic_routing_is_inert
+  test_automatic_native_accounts
+  test_claude_pin_selects_the_root_and_sheds_ambient_credentials
+  test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login
+  test_claude_ordinary_pin_unsets_the_config_root
+  exit 0
+fi
+
+test_unconfigured_automatic_routing_is_inert
+test_automatic_native_accounts
 test_secondmate_account_override
 test_secondmate_account_refusals
 test_remote_secondmate_account_override_refuses_locally

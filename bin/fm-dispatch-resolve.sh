@@ -88,6 +88,8 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-claude-accounts-lib.sh
+. "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-env-lib.sh
@@ -394,11 +396,14 @@ jq -e --slurpfile rules "$RULES" '
 
 # ---- quota evidence: one quota-axi --json snapshot -----------------------------
 command -v quota-axi >/dev/null 2>&1 || emit_error "quota-axi not installed"
-quota-axi --json > "$QUOTA" 2>/dev/null || emit_error "quota-axi --json failed"
+fm_quota_snapshot > "$QUOTA" 2>/dev/null || emit_error "quota-axi --json failed"
 fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an invalid snapshot"
+CLAUDE_REPO_LANE=$(fm_claude_repo_lane "$PROJECT" "${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}")
+CLAUDE_EXPLICIT_LANE=$(fm_claude_dispatch_lane "$CONFIG") || emit_error 'invalid Claude account selection'
 
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
 RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" \
+  --arg claude_repo "$CLAUDE_REPO_LANE" --arg claude_explicit "$CLAUDE_EXPLICIT_LANE" \
   --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" "$FM_QUOTA_ROW_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
@@ -406,17 +411,24 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def rows($p; $lane): (prov($p; $lane) | .quotaSemantics.effectiveAvailability // []);
   def bare($m): ($m | split("/") | last);
   def provider_of($c): ($c.provider // $pmap[$c.harness] // null);
-  def lane_of($c): quota_lane($c.harness; $c.model);
+  def rule_profile($c; $rule):
+    if $c.harness == "claude" then
+      $c + {floor: claude_floors(claude_floors($c.floor) +
+        (if $rule.floor.provider == "claude" then [$rule.floor] else [] end))}
+    else $c end;
+  def lane_of($c):
+    if $c.harness == "claude" then
+      if $claude_explicit != "" then $claude_explicit
+      else claude_task_lane($q; $c.model; $claude_repo; $c.floor) end
+    else quota_lane($c.harness; $c.model) end;
   def measured($p; $lane):
     (prov($p; $lane) != null and (["known", "partial"] | index(prov($p; $lane).quotaSemantics.status)) != null);
   def applicable($p; $lane; $m):
-    (bare($m)) as $bare |
-    [rows($p; $lane)[] | select(
-      .scope == "all_models" or .scope == "all_products" or
-      ($m != "" and (.scope == ("model:" + $bare) or .scope == ("product:" + $bare)))
-    )];
-  def floor_state($f; $p; $lane):
+    [rows($p; $lane)[] | select(quota_scope_matches(.scope; $m))];
+  def single_floor_state($f; $p; $lane):
     if $f == null then "none"
+    elif $p == "claude" and $lane == "claude-guidex" then "none"
+    elif $p == "claude" and $lane == "unavailable" then "below"
     elif prov($p; $lane) == null or (measured($p; $lane) | not) then "unknown"
     else [rows($p; $lane)[] | select(.scope == $f.scope)] as $matches
       | if ($matches | length) == 0 or any($matches[]; .status != "known") then "unknown"
@@ -424,11 +436,26 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         else "ok"
         end
     end;
+  def floor_state($f; $p; $lane):
+    [claude_floors($f)[] | single_floor_state(.; $p; $lane)] as $states |
+    if any($states[]; . == "below") then "below"
+    elif any($states[]; . == "unknown") then "unknown"
+    elif ($states | length) == 0 then "none" else "ok" end;
+  def floor_with_state($f; $p; $lane; $state):
+    first(claude_floors($f)[] | select(single_floor_state(.; $p; $lane) == $state));
+  def rule_floor_state($rule; $c):
+    floor_state($rule.floor; $rule.floor.provider;
+      if $rule.floor.provider == "claude" then
+        if provider_of($c) == "claude" then lane_of(rule_profile($c; $rule))
+        elif $claude_explicit != "" then $claude_explicit else $claude_repo end
+      else "" end);
   def evidence($rows):
     $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null), spendPriority: (.selection.spendPriority // null)});
   def evaluate($c):
     (provider_of($c)) as $p | (lane_of($c)) as $lane |
-    if $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
+    (if $lane == "unavailable" and $c.harness == "claude" then
+      {profile: $c, provider: $p, eligible: false, reason: "both Claude Fable accounts below their available allowance or personal floor"}
+    elif $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
     elif prov($p; $lane) == null then
       {profile: $c, provider: $p, eligible: true, unranked: true,
        reason: (if any($q.providers[]; .provider == $p)
@@ -445,19 +472,21 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         ($rows | map(select(.status == "known" and (.effectivePercentRemaining | type) == "number" and .effectivePercentRemaining <= 0)) | first) as $bad |
         {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: $bad.effectivePercentRemaining, runway: $bad.runway.status, eligible: false, reason: "0% remaining at \($bad.scope)"}
       elif $profile_floor_state == "below" then
+        floor_with_state($c.floor; $p; $lane; "below") as $limit |
         ([rows($p; $lane)[] | select(
-          .scope == $c.floor.scope and
-          .effectivePercentRemaining < $c.floor.min_percent
+          .scope == $limit.scope and
+          .effectivePercentRemaining < $limit.min_percent
         )] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: ($floor_row.scope // $c.floor.scope), pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: false, reason: "profile floor \($c.floor.scope) below \($c.floor.min_percent)%"}
+        {profile: $c, provider: $p, bounds: $bounds, scope: ($floor_row.scope // $limit.scope), pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: false, reason: "profile floor \($limit.scope) below \($limit.min_percent)%"}
       elif (measured($p; $lane) | not) then
         ($rows | first) as $row |
         {profile: $c, provider: $p, bounds: $bounds, scope: ($row.scope // null), pct: ($row.effectivePercentRemaining // null), runway: ($row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "provider \($p) unmeasured (\(prov($p; $lane).quotaSemantics.status))"}
       elif ($rows | length) == 0 then
         {profile: $c, provider: $p, bounds: $bounds, eligible: true, unranked: true, unknown: true, reason: "no applicable quota row for provider \($p)"}
       elif $profile_floor_state == "unknown" then
-        ([rows($p; $lane)[] | select(.scope == $c.floor.scope)] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $c.floor.scope, pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "profile floor \($c.floor.scope) is unverifiable: not rankable"}
+        floor_with_state($c.floor; $p; $lane; "unknown") as $limit |
+        ([rows($p; $lane)[] | select(.scope == $limit.scope)] | first) as $floor_row |
+        {profile: $c, provider: $p, bounds: $bounds, scope: $limit.scope, pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "profile floor \($limit.scope) is unverifiable: not rankable"}
       elif any($rows[]; .status != "known") then
         ($rows | map(select(.status != "known")) | first) as $bad |
         {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, eligible: true, unranked: true, unknown: true, reason: "quota row \($bad.scope) unknown: not rankable"}
@@ -469,7 +498,17 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         {profile: $c, provider: $p, bounds: $bounds, scope: $limiting.scope, pct: $limiting.effectivePercentRemaining,
          spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
       end
-    end;
+    end) + (if $c.harness == "claude" then {account: $lane} else {} end);
+  def evaluate_rule($c; $rule):
+    rule_profile($c; $rule) as $c | evaluate($c) |
+    if .eligible then
+      rule_floor_state($rule; $c) as $state |
+      if $state == "below" then
+        . + {eligible:false, unranked:false, reason:"rule floor \($rule.floor.scope) below \($rule.floor.min_percent)%"}
+      elif $state == "unknown" then
+        . + {unranked:true, unknown:true, reason:"rule floor \($rule.floor.scope) is unverifiable: not rankable"}
+      else . end
+    else . end;
   def rule_at($c):
     if ($c | test("^rule_[1-9][0-9]*$")) then
       ($c | ltrimstr("rule_") | tonumber) as $n |
@@ -496,11 +535,17 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
    end) as $fb |
   (if $fb.to then $fb.to else $picked end) as $choice |
   (rule_at($choice)) as $rule |
-  (if $rule == null then "none" else floor_state($rule.floor; $rule.floor.provider; "") end) as $rule_floor_state |
   (if $choice != "default" and $rule == null then []
    elif $rule == null then profiles($cfg.default // null)
    else profiles($rule.use)
    end) as $answer_use |
+  (if $rule.floor == null then "none"
+   else [$answer_use[] | rule_floor_state($rule; .)] as $states |
+     if any($states[]; . == "ok" or . == "none") then "ok"
+     elif any($states[]; . == "unknown") then "unknown"
+     else "below"
+     end
+   end) as $rule_floor_state |
   (if $choice != "default" and $rule == null then {invalid: "rule \($choice) is not in the rules file"}
    elif $rule == null then {source: "default", use: profiles($cfg.default // null), note: "no rule matched"}
    elif ($rule.approval // "") == "captain" then {source: $choice, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
@@ -519,14 +564,14 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   as $ev |
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
   elif $fb.below and $fb.global then
-    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif $fb.below and ($fb.to | not) then
-    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif $sel.escalate then
-    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif ($sel.use | length) == 0 then $ev + {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
   else
-    ($sel.use | map(evaluate(.))) as $cands |
+    ($sel.use | map(evaluate_rule(.; if $sel.source == "default" then null else $rule end))) as $cands |
     ([$cands[] | select(.provider == $cfg.preferred_provider)]) as $family |
     ([$family[] | select(.eligible)]) as $preferred |
     (if ($preferred | length) > 0 then $preferred else $cands end) as $pool |
@@ -536,6 +581,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
          elif ($preferred | length) > 0 then "prefer eligible family candidates"
          else "fall back; every matched family candidate is ineligible" end))} end)) as $ev |
     ([$pool[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
+
     ([$cands[] | select(.unranked)]) as $unranked |
     if ($elig | length) == 0 then $ev + {status: "escalate",
       reason: ("no rankable eligible candidate" +
@@ -569,11 +615,13 @@ TEXT=$(jq -r '
   (if .unranked_note then "  note: \(.unranked_note | flat)" else empty end),
   (.candidates[]? | "  candidate: \(.profile.harness | flat):\(show(.profile.model))"
       + (if .provider then "  provider=\(.provider | flat)" else "" end)
+      + (if .account then "  account=\(if .account == "" then "unknown" else .account | flat end)" else "" end)
       + (if .scope then "  scope=\(.scope | flat)  remaining=\(show(.pct))%  spendPriority=\(show(.spendPriority))  runway=\(show(.runway))" else "" end)
       + (if (.bounds // [] | length) > 1 then "  bounds=" + ([.bounds[] | "\(.scope | flat):\(show(.pct))%/\((.runway // .status) | flat)"] | join(",")) else "" end)
       + "  -> " + (if .unranked then "eligible, unranked: \(.reason | flat): disclosed uncertainty" elif .eligible then "eligible" else "not eligible: \(.reason | flat)" end)),
   (if .chosen then "  profile: --harness \(.chosen.profile.harness | shell_arg)"
       + (if .chosen.profile.model then " --model \(.chosen.profile.model | shell_arg)" else "" end)
-      + (if .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
+      + (if .chosen.profile.effort then " --effort \(.chosen.profile.effort | shell_arg)" else "" end)
+      + (if .chosen.profile.harness == "claude" and (.chosen.profile.floor | length) > 0 then " --claude-floor \(.chosen.profile.floor | tojson | shell_arg)" else "" end) else empty end)' <<<"$RESULT") || emit_error "output rendering failed"
 printf '%s\n' "$TEXT"
 exit 0

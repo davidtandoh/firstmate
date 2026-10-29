@@ -33,15 +33,73 @@ FM_QUOTA_PROVIDER_ID_RE='^[a-z0-9]+(-[a-z0-9]+)*\z'
 FM_QUOTA_ROW_JQ='
   def quota_lane($harness; $model):
     if $harness == "codex" then "codex-home"
+    elif $harness == "claude" then "claude-home"
     elif ($harness == "pi" or $harness == "pi-signed") and (($model // "") | contains("/"))
     then ($model | split("/") | first | if . == "codex-native" then "codex-home" else . end)
     else "" end;
   def quota_row($snapshot; $provider; $lane):
     ([$snapshot.providers[]? | select(.provider == $provider)]) as $rows |
-    if $snapshot.schemaVersion == 6 then
+    if $provider == "claude" and $lane == "claude-explicit" then null
+    elif $snapshot.schemaVersion == 6 then
       (([$rows[] | select(.accountKey == $lane)] | first) //
        ([$rows[] | select(.accountKey == "default")] | first) // null)
     else ($rows | first) // null
+    end;
+  def claude_is_fable($model):
+    ($model // "" | split("/") | last // "" | test("^(claude-)?fable(-[0-9]+([.-][0-9]+)*)?$"));
+  def quota_scope_matches($scope; $model):
+    ($model // "" | split("/") | last // "") as $bare |
+    $scope == "all_models" or $scope == "all_products" or
+    ($bare != "" and ($scope == ("model:" + $bare) or $scope == ("product:" + $bare))) or
+    (claude_is_fable($bare) and ($bare == "fable" or ($bare | startswith("claude-fable-"))) and
+     ($scope == "model:fable" or $scope == "product:fable"));
+  def claude_fable_weekly($row):
+    [$row.windows[]? | select(.kind == "model" and .windowSeconds == 604800 and
+       (.id | sub("^model:"; "") | claude_is_fable(.))) |
+     .percentRemaining | select(type == "number" and . >= 0 and . <= 100)] |
+    if length > 0 then min else null end;
+  # Firstmate owns these two account keys. Only its account collector emits
+  # them; a legacy single-account snapshot still uses quota_row fallback.
+  def claude_floors($floor):
+    (if $floor == null then [] elif ($floor | type) == "array" then $floor else [$floor] end) |
+    group_by(.scope) | map({scope: .[0].scope, min_percent: (map(.min_percent) | max)});
+  def claude_task_lane($snapshot; $model; $repo_lane; $floor):
+    if (claude_is_fable($model) | not) then $repo_lane
+    elif ([$snapshot.providers[]? | select(.provider == "claude" and
+           (.accountKey == "claude-home" or .accountKey == "claude-guidex"))] | length) != 2
+    then $repo_lane
+    else
+      def account_status($row; $weekly):
+        [$row.quotaSemantics.effectiveAvailability[]? |
+          select(quota_scope_matches(.scope; $model))] as $bounds |
+        (if $row.accountKey == "claude-home" then
+          [{scope:"all_models", min_percent:40}] + claude_floors($floor)
+         else [{scope:"all_models", min_percent:0}] end) as $floors |
+        if ($row.state.status // "fresh") != "fresh" then "unknown"
+        elif ($weekly != null and $weekly <= 0) or
+          any($bounds[]; .runway.status == "exhausted_now" or
+            (.status == "known" and .effectivePercentRemaining <= 0)) or
+          any($floors[]; . as $limit |
+            any($row.quotaSemantics.effectiveAvailability[]?;
+              .scope == $limit.scope and .status == "known" and
+              .effectivePercentRemaining < $limit.min_percent))
+        then "unavailable"
+        elif $weekly == null or
+          ($bounds | length) == 0 or any($bounds[]; .status != "known") or
+          any($floors[]; . as $limit |
+            ([$row.quotaSemantics.effectiveAvailability[]? | select(.scope == $limit.scope)] | length) == 0 or
+            any($row.quotaSemantics.effectiveAvailability[]?;
+              .scope == $limit.scope and .status != "known"))
+        then "unknown" else "ready" end;
+      [$snapshot.providers[] | select(.provider == "claude" and
+        (.accountKey == "claude-home" or .accountKey == "claude-guidex")) |
+        {row:., weekly:claude_fable_weekly(.)}] as $accounts |
+      [$accounts[] | . + {status:account_status(.row; .weekly)}] as $evaluated |
+      [$evaluated[] | select(.status == "ready")] as $ready |
+      if ($ready | length) > 0 then
+        ($ready | sort_by([.weekly, (if .row.accountKey == $repo_lane then 1 else 0 end)]) | last | .row.accountKey)
+      elif any($evaluated[]; .status == "unknown") then ""
+      else "unavailable" end
     end;
 '
 

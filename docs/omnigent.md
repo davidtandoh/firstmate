@@ -73,7 +73,7 @@ The current primary retains charge until the replacement owns the lock.
 `bin/fm-lock.sh` validates the handoff token under its existing acquisition mutex before replacing a live owner.
 An ordinary session without the token still cannot take over a live lock.
 The launcher runs in a dedicated detached tmux session because the existing Omnigent CLI owns a foreground terminal attachment.
-The replacement preserves the caller's `CLAUDE_CONFIG_DIR`, including an unset or empty value, rather than inheriting another account from an existing tmux server.
+The fresh-session launcher carries the caller's `CLAUDE_CONFIG_DIR` to the Omnigent boundary; [automatic Claude accounts](configuration.md#automatic-claude-accounts) documents the running-service enforcement requirement and older-service limitation.
 It uses the existing launcher and title observer, and sends the old session a stop event that preserves its history.
 A startup failure preserves the old owner; a stop failure reports the replacement URL while preserving the new owner.
 See [fresh-session handoff verification](verification/omnigent.md#fresh-session-handoff-verification) for regression coverage and live verification limits.
