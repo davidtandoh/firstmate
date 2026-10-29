@@ -3229,16 +3229,8 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     exit 1
   fi
   if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
-    # Resolve registrations and project symlinks before the later worktree
-    # setup. Account selectors themselves keep their exact Keychain spelling.
-    # shellcheck source=bin/fm-claude-accounts-lib.sh
-    . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
-    CLAUDE_AUTO_ROOT=$(fm_claude_spawn_root "$PROJ" "$PROJECTS" "$MODEL" "$(type -P claude)") || exit 1
-    if [ -n "$CLAUDE_AUTO_ROOT" ]; then
-      export CLAUDE_CONFIG_DIR=$CLAUDE_AUTO_ROOT
-    else
-      unset CLAUDE_CONFIG_DIR
-    fi
+    echo 'error: Omnigent cannot enforce automatic Claude account routing across its additive daemon environment; use a native launch' >&2
+    exit 1
   fi
   "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
 fi
@@ -3466,6 +3458,16 @@ RAW_COMMAND=
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
 WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
+CLAUDE_AUTO_SELECTED=0
+if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ] && [ -z "$WORKER_ACCOUNT" ]; then
+  if [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+    [ "$RAW_LAUNCH" = 0 ] || { echo 'error: automatic Claude account routing requires a canonical harness launch' >&2; exit 1; }
+    # shellcheck source=bin/fm-claude-accounts-lib.sh
+    . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+    CLAUDE_AUTO_ROOT=$(fm_claude_spawn_root "$PROJ" "$PROJECTS" "$MODEL" "$(type -P claude)") || exit 1
+    CLAUDE_AUTO_SELECTED=1
+  fi
+fi
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
@@ -3492,7 +3494,7 @@ if [ "$BACKEND" = t3code ]; then
     echo "error: backend=t3code cannot apply config/launch-env-allowlist because T3 starts the agent with its provider instance's environment; remove that file or choose another backend" >&2
     exit 1
   fi
-  if [ -n "$WORKER_ACCOUNT" ]; then
+  if [ -n "$WORKER_ACCOUNT" ] || [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
     echo "error: backend=t3code cannot apply the $HARNESS worker account pin because T3's provider instance owns the account; select that instance in config/t3code-instances instead" >&2
     exit 1
   fi
@@ -3500,6 +3502,14 @@ fi
 if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
   if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
+  else
+    unset CLAUDE_CONFIG_DIR
+  fi
+fi
+
+if [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
+  if [ -n "$CLAUDE_AUTO_ROOT" ]; then
+    export CLAUDE_CONFIG_DIR=$CLAUDE_AUTO_ROOT
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -7442,6 +7452,12 @@ if [ -n "$WORKER_ACCOUNT" ]; then
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   esac
+elif [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
+  if [ -n "$CLAUDE_AUTO_ROOT" ]; then
+    LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_AUTO_ROOT") $LAUNCH"
+  else
+    LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"
+  fi
 elif [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
   LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
 fi

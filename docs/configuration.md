@@ -1456,21 +1456,27 @@ A remote secondmate is launched on its host from its own home's configuration, s
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
 
-### Automatic Claude accounts in Omnigent
+### Automatic Claude accounts
 
-Omnigent Claude ships and scouts select an existing account from the source repository before creating their task worktree.
+Native Claude ships and scouts select an existing account from the source repository before creating their task worktree.
 Repositories whose physical path is under `~/workspace/guidex` use `~/.claude_b`; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
 A `projects/guidex_*` registration qualifies only when its resolved path is inside that directory.
 A non-empty explicit `CLAUDE_CONFIG_DIR` takes precedence.
-Automatic selection expands `~/` and removes trailing slashes without resolving selector symlinks.
+Explicit selectors retain their exact spelling, including tilde, relative paths, trailing slashes, and symlinks.
+Automatic GuideX selection constructs the absolute `$HOME/.claude_b` selector.
 The status probe and launch receive the same selector.
-The existing Omnigent refusal of `config/claude-account` still applies.
+Explicit account pins remain authoritative.
+Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
+Omnigent refuses Claude ships and scouts because its additive daemon environment cannot enforce credential removal.
+T3 Code refuses automatic routing because its provider instance owns the account.
+Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
 When `~/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
 Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
 Equal allowances use the repository's account.
 The personal account requires at least 40% `all_models` remaining; the GuideX account has no reserve floor.
-Account exhaustion excludes that account, and missing weekly evidence stays unknown.
+Account exhaustion excludes that account.
+Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
 If neither measured account is eligible, dispatch considers the remaining configured profiles.
 Other Claude models keep the repository account split and their configured personal-account floor.
 

@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Claude account collection and project binding. Sourced by the reporter,
-# typed dispatch resolver, and Omnigent spawn path.
+# typed dispatch resolver, and native spawn path.
 # fm_quota_snapshot emits the quota-axi snapshot unchanged on single-account
 # installations. When ~/.claude_b exists, it collects the ordinary personal
 # login with CLAUDE_CONFIG_DIR unset and the GuideX login with that directory
@@ -13,8 +13,6 @@
 # delegates selection to the shared quota jq contract. Empty means unknown;
 # unavailable means both measured accounts are ineligible, so dispatch falls
 # through to its other configured profiles. Fable ties use the repository lane.
-# fm_claude_config_dir <selector> expands ~/ and removes trailing slashes
-# without resolving symlinks: Claude keys Keychain entries to the exact string.
 # fm_claude_spawn_root <project> <projects root> <model> <claude executable>
 # prints the automatic root, or an empty line for the ordinary personal login.
 # The executable argument makes the status-only probe independently testable.
@@ -23,14 +21,6 @@
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-quota-axi-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-worker-account-lib.sh"
-
-fm_claude_config_dir() {
-  local selector=$1
-  case "$selector" in \~) selector=$HOME ;; \~/*) selector="$HOME/${selector#\~/}" ;; esac
-  case "$selector" in /*) ;; *) echo 'error: Claude config directory must be absolute or start with ~/' >&2; return 1 ;; esac
-  while [ "$selector" != / ] && [ "${selector%/}" != "$selector" ]; do selector=${selector%/}; done
-  printf '%s\n' "$selector"
-}
 
 fm_claude_repo_lane() {
   local project=$1 projects=$2 physical guidex
@@ -54,9 +44,7 @@ fm_claude_account_lane() {
 }
 
 fm_claude_explicit_lane() {
-  local selector
-  selector=$(fm_claude_config_dir "$1") || return 1
-  case "$selector" in
+  case "$1" in
     "$HOME/.claude_b") printf 'claude-guidex\n' ;;
     *) printf 'claude-explicit\n' ;;
   esac
@@ -65,7 +53,7 @@ fm_claude_explicit_lane() {
 fm_claude_spawn_root() {
   local project=$1 projects=$2 model=$3 executable=$4 repo lane root snapshot fable
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-    fm_claude_config_dir "$CLAUDE_CONFIG_DIR"
+    printf '%s\n' "$CLAUDE_CONFIG_DIR"
     return $?
   fi
   repo=$(fm_claude_repo_lane "$project" "$projects") || return 1
@@ -80,10 +68,10 @@ fm_claude_spawn_root() {
     esac
   fi
   root=
-  [ "$lane" != claude-guidex ] || root=$(fm_claude_config_dir "$HOME/.claude_b") || return 1
-  if [ "$lane" = claude-guidex ] || [ "$fable" = true ]; then
+  [ "$lane" != claude-guidex ] || root="$HOME/.claude_b"
+  if [ -n "$lane" ]; then
     # The shared status probe removes ambient credentials and keeps USER and
-    # LOGNAME. Omnigent may omit them, so recover the OS login name if needed.
+    # LOGNAME. Recover the OS login name if the caller omitted them.
     local login_user=${USER:-} login_name=${LOGNAME:-}
     [ -n "$login_user" ] || login_user=$(id -un) || return 1
     [ -n "$login_name" ] || login_name=$login_user

@@ -485,6 +485,36 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_automatic_native_accounts() {
+  local lane out rc id
+  for lane in guidex personal; do
+    new_case "automatic-$lane" claude
+    id="acct-auto-$lane"
+    if [ "$lane" = guidex ]; then
+      mkdir -p "$HOME_DIR/user-home/workspace"
+      ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
+      signed_in_claude_root "$HOME_DIR/user-home/.claude_b"
+    else
+      signed_in_claude_root "$HOME_DIR/user-home/.claude"
+    fi
+    fm_test_spawn_brief "$HOME_DIR" "$id"
+    out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" FM_TEST_CLAUDE_CONFIG_DIR='' ANTHROPIC_API_KEY=invoker-key \
+      fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --mode no-mistakes --yolo off --harness claude --model sonnet); rc=$?
+    expect_code 0 "$rc" "automatic native $lane spawn should succeed: $out"
+    run_pane
+    if [ "$lane" = guidex ]; then
+      assert_grep "CLAUDE_CONFIG_DIR=$HOME_DIR/user-home/.claude_b" "$CASE/claude-worker" 'GuideX worker uses its repository login'
+    else
+      assert_grep 'CLAUDE_CONFIG_DIR=unset' "$CASE/claude-worker" 'personal worker clears daemon selector'
+    fi
+    assert_grep 'ANTHROPIC_API_KEY=unset' "$CASE/claude-worker" 'automatic launch sheds daemon API key'
+    assert_grep 'CLAUDE_CODE_OAUTH_TOKEN=unset' "$CASE/claude-worker" 'automatic launch sheds daemon OAuth token'
+    assert_grep 'CLAUDE_CODE_USE_BEDROCK=unset' "$CASE/claude-worker" 'automatic launch sheds daemon provider override'
+  done
+  pass 'native automatic routing enforces personal and GuideX accounts in the actual child'
+}
+
+test_automatic_native_accounts
 test_secondmate_account_override
 test_secondmate_account_refusals
 test_remote_secondmate_account_override_refuses_locally

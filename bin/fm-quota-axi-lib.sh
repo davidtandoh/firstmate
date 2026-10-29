@@ -65,29 +65,36 @@ FM_QUOTA_ROW_JQ='
            (.accountKey == "claude-home" or .accountKey == "claude-guidex"))] | length) != 2
     then $repo_lane
     else
-      def eligible($row):
+      def account_status($row; $weekly):
         [$row.quotaSemantics.effectiveAvailability[]? |
           select(quota_scope_matches(.scope; $model))] as $bounds |
-        ($row.state.status // "fresh") == "fresh" and
-        ($bounds | length) > 0 and
-        all($bounds[]; .status == "known" and .effectivePercentRemaining > 0 and
-            .runway.status != "exhausted_now") and
         (if $row.accountKey == "claude-home" then
-          [$row.quotaSemantics.effectiveAvailability[]? | select(.scope == "all_models")] as $all |
-          ($all | length) > 0 and all($all[]; .status == "known" and .effectivePercentRemaining >= 40) and
-          (if $floor == null then true else
-             [$row.quotaSemantics.effectiveAvailability[]? | select(.scope == $floor.scope)] as $limits |
-             ($limits | length) > 0 and all($limits[]; .status == "known" and .effectivePercentRemaining >= $floor.min_percent)
-           end)
-         else true end);
+          [{scope:"all_models", min_percent:40}] + (if $floor == null then [] else [$floor] end)
+         else [{scope:"all_models", min_percent:0}] end) as $floors |
+        if ($row.state.status // "fresh") != "fresh" then "unknown"
+        elif ($weekly != null and $weekly <= 0) or
+          any($bounds[]; .runway.status == "exhausted_now" or
+            (.status == "known" and .effectivePercentRemaining <= 0)) or
+          any($floors[]; . as $limit |
+            any($row.quotaSemantics.effectiveAvailability[]?;
+              .scope == $limit.scope and .status == "known" and
+              .effectivePercentRemaining < $limit.min_percent))
+        then "unavailable"
+        elif $weekly == null or
+          ($bounds | length) == 0 or any($bounds[]; .status != "known") or
+          any($floors[]; . as $limit |
+            ([$row.quotaSemantics.effectiveAvailability[]? | select(.scope == $limit.scope)] | length) == 0 or
+            any($row.quotaSemantics.effectiveAvailability[]?;
+              .scope == $limit.scope and .status != "known"))
+        then "unknown" else "ready" end;
       [$snapshot.providers[] | select(.provider == "claude" and
         (.accountKey == "claude-home" or .accountKey == "claude-guidex")) |
         {row:., weekly:claude_fable_weekly(.)}] as $accounts |
-      [$accounts[] | select(.weekly != null and .weekly > 0 and eligible(.row))] as $ready |
+      [$accounts[] | . + {status:account_status(.row; .weekly)}] as $evaluated |
+      [$evaluated[] | select(.status == "ready")] as $ready |
       if ($ready | length) > 0 then
         ($ready | sort_by([.weekly, (if .row.accountKey == $repo_lane then 1 else 0 end)]) | last | .row.accountKey)
-      elif any($accounts[]; .weekly == null or .row.quotaSemantics.status == "unknown" or
-               (.row.state.status // "fresh") != "fresh") then ""
+      elif any($evaluated[]; .status == "unknown") then ""
       else "unavailable" end
     end;
 '

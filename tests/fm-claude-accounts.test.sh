@@ -56,15 +56,31 @@ jq 'del(.providers[].windows)' "$SNAPSHOT" > "$TMP_ROOT/unknown.json"
 mv "$TMP_ROOT/unknown.json" "$SNAPSHOT"
 if out=$(select_account projects/guidex_app fable); then fail 'missing weekly evidence selected an account'; fi
 assert_contains "$out" 'account: unknown' 'missing weekly evidence stays unknown'
+for scope in all_models model:fable; do
+  fixture 60 50
+  jq --arg scope "$scope" '.providers[].quotaSemantics |= (.status="partial" |
+    .effectiveAvailability |= map(if .scope == $scope then {scope:.scope,status:"unknown"} else . end))' "$SNAPSHOT" > "$TMP_ROOT/partial.json"
+  mv "$TMP_ROOT/partial.json" "$SNAPSHOT"
+  if out=$(select_account projects/guidex_app fable); then fail 'partial evidence selected an account'; fi
+  assert_contains "$out" 'account: unknown' 'partial applicable evidence stays unknown'
+  jq '.providers[].windows[].percentRemaining=0' "$SNAPSHOT" > "$TMP_ROOT/exhausted.json"
+  mv "$TMP_ROOT/exhausted.json" "$SNAPSHOT"
+  if out=$(select_account projects/guidex_app fable); then fail 'exhausted partial evidence selected an account'; fi
+  assert_contains "$out" 'account: unavailable' 'known exhaustion outranks partial evidence'
+done
+fixture 60 50
+jq '.providers[].quotaSemantics.effectiveAvailability |= map(select(.scope != "all_models"))' "$SNAPSHOT" > "$TMP_ROOT/missing.json"
+mv "$TMP_ROOT/missing.json" "$SNAPSHOT"
+if out=$(select_account projects/guidex_app fable); then fail 'missing account bound selected an account'; fi
+assert_contains "$out" 'account: unknown' 'missing account bound stays unknown'
 fixture 60 50
 out=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/custom" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run)
 assert_contains "$out" 'account: explicit' 'explicit root wins'
 assert_contains "$out" "$TMP_ROOT/custom" 'explicit root is preserved'
 # shellcheck disable=SC2088 # Literal tilde is deliberately supplied by a caller.
-for selector in '~/.claude_b' "$HOME/.claude_b/"; do
+for selector in '~/.claude_b' "$HOME/.claude_b/" './relative-profile/' "$TMP_ROOT/custom"; do
   out=$(CLAUDE_CONFIG_DIR="$selector" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model sonnet --dry-run)
-  assert_contains "$out" "config_dir: $HOME/.claude_b" 'selector uses one absolute spelling'
-  if [[ "$out" == *'.claude_b/'* || "$out" == *'~/'* ]]; then fail 'selector retained an alternate Keychain spelling'; fi
+  [ "$out" = "$(printf 'account: explicit\nconfig_dir: %s' "$selector")" ] || fail 'explicit selector spelling changed'
 done
 mkdir -p "$HOME/workspace/guidex-other"
 expect_account 'GuideX path boundary' "$HOME/workspace/guidex-other" sonnet claude-home
@@ -133,5 +149,5 @@ if CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/proj
 assert_contains "$(cat "$TMP_ROOT/err")" 'remaining dispatch profiles' 'spawn requests fallback instead of launching exhausted Fable'
 ln -s "$HOME/.claude_b" "$TMP_ROOT/profile-link"
 selected_root=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" sonnet "$TMP_ROOT/tools/claude-status")
-[ "$selected_root" = "$TMP_ROOT/profile-link" ] || fail 'normalization rewrote a symlink selector'
+[ "$selected_root" = "$TMP_ROOT/profile-link/" ] || fail 'normalization rewrote a symlink selector'
 pass 'Claude account routing, personal floor, unknown evidence, and per-account reporting'

@@ -28,7 +28,7 @@ done
 if [ "$dry_run" = 1 ]; then
   [ -n "$project" ] && [ -n "$model" ] || { echo 'error: --dry-run requires --project and --model' >&2; exit 2; }
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-    selector=$(fm_claude_config_dir "$CLAUDE_CONFIG_DIR")
+    selector=$CLAUDE_CONFIG_DIR
     printf 'account: explicit\nconfig_dir: %s\n' "$selector"
     exit 0
   fi

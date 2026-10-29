@@ -399,18 +399,10 @@ SH
 chmod +x "$spawn_tools/claude"
 id=omni-guidex-account
 fm_test_spawn_brief "$spawn_home" "$id"
-USER=fixture-user LOGNAME=fixture-user spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/output" 2>&1 || fail "GuideX account spawn: $(cat "$TMP_ROOT/output")"
-execute_launch > /dev/null 2> "$TMP_ROOT/title-error"
-jq -e --arg root "$spawn_home/user-home/.claude_b" '.environment.CLAUDE_CONFIG_DIR==$root' "$OMNI_RESULT" >/dev/null || fail 'spawn did not forward the selected GuideX root'
-grep -qxF "$spawn_home/user-home/.claude_b|fixture-user|fixture-user" "$TMP_ROOT/claude-auth" || fail 'spawn auth probe lost the exact selector or login environment'
-touch "$TMP_ROOT/claude-signed-out"
-id=omni-guidex-signed-out
-fm_test_spawn_brief "$spawn_home" "$id"
-if spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'spawn accepted signed-out GuideX account'; fi
-[ ! -e "$spawn_home/state/$id.meta" ] || fail 'signed-out refusal published metadata'
-grep -q 'not signed in' "$TMP_ROOT/error" || fail 'sign-out refusal omitted account diagnostic'
-rm "$TMP_ROOT/claude-signed-out"
-pass 'Omnigent spawn resolves project registrations and checks the exact GuideX selector before launch'
+if USER=fixture-user LOGNAME=fixture-user spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'unenforceable automatic account routing was accepted'; fi
+[ ! -e "$spawn_home/state/$id.meta" ] || fail 'account refusal published metadata'
+grep -q 'cannot enforce automatic Claude account routing' "$TMP_ROOT/error" || fail 'account refusal omitted daemon limitation'
+pass 'Omnigent refuses automatic Claude routing before creating a worker'
 
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \
