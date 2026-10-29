@@ -1403,7 +1403,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
-The pin is opt-in: without a home-wide or per-secondmate pin, pane-backed Claude launches keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+The pin is opt-in; [automatic Claude accounts](#automatic-claude-accounts) owns unpinned Claude ship and scout routing.
 Unpinned Pi launches use the destination pane's ambient account.
 
 Both files are local and gitignored.
@@ -1444,7 +1444,7 @@ Preserve `USER` and `LOGNAME` during a status check; omitting `USER` can make ma
 A pinned Claude launch also unsets the environment credentials Claude ranks above a stored login, such as `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, and the Bedrock and Vertex switches ([authentication precedence](https://code.claude.com/docs/en/authentication#authentication-precedence)).
 Pi ranks a root's stored logins above environment variables, so a pinned Pi launch unsets nothing.
 
-A home that authenticates Claude through environment credentials on purpose should leave the pin absent.
+For unpinned Claude ships and scouts, [automatic Claude accounts](#automatic-claude-accounts) owns credential handling as well as selector precedence.
 
 ### Failures, reporting, and inheritance
 
