@@ -1764,10 +1764,11 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 **Rule quota floors**
 
 - A rule `floor` names the quota-axi `provider` and `scope` whose `effectivePercentRemaining` must be at least `min_percent` for the rule's profiles to apply.
-- A Claude rule floor uses the effective account pin or repository account from [automatic Claude accounts](#automatic-claude-accounts).
+- A Claude rule floor uses each candidate model and effective account through [automatic Claude accounts](#automatic-claude-accounts), including Fable account spreading.
+A multi-profile rule retains candidates that pass their rule floor and excludes candidates with a known shortfall.
 Other provider-only rule floors on expanded providers bind to the `default` account row.
-- An absent or unknown row or unmeasured provider makes the floor unverifiable and escalates without authorizing default routing.
-- A known percentage below the floor makes the tool resolve among `default` profiles instead.
+- If no candidate passes and any candidate has unknown rule-floor evidence, the tool escalates without authorizing default routing.
+- If every candidate has a known rule-floor shortfall, the tool resolves among `default` profiles instead.
 
 **Provider identifiers and mappings**
 

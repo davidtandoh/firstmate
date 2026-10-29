@@ -425,6 +425,12 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         else "ok"
         end
     end;
+  def rule_floor_state($rule; $c):
+    floor_state($rule.floor; $rule.floor.provider;
+      if $rule.floor.provider == "claude" then
+        if provider_of($c) == "claude" then lane_of($c)
+        elif $claude_explicit != "" then $claude_explicit else $claude_repo end
+      else "" end);
   def evidence($rows):
     $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null), spendPriority: (.selection.spendPriority // null)});
   def evaluate($c):
@@ -473,6 +479,16 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
          spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
       end
     end) + (if $c.harness == "claude" then {account: $lane} else {} end);
+  def evaluate_rule($c; $rule):
+    evaluate($c) |
+    if .eligible then
+      rule_floor_state($rule; $c) as $state |
+      if $state == "below" then
+        . + {eligible:false, unranked:false, reason:"rule floor \($rule.floor.scope) below \($rule.floor.min_percent)%"}
+      elif $state == "unknown" then
+        . + {unranked:true, unknown:true, reason:"rule floor \($rule.floor.scope) is unverifiable: not rankable"}
+      else . end
+    else . end;
   def rule_at($c):
     if ($c | test("^rule_[1-9][0-9]*$")) then
       ($c | ltrimstr("rule_") | tonumber) as $n |
@@ -499,12 +515,17 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
    end) as $fb |
   (if $fb.to then $fb.to else $picked end) as $choice |
   (rule_at($choice)) as $rule |
-  (if $rule == null then "none" else floor_state($rule.floor; $rule.floor.provider;
-    if $rule.floor.provider == "claude" then lane_of({harness:"claude"}) else "" end) end) as $rule_floor_state |
   (if $choice != "default" and $rule == null then []
    elif $rule == null then profiles($cfg.default // null)
    else profiles($rule.use)
    end) as $answer_use |
+  (if $rule.floor == null then "none"
+   else [$answer_use[] | rule_floor_state($rule; .)] as $states |
+     if any($states[]; . == "ok" or . == "none") then "ok"
+     elif any($states[]; . == "unknown") then "unknown"
+     else "below"
+     end
+   end) as $rule_floor_state |
   (if $choice != "default" and $rule == null then {invalid: "rule \($choice) is not in the rules file"}
    elif $rule == null then {source: "default", use: profiles($cfg.default // null), note: "no rule matched"}
    elif ($rule.approval // "") == "captain" then {source: $choice, escalate: "rule requires the captain'"'"'s explicit approval before dispatch"}
@@ -523,14 +544,14 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   as $ev |
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
   elif $fb.below and $fb.global then
-    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif $fb.below and ($fb.to | not) then
-    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif $sel.escalate then
-    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(evaluate_rule(.; $rule)))}
   elif ($sel.use | length) == 0 then $ev + {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
   else
-    ($sel.use | map(evaluate(.))) as $cands |
+    ($sel.use | map(evaluate_rule(.; if $sel.source == "default" then null else $rule end))) as $cands |
     ([$cands[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
     ([$cands[] | select(.unranked)]) as $unranked |
     if ($elig | length) == 0 then $ev + {status: "escalate", reason: "no rankable eligible candidate", note: $sel.note, candidates: $cands}
