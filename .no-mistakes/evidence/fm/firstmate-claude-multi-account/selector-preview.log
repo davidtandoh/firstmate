@@ -1,0 +1,12 @@
+$ CLAUDE_CONFIG_DIR='~/.claude_b' bin/fm-claude-accounts.sh --dry-run --project . --model sonnet
+account: explicit
+config_dir: ~/.claude_b
+exit=0
+$ CLAUDE_CONFIG_DIR='./relative-profile/' bin/fm-claude-accounts.sh --dry-run --project . --model sonnet
+account: explicit
+config_dir: ./relative-profile/
+exit=0
+$ CLAUDE_CONFIG_DIR='/Users/davidtandoh/.claude_b/' bin/fm-claude-accounts.sh --dry-run --project . --model sonnet
+account: explicit
+config_dir: /Users/davidtandoh/.claude_b/
+exit=0

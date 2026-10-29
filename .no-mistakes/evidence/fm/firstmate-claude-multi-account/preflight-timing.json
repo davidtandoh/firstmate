@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-control.test.sh", "--claude-account-preflight"], "duration_ms": 11204, "exit": 0, "gate_skip": false, "timed_out": false}

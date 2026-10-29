@@ -1,0 +1,44 @@
+[
+  {
+    "account": "claude-home",
+    "command": "claude auth status",
+    "exit": 0,
+    "status": {
+      "authMethod": "claude.ai",
+      "loggedIn": true
+    }
+  },
+  {
+    "account": "claude-home",
+    "command": "quota-axi --provider claude --json --no-credential-refresh",
+    "exit": 0,
+    "status": [
+      {
+        "provider": "claude",
+        "quotaSemantics": "known",
+        "state": "fresh"
+      }
+    ]
+  },
+  {
+    "account": "claude-guidex",
+    "command": "claude auth status",
+    "exit": 0,
+    "status": {
+      "authMethod": "claude.ai",
+      "loggedIn": true
+    }
+  },
+  {
+    "account": "claude-guidex",
+    "command": "quota-axi --provider claude --json --no-credential-refresh",
+    "exit": 1,
+    "status": [
+      {
+        "provider": "claude",
+        "quotaSemantics": "unknown",
+        "state": "auth_required"
+      }
+    ]
+  }
+]

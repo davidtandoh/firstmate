@@ -1,0 +1,4 @@
+account=claude-home status-only product probe
+exit=0
+account=claude-guidex status-only product probe
+exit=0

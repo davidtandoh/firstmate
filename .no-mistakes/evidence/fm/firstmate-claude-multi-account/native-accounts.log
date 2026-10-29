@@ -1,0 +1,7 @@
+$ bash tests/fm-worker-account.test.sh --claude-accounts
+ok - native automatic routing enforces personal and GuideX accounts in the actual child
+ok - a Claude pin selects its root and sheds the credentials that would outrank it
+ok - a Claude pin refuses a signed-out root even when the invoking process has a usable login and API key
+ok - an ordinary Claude pin selects the default login and drops an ambient root
+
+exit=0 duration_ms=22062

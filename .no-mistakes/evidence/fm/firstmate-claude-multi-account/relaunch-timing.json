@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-control-relaunch.test.sh", "--claude-accounts"], "duration_ms": 13258, "exit": 0, "gate_skip": false, "timed_out": false}

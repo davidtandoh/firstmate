@@ -1,0 +1,6 @@
+$ bash tests/fm-control-relaunch.test.sh --claude-accounts
+ok - explicit null clears the Claude reserve consistently before stop and at replacement launch
+ok - fm-control relaunch: a signed-out worker account pin refuses before the old agent stops
+ok - fm-control relaunch: the replacement follows the home's current worker account pin
+
+exit=0 duration_ms=13258

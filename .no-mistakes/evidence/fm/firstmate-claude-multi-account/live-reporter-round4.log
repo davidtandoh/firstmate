@@ -1,0 +1,2 @@
+command: bash bin/fm-claude-accounts.sh
+error: account quota collection failed

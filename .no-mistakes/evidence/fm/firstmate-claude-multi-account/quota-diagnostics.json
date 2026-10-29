@@ -1,0 +1,28 @@
+[
+  {
+    "claude_rows": [
+      {
+        "accountKey": null,
+        "semantics": "known",
+        "status": "fresh"
+      }
+    ],
+    "exit": 0,
+    "lane": "personal",
+    "schema": 5,
+    "valid": true
+  },
+  {
+    "claude_rows": [
+      {
+        "accountKey": null,
+        "semantics": "unknown",
+        "status": "auth_required"
+      }
+    ],
+    "exit": 1,
+    "lane": "guidex",
+    "schema": 5,
+    "valid": true
+  }
+]

@@ -1,0 +1,12 @@
+command: bash /Users/davidtandoh/.no-mistakes/evidence/01M64JS5S7HFRT7JRW9WP2DH5K/live-status-round4.sh
+Installed Claude: 2.1.312 (Claude Code)
+personal status: signed in
+guidex status: signed in
+
+Explicit selector CLI preview (no account pin override):
+account: explicit
+config_dir: ~/.claude_b/
+account: explicit
+config_dir: /Users/davidtandoh/.claude_b/
+account: explicit
+config_dir: ./relative-claude/

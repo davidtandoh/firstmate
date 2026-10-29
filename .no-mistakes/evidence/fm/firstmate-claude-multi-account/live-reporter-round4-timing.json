@@ -1,0 +1,1 @@
+{"command": ["bash", "bin/fm-claude-accounts.sh"], "duration_ms": 4140, "exit": 1, "gate_skip": false, "gate_skip_reason": [], "timed_out": false}
