@@ -486,11 +486,36 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_unconfigured_automatic_routing_is_inert() {
+  local lane out rc id
+  for lane in personal guidex; do
+    new_case "unconfigured-$lane" claude
+    id="acct-unconfigured-$lane"
+    # An existing second login alone does not opt this home into routing.
+    mkdir -p "$HOME_DIR/user-home/.claude_b" "$HOME_DIR/user-home/workspace"
+    if [ "$lane" = guidex ]; then
+      ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
+    fi
+    fm_test_spawn_brief "$HOME_DIR" "$id"
+    out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" FM_TEST_CLAUDE_CONFIG_DIR='' \
+      fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --mode no-mistakes --yolo off --harness claude --model sonnet); rc=$?
+    expect_code 0 "$rc" "unconfigured $lane spawn must retain prior behavior: $out"
+    assert_absent "$CASE/claude-checks" 'unconfigured spawn must not check authentication'
+    assert_no_grep 'account=' "$HOME_DIR/state/$id.meta" 'unconfigured spawn must not pin an account'
+    run_pane
+    assert_grep "CLAUDE_CONFIG_DIR=$CASE/ambient-claude" "$CASE/claude-worker" 'unconfigured launch keeps the pane account'
+    assert_grep 'ANTHROPIC_API_KEY=ambient-pane-key' "$CASE/claude-worker" 'unconfigured launch leaves credentials alone'
+  done
+  pass 'unconfigured personal and GuideX Claude spawns perform no automatic account work'
+}
+
 test_automatic_native_accounts() {
   local lane out rc id
   for lane in guidex personal; do
     new_case "automatic-$lane" claude
     id="acct-auto-$lane"
+    mkdir -p "$HOME_DIR/user-home/.claude_b"
+    printf '%s\n' "$HOME_DIR/user-home/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
     if [ "$lane" = guidex ]; then
       mkdir -p "$HOME_DIR/user-home/workspace"
       ln -s "$CASE" "$HOME_DIR/user-home/workspace/guidex"
@@ -516,6 +541,7 @@ test_automatic_native_accounts() {
 }
 
 if [ "${1:-}" = --claude-accounts ]; then
+  test_unconfigured_automatic_routing_is_inert
   test_automatic_native_accounts
   test_claude_pin_selects_the_root_and_sheds_ambient_credentials
   test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login
@@ -523,6 +549,7 @@ if [ "${1:-}" = --claude-accounts ]; then
   exit 0
 fi
 
+test_unconfigured_automatic_routing_is_inert
 test_automatic_native_accounts
 test_secondmate_account_override
 test_secondmate_account_refusals

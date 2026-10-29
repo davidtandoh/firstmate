@@ -3485,11 +3485,13 @@ if [ "$RELAUNCH" = 1 ] && [ "$CLAUDE_FLOOR_SET" = 0 ] &&
   CLAUDE_FLOOR=$(fm_meta_get "$RELAUNCH_META" claude_floor)
   CLAUDE_FLOOR=${CLAUDE_FLOOR:-null}
 fi
+# shellcheck source=bin/fm-claude-accounts-lib.sh
 . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
 CLAUDE_FLOOR=$(fm_claude_floor_json "$CLAUDE_FLOOR") || { echo 'error: invalid --claude-floor' >&2; exit 1; }
 CLAUDE_AUTO_SELECTED=0
-if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ] && [ -z "$WORKER_ACCOUNT" ]; then
-  if [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ] && [ -z "$WORKER_ACCOUNT" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+  CLAUDE_GUIDEX_ROOT=$(fm_claude_guidex_root "$CONFIG") || exit 1
+  if [ -n "$CLAUDE_GUIDEX_ROOT" ]; then
     [ "$RAW_LAUNCH" = 0 ] || { echo 'error: automatic Claude account routing requires a canonical harness launch' >&2; exit 1; }
     # shellcheck source=bin/fm-claude-accounts-lib.sh
     . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
@@ -3542,6 +3544,8 @@ fi
 if [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
   if [ -n "$CLAUDE_AUTO_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$CLAUDE_AUTO_ROOT
+  elif [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+    export CLAUDE_CONFIG_DIR=
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -7537,7 +7541,7 @@ if [ -n "$WORKER_ACCOUNT" ]; then
     ;;
   esac
 elif [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
-  if [ -n "$CLAUDE_AUTO_ROOT" ]; then
+  if [ -n "$CLAUDE_AUTO_ROOT" ] || [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_AUTO_ROOT") $LAUNCH"
   else
     LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"

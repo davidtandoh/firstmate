@@ -739,11 +739,12 @@ test_state_verified_backends_are_exactly_tmux_herdr_and_rex() {
 test_claude_account_relaunch_preflight() {
   local dir out rc scenario id=t1 expected model
   local -a floor_args
-  for scenario in signed-out signed-in configured-omnigent recorded-omnigent omnigent-signed-out legacy-omnigent fable-profile fable-replacement; do
+  for scenario in unconfigured signed-out signed-in configured-omnigent recorded-omnigent omnigent-signed-out legacy-omnigent fable-profile fable-replacement; do
     dir=$(new_case "account-preflight-$scenario")
     add_task "$dir" "$id" codex
     alive_as "$dir" codex
     mkdir -p "$dir/user-home/workspace" "$dir/user-home/.claude_b" "$dir/home/config"
+    printf '%s\n' "$dir/user-home/.claude_b" > "$dir/home/config/claude-guidex-account"
     ln -s "$dir" "$dir/user-home/workspace/guidex"
     cat > "$dir/fakebin/claude" <<SH
 #!/usr/bin/env bash
@@ -752,6 +753,7 @@ printf '%s\n' "\${CLAUDE_CONFIG_DIR-unset}" >> '$dir/auth-checks'
 [ -f "\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}/signed-in" ]
 SH
     chmod +x "$dir/fakebin/claude"
+    if [ "$scenario" = unconfigured ]; then rm "$dir/home/config/claude-guidex-account"; fi
     expected='not signed in'
     if [ "$scenario" != signed-out ] && [ "$scenario" != omnigent-signed-out ]; then
       touch "$dir/user-home/.claude_b/signed-in"
@@ -795,7 +797,11 @@ SH
     [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'account preflight sent lifecycle input'
     cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'account preflight changed task metadata'
     [ ! -e "$dir/home/state/$id.control-relaunch" ] || fail 'account preflight opened a relaunch transaction'
-    [ "$(cat "$dir/auth-checks")" = "$dir/user-home/.claude_b" ] || fail 'preflight checked a different Claude login'
+    if [ "$scenario" = unconfigured ]; then
+      assert_absent "$dir/auth-checks" 'unconfigured relaunch must not check a login'
+    else
+      [ "$(cat "$dir/auth-checks")" = "$dir/user-home/.claude_b" ] || fail 'preflight checked a different Claude login'
+    fi
   done
   pass 'native and Omnigent Claude relaunch validate the automatic login before stopping the current worker'
 }

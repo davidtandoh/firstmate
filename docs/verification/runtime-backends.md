@@ -718,7 +718,7 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 This synthetic-root check verifies the vendor status classifier, not access to a user's macOS Keychain from every runtime session.
 `tests/fm-claude-accounts.test.sh` verifies exact explicit selectors, preserved login environment, and partial quota evidence.
-`tests/fm-worker-account.test.sh` executes native child commands under conflicting daemon credentials and selectors.
+`tests/fm-worker-account.test.sh` executes configured native child commands under conflicting daemon credentials and selectors and verifies that unconfigured homes perform no automatic authentication or account selection.
 `tests/fm-omnigent.test.sh` verifies exact account forwarding for Omnigent ships and scouts and signed-out refusal before task creation.
 Secondmate account pins retain their existing account ownership; other harnesses do not use automatic Claude account selection.
 

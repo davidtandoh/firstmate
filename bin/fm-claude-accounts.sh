@@ -51,6 +51,11 @@ if [ "$dry_run" = 1 ]; then
     printf 'account: explicit\nconfig_dir: %s\n' "$selector"
     exit 0
   fi
+  guidex_root=$(fm_claude_guidex_root) || exit 1
+  if [ -z "$guidex_root" ]; then
+    printf 'account: ambient\nconfig_dir: unchanged (routing unconfigured)\n'
+    exit 0
+  fi
 fi
 if [ -n "$snapshot_path" ]; then
   [ -f "$snapshot_path" ] && [ ! -L "$snapshot_path" ] || { echo 'error: snapshot must be a regular file' >&2; exit 2; }
@@ -64,7 +69,7 @@ if [ "$dry_run" = 1 ]; then
   lane=$(fm_claude_account_lane "$snapshot" "$model" "$repo" "$floor")
   case "$lane" in
     claude-home) printf 'account: claude-home\nconfig_dir: unset (personal)\n' ;;
-    claude-guidex) printf 'account: claude-guidex\nconfig_dir: %s/.claude_b\n' "$HOME" ;;
+    claude-guidex) printf 'account: claude-guidex\nconfig_dir: %s\n' "$guidex_root" ;;
     *) printf 'account: %s\n' "${lane:-unknown}"; exit 1 ;;
   esac
 elif [ "$json" = 1 ]; then

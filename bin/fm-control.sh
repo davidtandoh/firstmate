@@ -1067,9 +1067,10 @@ resolve_relaunch_profile() {
   account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "$account_config" \
     "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
   if [ "$TARGET_HARNESS" = claude ]; then
+    # shellcheck source=bin/fm-claude-accounts-lib.sh
     . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
     TARGET_CLAUDE_FLOOR=$(fm_claude_floor_json "$TARGET_CLAUDE_FLOOR") || die "invalid --claude-floor"
-    local account_mode recorded_mode account_root=${CLAUDE_CONFIG_DIR:-}
+    local account_mode recorded_mode account_guidex account_root=${CLAUDE_CONFIG_DIR:-}
     account_mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "$account_config") || return 1
     recorded_mode=$(fm_meta_get "$META" omnigent)
     case "$recorded_mode" in
@@ -1080,7 +1081,11 @@ resolve_relaunch_profile() {
     if [ "$account_mode" = on ] && [ -n "$account_selection" ]; then
       die 'Omnigent cannot enforce config/claude-account credential removal across its daemon boundary; existing worker was not stopped'
     fi
+    account_guidex=
     if [ "$KIND" != secondmate ] && [ -z "$account_selection" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+      account_guidex=$(fm_claude_guidex_root "$account_config") || return 1
+    fi
+    if [ -n "$account_guidex" ]; then
       [ "$BACKEND" != t3code ] || die "backend=t3code cannot enforce automatic Claude account routing because its provider instance owns the account"
       # shellcheck source=bin/fm-claude-accounts-lib.sh
       . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"

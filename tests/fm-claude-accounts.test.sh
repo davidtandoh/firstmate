@@ -8,6 +8,8 @@ export HOME="$TMP_ROOT/home"
 export FM_HOME="$TMP_ROOT/firstmate" FM_PROJECTS_OVERRIDE="$TMP_ROOT/projects"
 mkdir -p "$HOME/workspace/guidex/app" "$HOME/workspace/other" "$HOME/.claude_b" "$TMP_ROOT/projects" "$TMP_ROOT/tools"
 ln -s "$HOME/workspace/guidex/app" "$TMP_ROOT/projects/guidex_app"
+mkdir -p "$FM_HOME/config"
+printf '%s\n' "$HOME/.claude_b" > "$FM_HOME/config/claude-guidex-account"
 TOOL="$ROOT/bin/fm-claude-accounts.sh"
 SNAPSHOT="$TMP_ROOT/quota.json"
 
@@ -198,4 +200,25 @@ assert_contains "$(cat "$TMP_ROOT/err")" 'remaining dispatch profiles' 'spawn re
 ln -s "$HOME/.claude_b" "$TMP_ROOT/profile-link"
 selected_root=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" sonnet "$TMP_ROOT/tools/claude-status")
 [ "$selected_root" = "$TMP_ROOT/profile-link/" ] || fail 'normalization rewrote a symlink selector'
+# Missing configuration is inert even when the second login directory exists.
+mv "$FM_HOME/config/claude-guidex-account" "$TMP_ROOT/guidex-setting"
+rm "$TMP_ROOT/auth-calls"
+touch "$TMP_ROOT/signed-out"
+selected_root=$(CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status")
+[ -z "$selected_root" ] || fail 'unconfigured spawn helper selected an account'
+assert_absent "$TMP_ROOT/auth-calls" 'unconfigured helper must not inspect login status'
+out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run)
+assert_contains "$out" 'account: ambient' 'unconfigured preview leaves account selection alone'
+: > "$QUOTA_CALLS"
+out=$(env -u CLAUDE_CONFIG_DIR bash "$TOOL" --json)
+[ "$(cat "$QUOTA_CALLS")" = 'unset|unset|--json' ] || fail 'unconfigured collection must preserve the single quota-axi call'
+jq -e '.schemaVersion==5 and (.providers|length)==1' <<< "$out" >/dev/null || fail 'unconfigured collector rewrote quota evidence'
+for invalid in ordinary relative ''; do
+  printf '%s\n' "$invalid" > "$FM_HOME/config/claude-guidex-account"
+  if CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" sonnet "$TMP_ROOT/tools/claude-status" > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'malformed automatic account configuration accepted'; fi
+  assert_contains "$(cat "$TMP_ROOT/err")" 'config/claude-guidex-account' 'invalid routing configuration names its owner'
+  assert_absent "$TMP_ROOT/auth-calls" 'invalid configuration must refuse before authentication'
+done
+mv "$TMP_ROOT/guidex-setting" "$FM_HOME/config/claude-guidex-account"
+rm "$TMP_ROOT/signed-out"
 pass 'Claude account routing, personal floor, unknown evidence, and per-account reporting'

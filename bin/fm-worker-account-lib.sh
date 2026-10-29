@@ -124,7 +124,7 @@ fm_worker_account_config() {
   esac
 }
 
-# fm_worker_account_resolve <harness> <config-dir> <setting>
+# fm_worker_account_resolve <harness> <config-dir> <setting> [<file>]
 # Prints "declared<TAB>root<TAB>providers" for a valid pin, where root is the
 # directory the launch selects (empty for ordinary Claude, meaning
 # CLAUDE_CONFIG_DIR unset). Prints nothing and returns 0 when the runner is
@@ -132,7 +132,8 @@ fm_worker_account_config() {
 # file and returns 1.
 fm_worker_account_resolve() {
   local harness=$1 config=$2 setting=$3 file cfg token rc declared root fallback
-  file=$(fm_worker_account_file "$harness") || return 0
+  file=${4:-}
+  if [ -z "$file" ]; then file=$(fm_worker_account_file "$harness") || return 0; fi
   cfg="$config/$file"
   token=$(fm_worker_account_read "$harness" "$cfg")
   rc=$?

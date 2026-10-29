@@ -1218,6 +1218,8 @@ jq '.rules[3].use=[
   {harness:"claude",model:"claude-fable-5-1",floor:{scope:"all_models",min_percent:40}},
   {harness:"codex",model:"fallback"}]' "$BASE_RULES" > "$RULES"
 write_response "$RESPONSE" rule_4 0.9
+mkdir -p "$HOME_DIR/.claude_b"
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
 account_quota() { # personal weekly, GuideX weekly, personal all_models, GuideX all_models
   jq -n --argjson p "$1" --argjson g "$2" --argjson pa "$3" --argjson ga "$4" '
     def row($key;$weekly;$all):
@@ -1273,12 +1275,14 @@ assert_contains "$out" 'account=claude-explicit' 'custom pin does not borrow a k
 assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin stays unmeasured'
 assert_contains "$out" "profile: --harness 'codex'" 'custom pin cannot rank against another login quota'
 rmdir "$HOME_DIR/.claude_b"
+rm "$HOME_DIR/config/claude-guidex-account"
 jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey)),(.providers[2] | del(.accountKey))]' "$QUOTA" > "$TMP_ROOT/pin-schema5.json"
 mv "$TMP_ROOT/pin-schema5.json" "$QUOTA"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin does not borrow a legacy provider row'
 assert_contains "$out" "profile: --harness 'codex'" 'custom pin is unranked with schema 5'
 mkdir -p "$HOME_DIR/.claude_b"
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-guidex-account"
 account_quota 80 20 50 70
 cp "$RULES" "$TMP_ROOT/profile-floor-rules.json"
 jq '.rules[3].floor={provider:"claude",scope:"all_models",min_percent:40}' "$RULES" > "$TMP_ROOT/rule-floor.json"

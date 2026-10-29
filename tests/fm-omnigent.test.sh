@@ -82,6 +82,9 @@ if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 
 grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
+env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'unconfigured default'
+jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'unset default selector was changed at the daemon boundary'
+
 
 # The CLI double emits its own fresh session record on stderr. Drive the real
 # launcher, then observe the API requests rather than inspecting launcher text.
@@ -404,6 +407,7 @@ spawn_project="$spawn_home/user-home/workspace/guidex/app"
 spawn_wt="$TMP_ROOT/guidex-worktree"
 fm_git_worktree "$spawn_project" "$spawn_wt" guidex-fixture
 mkdir -p "$spawn_home/projects" "$spawn_home/user-home/.claude_b"
+printf '%s\n' "$spawn_home/user-home/.claude_b" > "$spawn_home/config/claude-guidex-account"
 ln -s "$spawn_project" "$spawn_home/projects/guidex_app"
 cat > "$spawn_tools/claude" <<SH
 #!/usr/bin/env bash

@@ -231,7 +231,7 @@ for name in $ENV_NAMES; do
     # An explicit empty selector clears a daemon's inherited account. Native
     # Claude enforcement in Omnigent preserves non-empty selectors verbatim.
     CLAUDE_CONFIG_DIR) if [ "$HARNESS" = claude ]; then
-      [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ] || ARGS+=(--env "$name=${!name-}")
+      if [ "$CLAUDE_ACCOUNT_ENFORCEMENT" = 1 ] && [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi
     elif [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi ;;
     # These owners treat empty as unset. Explicit empties also prevent stale
     # daemon routing or trace state from reappearing in a fresh native session.

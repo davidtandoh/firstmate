@@ -372,7 +372,8 @@ test_claude_floor_null_relaunch() {
   local dir out rc id=rl-floor launch
   dir=$(new_case claude-floor "$id")
   add_ship_task "$dir" "$id" claude
-  mkdir -p "$dir/user-home/.claude_b"
+  mkdir -p "$dir/user-home/.claude_b" "$dir/home/config"
+  printf '%s\n' "$dir/user-home/.claude_b" > "$dir/home/config/claude-guidex-account"
   printf 'model=fable\nclaude_floor={"scope":"all_models","min_percent":60}\n' >> "$dir/home/state/$id.meta"
   cat > "$dir/fakebin/quota-axi" <<'SH'
 #!/usr/bin/env bash
