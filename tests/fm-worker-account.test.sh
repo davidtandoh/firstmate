@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Behavior tests for the opt-in per-home worker account pin
 # (config/claude-account, config/pi-account; bin/fm-worker-account-lib.sh).
+# Run with --claude-accounts for focused native Claude account checks.
 #
 # Each case drives the real fm-spawn.sh through the shared fake tmux, which
 # records the launch command, then runs that command in a synthetic pane whose
@@ -513,6 +514,14 @@ test_automatic_native_accounts() {
   done
   pass 'native automatic routing enforces personal and GuideX accounts in the actual child'
 }
+
+if [ "${1:-}" = --claude-accounts ]; then
+  test_automatic_native_accounts
+  test_claude_pin_selects_the_root_and_sheds_ambient_credentials
+  test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login
+  test_claude_ordinary_pin_unsets_the_config_root
+  exit 0
+fi
 
 test_automatic_native_accounts
 test_secondmate_account_override

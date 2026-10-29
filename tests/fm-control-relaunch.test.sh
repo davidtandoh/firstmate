@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # fm-control.sh relaunch: the transactional replace-the-agent verb.
+# Run with --claude-accounts for focused Claude account and floor checks.
 #
 # Relaunch is the only control verb that changes durable records, so these
 # tests pin the transaction itself, hermetically (stubbed session provider, no
@@ -3021,6 +3022,13 @@ SH
     || fail "the dialog file must be gone when the control lock is released, got: $(cat "$trace" 2>/dev/null)"
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
+
+if [ "${1:-}" = --claude-accounts ]; then
+  test_claude_floor_null_relaunch
+  test_signed_out_worker_account_pin_refuses_before_stop
+  test_worker_account_pin_follows_the_relaunch
+  exit 0
+fi
 
 if [ "${1:-}" = --claude-floors ]; then
   test_claude_floor_null_relaunch
