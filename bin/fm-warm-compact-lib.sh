@@ -3,7 +3,7 @@
 # supervision host's engine conversation (one owner of both).
 #
 # Sourced, never executed. The supervision host (bin/fm-supervision-host.sh)
-# calls it while it is parked, so the trigger lives on the Claude adapter path.
+# calls it while it is parked; only primary compaction requires the Claude adapter.
 # docs/configuration.md "Warm-cache compaction" owns the home gate and its
 # tunables.
 #

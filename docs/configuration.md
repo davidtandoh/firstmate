@@ -430,7 +430,9 @@ Compacting while the cache is still warm reads the old context at the read price
 The feature is off when the file is absent.
 The file is local to each home and is not inherited.
 The host reads it at every check, so creating or removing it needs no restart.
-It acts only on a home that runs the [supervision host](#supervision-host-configsupervision-host) beside a Claude primary, because the host's park is the primary's idle episode.
+It acts only while the [supervision host](#supervision-host-configsupervision-host) is parked.
+Primary compaction requires a Claude primary and the transcript path supplied by its Stop hook; the host's park is that primary's idle episode.
+Engine compaction can also run beside another primary when the home explicitly selects the Claude supervision engine.
 
 The file may be empty or hold these lines, each optional:
 
@@ -445,9 +447,9 @@ A session is compacted when all of these hold:
 - The home opted in.
 - The session has been idle for `idle-seconds`: the primary since its turn ended, the engine conversation since its last handled turn.
 - Its context is at least `min-context-tokens`.
-- It was not already compacted in this idle episode.
-  The host remembers a primary compaction for one park.
-  It records an engine compaction in the engine record, so a later host does not repeat it.
+- No compaction attempt has completed in this idle episode, including a failed or unconfirmed attempt.
+  The host remembers a primary attempt for one park.
+  It records an engine attempt in the engine record, so a later host does not repeat it.
 - For the engine conversation, the next turn would resume it: the same engine, model, and prompt key, and below the rotation limit.
   An abandoned compaction is not recorded, so a later check retries it.
 - For the primary, the agent reads idle and the composer reads provably empty.
