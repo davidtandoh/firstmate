@@ -463,7 +463,7 @@ spawn omni-floor projects/guidex_app --mode no-mistakes --yolo off --harness cla
 execute_launch
 wait_title
 jq -e --arg root "$spawn_home/user-home/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'spawn spent personal allowance below its selected reserve'
-sed -n 's/^claude_floor=//p' "$spawn_home/state/omni-floor.meta" | jq -e '. == {scope:"all_models",min_percent:60}' >/dev/null || fail 'spawn did not persist the selected floor'
+sed -n 's/^claude_floor=//p' "$spawn_home/state/omni-floor.meta" | jq -e '. == [{scope:"all_models",min_percent:60}]' >/dev/null || fail 'spawn did not persist the selected floor'
 grep -q "^$spawn_home/user-home/.claude_b|fixture-user|fixture-user$" "$TMP_ROOT/claude-auth" || fail 'GuideX sign-in check lost the selector or login environment'
 touch "$TMP_ROOT/claude-signed-out"
 fm_test_spawn_brief "$spawn_home" omni-signed-out
