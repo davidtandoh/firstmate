@@ -738,7 +738,7 @@ test_state_verified_backends_are_exactly_tmux_herdr_and_rex() {
 
 test_claude_account_relaunch_preflight() {
   local dir out rc scenario id=t1 expected
-  for scenario in signed-out signed-in configured-omnigent recorded-omnigent; do
+  for scenario in signed-out signed-in configured-omnigent recorded-omnigent omnigent-signed-out; do
     dir=$(new_case "account-preflight-$scenario")
     add_task "$dir" "$id" codex
     alive_as "$dir" codex
@@ -752,13 +752,13 @@ printf '%s\n' "\${CLAUDE_CONFIG_DIR-unset}" >> '$dir/auth-checks'
 SH
     chmod +x "$dir/fakebin/claude"
     expected='not signed in'
-    if [ "$scenario" != signed-out ]; then
+    if [ "$scenario" != signed-out ] && [ "$scenario" != omnigent-signed-out ]; then
       touch "$dir/user-home/.claude_b/signed-in"
       expected='requires --note'
     fi
     case "$scenario" in
-      configured-omnigent) printf 'on\n' > "$dir/home/config/omnigent"; expected='cannot enforce Claude account routing' ;;
-      recorded-omnigent) printf 'omnigent=on\n' >> "$dir/home/state/$id.meta"; expected='cannot enforce Claude account routing' ;;
+      configured-omnigent|omnigent-signed-out) printf 'on\n' > "$dir/home/config/omnigent" ;;
+      recorded-omnigent) printf 'omnigent=on\n' >> "$dir/home/state/$id.meta" ;;
     esac
     cp "$dir/home/state/$id.meta" "$dir/meta-before"
     out=$(HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' FM_OMNIGENT=off run_control "$dir" "$id" relaunch --harness claude --model sonnet); rc=$?
@@ -768,11 +768,9 @@ SH
     [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'account preflight sent lifecycle input'
     cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'account preflight changed task metadata'
     [ ! -e "$dir/home/state/$id.control-relaunch" ] || fail 'account preflight opened a relaunch transaction'
-    if [ "$scenario" = signed-out ] || [ "$scenario" = signed-in ]; then
-      [ "$(cat "$dir/auth-checks")" = "$dir/user-home/.claude_b" ] || fail 'preflight checked a different Claude login'
-    fi
+    [ "$(cat "$dir/auth-checks")" = "$dir/user-home/.claude_b" ] || fail 'preflight checked a different Claude login'
   done
-  pass 'Claude relaunch validates the automatic login and daemon boundary before stopping the current worker'
+  pass 'native and Omnigent Claude relaunch validate the automatic login before stopping the current worker'
 }
 
 test_window_label_is_refused_with_the_exact_id() {

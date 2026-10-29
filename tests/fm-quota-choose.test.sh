@@ -59,7 +59,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$FAKEBIN"
+export HOME="$LAB/home" FM_HOME="$LAB/firstmate" FM_CONFIG_OVERRIDE="$LAB/firstmate/config" FM_PROJECTS_OVERRIDE="$LAB/firstmate/projects"
+unset CLAUDE_CONFIG_DIR
+mkdir -p "$FAKEBIN" "$HOME" "$FM_CONFIG_OVERRIDE" "$FM_PROJECTS_OVERRIDE"
 
 cat > "$FIXTURE" <<'JSON'
 {
@@ -126,7 +128,7 @@ cat > "$FIXTURE" <<'JSON'
           {
             "scope": "all_models",
             "status": "known",
-            "effectivePercentRemaining": 0.5,
+            "effectivePercentRemaining": 40.5,
             "runway": { "status": "through_reset" }
           },
           {
@@ -340,7 +342,7 @@ bin: quota-axi
 generatedAt: "2030-01-01T00:00:00Z"
 quota[2]{provider,scope,effectivePercentRemaining,spendPriority,runway,confidence,limitedBy,resetsAt}:
   codex,all_models,20,-1,through_reset,high,weekly,2030-01-02T00:00:00Z
-  claude,all_models,0.5,-1,through_reset,high,weekly,2030-01-02T00:00:00Z
+  claude,all_models,40.5,-1,through_reset,high,weekly,2030-01-02T00:00:00Z
 exhaustion[0]:
 attention[0]:
 TOON

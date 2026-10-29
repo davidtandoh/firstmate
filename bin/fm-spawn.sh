@@ -3228,10 +3228,6 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     echo 'error: Omnigent cannot enforce config/claude-account credential removal across its daemon boundary' >&2
     exit 1
   fi
-  if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
-    echo 'error: Omnigent cannot enforce automatic Claude account routing across its additive daemon environment; use a native launch' >&2
-    exit 1
-  fi
   "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
 fi
 

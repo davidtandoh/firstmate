@@ -6,7 +6,8 @@
 # it never launches a worker, changes login, or writes configuration.
 # --snapshot uses captured quota without contacting quota-axi.
 # Exit 1 means unavailable or unknown Fable allowance; use the remaining
-# dispatch profiles. An explicit CLAUDE_CONFIG_DIR always wins.
+# dispatch profiles. The home account pin wins, then an explicit
+# CLAUDE_CONFIG_DIR, then automatic routing.
 # bin/fm-claude-accounts-lib.sh owns account collection and binding.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +28,18 @@ while [ "$#" -gt 0 ]; do
 done
 if [ "$dry_run" = 1 ]; then
   [ -n "$project" ] && [ -n "$model" ] || { echo 'error: --dry-run requires --project and --model' >&2; exit 2; }
+  selection=$(fm_worker_account_resolve claude "${FM_CONFIG_OVERRIDE:-${FM_HOME:-$SCRIPT_DIR/..}/config}" 'config/claude-account') || exit 1
+  if [ -n "$selection" ]; then
+    declared=${selection%%$'\t'*}
+    selector=${selection#*$'\t'}
+    selector=${selector%%$'\t'*}
+    if [ "$declared" = ordinary ]; then
+      printf 'account: claude-home\nconfig_dir: unset (personal)\n'
+    else
+      printf 'account: %s\nconfig_dir: %s\n' "$(fm_claude_explicit_lane "$selector")" "$selector"
+    fi
+    exit 0
+  fi
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
     selector=$CLAUDE_CONFIG_DIR
     printf 'account: explicit\nconfig_dir: %s\n' "$selector"

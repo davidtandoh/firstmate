@@ -397,12 +397,39 @@ else
 fi
 SH
 chmod +x "$spawn_tools/claude"
-id=omni-guidex-account
-fm_test_spawn_brief "$spawn_home" "$id"
-if USER=fixture-user LOGNAME=fixture-user spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'unenforceable automatic account routing was accepted'; fi
-[ ! -e "$spawn_home/state/$id.meta" ] || fail 'account refusal published metadata'
-grep -q 'cannot enforce automatic Claude account routing' "$TMP_ROOT/error" || fail 'account refusal omitted daemon limitation'
-pass 'Omnigent refuses automatic Claude routing before creating a worker'
+personal_project="$TMP_ROOT/personal-project"
+fm_git_worktree "$personal_project" "$TMP_ROOT/personal-worktree" personal-fixture
+for lane in guidex home; do
+  if [ "$lane" = guidex ]; then
+    project=projects/guidex_app
+    spawn_wt="$TMP_ROOT/guidex-worktree"
+    expected_root="$spawn_home/user-home/.claude_b"
+  else
+    project=$personal_project
+    spawn_wt="$TMP_ROOT/personal-worktree"
+    expected_root=''
+  fi
+  for kind in ship scout; do
+    id="omni-$lane-$kind"
+    fm_test_spawn_brief "$spawn_home" "$id"
+    args=(--mode no-mistakes --yolo off)
+    [ "$kind" != scout ] || args=(--scout)
+    USER=fixture-user LOGNAME=fixture-user spawn "$id" "$project" "${args[@]}" --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1 || fail "automatic Omnigent $lane $kind refused: $(cat "$TMP_ROOT/error")"
+    execute_launch
+    wait_title
+    jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"
+  done
+done
+grep -q "^$spawn_home/user-home/.claude_b|fixture-user|fixture-user$" "$TMP_ROOT/claude-auth" || fail 'GuideX sign-in check lost the selector or login environment'
+touch "$TMP_ROOT/claude-signed-out"
+fm_test_spawn_brief "$spawn_home" omni-signed-out
+spawn_wt="$TMP_ROOT/guidex-worktree"
+if spawn omni-signed-out projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'signed-out automatic account accepted'; fi
+[ ! -e "$spawn_home/state/omni-signed-out.meta" ] || fail 'signed-out account published metadata'
+pass 'Omnigent ships and scouts forward exact automatic accounts and refuse signed-out logins before mutation'
+
+CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" "$OMNI" run claude --model sonnet
+jq -e --arg root "$TMP_ROOT/profile-link/" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'Omnigent rewrote an explicit selector'
 
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \

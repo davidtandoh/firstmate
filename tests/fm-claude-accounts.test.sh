@@ -98,16 +98,27 @@ fixture 60 50
 mkdir -p "$FM_HOME/config" "$HOME/custom-profile"
 fixture 70 80 30 70
 printf 'ordinary\n' > "$FM_HOME/config/claude-account"
+out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model sonnet --dry-run)
+assert_contains "$out" 'account: claude-home' 'preview must honor the ordinary pin before the inherited selector'
+assert_contains "$out" 'config_dir: unset (personal)' 'ordinary preview must unset the selector'
 if out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project projects/guidex_app --candidate claude:fable); then fail 'ordinary pin borrowed GuideX quota'; fi
 [ "$out" = none ] || fail 'ordinary pin did not enforce personal floor'
+jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey))]' "$SNAPSHOT" > "$TMP_ROOT/legacy-personal.json"
+if out=$(CLAUDE_CONFIG_DIR='' bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$TMP_ROOT/legacy-personal.json" --project projects/guidex_app --candidate claude:fable); then fail 'legacy personal quota bypassed the reserve floor'; fi
+[ "$out" = none ] || fail 'legacy personal floor must reject the account'
 fixture 70 80 40 0
 out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project projects/guidex_app --candidate claude:fable)
 [ "$out" = 'claude fable' ] || fail 'ordinary pin did not override inherited GuideX selector'
 printf '%s\n' "$HOME/.claude_b" > "$FM_HOME/config/claude-account"
+out=$(CLAUDE_CONFIG_DIR="$HOME/custom-profile" bash "$TOOL" --snapshot "$SNAPSHOT" --project "$HOME/workspace/other" --model sonnet --dry-run)
+assert_contains "$out" 'account: claude-guidex' 'preview must honor the GuideX pin'
 fixture 90 20 80 10
 out=$(CLAUDE_CONFIG_DIR="$HOME/custom-profile" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project "$HOME/workspace/other" --candidate claude:fable)
 [ "$out" = 'claude fable' ] || fail 'GuideX pin applied personal floor'
 printf '%s\n' "$HOME/custom-profile" > "$FM_HOME/config/claude-account"
+out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run)
+assert_contains "$out" 'account: claude-explicit' 'preview must retain an unmeasured custom pin'
+assert_contains "$out" "config_dir: $HOME/custom-profile" 'preview must report the pinned root'
 for schema in 5 6; do
   if [ "$schema" = 5 ]; then
     jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey))]' "$SNAPSHOT" > "$TMP_ROOT/pin-quota.json"

@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Claude account collection and project binding. Sourced by the reporter,
-# typed dispatch resolver, and native spawn path.
+# typed dispatch resolver, and spawn path.
 # fm_quota_snapshot emits the quota-axi snapshot unchanged on single-account
 # installations. When ~/.claude_b exists, it collects the ordinary personal
 # login with CLAUDE_CONFIG_DIR unset and the GuideX login with that directory

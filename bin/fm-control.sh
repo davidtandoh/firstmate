@@ -1062,8 +1062,8 @@ resolve_relaunch_profile() {
       '') ;;
       *) die 'invalid recorded Omnigent launch mode' ;;
     esac
-    if [ "$account_mode" = on ] && { [ "$KIND" != secondmate ] || [ -n "$account_selection" ]; }; then
-      die 'Omnigent cannot enforce Claude account routing across its additive daemon environment; existing worker was not stopped'
+    if [ "$account_mode" = on ] && [ -n "$account_selection" ]; then
+      die 'Omnigent cannot enforce config/claude-account credential removal across its daemon boundary; existing worker was not stopped'
     fi
     if [ "$KIND" != secondmate ] && [ -z "$account_selection" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
       [ "$BACKEND" != t3code ] || die "backend=t3code cannot enforce automatic Claude account routing because its provider instance owns the account"

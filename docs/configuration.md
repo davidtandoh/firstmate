@@ -1458,7 +1458,7 @@ A remote secondmate is launched on its host from its own home's configuration, s
 
 ### Automatic Claude accounts
 
-Native Claude ships and scouts select an existing account from the source repository before creating their task worktree.
+Claude ships and scouts select an existing account from the source repository before creating their task worktree.
 Repositories whose physical path is under `~/workspace/guidex` use `~/.claude_b`; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
 A `projects/guidex_*` registration qualifies only when its resolved path is inside that directory.
 A non-empty explicit `CLAUDE_CONFIG_DIR` takes precedence.
@@ -1471,7 +1471,8 @@ An ordinary pin uses personal quota and its floor; a GuideX pin uses GuideX quot
 Other pinned roots remain unmeasured, including with a legacy quota snapshot.
 Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
-Omnigent refuses Claude ships and scouts because its additive daemon environment cannot enforce credential removal.
+Omnigent launches pass the selected directory verbatim through the native environment interface; an explicit empty selector requests the ordinary personal account.
+These launches require Omnigent's native Claude account enforcement, which checks the effective child selector and sign-in status before creating its terminal.
 T3 Code refuses automatic routing because its provider instance owns the account.
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
@@ -1484,7 +1485,7 @@ Missing weekly or applicable account bounds and partial unknown bounds stay unkn
 If neither measured account is eligible, dispatch considers the remaining configured profiles.
 Other Claude models keep the repository account split and their configured personal-account floor.
 
-[`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`; its header owns the command flags.
+[`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`, including the effective home account pin; its header owns the command flags.
 [`bin/fm-claude-accounts-lib.sh`](../bin/fm-claude-accounts-lib.sh) owns collection and selector handling, and [`bin/fm-quota-axi-lib.sh`](../bin/fm-quota-axi-lib.sh) owns the shared account and scope join.
 Credential reads remain inside `quota-axi` and `claude auth status`; Firstmate does not copy credentials or change either login.
 

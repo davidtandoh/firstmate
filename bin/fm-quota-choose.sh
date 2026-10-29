@@ -348,8 +348,7 @@ effective_for_provider_model() {
     ($model | sub("^model:"; "")) as $model_token |
     quota_row(.; $provider; $lane) as $p |
     if ($p // null) == null then {status: "unknown"}
-    elif $provider == "claude" and $lane == "claude-home" and .schemaVersion == 6 and
-      $p.accountKey == "claude-home" and
+    elif $provider == "claude" and $lane == "claude-home" and
       any($p.quotaSemantics.effectiveAvailability[]?; .scope == "all_models" and
         .status == "known" and .effectivePercentRemaining < 40) then {status:"unknown"}
     else ($p.quotaSemantics.effectiveAvailability // []) |
