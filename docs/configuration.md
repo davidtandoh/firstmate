@@ -1420,6 +1420,8 @@ Both files are local and gitignored.
 
 A final newline is optional; any other line, a relative path, or a control character such as a CR refuses.
 For Claude, `ordinary` unsets `CLAUDE_CONFIG_DIR` rather than pointing it at `~/.claude`, because Claude reads `$CLAUDE_CONFIG_DIR/.claude.json` and keys its macOS Keychain entry to any directory that is set ([authentication, "Credential management"](https://code.claude.com/docs/en/authentication#credential-management)).
+The exact selector string matters: a literal `~`, trailing slash, relative path, or resolved symlink can name a different Keychain entry.
+Use the same absolute selector for login, status checks, and launch; preserve its symlink spelling.
 
 A Pi root can hold several provider logins at once, so the root alone does not say which account a launch spends.
 A pinned Pi launch therefore needs `--model <provider>/<id>` naming a declared provider, and Firstmate also passes `--provider <that provider>` so Pi cannot resolve the model under another signed-in provider.
@@ -1437,6 +1439,7 @@ The refusal names the variable; remove that assignment from the raw command, or 
 
 Before any worker endpoint, local copy, or task record exists, and before a relaunch stops the running worker, Firstmate asks the runner itself whether the pinned account is signed in: `claude auth status` for Claude, and `pi auth check --provider <provider> --json --no-refresh` for Pi, falling back to `pi --list-models <provider>` for a provider an extension registers.
 The check runs with only `HOME`, `PATH`, `TMPDIR`, `USER`, `LOGNAME`, and the pinned root in its environment, so a credential variable in firstmate's own environment cannot answer for an empty root.
+Preserve `USER` and `LOGNAME` during a status check; omitting `USER` can make macOS report an authenticated account as signed out.
 
 A pinned Claude launch also unsets the environment credentials Claude ranks above a stored login, such as `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, and the Bedrock and Vertex switches ([authentication precedence](https://code.claude.com/docs/en/authentication#authentication-precedence)).
 Pi ranks a root's stored logins above environment variables, so a pinned Pi launch unsets nothing.
@@ -1452,6 +1455,28 @@ Pins are not inherited into secondmate homes: the secondmate's own workers read 
 A remote secondmate is launched on its host from its own home's configuration, so create the file in that remote home.
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
+
+### Automatic Claude accounts in Omnigent
+
+Omnigent Claude ships and scouts select an existing account from the source repository before creating their task worktree.
+Repositories whose physical path is under `~/workspace/guidex` use `~/.claude_b`; other repositories use the ordinary personal login with `CLAUDE_CONFIG_DIR` unset.
+A `projects/guidex_*` registration qualifies only when its resolved path is inside that directory.
+A non-empty explicit `CLAUDE_CONFIG_DIR` takes precedence.
+Automatic selection expands `~/` and removes trailing slashes without resolving selector symlinks.
+The status probe and launch receive the same selector.
+The existing Omnigent refusal of `config/claude-account` still applies.
+
+When `~/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
+Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
+Equal allowances use the repository's account.
+The personal account requires at least 40% `all_models` remaining; the GuideX account has no reserve floor.
+Account exhaustion excludes that account, and missing weekly evidence stays unknown.
+If neither measured account is eligible, dispatch considers the remaining configured profiles.
+Other Claude models keep the repository account split and their configured personal-account floor.
+
+[`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`; its header owns the command flags.
+[`bin/fm-claude-accounts-lib.sh`](../bin/fm-claude-accounts-lib.sh) owns collection and selector handling, and [`bin/fm-quota-axi-lib.sh`](../bin/fm-quota-axi-lib.sh) owns the shared account and scope join.
+Credential reads remain inside `quota-axi` and `claude auth status`; Firstmate does not copy credentials or change either login.
 
 ### Per-secondmate account pins
 

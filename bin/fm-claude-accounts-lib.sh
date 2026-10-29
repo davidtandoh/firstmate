@@ -1,0 +1,115 @@
+# shellcheck shell=bash
+# Claude account collection and project binding. Sourced by the reporter,
+# typed dispatch resolver, and Omnigent spawn path.
+# fm_quota_snapshot emits the quota-axi snapshot unchanged on single-account
+# installations. When ~/.claude_b exists, it collects the ordinary personal
+# login with CLAUDE_CONFIG_DIR unset and the GuideX login with that directory
+# selected. quota-axi alone reads credentials, caches, and quota semantics;
+# --no-credential-refresh forbids delegated login renewal. No auth data is read
+# or printed here. Schema 6 keys are claude-home and claude-guidex.
+# fm_claude_repo_lane <project path or registration> <projects root> resolves
+# physical paths; only a path under the physical ~/workspace/guidex qualifies.
+# fm_claude_account_lane <snapshot JSON> <model> <repo lane> [<profile floor JSON>]
+# delegates selection to the shared quota jq contract. Empty means unknown;
+# unavailable means both measured accounts are ineligible, so dispatch falls
+# through to its other configured profiles. Fable ties use the repository lane.
+# fm_claude_config_dir <selector> expands ~/ and removes trailing slashes
+# without resolving symlinks: Claude keys Keychain entries to the exact string.
+# fm_claude_spawn_root <project> <projects root> <model> <claude executable>
+# prints the automatic root, or an empty line for the ordinary personal login.
+# The executable argument makes the status-only probe independently testable.
+
+# shellcheck source=bin/fm-quota-axi-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-worker-account-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-worker-account-lib.sh"
+
+fm_claude_config_dir() {
+  local selector=$1
+  case "$selector" in \~) selector=$HOME ;; \~/*) selector="$HOME/${selector#\~/}" ;; esac
+  case "$selector" in /*) ;; *) echo 'error: Claude config directory must be absolute or start with ~/' >&2; return 1 ;; esac
+  while [ "$selector" != / ] && [ "${selector%/}" != "$selector" ]; do selector=${selector%/}; done
+  printf '%s\n' "$selector"
+}
+
+fm_claude_repo_lane() {
+  local project=$1 projects=$2 physical guidex
+  case "$project" in
+    projects/*) project="$projects/${project#projects/}" ;;
+    /*) ;;
+    *) [ ! -d "$projects/$project" ] || project="$projects/$project" ;;
+  esac
+  physical=$(cd "$project" 2>/dev/null && pwd -P) || physical=
+  guidex=$(cd "$HOME/workspace/guidex" 2>/dev/null && pwd -P) || guidex=
+  if [ -n "$physical" ] && [ -n "$guidex" ]; then
+    case "$physical" in "$guidex"|"$guidex"/*) printf 'claude-guidex\n'; return 0 ;; esac
+  fi
+  printf 'claude-home\n'
+}
+
+fm_claude_account_lane() {
+  local snapshot=$1 model=$2 repo=$3 floor=${4:-null}
+  jq -rn --argjson snapshot "$snapshot" --arg model "$model" --arg repo "$repo" --argjson floor "$floor" \
+    "$FM_QUOTA_ROW_JQ"'claude_task_lane($snapshot; $model; $repo; $floor)'
+}
+
+fm_claude_explicit_lane() {
+  local selector
+  selector=$(fm_claude_config_dir "$1") || return 1
+  case "$selector" in
+    "$HOME/.claude_b") printf 'claude-guidex\n' ;;
+    *) printf 'claude-explicit\n' ;;
+  esac
+}
+
+fm_claude_spawn_root() {
+  local project=$1 projects=$2 model=$3 executable=$4 repo lane root snapshot fable
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    fm_claude_config_dir "$CLAUDE_CONFIG_DIR"
+    return $?
+  fi
+  repo=$(fm_claude_repo_lane "$project" "$projects") || return 1
+  lane=$repo
+  fable=$(jq -rn --arg model "$model" "$FM_QUOTA_ROW_JQ"'claude_is_fable($model)') || return 1
+  if [ "$fable" = true ] && [ -d "$HOME/.claude_b" ]; then
+    snapshot=$(fm_quota_snapshot) || { echo 'error: cannot collect Claude account quota' >&2; return 1; }
+    lane=$(fm_claude_account_lane "$snapshot" "$model" "$repo") || return 1
+    case "$lane" in
+      claude-home|claude-guidex) ;;
+      *) echo "error: Claude Fable accounts ${lane:-unknown}; resolve the remaining dispatch profiles" >&2; return 1 ;;
+    esac
+  fi
+  root=
+  [ "$lane" != claude-guidex ] || root=$(fm_claude_config_dir "$HOME/.claude_b") || return 1
+  if [ "$lane" = claude-guidex ] || [ "$fable" = true ]; then
+    # The shared status probe removes ambient credentials and keeps USER and
+    # LOGNAME. Omnigent may omit them, so recover the OS login name if needed.
+    local login_user=${USER:-} login_name=${LOGNAME:-}
+    [ -n "$login_user" ] || login_user=$(id -un) || return 1
+    [ -n "$login_name" ] || login_name=$login_user
+    USER="$login_user" LOGNAME="$login_name" fm_worker_account_check claude "$lane" "$root" "$executable" '' 'automatic Claude account routing' || return 1
+  fi
+  printf '%s\n' "$root"
+}
+
+fm_quota_snapshot() {
+  local base guidex name
+  local -a clean=(env -u CLAUDE_CONFIG_DIR -u CLAUDE_SECURESTORAGE_CONFIG_DIR)
+  if [ ! -d "$HOME/.claude_b" ]; then
+    quota-axi --json
+    return $?
+  fi
+  for name in $FM_WORKER_ACCOUNT_CLAUDE_SHED; do clean+=(-u "$name"); done
+  base=$(fm_run_timed 45 "${clean[@]}" quota-axi --json --no-credential-refresh 2>/dev/null) || return 1
+  guidex=$(fm_run_timed 45 "${clean[@]}" "CLAUDE_CONFIG_DIR=$HOME/.claude_b" quota-axi --provider claude --json --no-credential-refresh 2>/dev/null) || return 1
+  printf '%s\n' "$base" | fm_quota_json_valid || return 1
+  printf '%s\n' "$guidex" | fm_quota_json_valid || return 1
+  jq -cSn --argjson base "$base" --argjson guidex "$guidex" '
+    ([$base.providers[] | select(.provider == "claude")]) as $personal |
+    ([$guidex.providers[] | select(.provider == "claude")]) as $work |
+    if ($personal|length) != 1 or ($work|length) != 1 then error("expected one selected Claude account per read")
+    else $base | .schemaVersion=6 |
+      .providers=([.providers[] | select(.provider != "claude") | .accountKey=(.accountKey // "default")] +
+        [($personal[0] | .accountKey="claude-home"),($work[0] | .accountKey="claude-guidex")])
+    end'
+}

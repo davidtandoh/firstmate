@@ -2,11 +2,13 @@
 # Choose the first quota-eligible candidate from a ranked list.
 #
 # Usage:
-#   fm-quota-choose.sh [--snapshot <path>] [--candidate <harness:model>]...
+#   fm-quota-choose.sh [--snapshot <path>] [--project <path|projects/name>] [--candidate <harness:model>]...
 #
 # Reads one already-captured quota-axi default TOON or JSON snapshot from the
 # provided file, or from stdin when --snapshot is omitted.
 # bin/fm-quota-axi-lib.sh owns schema compatibility and the shared row join.
+# --project binds Claude to its repository account; dual-account Fable uses
+# bin/fm-claude-accounts-lib.sh and its captured weekly allowance instead.
 # For each --candidate in order, it maps <harness> to its primary provider
 # family, then applies the matched row's provider-wide scopes and exact model
 # or product scopes for <model>. A candidate is eligible only when no
@@ -53,6 +55,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-claude-accounts-lib.sh
+. "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
 
@@ -68,6 +72,7 @@ usage() {
 
 CANDIDATES=()
 SNAPSHOT_SOURCE=
+PROJECT=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -79,6 +84,11 @@ while [ "$#" -gt 0 ]; do
     --candidate)
       [ -n "${2-}" ] || die "--candidate needs a value"
       CANDIDATES+=("$2")
+      shift 2
+      ;;
+    --project)
+      [ -n "${2-}" ] || die "--project needs a path"
+      PROJECT=$2
       shift 2
       ;;
     -h|--help|help) usage ;;
@@ -339,12 +349,7 @@ effective_for_provider_model() {
     quota_row(.; $provider; $lane) as $p |
     if ($p // null) == null then {status: "unknown"}
     else ($p.quotaSemantics.effectiveAvailability // []) |
-    map(select(.scope as $scope |
-      $scope == "all_models" or $scope == "all_products" or
-      ($model_token != "" and $model_token != "default" and
-       (($scope | startswith("model:")) or ($scope | startswith("product:"))) and
-       ($model_token == ($scope | sub("^(model|product):"; ""))))
-    )) as $applicable |
+    map(select(quota_scope_matches(.scope; (if $model_token == "default" then "" else $model_token end)))) as $applicable |
     ($applicable | map(select(.status == "known"))) as $known |
     if ($applicable | length) == 0 then {status: "unknown"}
     elif any($applicable[]; (.runway.status // "") == "exhausted_now") then
@@ -379,6 +384,15 @@ for c in "${CANDIDATES[@]}"; do
   scope_model=$model
   [ "$harness" != omp ] || scope_model=${model#*/}
   lane=$(jq -rn --arg h "$harness" --arg m "$model" "$FM_QUOTA_ROW_JQ"'quota_lane($h; $m)')
+  if [ "$harness" = claude ]; then
+    if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+      lane=$(fm_claude_explicit_lane "$CLAUDE_CONFIG_DIR") || die 'invalid CLAUDE_CONFIG_DIR'
+    else
+      repo=$(fm_claude_repo_lane "$PROJECT" "${FM_PROJECTS_OVERRIDE:-${FM_HOME:-$SCRIPT_DIR/..}/projects}")
+      lane=$(fm_claude_account_lane "$QUOTA_JSON" "$model" "$repo") || die 'cannot select Claude account'
+    fi
+    [ -n "$lane" ] && [ "$lane" != unavailable ] || continue
+  fi
   effective=$(effective_for_provider_model "$provider" "$scope_model" "$lane")
   if [ -z "$effective" ] || [ "$effective" = "null" ]; then
     continue

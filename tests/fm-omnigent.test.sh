@@ -380,6 +380,38 @@ grep -q 'cannot enforce config/claude-account' "$TMP_ROOT/error" || fail 'accoun
 [ "$(cat "$spawn_home/config/claude-account")" = personal ] || fail 'spawn altered the account pin'
 pass 'wrapped launches refuse guarantees the additive daemon environment cannot enforce'
 
+rm "$spawn_home/config/claude-account"
+spawn_project="$spawn_home/user-home/workspace/guidex/app"
+spawn_wt="$TMP_ROOT/guidex-worktree"
+fm_git_worktree "$spawn_project" "$spawn_wt" guidex-fixture
+mkdir -p "$spawn_home/projects" "$spawn_home/user-home/.claude_b"
+ln -s "$spawn_project" "$spawn_home/projects/guidex_app"
+cat > "$spawn_tools/claude" <<SH
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "\$*" = 'auth status' ]; then
+  printf '%s|%s|%s\n' "\${CLAUDE_CONFIG_DIR-unset}" "\${USER-missing}" "\${LOGNAME-missing}" >> '$TMP_ROOT/claude-auth'
+  [ ! -e '$TMP_ROOT/claude-signed-out' ]
+else
+  printf 'Claude Code fixture\n'
+fi
+SH
+chmod +x "$spawn_tools/claude"
+id=omni-guidex-account
+fm_test_spawn_brief "$spawn_home" "$id"
+USER=fixture-user LOGNAME=fixture-user spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/output" 2>&1 || fail "GuideX account spawn: $(cat "$TMP_ROOT/output")"
+execute_launch > /dev/null 2> "$TMP_ROOT/title-error"
+jq -e --arg root "$spawn_home/user-home/.claude_b" '.environment.CLAUDE_CONFIG_DIR==$root' "$OMNI_RESULT" >/dev/null || fail 'spawn did not forward the selected GuideX root'
+grep -qxF "$spawn_home/user-home/.claude_b|fixture-user|fixture-user" "$TMP_ROOT/claude-auth" || fail 'spawn auth probe lost the exact selector or login environment'
+touch "$TMP_ROOT/claude-signed-out"
+id=omni-guidex-signed-out
+fm_test_spawn_brief "$spawn_home" "$id"
+if spawn "$id" projects/guidex_app --mode no-mistakes --yolo off --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1; then fail 'spawn accepted signed-out GuideX account'; fi
+[ ! -e "$spawn_home/state/$id.meta" ] || fail 'signed-out refusal published metadata'
+grep -q 'not signed in' "$TMP_ROOT/error" || fail 'sign-out refusal omitted account diagnostic'
+rm "$TMP_ROOT/claude-signed-out"
+pass 'Omnigent spawn resolves project registrations and checks the exact GuideX selector before launch'
+
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \
   '.server_url="https://external.example"' \

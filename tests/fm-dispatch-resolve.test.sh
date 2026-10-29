@@ -165,7 +165,7 @@ reset_log() {
 run() {
   local __exit=$1 __out=$2 __err=$3 _out _code
   shift 3
-  _out=$(PATH="$FAKEBIN:$BASE_PATH" FM_HOME="$HOME_DIR" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
+  _out=$(PATH="$FAKEBIN:$BASE_PATH" HOME="$HOME_DIR" CLAUDE_CONFIG_DIR='' FM_HOME="$HOME_DIR" FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" "$TOOL" "$@" 2> "$TMP_ROOT/stderr")
   _code=$?
   printf -v "$__exit" '%s' "$_code"
   printf -v "$__out" '%s' "$_out"
@@ -224,7 +224,7 @@ assert_contains "$out" 'dispatch-resolve:' "TOON block header"
 assert_contains "$out" '  status: clear' "clear status"
 assert_contains "$out" '  rule: rule_4 (A simple bug fix with a stated root cause.)   confidence: 0.9' "rule and confidence line"
 assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "argmax picks the highest spendPriority"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "every candidate is accounted for"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "every candidate is accounted for"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "unmeasured provider stays listed as eligible and unranked"
 assert_contains "$out" '  note: 1 eligible candidate(s) unranked (kimi)' "clear results flag eligible unranked candidates once"
 assert_not_contains "$out" '--effort' "cursor profile without effort emits no --effort"
@@ -513,7 +513,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "ambiguous exits 0"
 assert_contains "$out" '  status: ambiguous' "below the floor is ambiguous"
 assert_contains "$out" '  reason: confidence 0.41 below floor 0.6' "ambiguous names the floor"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "ambiguous preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627  runway=projected_exhaustion  -> eligible' "ambiguous preserves matched candidate evidence"
 assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "ambiguous preserves eligible unranked candidate evidence"
 assert_not_contains "$out" '  profile:' "ambiguous emits no profile line"
 pass "ambiguous: confidence below the fixed floor hands the decision back"
@@ -667,7 +667,7 @@ TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "escalate exits 0"
 assert_contains "$out" '  status: escalate' "approval-gated rule escalates"
 assert_contains "$out" "  reason: rule requires the captain's explicit approval before dispatch" "escalate names the approval gate"
-assert_contains "$out" 'candidate: claude:fable  provider=claude  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
+assert_contains "$out" 'candidate: claude:fable  provider=claude  account=claude-home  scope=model:fable  remaining=15%  spendPriority=-0.79  runway=projected_exhaustion  bounds=all_models:79%/projected_exhaustion,model:fable:15%/projected_exhaustion  -> eligible' "approval escalation preserves matched candidate evidence"
 assert_not_contains "$out" '  profile:' "escalate emits no profile line"
 pass "escalate: a rule declared approval: captain never yields a profile"
 
@@ -782,13 +782,13 @@ jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAva
 ]' "$QUOTA" > "$BOUNDED"
 write_response "$RESPONSE" rule_4 0.9
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$BOUNDED" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=79%  spendPriority=-0.4627' "the limiting provider-wide row drives ranking"
 assert_contains "$out" 'bounds=all_models:79%/projected_exhaustion,model:sonnet:99%/through_reset' "all applicable quota bounds are disclosed"
 
 EXHAUSTED_WIDE="$TMP_ROOT/exhausted-wide.json"
 jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[] | select(.scope == "all_models")) |= (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now")' "$BOUNDED" > "$EXHAUSTED_WIDE"
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$EXHAUSTED_WIDE" run code out err "$BRIEF"
-assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  account=claude-home  scope=all_models  remaining=0%' "the exhausted account-wide bound is the candidate evidence"
 assert_contains "$out" '-> not eligible: runway exhausted_now at all_models' "a healthy exact row cannot bypass an exhausted account-wide bound"
 pass "provider-wide and exact quota rows combine into one limiting candidate"
 
@@ -1098,5 +1098,45 @@ run code out err --help
 expect_code 0 "$code" "--help exits 0"
 assert_contains "$out" 'Usage:' "--help prints usage"
 pass "configuration errors exit 2 before any network call"
+
+# Claude account evidence must match the account spawn will use. Keep the
+# classifier and its four rule choices unchanged; only the selected lane varies.
+mkdir -p "$HOME_DIR/workspace/guidex/app" "$HOME_DIR/workspace/personal" "$HOME_DIR/projects"
+ln -s "$HOME_DIR/workspace/guidex/app" "$HOME_DIR/projects/guidex_app"
+jq '.rules[3].use=[
+  {harness:"claude",model:"claude-fable-5-1",floor:{scope:"all_models",min_percent:40}},
+  {harness:"codex",model:"fallback"}]' "$BASE_RULES" > "$RULES"
+write_response "$RESPONSE" rule_4 0.9
+account_quota() { # personal weekly, GuideX weekly, personal all_models, GuideX all_models
+  jq -n --argjson p "$1" --argjson g "$2" --argjson pa "$3" --argjson ga "$4" '
+    def row($key;$weekly;$all):
+      {provider:"claude",accountKey:$key,state:{status:"fresh"},
+       windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],
+       quotaSemantics:{status:"known",effectiveAvailability:[
+         {scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"},selection:{spendPriority:1}},
+         {scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"},selection:{spendPriority:1}}]}};
+    {schemaVersion:6,providers:[row("claude-home";$p;$pa),row("claude-guidex";$g;$ga),
+      {provider:"codex",accountKey:"codex-home",quotaSemantics:{status:"known",effectiveAvailability:[
+        {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:0.1}}]}}]}' > "$QUOTA"
+}
+account_quota 70 20 60 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-home' 'Fable can use personal account for GuideX repository'
+assert_contains "$out" "profile: --harness 'claude' --model 'claude-fable-5-1'" 'Fable remains selected'
+account_quota 20 70 60 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'Fable can use GuideX account for personal repository'
+assert_contains "$out" "profile: --harness 'claude'" 'GuideX Fable ignores personal all_models floor'
+account_quota 0 0 39 15
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'both exhausted use the remaining dispatch profiles'
+jq '.rules[3].use[0].model="sonnet"' "$RULES" > "$TMP_ROOT/non-fable-rules.json"
+mv "$TMP_ROOT/non-fable-rules.json" "$RULES"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-guidex' 'GuideX non-Fable uses repository account'
+assert_contains "$out" "profile: --harness 'claude' --model 'sonnet'" 'GuideX non-Fable has no personal floor'
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'personal non-Fable retains configured floor'
+pass 'typed dispatch binds Claude quota and floors to the selected task account'
 
 printf '# all fm-dispatch-resolve tests passed\n'

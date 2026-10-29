@@ -3228,6 +3228,18 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     echo 'error: Omnigent cannot enforce config/claude-account credential removal across its daemon boundary' >&2
     exit 1
   fi
+  if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
+    # Resolve registrations and project symlinks before the later worktree
+    # setup. Account selectors themselves keep their exact Keychain spelling.
+    # shellcheck source=bin/fm-claude-accounts-lib.sh
+    . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+    CLAUDE_AUTO_ROOT=$(fm_claude_spawn_root "$PROJ" "$PROJECTS" "$MODEL" "$(type -P claude)") || exit 1
+    if [ -n "$CLAUDE_AUTO_ROOT" ]; then
+      export CLAUDE_CONFIG_DIR=$CLAUDE_AUTO_ROOT
+    else
+      unset CLAUDE_CONFIG_DIR
+    fi
+  fi
   "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
 fi
 
