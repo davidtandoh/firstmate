@@ -1,4 +1,4 @@
-FM_TEST_BEGIN 2026-10-29T19:42:21Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+FM_TEST_BEGIN 2026-10-29T20:33:42Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
 ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
 ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
 ok - fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created
@@ -18,7 +18,7 @@ ok - fm-promote: a promoted worker receives the same mode-specific delivery cont
 ●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
 ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ok - fm-promote: a selected branch prefix reaches both worker instructions and durable task state
-Switched to a new branch '$(touch${IFS}/private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-task-delivery.o0MzIi/promote-branch-shell-safe-marker)/promote-branch-safe-e3'
+Switched to a new branch '$(touch${IFS}/private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-task-delivery.c0AySw/promote-branch-shell-safe-marker)/promote-branch-safe-e3'
 ok - fm-promote: ref-format-valid shell metacharacters stay literal in promotion branch commands
 ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ●  WATCHER DOWN - SUPERVISION IS OFF
@@ -46,12 +46,10 @@ ok - fm-brief: pr=manual records its contract suffix, skips pr and ci, and hands
 ok - fm-brief: pr=manual is refused on direct-PR, local-only, a bound forge, an unknown value, and a scout
 ok - fm-spawn: the registered pr=manual binding must agree with the brief's contract line
 ok - fm-promote: a promoted no-mistakes worker receives the registered pr=manual contract 
-ok - fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled
-ok - fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix
-# all fm-task-delivery tests passed
-FM_TEST_END 2026-10-29T19:43:33Z tests/fm-task-delivery.test.sh exit=0 duration_ms=71476 gate_skip=false
-FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=71536
-FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=71476 failed=0
-FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=71476
-fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M64JRST0Z395RCA78CJF04JW/delivery-timing.json
-FM_TEST_BUDGET max_wall_ms=120000 duration_ms=71536
+not ok - tests/fm-task-delivery.test.sh exceeded the per-script bound of 90s and was terminated
+FM_TEST_END 2026-10-29T20:35:13Z tests/fm-task-delivery.test.sh exit=124 duration_ms=90481 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=90549
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=90481 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=90481
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M64NQ42YVWJ6AYPJX2C8XYGT/delivery-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=90549

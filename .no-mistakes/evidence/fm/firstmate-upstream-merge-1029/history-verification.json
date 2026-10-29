@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "command": [
+        "git",
+        "show",
+        "--no-patch",
+        "--format=%H%n%P%n%s",
+        "6c632248"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "6c632248e13dfebb5c1af34da90e97c8220902b7\n811a6701b98fb166885579fb70d3c932cbbfba85 c9da552333056132da95489a864c024051e27aa9\nmerge: Sync upstream main at c9da5523\n"
+    },
+    {
+      "command": [
+        "git",
+        "rev-list",
+        "--count",
+        "811a6701..c9da5523"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "31\n"
+    },
+    {
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "811a6701",
+        "HEAD"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "c9da5523",
+        "HEAD"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": ""
+    }
+  ]
+}
