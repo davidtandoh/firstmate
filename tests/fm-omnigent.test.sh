@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Contracts for the Omnigent launch boundary and its observed process shapes.
+# Run with --claude-accounts for focused Claude account boundary checks.
 set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/bin/fm-agent-process-lib.sh"
 
+if [ "${1:-}" != --claude-accounts ]; then
 for harness in claude codex kiro agy antigravity; do
   got=$(fm_agent_process_classify_name python3.12 python3 "/home/user/serve/runtime/bin/python3 /home/user/serve/runtime/bin/omnigent $harness --server http://127.0.0.1:6767")
   [ "$got" = agent ] || fail "Omnigent $harness Python wrapper should be an agent, got $got"
@@ -27,6 +29,7 @@ for args in \
   [ "$got" = other ] || fail "non-agent command was classified $got: $args"
 done
 pass 'only native Omnigent launch commands identify an agent'
+fi
 
 TMP_ROOT=$(fm_test_tmproot fm-omnigent)
 native_pid=''
@@ -41,6 +44,7 @@ trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
 OMNI="$ROOT/bin/fm-omnigent.sh"
+if [ "${1:-}" != --claude-accounts ]; then
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
@@ -62,6 +66,7 @@ ln -s "$TMP_ROOT/home" "$TMP_ROOT/config/omnigent"
 if mode > "$TMP_ROOT/error" 2>&1; then fail 'symlink home policy accepted'; fi
 rm "$TMP_ROOT/config/omnigent"
 pass 'session detection, explicit home policy, and inherited mode fail closed'
+fi
 
 . "$ROOT/tests/omnigent-fixture.sh"
 fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
@@ -89,6 +94,7 @@ wait_title() {
   fail 'launch did not PATCH its session title'
 }
 reset_title() { rm -f "$TMP_ROOT/serve/title.json" "$TMP_ROOT/serve/requests.jsonl"; }
+if [ "${1:-}" != --claude-accounts ]; then
 for harness in claude codex; do
   reset_title
   env -u FM_TASK_ID -u FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_HOME="$TMP_ROOT/main" \
@@ -290,6 +296,7 @@ printf '{bad json' > "$OMNI_STATUS"
 if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'malformed service response accepted'; fi
 if "$OMNI" check pi > "$TMP_ROOT/error" 2>&1; then fail 'unverified wrapped harness accepted'; fi
 pass 'missing, unreachable, malformed service and unverified harness refuse'
+fi
 
 . "$ROOT/tests/fixtures.sh"
 spawn_home="$TMP_ROOT/spawn-home"
@@ -298,6 +305,7 @@ spawn_wt="$TMP_ROOT/worktree"
 spawn_tools=$(fm_test_make_spawn_fakebin "$TMP_ROOT/spawn-tools")
 fm_test_spawn_home "$spawn_home" codex
 fm_git_worktree "$spawn_project" "$spawn_wt" omni-fixture
+if [ "${1:-}" != --claude-accounts ]; then
 fm_test_spawn_brief "$spawn_home" omni-test
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
 if FM_OMNIGENT=on FM_FAKE_LAUNCH_LOG="$TMP_ROOT/launch.log" \
@@ -307,6 +315,7 @@ fi
 [ ! -e "$spawn_home/state/omni-test.meta" ] || fail 'refused spawn published task metadata'
 grep -q not_started "$TMP_ROOT/error" || fail 'spawn did not report service refusal'
 pass 'spawn refuses before endpoint publication when tracing is unavailable'
+fi
 
 # Execute the launch the pane received, using the service double to observe
 # the native argv and environment beyond the daemon boundary.
@@ -325,6 +334,7 @@ execute_launch() {
   env -i HOME="$TMP_ROOT/home" PATH="$spawn_tools:$PATH" TERM=xterm /bin/sh -c "$preamble
 $launch"
 }
+if [ "${1:-}" != --claude-accounts ]; then
 for kind in ship scout; do
   id="omni-$kind"
   fm_test_spawn_brief "$spawn_home" "$id"
@@ -373,6 +383,7 @@ PROBE
 chmod +x "$spawn_tools/codex"
 [ "$(execute_launch)" = native-codex ] || fail 'ordinary native launch did not execute the original harness'
 pass 'ordinary sessions preserve direct launch while serve is unavailable'
+fi
 
 # Restrictions must refuse before launching and must not weaken either policy.
 printf 'on\n' > "$spawn_home/config/omnigent"
@@ -460,6 +471,10 @@ pass 'Omnigent ships and scouts forward exact automatic accounts and refuse sign
 
 CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" "$OMNI" run claude --model sonnet
 jq -e --arg root "$TMP_ROOT/profile-link/" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail 'Omnigent rewrote an explicit selector'
+pass 'Omnigent preserves the exact explicit Claude selector'
+if [ "${1:-}" = --claude-accounts ]; then
+  exit 0
+fi
 
 # Validate data from the service rather than evaluating it as shell syntax.
 for invalid in \
