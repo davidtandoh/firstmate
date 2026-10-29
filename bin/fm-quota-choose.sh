@@ -348,6 +348,10 @@ effective_for_provider_model() {
     ($model | sub("^model:"; "")) as $model_token |
     quota_row(.; $provider; $lane) as $p |
     if ($p // null) == null then {status: "unknown"}
+    elif $provider == "claude" and $lane == "claude-home" and .schemaVersion == 6 and
+      $p.accountKey == "claude-home" and
+      any($p.quotaSemantics.effectiveAvailability[]?; .scope == "all_models" and
+        .status == "known" and .effectivePercentRemaining < 40) then {status:"unknown"}
     else ($p.quotaSemantics.effectiveAvailability // []) |
     map(select(quota_scope_matches(.scope; (if $model_token == "default" then "" else $model_token end)))) as $applicable |
     ($applicable | map(select(.status == "known"))) as $known |
@@ -385,9 +389,8 @@ for c in "${CANDIDATES[@]}"; do
   [ "$harness" != omp ] || scope_model=${model#*/}
   lane=$(jq -rn --arg h "$harness" --arg m "$model" "$FM_QUOTA_ROW_JQ"'quota_lane($h; $m)')
   if [ "$harness" = claude ]; then
-    if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-      lane=$(fm_claude_explicit_lane "$CLAUDE_CONFIG_DIR") || die 'invalid CLAUDE_CONFIG_DIR'
-    else
+    lane=$(fm_claude_dispatch_lane "${FM_CONFIG_OVERRIDE:-${FM_HOME:-$SCRIPT_DIR/..}/config}") || die 'invalid Claude account selection'
+    if [ -z "$lane" ]; then
       repo=$(fm_claude_repo_lane "$PROJECT" "${FM_PROJECTS_OVERRIDE:-${FM_HOME:-$SCRIPT_DIR/..}/projects}")
       lane=$(fm_claude_account_lane "$QUOTA_JSON" "$model" "$repo") || die 'cannot select Claude account'
     fi

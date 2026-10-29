@@ -375,7 +375,7 @@ Secondmate launches are exempt because they resolve the secondmate harness and a
 [`configuration.md`](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) owns model and effort defaults and backend-specific refusal or omission behavior.
 Polytoken composes a concrete model and supported reasoning level through its [adapter contract](../.agents/skills/harness-adapters/references/harness/polytoken.md).
 The optional [Omnigent launch boundary](omnigent.md) wraps the resolved profile subject to its [supported limits](configuration.md#omnigent-launch-mode-configomnigent--fm_omnigent).
-For [automatic Claude accounts](configuration.md#automatic-claude-accounts), `fm-claude-accounts-lib.sh` collects account-specific `quota-axi` evidence that the typed resolver and native spawn share through `fm-quota-axi-lib.sh`; `fm-claude-accounts.sh` exposes that evidence and a launch preview.
+For [automatic Claude accounts](configuration.md#automatic-claude-accounts), `fm-claude-accounts-lib.sh` collects account-specific `quota-axi` evidence that the typed resolver, native spawn, and relaunch preflight share through `fm-quota-axi-lib.sh`; `fm-claude-accounts.sh` exposes that evidence and a launch preview.
 
 ```mermaid
 flowchart LR

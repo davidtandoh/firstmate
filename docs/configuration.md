@@ -1466,6 +1466,10 @@ Explicit selectors retain their exact spelling, including tilde, relative paths,
 Automatic GuideX selection constructs the absolute `$HOME/.claude_b` selector.
 The status probe and launch receive the same selector.
 Explicit account pins remain authoritative.
+Both dispatch consumers bind quota to the effective account pin before applying repository or Fable routing.
+An ordinary pin uses personal quota and its floor; a GuideX pin uses GuideX quota without that floor.
+Other pinned roots remain unmeasured, including with a legacy quota snapshot.
+Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
 Omnigent refuses Claude ships and scouts because its additive daemon environment cannot enforce credential removal.
 T3 Code refuses automatic routing because its provider instance owns the account.

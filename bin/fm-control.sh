@@ -1050,8 +1050,29 @@ resolve_relaunch_profile() {
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" "" "$account_mate" >/dev/null || return 1
+  local account_selection account_config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
+  account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "$account_config" \
+    "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
+  if [ "$TARGET_HARNESS" = claude ]; then
+    local account_mode recorded_mode
+    account_mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "$account_config") || return 1
+    recorded_mode=$(fm_meta_get "$META" omnigent)
+    case "$recorded_mode" in
+      on) account_mode=on ;;
+      '') ;;
+      *) die 'invalid recorded Omnigent launch mode' ;;
+    esac
+    if [ "$account_mode" = on ] && { [ "$KIND" != secondmate ] || [ -n "$account_selection" ]; }; then
+      die 'Omnigent cannot enforce Claude account routing across its additive daemon environment; existing worker was not stopped'
+    fi
+    if [ "$KIND" != secondmate ] && [ -z "$account_selection" ] && [ -z "${CLAUDE_CONFIG_DIR:-}" ]; then
+      [ "$BACKEND" != t3code ] || die "backend=t3code cannot enforce automatic Claude account routing because its provider instance owns the account"
+      # shellcheck source=bin/fm-claude-accounts-lib.sh
+      . "$SCRIPT_DIR/fm-claude-accounts-lib.sh"
+      fm_claude_spawn_root "$(fm_meta_get "$META" project)" "${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}" \
+        "$account_model" "$(type -P claude)" >/dev/null || return 1
+    fi
+  fi
   fm_omp_profile_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
     "$account_mate" >/dev/null || return 1
   # Likewise polytoken's launch profile and wiring refusals

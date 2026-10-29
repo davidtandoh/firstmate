@@ -95,6 +95,31 @@ out=$(CLAUDE_CONFIG_DIR='' bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$TMP_
 [ "$out" = 'codex fallback' ] || fail 'ordered helper did not fall through when both accounts were exhausted'
 fixture 60 50
 
+mkdir -p "$FM_HOME/config" "$HOME/custom-profile"
+fixture 70 80 30 70
+printf 'ordinary\n' > "$FM_HOME/config/claude-account"
+if out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project projects/guidex_app --candidate claude:fable); then fail 'ordinary pin borrowed GuideX quota'; fi
+[ "$out" = none ] || fail 'ordinary pin did not enforce personal floor'
+fixture 70 80 40 0
+out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project projects/guidex_app --candidate claude:fable)
+[ "$out" = 'claude fable' ] || fail 'ordinary pin did not override inherited GuideX selector'
+printf '%s\n' "$HOME/.claude_b" > "$FM_HOME/config/claude-account"
+fixture 90 20 80 10
+out=$(CLAUDE_CONFIG_DIR="$HOME/custom-profile" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$SNAPSHOT" --project "$HOME/workspace/other" --candidate claude:fable)
+[ "$out" = 'claude fable' ] || fail 'GuideX pin applied personal floor'
+printf '%s\n' "$HOME/custom-profile" > "$FM_HOME/config/claude-account"
+for schema in 5 6; do
+  if [ "$schema" = 5 ]; then
+    jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey))]' "$SNAPSHOT" > "$TMP_ROOT/pin-quota.json"
+  else
+    jq '.providers += [(.providers[0] | .accountKey="default")]' "$SNAPSHOT" > "$TMP_ROOT/pin-quota.json"
+  fi
+  if out=$(CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$ROOT/bin/fm-quota-choose.sh" --snapshot "$TMP_ROOT/pin-quota.json" --project projects/guidex_app --candidate claude:fable); then fail 'custom pin borrowed provider fallback quota'; fi
+  [ "$out" = none ] || fail 'custom pin must stay unmeasured'
+done
+rm "$FM_HOME/config/claude-account"
+fixture 60 50
+
 # The account collector delegates all credential access to quota-axi. A double
 # checks that the personal login is selected by an unset variable, not ~/.claude.
 cat > "$TMP_ROOT/tools/quota-axi" <<'SH'

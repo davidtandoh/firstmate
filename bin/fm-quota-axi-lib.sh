@@ -39,7 +39,8 @@ FM_QUOTA_ROW_JQ='
     else "" end;
   def quota_row($snapshot; $provider; $lane):
     ([$snapshot.providers[]? | select(.provider == $provider)]) as $rows |
-    if $snapshot.schemaVersion == 6 then
+    if $provider == "claude" and $lane == "claude-explicit" then null
+    elif $snapshot.schemaVersion == 6 then
       (([$rows[] | select(.accountKey == $lane)] | first) //
        ([$rows[] | select(.accountKey == "default")] | first) // null)
     else ($rows | first) // null

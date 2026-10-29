@@ -147,8 +147,16 @@ else
 fi
 printf '%s\n' "$*" >> "${QUOTA_AXI_CALLS:?}"
 [ "${FAKE_QUOTA_FAIL:-0}" = 1 ] && exit 1
-[ "${1:-}" = --json ] || exit 2
-cat "${QUOTA_AXI_FIXTURE:?}"
+case "${1:-}" in --json|--provider) ;; *) exit 2 ;; esac
+if [ -d "$HOME/.claude_b" ]; then
+  if [ "${CLAUDE_CONFIG_DIR:-}" = "$HOME/.claude_b" ]; then
+    jq '.providers |= map(select(.provider == "claude" and .accountKey == "claude-guidex"))' "${QUOTA_AXI_FIXTURE:?}"
+  else
+    jq '.providers |= map(select(.provider != "claude" or .accountKey == "claude-home"))' "${QUOTA_AXI_FIXTURE:?}"
+  fi
+else
+  cat "${QUOTA_AXI_FIXTURE:?}"
+fi
 SH
 chmod +x "$FAKEBIN/quota-axi"
 
@@ -1137,6 +1145,29 @@ assert_contains "$out" 'account=claude-guidex' 'GuideX non-Fable uses repository
 assert_contains "$out" "profile: --harness 'claude' --model 'sonnet'" 'GuideX non-Fable has no personal floor'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'personal non-Fable retains configured floor'
+account_quota 70 80 30 70
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-home' 'ordinary pin overrides GuideX repository routing'
+assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'ordinary pin retains personal floor'
+mkdir -p "$HOME_DIR/.claude_b" "$HOME_DIR/custom-profile"
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-account"
+account_quota 90 20 80 10
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'account=claude-guidex' 'GuideX pin overrides personal repository routing'
+assert_contains "$out" "profile: --harness 'claude'" 'GuideX pin has no personal floor'
+printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-explicit' 'custom pin does not borrow a known account'
+assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin stays unmeasured'
+assert_contains "$out" "profile: --harness 'codex'" 'custom pin cannot rank against another login quota'
+rmdir "$HOME_DIR/.claude_b"
+jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey)),(.providers[2] | del(.accountKey))]' "$QUOTA" > "$TMP_ROOT/pin-schema5.json"
+mv "$TMP_ROOT/pin-schema5.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin does not borrow a legacy provider row'
+assert_contains "$out" "profile: --harness 'codex'" 'custom pin is unranked with schema 5'
+rm "$HOME_DIR/config/claude-account"
 pass 'typed dispatch binds Claude quota and floors to the selected task account'
 
 printf '# all fm-dispatch-resolve tests passed\n'

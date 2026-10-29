@@ -394,10 +394,7 @@ command -v quota-axi >/dev/null 2>&1 || emit_error "quota-axi not installed"
 fm_quota_snapshot > "$QUOTA" 2>/dev/null || emit_error "quota-axi --json failed"
 fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an invalid snapshot"
 CLAUDE_REPO_LANE=$(fm_claude_repo_lane "$PROJECT" "${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}")
-CLAUDE_EXPLICIT_LANE=
-if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  CLAUDE_EXPLICIT_LANE=$(fm_claude_explicit_lane "$CLAUDE_CONFIG_DIR") || emit_error 'invalid CLAUDE_CONFIG_DIR'
-fi
+CLAUDE_EXPLICIT_LANE=$(fm_claude_dispatch_lane "$CONFIG") || emit_error 'invalid Claude account selection'
 
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
 RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" \

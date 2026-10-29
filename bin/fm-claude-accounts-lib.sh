@@ -50,6 +50,23 @@ fm_claude_explicit_lane() {
   esac
 }
 
+fm_claude_dispatch_lane() {
+  local config=$1 selection declared root
+  selection=$(fm_worker_account_resolve claude "$config" 'config/claude-account') || return 1
+  if [ -n "$selection" ]; then
+    declared=${selection%%$'\t'*}
+    root=${selection#*$'\t'}
+    root=${root%%$'\t'*}
+    if [ "$declared" = ordinary ]; then
+      printf 'claude-home\n'
+    else
+      fm_claude_explicit_lane "$root"
+    fi
+  elif [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    fm_claude_explicit_lane "$CLAUDE_CONFIG_DIR"
+  fi
+}
+
 fm_claude_spawn_root() {
   local project=$1 projects=$2 model=$3 executable=$4 repo lane root snapshot fable
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then

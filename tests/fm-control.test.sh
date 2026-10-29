@@ -736,6 +736,45 @@ test_state_verified_backends_are_exactly_tmux_herdr_and_rex() {
 
 # --- 3. exact-id scoping ----------------------------------------------------
 
+test_claude_account_relaunch_preflight() {
+  local dir out rc scenario id=t1 expected
+  for scenario in signed-out signed-in configured-omnigent recorded-omnigent; do
+    dir=$(new_case "account-preflight-$scenario")
+    add_task "$dir" "$id" codex
+    alive_as "$dir" codex
+    mkdir -p "$dir/user-home/workspace" "$dir/user-home/.claude_b" "$dir/home/config"
+    ln -s "$dir" "$dir/user-home/workspace/guidex"
+    cat > "$dir/fakebin/claude" <<SH
+#!/usr/bin/env bash
+[ "\$*" = 'auth status' ] || exit 2
+printf '%s\n' "\${CLAUDE_CONFIG_DIR-unset}" >> '$dir/auth-checks'
+[ -f "\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}/signed-in" ]
+SH
+    chmod +x "$dir/fakebin/claude"
+    expected='not signed in'
+    if [ "$scenario" != signed-out ]; then
+      touch "$dir/user-home/.claude_b/signed-in"
+      expected='requires --note'
+    fi
+    case "$scenario" in
+      configured-omnigent) printf 'on\n' > "$dir/home/config/omnigent"; expected='cannot enforce Claude account routing' ;;
+      recorded-omnigent) printf 'omnigent=on\n' >> "$dir/home/state/$id.meta"; expected='cannot enforce Claude account routing' ;;
+    esac
+    cp "$dir/home/state/$id.meta" "$dir/meta-before"
+    out=$(HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' FM_OMNIGENT=off run_control "$dir" "$id" relaunch --harness claude --model sonnet); rc=$?
+    expect_code 1 "$rc" "Claude account preflight should refuse before stop: $scenario: $out"
+    assert_contains "$out" "$expected" "preflight must identify the account or boundary refusal"
+    [ "$(cat "$dir/fake/command")" = codex ] || fail 'account preflight stopped the old worker'
+    [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'account preflight sent lifecycle input'
+    cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'account preflight changed task metadata'
+    [ ! -e "$dir/home/state/$id.control-relaunch" ] || fail 'account preflight opened a relaunch transaction'
+    if [ "$scenario" = signed-out ] || [ "$scenario" = signed-in ]; then
+      [ "$(cat "$dir/auth-checks")" = "$dir/user-home/.claude_b" ] || fail 'preflight checked a different Claude login'
+    fi
+  done
+  pass 'Claude relaunch validates the automatic login and daemon boundary before stopping the current worker'
+}
+
 test_window_label_is_refused_with_the_exact_id() {
   local dir out rc
   dir=$(new_case label)
@@ -1321,6 +1360,7 @@ test_orca_refuses_an_escape_harness_interrupt
 test_unverified_state_backends_refuse_stop_verbs
 test_commandcode_relaunch_off_tmux_and_herdr_refuses_before_stopping
 test_state_verified_backends_are_exactly_tmux_herdr_and_rex
+test_claude_account_relaunch_preflight
 test_window_label_is_refused_with_the_exact_id
 test_explicit_endpoint_is_refused
 test_unknown_task_is_refused
