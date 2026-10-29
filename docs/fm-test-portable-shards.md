@@ -5,8 +5,8 @@
 
 ## Pull-request selection
 
-By default, pull requests run lint, inventory coverage, repository invariants, and stock macOS Bash compatibility on every head.
-Behavior jobs use the runner's existing changed-file map and execute only selected tests that belong to their canonical lane.
+Pull requests admitted by the [`full-ci` policy](../CONTRIBUTING.md#the-full-ci-label) run lint, inventory coverage, repository invariants, and stock macOS Bash compatibility on every head, subject to the fork CI opt-outs below.
+For those pull requests, behavior jobs use the runner's existing changed-file map and execute only selected tests that belong to their canonical lane.
 An empty lane reports success without installing its prerequisites or running behavior tests.
 [CONTRIBUTING.md](../CONTRIBUTING.md#maintaining-required-checks) owns the required job contexts; the separate `Require no-mistakes` workflow remains unchanged.
 A selected test failure or a selection-command failure fails its job; an empty lane is an explicit selection result, not a substitute for a failed run.
