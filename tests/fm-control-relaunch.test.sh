@@ -364,6 +364,54 @@ SH
 
 # --- 1. same-harness relaunch -----------------------------------------------
 
+test_claude_floor_null_relaunch() {
+  local dir out rc id=rl-floor launch
+  dir=$(new_case claude-floor "$id")
+  add_ship_task "$dir" "$id" claude
+  mkdir -p "$dir/user-home/.claude_b"
+  printf 'model=fable\nclaude_floor={"scope":"all_models","min_percent":60}\n' >> "$dir/home/state/$id.meta"
+  cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+weekly=80 all=50
+if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then weekly=20 all=70; fi
+jq -n --argjson weekly "$weekly" --argjson all "$all" '{schemaVersion:5,providers:[{provider:"claude",state:{status:"fresh"},windows:[{id:"model:fable",kind:"model",windowSeconds:604800,percentRemaining:$weekly}],quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",effectivePercentRemaining:$all,runway:{status:"through_reset"}},{scope:"model:fable",status:"known",effectivePercentRemaining:$weekly,runway:{status:"through_reset"}}]}}]}'
+SH
+  cat > "$dir/fakebin/claude" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$*" = 'auth status' ]; then
+  printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" >> "$HOME/auth-checks"
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then printf '{"loggedIn":false}\n'; exit 1; fi
+  printf '{"loggedIn":true}\n'
+else
+  printf '%s\n' "${CLAUDE_CONFIG_DIR-unset}" > "$HOME/launch-selector"
+fi
+SH
+  chmod +x "$dir/fakebin/quota-axi" "$dir/fakebin/claude"
+  cp "$dir/home/state/$id.meta" "$dir/meta-before"
+  out=$(run_control "$dir" "$id" relaunch --note 'retain floor'); rc=$?
+  expect_code 1 "$rc" "omitted floor must retain the signed-out GuideX selection: $out"
+  assert_contains "$out" 'not signed in' 'known unusable account refuses before stop'
+  [ "$(cat "$dir/fake/command")" = claude ] || fail 'retained floor stopped the current worker'
+  [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail 'retained floor sent lifecycle input before refusal'
+  cmp -s "$dir/meta-before" "$dir/home/state/$id.meta" || fail 'refused relaunch changed the recorded floor'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --claude-floor null --note 'clear floor'); rc=$?
+  expect_code 0 "$rc" "explicit null must validate and launch personal despite signed-out GuideX: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'preflight and replacement validated different accounts'
+  [ "$(meta_field "$dir" "$id" claude_floor)" = null ] || fail 'explicit null did not clear the recorded floor'
+  launch=$(tail -1 "$dir/fake/literal")
+  [ -n "$launch" ] || fail 'replacement launch command missing'
+  HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR="$dir/user-home/.claude_b" bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'replacement command did not execute'
+  [ "$(cat "$dir/user-home/launch-selector")" = unset ] || fail 'actual replacement command selected the signed-out account'
+  : > "$dir/user-home/auth-checks"
+  out=$(run_control "$dir" "$id" relaunch --note 'keep cleared floor'); rc=$?
+  expect_code 0 "$rc" "omitted floor after clearing must preserve null: $out"
+  [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'cleared floor was restored on the next relaunch'
+  pass 'explicit null clears the Claude reserve consistently before stop and at replacement launch'
+}
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
   dir=$(new_case same rl1)
@@ -2967,6 +3015,13 @@ SH
     || fail "the dialog file must be gone when the control lock is released, got: $(cat "$trace" 2>/dev/null)"
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
+
+if [ "${1:-}" = --claude-floors ]; then
+  test_claude_floor_null_relaunch
+  exit 0
+fi
+
+test_claude_floor_null_relaunch
 
 test_relaunch_off_opencode_removes_tracked_wiring
 test_exit_and_relaunch_remove_the_dialog_file

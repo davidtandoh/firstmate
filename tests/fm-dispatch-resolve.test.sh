@@ -1175,6 +1175,28 @@ mv "$TMP_ROOT/pin-schema5.json" "$QUOTA"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'no quota row for account claude-explicit' 'custom pin does not borrow a legacy provider row'
 assert_contains "$out" "profile: --harness 'codex'" 'custom pin is unranked with schema 5'
+mkdir -p "$HOME_DIR/.claude_b"
+account_quota 80 20 50 70
+cp "$RULES" "$TMP_ROOT/profile-floor-rules.json"
+jq '.rules[3].floor={provider:"claude",scope:"all_models",min_percent:40}' "$RULES" > "$TMP_ROOT/rule-floor.json"
+cp "$TMP_ROOT/rule-floor.json" "$RULES"
+printf 'ordinary\n' > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'status: clear' 'ordinary pin gives the Claude rule floor known personal evidence'
+assert_contains "$out" 'account=claude-home' 'rule and profile use the same pinned account'
+account_quota 80 20 30 70
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'fall through to default' 'personal rule floor shortfall stays authoritative'
+printf '%s\n' "$HOME_DIR/.claude_b" > "$HOME_DIR/config/claude-account"
+account_quota 80 20 50 10
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: clear' 'GuideX rule binding has no personal reserve'
+assert_contains "$out" 'account=claude-guidex' 'GuideX pin overrides the personal repository for rule and profile'
+printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'status: escalate' 'custom rule-floor account remains unmeasured'
+assert_contains "$out" 'unverifiable' 'unknown custom account cannot borrow a known rule-floor row'
+cp "$TMP_ROOT/profile-floor-rules.json" "$RULES"
 rm "$HOME_DIR/config/claude-account"
 pass 'typed dispatch binds Claude quota and floors to the selected task account'
 

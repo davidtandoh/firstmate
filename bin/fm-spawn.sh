@@ -964,6 +964,7 @@ KIND_SET=0
 HARNESS_ARG=
 MODEL=
 CLAUDE_FLOOR=null
+CLAUDE_FLOOR_SET=0
 EFFORT=
 BACKEND_ARG=
 MODE=
@@ -1001,7 +1002,7 @@ for a in "$@"; do
       HARNESS_ARG=$a
       HARNESS_SET=1
       ;;
-    claude-floor) CLAUDE_FLOOR=$a ;;
+    claude-floor) CLAUDE_FLOOR=$a; CLAUDE_FLOOR_SET=1 ;;
     model)
       MODEL=$a
       MODEL_SET=1
@@ -2024,7 +2025,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
-  [ "$CLAUDE_FLOOR" = null ] || shared_args+=(--claude-floor "$CLAUDE_FLOOR")
+  [ "$CLAUDE_FLOOR_SET" = 0 ] || shared_args+=(--claude-floor "$CLAUDE_FLOOR")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
@@ -3459,7 +3460,7 @@ RAW_COMMAND=
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
 WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
-if [ "$RELAUNCH" = 1 ] && [ "$CLAUDE_FLOOR" = null ] &&
+if [ "$RELAUNCH" = 1 ] && [ "$CLAUDE_FLOOR_SET" = 0 ] &&
    [ "$HARNESS" = claude ] && [ "$RELAUNCH_PRIOR_HARNESS" = claude ] &&
    [ "${MODEL:-default}" = "$(fm_meta_get "$RELAUNCH_META" model)" ]; then
   CLAUDE_FLOOR=$(fm_meta_get "$RELAUNCH_META" claude_floor)

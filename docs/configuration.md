@@ -1483,7 +1483,8 @@ Fable selects the eligible account with more weekly Fable allowance remaining, r
 Equal allowances use the repository's account.
 The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor; the GuideX account has no reserve floor.
 Typed dispatch includes that floor in its launch arguments, which spawn and relaunch both accept.
-The task record preserves the floor for relaunch with the same harness and model; selecting a replacement profile can supply its new floor.
+The task record preserves the floor for relaunch with the same harness and model when the floor argument is omitted.
+An explicit `null` clears the recorded profile floor; selecting a replacement profile can supply its new floor.
 Account exhaustion excludes that account.
 Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
 If neither measured account is eligible, dispatch considers the remaining configured profiles.
@@ -1763,7 +1764,8 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 **Rule quota floors**
 
 - A rule `floor` names the quota-axi `provider` and `scope` whose `effectivePercentRemaining` must be at least `min_percent` for the rule's profiles to apply.
-- A provider-only rule floor on an expanded provider binds to its `default` account row.
+- A Claude rule floor uses the effective account pin or repository account from [automatic Claude accounts](#automatic-claude-accounts).
+Other provider-only rule floors on expanded providers bind to the `default` account row.
 - An absent or unknown row or unmeasured provider makes the floor unverifiable and escalates without authorizing default routing.
 - A known percentage below the floor makes the tool resolve among `default` profiles instead.
 

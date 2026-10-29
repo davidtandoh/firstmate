@@ -41,6 +41,15 @@ fixture 15 80
 expect_account 'Fable GuideX ahead, personal repo' "$HOME/workspace/other" fable claude-guidex
 fixture 80 20 39 10
 expect_account 'personal floor removes the larger allowance' "$HOME/workspace/other" fable claude-guidex
+fixture 80 20 50 70
+out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor '{"scope":"all_models","min_percent":60}')
+assert_contains "$out" 'account: claude-guidex' 'preview uses the selected 60% personal reserve'
+out=$(CLAUDE_CONFIG_DIR='' bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor null)
+assert_contains "$out" 'account: claude-home' 'preview null preserves only the personal baseline'
+for invalid in '' '{"scope":"all_models","min_percent":101}' '{"scope":"all_models"}' 'null null'; do
+  if CLAUDE_CONFIG_DIR="$HOME/.claude_b" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run --claude-floor "$invalid" > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'preview accepted an invalid profile floor'; fi
+  assert_contains "$(cat "$TMP_ROOT/err")" 'invalid --claude-floor' 'preview validates floors before explicit-selector handling'
+done
 fixture 80 20 40 10
 expect_account 'personal floor includes exactly 40%' "$HOME/workspace/other" fable claude-home
 fixture 80 60 40 90
