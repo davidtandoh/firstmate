@@ -1,2 +1,4 @@
+claude auth status (personal): exit=0
+claude auth status (GuideX): exit=0
+fm-claude-accounts.sh: exit=1
 error: account quota collection failed
-exit=1

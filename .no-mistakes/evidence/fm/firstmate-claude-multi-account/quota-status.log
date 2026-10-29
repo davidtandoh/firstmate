@@ -1,0 +1,1 @@
+{"exit": 1, "providers": [{"provider": "claude", "state": {"error": "keychain_prompt_required", "reason": "keychain_access_required", "remedyCommand": "quota-axi --allow-keychain-prompt", "stale": false, "status": "auth_required"}}]}

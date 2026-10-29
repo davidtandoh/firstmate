@@ -1,0 +1,12 @@
+exact explicit selector
+exit=0
+account: explicit
+config_dir: /Users/davidtandoh/.claude_b/
+ordinary pin overrides explicit selector
+exit=0
+account: claude-home
+config_dir: unset (personal)
+invalid floor rejected before explicit selector
+exit=2
+jq: error (at <stdin>:1): invalid Claude floors
+error: invalid --claude-floor

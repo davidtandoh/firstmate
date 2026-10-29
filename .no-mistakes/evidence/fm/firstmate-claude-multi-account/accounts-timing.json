@@ -2,16 +2,16 @@
   "families": [
     {
       "count": 1,
-      "duration_ms": 4203,
+      "duration_ms": 2441,
       "failed": 0,
       "name": "standalone"
     }
   ],
-  "finished_at": "2026-10-29T20:50:29Z",
-  "run_id": "fm-test-run-1793307025270-4073",
+  "finished_at": "2026-10-29T23:01:10Z",
+  "run_id": "fm-test-run-1793314867705-64706",
   "scripts": [
     {
-      "duration_ms": 4203,
+      "duration_ms": 2441,
       "exit": 0,
       "expected_gate_skip": "none",
       "family": "standalone",
@@ -21,9 +21,9 @@
     }
   ],
   "selection": "scripts;jobs=1",
-  "started_at": "2026-10-29T20:50:25Z",
+  "started_at": "2026-10-29T23:01:07Z",
   "summary": {
-    "duration_ms": 4326,
+    "duration_ms": 2506,
     "failed": 0,
     "skipped_gate": 0,
     "total": 1
