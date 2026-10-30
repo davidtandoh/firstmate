@@ -88,6 +88,8 @@ CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
 jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
   || fail 'admitted daemon build did not receive the selected Claude account'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
+jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'empty personal selector reached the daemon boundary'
 env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'unconfigured default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'unset default selector was changed at the daemon boundary'
 
@@ -548,7 +550,11 @@ for lane in guidex home; do
       || fail "$lane $kind spawn did not run exactly one spawn-side preflight"
     execute_launch
     wait_title
-    jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"
+    if [ -n "$expected_root" ]; then
+      jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"
+    else
+      jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail "$lane $kind forwarded a personal account selector"
+    fi
   done
 done
 jq 'del(.omnigent)' "$OMNI_STATUS" > "$TMP_ROOT/legacy-status.json"

@@ -3548,8 +3548,6 @@ fi
 if [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
   if [ -n "$CLAUDE_AUTO_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$CLAUDE_AUTO_ROOT
-  elif [ "$SPAWN_OMNIGENT_MODE" = on ]; then
-    export CLAUDE_CONFIG_DIR=
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -7547,7 +7545,7 @@ if [ -n "$WORKER_ACCOUNT" ]; then
     ;;
   esac
 elif [ "$CLAUDE_AUTO_SELECTED" = 1 ]; then
-  if [ -n "$CLAUDE_AUTO_ROOT" ] || [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+  if [ -n "$CLAUDE_AUTO_ROOT" ]; then
     LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_AUTO_ROOT") $LAUNCH"
   else
     LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"

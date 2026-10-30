@@ -1609,7 +1609,8 @@ An ordinary pin uses personal quota and its floor; a GuideX pin uses GuideX quot
 Other pinned roots remain unmeasured, including with a legacy quota snapshot.
 Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
-Omnigent launches pass the selected directory verbatim through the native environment interface; an explicit empty selector requests the ordinary personal account.
+Omnigent launches pass a non-empty selected directory verbatim through the native environment interface and omit empty or unset selectors for the ordinary personal account.
+An empty `CLAUDE_CONFIG_DIR` must not reach Claude because Claude treats it as the current directory and writes session state there.
 Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17), and the descendant build merged in PR [19](https://github.com/davidtandoh/omnigent/pull/19).
 An unrecognized service build refuses a non-empty selected account before launch or before relaunch stops the current worker.
 Ordinary personal launches on older builds keep the daemon's ambient default and send no account override.

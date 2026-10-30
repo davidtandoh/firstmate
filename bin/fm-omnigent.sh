@@ -480,11 +480,11 @@ ENV_NAMES='FM_FRESH_TOKEN FM_OMNIGENT FM_BACKEND FM_HOME FM_ROOT_OVERRIDE FM_STA
 export FM_OMNIGENT=on
 for name in $ENV_NAMES; do
   case "$name" in
-    # An explicit empty selector clears a daemon's inherited account. Native
-    # Claude enforcement in Omnigent preserves non-empty selectors verbatim.
+    # Claude treats an empty selector as the current directory. Omit it so
+    # the default account uses ~/.claude; preserve non-empty selectors verbatim.
     CLAUDE_CONFIG_DIR) if [ "$HARNESS" = claude ]; then
-      if [ "$CLAUDE_ACCOUNT_ENFORCEMENT" = 1 ] && [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi
-    elif [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi ;;
+      if [ "$CLAUDE_ACCOUNT_ENFORCEMENT" = 1 ] && [ -n "${!name:-}" ]; then ARGS+=(--env "$name=${!name}"); fi
+    elif [ -n "${!name:-}" ]; then ARGS+=(--env "$name=${!name}"); fi ;;
     # These owners treat empty as unset. Explicit empties also prevent stale
     # daemon routing or trace state from reappearing in a fresh native session.
     FM_*|HERDR_*|TRACEPARENT) ARGS+=(--env "$name=${!name-}") ;;
