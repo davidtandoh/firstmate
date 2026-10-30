@@ -49,6 +49,35 @@ Naming errors appear on stderr without interrupting the native terminal or chang
 The observer handles launch titles only; it does not rename resumed sessions or later conversations created inside the native harness.
 [Verification](verification/omnigent.md#launch-title-verification) distinguishes deterministic coverage from real-wrapper proof.
 
+## Worker session lifecycle
+
+```mermaid
+flowchart LR
+    launch[Spawn or relaunch] --> record[Task record: omnigent_session, omnigent_server]
+    record --> watch[Supervision probe]
+    record --> retire[Cleanup or relaunch]
+    retire --> archive[Archive exactly that session]
+```
+
+Takeaway: every wrapped worker's Omnigent session is recorded at launch, watched while it runs, and archived when the worker is retired.
+
+A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
+After the session identity check, the launcher records `omnigent_session` and `omnigent_server` in that task record under the record lock.
+It records only while the record still names the launching spawn generation, so a superseded launch cannot overwrite a newer binding.
+The same naming request adds the labels `firstmate.home`, the full home-identity hash, and `firstmate.task`; Omnigent merges labels rather than replacing them.
+A relaunch drops the previous binding from the replacement record.
+
+Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
+Archive is a `PATCH` of `{"archived": true}` for the recorded session only.
+Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
+Archiving stops the session's runner, so it never runs against a live worker.
+An archive failure warns and never blocks cleanup or relaunch.
+
+The pane check proves only that the Omnigent attach client is running.
+When it reads alive, the stale-endpoint report and the current-state reader also make one bounded read of the server's `/health` and the recorded session.
+An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
+Lifecycle commands such as exit and relaunch keep the pane-level verdict.
+
 ## Fresh main sessions
 
 The main Claude primary can use [`/fresh`](../.agents/skills/fresh/SKILL.md) to complete `/stow` and replace its long-running Omnigent session in one step.
@@ -65,7 +94,7 @@ sequenceDiagram
     Old->>New: Launch with single-use handoff token
     New->>Lock: Claim under the acquisition mutex
     Lock-->>Old: Confirm replacement ownership
-    Old->>Old: Stop old Omnigent session
+    Old->>Old: Stop and archive old Omnigent session
 ```
 
 The current primary retains charge until the replacement owns the lock.
@@ -74,7 +103,8 @@ The current primary retains charge until the replacement owns the lock.
 An ordinary session without the token still cannot take over a live lock.
 The launcher runs in a dedicated detached tmux session because the existing Omnigent CLI owns a foreground terminal attachment.
 The fresh-session launcher carries the caller's `CLAUDE_CONFIG_DIR` to the Omnigent boundary; [automatic Claude accounts](configuration.md#automatic-claude-accounts) documents the running-service enforcement requirement and older-service limitation.
-It uses the existing launcher and title observer, and sends the old session a stop event that preserves its history.
+It uses the existing launcher and title observer, sends the old session a stop event that preserves its history, and then archives it.
+A failed archive only warns; the completed handoff stands.
 A startup failure preserves the old owner; a stop failure reports the replacement URL while preserving the new owner.
 See [fresh-session handoff verification](verification/omnigent.md#fresh-session-handoff-verification) for regression coverage and live verification limits.
 
@@ -84,6 +114,7 @@ The service starts native terminals in a different process tree.
 Shell inheritance into the CLI alone does not reach those terminals.
 The launcher therefore sends the Firstmate-owned environment through Omnigent's explicit native `--env` interface, including `FM_BACKEND`, secondmate home isolation, and the inherited session mode.
 It clears foreign harness markers and absent Firstmate routing variables, and leaves Omnigent's managed Codex home intact.
+Git configuration passed through `GIT_CONFIG_COUNT` is forwarded as the complete counted set or not at all, because Git refuses to run when a counted entry is missing.
 The launcher does not copy arbitrary ambient credentials.
 
 Remote launch and recovery retain the existing SSH control boundary.

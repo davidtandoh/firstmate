@@ -8,6 +8,7 @@
 # Wait up to 180 seconds for that claim, then revoke permission under the same
 # mutex. A failed launch leaves the old owner in charge. A failed old-session
 # stop leaves the new owner in charge and reports its exact URL for recovery.
+# After the stop, the old session is archived; a failed archive only warns.
 # --dry-run prints the home and paths without writing or contacting services.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,7 +18,7 @@ fail() { printf 'error: fresh session: %s\n' "$*" >&2; exit 1; }
 [ "$#" -le 1 ] || fail 'expected at most one argument'
 case "${1:-}" in
   --dry-run)
-    printf 'fresh session: home=%s; update %s/.lock and %s/.lock-session; create/remove %s/.fresh-handoff and %s/.fresh-claimed; launch firstmate; stop old session after claim\n' "$FM_HOME" "$STATE" "$STATE" "$STATE" "$STATE"
+    printf 'fresh session: home=%s; update %s/.lock and %s/.lock-session; create/remove %s/.fresh-handoff and %s/.fresh-claimed; launch firstmate; stop and archive old session after claim\n' "$FM_HOME" "$STATE" "$STATE" "$STATE" "$STATE"
     exit ;;
   -h|--help) sed -n '2,/^set /{ /^#/s/^# \{0,1\}//p; }' "$0"; exit ;;
   '') [ "$#" -eq 0 ] || fail 'unexpected argument' ;;
@@ -109,6 +110,14 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
         --header 'Content-Type: application/json' --request POST --data '{"type":"stop"}' \
         "$server/v1/sessions/$old_session/events" >/dev/null \
         || fail "new owner retained at $server/c/$new_session; old-session stop failed"
+      # Archive only the verified old session, never its worktree. History is
+      # kept; a failed archive leaves it visible and does not undo the handoff.
+      if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' \
+        --header 'Content-Type: application/json' --request PATCH --data '{"archived":true}' \
+        "$server/v1/sessions/$old_session" | head -c 131073 |
+        jq -e --arg id "$old_session" '.id == $id and .archived == true' >/dev/null 2>&1; then
+        printf 'warning: fresh session: old session %s was stopped but not archived\n' "$old_session" >&2
+      fi
       exit 0
     fi
   fi

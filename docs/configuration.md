@@ -1610,7 +1610,7 @@ Other pinned roots remain unmeasured, including with a legacy quota snapshot.
 Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
 Omnigent launches pass the selected directory verbatim through the native environment interface; an explicit empty selector requests the ordinary personal account.
-Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17).
+Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17), and the descendant build merged in PR [19](https://github.com/davidtandoh/omnigent/pull/19).
 An unrecognized service build refuses a non-empty selected account before launch or before relaunch stops the current worker.
 Ordinary personal launches on older builds keep the daemon's ambient default and send no account override.
 T3 Code refuses automatic routing because its provider instance owns the account.

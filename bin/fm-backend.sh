@@ -1302,6 +1302,23 @@ fm_backend_agent_state() {  # <backend> <target>
   esac
 }
 
+# fm_backend_omnigent_agent_state: supervision view of a wrapped worker. The
+# pane's `alive` proves only that the Omnigent attach client runs; when the
+# task record names a recorded Omnigent session, one bounded probe
+# (bin/fm-omnigent.sh probe) turns a server that stopped answering or a
+# session whose runner is gone into `dead`, so the ordinary dead-endpoint
+# report and recovery take over. Every other reading passes through unchanged.
+# Supervision readers only: lifecycle gates keep the pane-level verdict.
+fm_backend_omnigent_agent_state() {  # <pane agent state> <task meta>
+  local state=$1 meta=$2
+  if [ "$state" = alive ] && [ "$(fm_meta_get "$meta" omnigent)" = on ] &&
+     [ -n "$(fm_meta_get "$meta" omnigent_session)" ] &&
+     [ "$(bash "$FM_BACKEND_LIB_DIR/fm-omnigent.sh" probe "$meta" 2>/dev/null)" = dead ]; then
+    state=dead
+  fi
+  printf '%s' "$state"
+}
+
 # Backward-compatible three-state view for existing callers. An
 # authoritatively missing endpoint is confidently not a live agent, while every
 # ambiguous, unreadable, or unverified result stays unknown.

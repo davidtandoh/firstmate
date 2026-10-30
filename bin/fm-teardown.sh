@@ -4034,6 +4034,12 @@ if [ "$BACKEND" = herdr ]; then
     exit 1
   fi
 fi
+# The endpoint is closed, so the wrapped worker it held has stopped: archive
+# exactly its recorded Omnigent session (bin/fm-omnigent.sh archive). A
+# failure warns and never blocks cleanup.
+if [ "$(meta_value "$META" omnigent)" = on ]; then
+  "$SCRIPT_DIR/fm-omnigent.sh" archive "$META" >/dev/null || true
+fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
       "$SCRIPT_DIR/fm-inactive-reconcile.sh" report "$ID"; then

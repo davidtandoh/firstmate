@@ -53,7 +53,7 @@ def main() -> int:
             result = subprocess.run(
                 ["bash", args.launcher, "_title-session", args.server, session_id,
                  args.harness, args.title, args.started],
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=15,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=180,
                 check=False,
             )
             if result.returncode < 0:

@@ -4,6 +4,8 @@
 #        fm-omnigent.sh check <claude|codex|kiro|agy>
 #        fm-omnigent.sh run [--dry-run] <harness> <Firstmate native arguments...>
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
+#        fm-omnigent.sh archive [--dry-run] <task-meta>
+#        fm-omnigent.sh probe <task-meta>
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
@@ -22,7 +24,18 @@
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
 # process bound, at most 128 KiB of JSON. No naming retry or session backfill.
 # Preflight shares a 50-second external-command budget (status 20s, readiness
-# 15s, capability 10s, health 5s), retaining Kit process-identity verification.
+# whatever remains, capability 10s, health 5s), retaining Kit process-identity
+# verification.
+# A spawn launch passes FM_OMNIGENT_RECORD_META, FM_OMNIGENT_RECORD_GEN,
+# FM_OMNIGENT_HOME_ID and FM_OMNIGENT_TASK. The verified session is then
+# recorded as omnigent_session=/omnigent_server= in that task record (record
+# lock wait 150s, only while its spawn_gen still matches) and labelled
+# firstmate.home=<home hash> and firstmate.task=<task id>.
+# archive PATCHes {"archived":true} for the recorded session only, never
+# delete_worktree; it prints a warning and exits 1 on failure, and does nothing
+# without a recorded session. Callers archive only a proven-stopped worker.
+# probe prints alive, dead or unknown for the recorded session from one bounded
+# GET of /health and one of /v1/sessions/<id>.
 # FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
 # or failing also report their name, elapsed time and bound on stderr.
 # Kit's internal status stages remain Kit-owned; this boundary measures the
@@ -44,17 +57,18 @@ fail() {
 }
 title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
 
-session_request() { # <GET|PATCH> [title JSON]
+session_request() { # <GET|PATCH> [JSON body]; sets REQUEST_RESULT or REQUEST_ERROR
   local rc=0
   local LC_ALL=C
   local args=(--silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' --request "$1")
   [ "$#" -lt 2 ] || args+=(--header 'Content-Type: application/json' --data "$2")
+  REQUEST_ERROR=
   REQUEST_RESULT=$(fm_run_timed 6 curl "${args[@]}" \
     "${SERVER%/}/v1/sessions/$SESSION_ID" | head -c 131073) || rc=$?
-  [ "$rc" = 0 ] || title_fail "session $SESSION_ID: $1 failed (exit $rc)"
-  [ "${#REQUEST_RESULT}" -le 131072 ] || title_fail "session $SESSION_ID: oversized $1 response"
+  if [ "$rc" != 0 ]; then REQUEST_ERROR="session $SESSION_ID: $1 failed (exit $rc)"; return 1; fi
+  if [ "${#REQUEST_RESULT}" -gt 131072 ]; then REQUEST_ERROR="session $SESSION_ID: oversized $1 response"; return 1; fi
   printf '%s' "$REQUEST_RESULT" | jq -se 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 \
-    || title_fail "session $SESSION_ID: invalid $1 response"
+    || { REQUEST_ERROR="session $SESSION_ID: invalid $1 response"; return 1; }
 }
 
 title_session() { # <server> <session-id> <harness> <title> <launch epoch>
@@ -71,15 +85,132 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
     agy) wrapper=antigravity-native-ui ;;
     *) title_fail 'invalid harness' ;;
   esac
-  session_request GET
+  session_request GET || title_fail "$REQUEST_ERROR"
   printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$wrapper" --argjson started "$started" '
     .id == $id and .labels["omnigent.wrapper"] == $wrapper and
     (.created_at | type == "number" and . >= $started)
   ' >/dev/null 2>&1 || title_fail "session $SESSION_ID: launch identity verification failed"
-  payload=$(jq -cn --arg title "$title" '{title:$title}')
-  session_request PATCH "$payload"
+  # Record before naming: retirement depends on the recorded identity, while a
+  # rejected title or label PATCH only affects presentation.
+  [ -z "${FM_OMNIGENT_RECORD_META:-}" ] || record_session "$FM_OMNIGENT_RECORD_META" "${FM_OMNIGENT_RECORD_GEN:-}" || true
+  # Omnigent merges PATCH labels into the existing set, so the wrapper's own
+  # labels survive. Only a spawn-supplied identity adds Firstmate labels.
+  labels='{}'
+  if [ -n "${FM_OMNIGENT_HOME_ID:-}" ]; then
+    [[ "$FM_OMNIGENT_HOME_ID" =~ ^[0-9a-f]{64}$ ]] || title_fail 'invalid home identity'
+    [[ "${FM_OMNIGENT_TASK:-}" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task identity'
+    labels=$(jq -cn --arg home "$FM_OMNIGENT_HOME_ID" --arg task "$FM_OMNIGENT_TASK" \
+      '{"firstmate.home":$home,"firstmate.task":$task}')
+  fi
+  payload=$(jq -cn --arg title "$title" --argjson labels "$labels" \
+    'if $labels == {} then {title:$title} else {title:$title,labels:$labels} end')
+  session_request PATCH "$payload" || title_fail "$REQUEST_ERROR"
   printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg title "$title" '.id == $id and .title == $title' >/dev/null 2>&1 \
     || title_fail "session $SESSION_ID: PATCH did not confirm the requested title"
+  printf '%s' "$REQUEST_RESULT" | jq -e --argjson labels "$labels" \
+    '(.labels // {}) as $have | all($labels | to_entries[]; $have[.key] == .value)' >/dev/null 2>&1 \
+    || title_fail "session $SESSION_ID: PATCH did not confirm the Firstmate labels"
+}
+# Bind this launch's verified session into its task record, under the record
+# lock and only while the record still names the launching spawn generation, so
+# a superseded or rolled-back launch can never overwrite a newer binding.
+record_session() { # <absolute task meta> <spawn generation>
+  local meta=$1 gen=$2 dir base
+  [[ "$meta" == /*.meta ]] && [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task record binding'
+  fm_dirname_to dir "$meta"
+  fm_basename_to base "$meta"
+  (
+    export FM_STATE_OVERRIDE="$dir"
+    # shellcheck source=bin/fm-wake-lib.sh
+    . "$SCRIPT_DIR/fm-wake-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+    lock=$(fm_meta_lock_path "$meta") || title_fail 'invalid task record path'
+    fm_lock_acquire_wait_bounded "$lock" 150 || title_fail "task record lock unavailable: $meta"
+    tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
+    status=0
+    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ]; then
+      printf 'error: Omnigent session title: session %s: task record no longer names this launch; not recorded\n' "$SESSION_ID" >&2
+      status=1
+    elif ! awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server"' "$meta" > "$tmp" ||
+      ! printf 'omnigent_session=%s\nomnigent_server=%s\n' "$SESSION_ID" "${SERVER%/}" >> "$tmp" ||
+      ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir"; then
+      rm -f "$tmp"
+      printf 'error: Omnigent session title: session %s: task record update failed\n' "$SESSION_ID" >&2
+      status=1
+    fi
+    fm_lock_release "$lock"
+    exit "$status"
+  )
+}
+
+# Read one recorded launch binding. Empty values mean no wrapped launch was
+# recorded; anything present must be exactly what record_session writes.
+read_binding() { # <task meta>
+  local meta=$1
+  [ -f "$meta" ] && [ ! -L "$meta" ] || { BINDING_ERROR="task record missing: $meta"; return 1; }
+  SESSION_ID=$(awk -F= '$1 == "omnigent_session" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
+  SERVER=$(awk -F= '$1 == "omnigent_server" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
+  [ -n "$SESSION_ID$SERVER" ] || return 0
+  if [[ ! "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] ||
+    [[ ! "$SERVER" =~ ^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+$ ]]; then
+    BINDING_ERROR="invalid recorded Omnigent session in $meta"
+    return 1
+  fi
+}
+
+# Archive exactly the recorded session. Never sends delete_worktree: the
+# session workspace is a shared worktree slot. Archive stops the session's
+# runner, so callers invoke it only after the worker is proven stopped.
+archive_session() { # [--dry-run] <task meta>
+  local dry=0
+  if [ "${1:-}" = --dry-run ]; then dry=1; shift; fi
+  [ "$#" -eq 1 ] || fail 'archive requires one task record'
+  BINDING_ERROR=
+  read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
+  [ -n "$SESSION_ID" ] || return 0
+  if [ "$dry" = 1 ]; then
+    printf 'would archive Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
+    return 0
+  fi
+  if ! session_request PATCH '{"archived":true}' ||
+    ! printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" '.id == $id and .archived == true' >/dev/null 2>&1; then
+    printf 'warning: Omnigent archive: %s\n' "${REQUEST_ERROR:-session $SESSION_ID: archive was not confirmed}" >&2
+    return 1
+  fi
+  printf 'archived Omnigent session %s\n' "$SESSION_ID"
+}
+
+# Classify the recorded session for supervision. Prints alive, dead or unknown.
+# dead means the server is unreachable or the record proves the session's
+# runner is gone, failed, archived or deleted. No binding, or a reply that
+# proves neither, is unknown. One bounded request each; never retried here.
+probe_session() { # <task meta>
+  local code body rc=0
+  [ "$#" -eq 1 ] || fail 'probe requires one task record'
+  if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
+  if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' \
+    "$SERVER/health" 2>/dev/null | jq -e '.status == "ok"' >/dev/null 2>&1; then
+    echo dead; return 0
+  fi
+  body=$(fm_run_timed 6 curl --silent --max-time 5 --noproxy '*' --proto '=http' \
+    --write-out '\n%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null | head -c 131080) || rc=$?
+  [ "$rc" = 0 ] || { echo unknown; return 0; }
+  code=${body##*$'\n'}
+  body=${body%$'\n'*}
+  case "$code" in
+    404) echo dead; return 0 ;;
+    200) ;;
+    *) echo unknown; return 0 ;;
+  esac
+  if printf '%s' "$body" | jq -e --arg id "$SESSION_ID" '.id == $id and
+    (.archived == true or .status == "failed" or .runner_online == false)' >/dev/null 2>&1; then
+    echo dead
+  elif printf '%s' "$body" | jq -e --arg id "$SESSION_ID" '.id == $id and .runner_online == true' >/dev/null 2>&1; then
+    echo alive
+  else
+    echo unknown
+  fi
 }
 mode() {
   local file=$1/omnigent value=auto inherited=${FM_OMNIGENT:-}
@@ -150,7 +281,9 @@ resolve_service() {
   ' >/dev/null 2>&1 || fail 'serve status lacks a valid local server, state path, or client environment'
   SERVER=$(printf '%s' "$status" | jq -r .server_url)
   STATE_FILE=$(printf '%s' "$status" | jq -r .state_file)
-  readiness=$(preflight_stage readiness 15 agent-kit observe serve status --readiness --json < /dev/null | head -c 131073) || readiness_rc=$?
+  # Readiness has no stage cap of its own: it may use whatever the shared
+  # budget leaves, since the later stages fail anyway once that is spent.
+  readiness=$(preflight_stage readiness "$budget" agent-kit observe serve status --readiness --json < /dev/null | head -c 131073) || readiness_rc=$?
   fm_timed_out "$readiness_rc" && fail 'serve readiness timed out'
   [ "${#readiness}" -le 131072 ] || fail 'serve readiness exceeds 128 KiB'
   # Headless rollback remains usable even though the web-readiness gate is not
@@ -188,7 +321,8 @@ resolve_service() {
   if printf '%s' "$status" | jq -e '
     .omnigent.repository == "https://github.com/davidtandoh/omnigent.git" and
     (.omnigent.commit == "ee228c44a98dd36c149f73025905817b003282c0" or
-     .omnigent.commit == "bea4e262f08245deabed86a9b1eb4cafbcac1423")
+     .omnigent.commit == "bea4e262f08245deabed86a9b1eb4cafbcac1423" or
+     .omnigent.commit == "bbda8af3d7e7792b16d957cfdadd116449712135")
   ' >/dev/null 2>&1; then
     CLAUDE_ACCOUNT_ENFORCEMENT=1
   fi
@@ -205,6 +339,8 @@ OP=${1:---help}
 shift || true
 case "$OP" in
   _title-session) title_session "$@"; exit ;;
+  archive) archive_session "$@"; exit ;;
+  probe) probe_session "$@"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
   check|run|start) ;;
   -h|--help) sed -n '2,/^set /{ /^#/s/^# \{0,1\}//p; }' "$0"; exit ;;
@@ -224,7 +360,7 @@ ARGS=("$HARNESS" --server "$SERVER")
 [ "$HARNESS" != claude ] || ARGS+=(--use-native-config)
 # These names belong to Firstmate's existing launch contract. Never forward
 # arbitrary ambient provider credentials, HOME, or the Omnigent-owned CODEX_HOME.
-ENV_NAMES='FM_FRESH_TOKEN FM_OMNIGENT FM_BACKEND FM_HOME FM_ROOT_OVERRIDE FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_TRACE_CONTEXT FM_SUPERVISION_MODEL FM_TASK_ID COMPACT_ADVISER_DISABLE LAVISH_AXI_HOST TRACEPARENT GOTMPDIR TMPDIR PATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 CLAUDE_CONFIG_DIR CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION CLAUDE_CODE_SEND_FEEDBACK KIRO_HOME HERDR_ENV HERDR_SESSION HERDR_PANE_ID HERDR_SOCKET_PATH'
+ENV_NAMES='FM_FRESH_TOKEN FM_OMNIGENT FM_BACKEND FM_HOME FM_ROOT_OVERRIDE FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_TRACE_CONTEXT FM_SUPERVISION_MODEL FM_TASK_ID COMPACT_ADVISER_DISABLE LAVISH_AXI_HOST TRACEPARENT GOTMPDIR TMPDIR PATH CLAUDE_CONFIG_DIR CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION CLAUDE_CODE_SEND_FEEDBACK KIRO_HOME HERDR_ENV HERDR_SESSION HERDR_PANE_ID HERDR_SOCKET_PATH'
 export FM_OMNIGENT=on
 for name in $ENV_NAMES; do
   case "$name" in
@@ -239,6 +375,19 @@ for name in $ENV_NAMES; do
     *) if [ "${!name+x}" = x ]; then ARGS+=(--env "$name=${!name}"); fi ;;
   esac
 done
+# Git reads GIT_CONFIG_KEY_n/VALUE_n for every n below GIT_CONFIG_COUNT and
+# refuses to run when one is missing. A relaunch in a retained pane appends a
+# second entry, so forward the complete set the count names, or none of it.
+git_config_env=()
+if [ "${GIT_CONFIG_COUNT+x}" = x ] && [[ "$GIT_CONFIG_COUNT" =~ ^(0|[1-9][0-9]{0,2})$ ]]; then
+  git_config_env=(--env "GIT_CONFIG_COUNT=$GIT_CONFIG_COUNT")
+  for ((index = 0; index < GIT_CONFIG_COUNT; index++)); do
+    key_name=GIT_CONFIG_KEY_$index value_name=GIT_CONFIG_VALUE_$index
+    if [ "${!key_name+x}" != x ] || [ "${!value_name+x}" != x ]; then git_config_env=(); break; fi
+    git_config_env+=(--env "$key_name=${!key_name}" --env "$value_name=${!value_name}")
+  done
+fi
+ARGS+=("${git_config_env[@]+${git_config_env[@]}}")
 for name in CLAUDECODE PI_CODING_AGENT GROK_AGENT FM_PI_HARNESS FM_OMP_HARNESS CURSOR_AGENT CURSOR_INVOKED_AS GEMINI_CLI; do
   ARGS+=(--env "$name=")
 done

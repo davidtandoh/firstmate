@@ -87,6 +87,12 @@ case " $* " in
     echo stop >> "$FM_HOME/events"
     [ "${CASE:-}" != stop-fail ] || exit 22
     echo '{"queued":false}' ;;
+  *' PATCH '*)
+    [ "${*: -1}" = "http://127.0.0.1:6767/v1/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ]
+    case " $* " in *' {"archived":true} '*) ;; *) exit 2 ;; esac
+    echo archive >> "$FM_HOME/events"
+    [ "${CASE:-}" != archive-fail ] || exit 22
+    echo '{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","archived":true}' ;;
   *) echo '{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","external_session_id":"old-session","workspace":"'"$FM_HOME"'","labels":{"omnigent.wrapper":"claude-code-native-ui"}}' ;;
 esac
 SH
@@ -120,9 +126,9 @@ pass 'dry-run and failed launches preserve the old owner and never close it'
 unset CASE
 reset
 bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1 || { cat "$TMP_ROOT/out"; fail "successful handoff failed"; }
-printf 'preflight\nlaunch\nclaimed\nstop\n' > "$TMP_ROOT/expected"
+printf 'preflight\nlaunch\nclaimed\nstop\narchive\n' > "$TMP_ROOT/expected"
 cmp "$TMP_ROOT/expected" "$FM_HOME/events" || fail 'handoff order differs'
-pass 'replacement claims ownership before old-session stop'
+pass 'replacement claims ownership before old-session stop and archive'
 [ ! -e "$FM_HOME/state/.fresh-handoff" ] || fail 'successful handoff retained its request'
 kill "$NEW_PID"
 wait "$NEW_PID" 2>/dev/null || true
@@ -174,6 +180,11 @@ reset
 if CASE=stop-fail bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1; then fail 'failed stop hidden'; fi
 [ "$(cat "$FM_HOME/state/.lock")" = "$NEW_PID" ] || fail 'failed close stole new ownership'
 pass 'failed old-session stop preserves replacement ownership and reports failure'
+reset
+CASE=archive-fail bash "$FM_HOME/bin/fm-fresh-session.sh" > "$TMP_ROOT/out" 2>&1 || { cat "$TMP_ROOT/out"; fail 'failed archive undid the handoff'; }
+grep -q 'stopped but not archived' "$TMP_ROOT/out" || fail 'failed archive was not reported'
+[ "$(cat "$FM_HOME/state/.lock")" = "$NEW_PID" ] || fail 'failed archive lost new ownership'
+pass 'failed old-session archive warns and keeps the completed handoff'
 for case_name in missing-token wrong-token wrong-owner same-claude same-omnigent revoked oversized; do
   reset
   token=0123456789abcdef

@@ -1264,6 +1264,12 @@ do_relaunch() {
   journal_write stopping "${CHECKPOINT_LINES[@]}" "$note_line"
   exit_result=$(do_exit)
   journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
+  # do_exit returned, so the old agent is proven stopped or its endpoint gone:
+  # archive exactly its recorded Omnigent session before the replacement
+  # records its own. A failure warns and never blocks the relaunch.
+  if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" archive "$META" >/dev/null || true
+  fi
 
   # The launch owner (fm-spawn --relaunch) clears the previous incarnation's
   # per-task harness wiring before arming the new one, so nothing to do here.

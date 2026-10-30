@@ -3253,7 +3253,9 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     echo 'error: Omnigent cannot enforce config/claude-account credential removal across its daemon boundary' >&2
     exit 1
   fi
-  "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
+  # A Claude launch runs its one spawn-side preflight below, with the selected
+  # account; the pane-side launch still re-resolves the executable at exec time.
+  [ "$HARNESS" = claude ] || "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
 fi
 
 # muse, gemini, agy, devin, kiro, commandcode, polytoken, and cortex are verified as CREWMATE/SCOUT adapters only. A secondmate is
@@ -7148,7 +7150,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential omnigent_session omnigent_server", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -7405,7 +7407,9 @@ if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$SPAWN_OMNIGENT_MOD
   SPAWN_CODEX_BIN="env CODEX_HOME=$(shell_quote "${CODEX_HOME:-$HOME/.codex}") codex"
 fi
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
-  OMNIGENT_LAUNCH="$(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
+  # The launch records its verified session in this incarnation's task record
+  # and labels it with the home identity, substituted below once it is derived.
+  OMNIGENT_LAUNCH="env FM_OMNIGENT_RECORD_META=$(shell_quote "$STATE_REAL/$ID.meta") FM_OMNIGENT_RECORD_GEN=$(shell_quote "$SPAWN_GEN") FM_OMNIGENT_HOME_ID=__OMNIGENTHOME__ FM_OMNIGENT_TASK=$(shell_quote "$ID") $(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
   if [ "$KIND" = secondmate ]; then
     # The primary's own FM_HOME is set by the existing secondmate launch
     # prefix below. Clear a stale task marker from a retained pane shell.
@@ -7595,6 +7599,7 @@ if [ -z "$LAUNCH_HOME_TOKEN" ]; then
   echo "error: could not derive a home identity for the staged launch file" >&2
   exit 1
 fi
+LAUNCH=${LAUNCH//__OMNIGENTHOME__/$LAUNCH_HOME_TOKEN}
 case "$SPAWN_GEN" in
   *[!A-Za-z0-9.]*|'') echo "error: spawn incarnation token is not a usable launch-file nonce" >&2; exit 1 ;;
 esac

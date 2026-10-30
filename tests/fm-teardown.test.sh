@@ -920,6 +920,34 @@ test_no_mistakes_origin_remote_allows() {
   pass "no-mistakes worktree with HEAD on origin is torn down (no regression)"
 }
 
+# A wrapped task's recorded Omnigent session is archived once its endpoint is
+# closed; an archive failure warns without blocking cleanup.
+test_teardown_archives_the_recorded_omnigent_session() {
+  local case_dir rc archive_mode session=dddddddddddddddddddddddddddddddd
+  for archive_mode in ok http-error; do
+    case_dir=$(make_case "omni-archive-$archive_mode")
+    write_meta "$case_dir" no-mistakes ship
+    printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$case_dir/state/task-x1.meta"
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+    wt_commit "$case_dir" "shippable work"
+    git -C "$case_dir/wt" push -q origin fm/task-x1
+    git -C "$case_dir/project" fetch -q origin
+    set +e
+    OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    expect_code 0 "$rc" "omni-archive-$archive_mode: teardown should succeed"$'\n'"$(cat "$case_dir/stderr")"
+    [ ! -e "$case_dir/state/task-x1.meta" ] || fail "omni-archive-$archive_mode: teardown kept the task record"
+    if [ "$archive_mode" = ok ]; then
+      jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
+        "$case_dir/serve/archived.jsonl" >/dev/null || fail "teardown did not archive exactly the recorded session"
+    else
+      grep -q 'warning: Omnigent archive' "$case_dir/stderr" || fail "a failed archive was not reported"
+    fi
+  done
+  pass "teardown archives the recorded Omnigent session and a failed archive only warns"
+}
+
 test_no_mistakes_truly_unpushed_refuses() {
   local case_dir rc
   case_dir=$(make_case nm-unpushed)
@@ -5975,6 +6003,7 @@ test_teardown_manual_backend_leaves_the_backlog_to_the_operator
 test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows
 test_no_mistakes_origin_remote_allows
+test_teardown_archives_the_recorded_omnigent_session
 test_no_mistakes_truly_unpushed_refuses
 test_local_only_force_overrides_unpushed
 test_secondmate_pr_registration_publishes_ready_line

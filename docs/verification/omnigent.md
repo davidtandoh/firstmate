@@ -16,6 +16,20 @@ On the same date, `agent-kit observe serve status --json` reported Omnigent `0.1
 The existing launcher refuses that service state before creating a replacement.
 Other primary harnesses and secondmate homes remain outside the fresh command's supported scope.
 
+## Worker session lifecycle verification
+
+On 2026-10-30, Omnigent's session schema documented `PATCH /v1/sessions/{id}` labels as an upsert that leaves other keys untouched, and its route merged the requested labels into the stored set.
+The same schema documented `runner_online` as strict runner liveness.
+A read of a live wrapped worker's own session on the managed service returned `status=running`, `runner_online=true`, and `archived=false`.
+`bash bin/fm-test-run.sh tests/fm-omnigent.test.sh` covers recording, generation checks, label confirmation, archive targeting and failure, and the probe's dead and unknown readings at a service double.
+`tests/fm-control-relaunch.test.sh`, `tests/fm-teardown.test.sh`, and `tests/fm-fresh-session.test.sh` cover archive after a proven stop, after endpoint close, and after a fresh handoff.
+These are fixture results; archive and dead detection against a restarted live server are not claimed.
+
+`FM_CODEX_NOTIFY_LIVE=1 bash tests/fm-codex-notify-live-e2e.test.sh` runs its wrapped mode against a scratch Omnigent server with its own config, data, and database, started from the managed executable with every inherited `OMNIGENT_*` and `OTEL_*` variable removed.
+It starts the scratch host before launching, because a cold host missed the wrapper's 30-second connect window on a loaded machine.
+On 2026-10-30, with Codex `0.166.0` and Omnigent `0.20.0` (`bbda8af3`), it reported `ok` for both direct and wrapped modes and exited 0.
+The managed service's session list had 24 sessions and none titled `home · wrapped` before and after the run.
+
 ## Launch-title verification
 
 The deterministic launch-title regression runs with `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh`.
