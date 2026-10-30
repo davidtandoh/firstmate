@@ -49,6 +49,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-path-lib.sh"
 # shellcheck source=bin/fm-timing-lib.sh
 . "$SCRIPT_DIR/fm-timing-lib.sh"
+# shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 
 fail() {
@@ -165,14 +166,16 @@ record_session() { # <absolute task meta> <spawn generation>
 }
 
 capture_session() {
-  local locked=0 meta dir base gen pending lock status=0 attempt
+  local locked=0 meta capture_dir base gen pending lock status=0 attempt
   if [ "${1:-}" = --record-locked ]; then locked=1; shift; fi
   [ "$#" -eq 1 ] || fail 'capture requires one task record'
   meta=$1
-  fm_dirname_to dir "$meta"
+  fm_dirname_to capture_dir "$meta"
   fm_basename_to base "$meta"
-  export FM_STATE_OVERRIDE="$dir"
+  export FM_STATE_OVERRIDE="$capture_dir"
+  # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
+  # shellcheck source=bin/fm-backlog-transition-lib.sh
   . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
   lock=$(fm_meta_lock_path "$meta") || return 1
   if [ "$locked" = 0 ]; then
@@ -182,9 +185,9 @@ capture_session() {
     [ "$locked" = 1 ] || fm_lock_release "$lock"
     return 0
   fi
-  if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
+  if fm_backlog_meta_spawn_gen "$meta" "$capture_dir"; then
     gen=$FM_BACKLOG_META_SPAWN_GEN
-    pending="$dir/.${base%.meta}.omnigent.$gen.meta"
+    pending="$capture_dir/.${base%.meta}.omnigent.$gen.meta"
     for ((attempt=0; attempt<100; attempt++)); do
       [ ! -f "$pending" ] || break
       sleep 0.1
@@ -233,7 +236,9 @@ archive_session() { # [--dry-run] <task meta>
   meta=$1
   fm_dirname_to dir "$meta"
   export FM_STATE_OVERRIDE="$dir"
+  # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
+  # shellcheck source=bin/fm-backlog-transition-lib.sh
   . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
   lock=$(fm_meta_lock_path "$meta") || return 1
   if [ "$dry" = 0 ] && [ "$locked" = 0 ]; then
@@ -308,6 +313,7 @@ probe_session() { # <task meta>
 }
 stop_attach() {
   local meta=$1 pid started current pgid
+  # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   pid=$(fm_meta_get "$meta" omnigent_attach_pid)
   started=$(fm_meta_get "$meta" omnigent_attach_start)
@@ -558,6 +564,7 @@ elif [ -n "${FM_PUBLIC_FOLLOWUP_PRIMARY_HOME:-}" ]; then
 fi
 printf '%s' "$TITLE" | jq -eRs 'length > 0 and (test("[\u0000-\u001f\u007f]") | not)' >/dev/null || fail 'invalid session title identity'
 TITLE_STARTED=$(date +%s)
+# shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 export FM_OMNIGENT_ATTACH_PID=$$
 FM_OMNIGENT_ATTACH_START=$(fm_pid_start_time "$$") || fail 'cannot identify attach process'

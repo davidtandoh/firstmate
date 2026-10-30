@@ -3077,7 +3077,11 @@ p = subprocess.Popen(['bash', '-c', "trap 'printf zsh > \"$1\"; exit 0' TERM; wh
 print(p.pid)
 SPAWN
 )
-  started=$( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_start_time "$pid" )
+  started=$(
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-wake-lib.sh"
+    fm_pid_start_time "$pid"
+  )
   printf 'omnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "$pid" "$started" >> "$dir/home/state/$id.meta"
   out=$(OMNI_SESSION_STATE=runner-gone run_control "$dir" "$id" relaunch --note 'recover dead runner'); rc=$?
   kill -TERM "$pid" 2>/dev/null || true
