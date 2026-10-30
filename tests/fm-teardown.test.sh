@@ -948,6 +948,65 @@ test_teardown_archives_the_recorded_omnigent_session() {
   pass "teardown archives the recorded Omnigent session and a failed archive only warns"
 }
 
+test_teardown_captures_before_killing_observer() {
+  local case_dir watcher rc
+  case_dir=$(make_case omni-pending)
+  write_meta "$case_dir" no-mistakes ship
+  printf 'omnigent=on\n' >> "$case_dir/state/task-x1.meta"
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+  wt_commit "$case_dir" 'shippable work'
+  git -C "$case_dir/wt" push -q origin fm/task-x1
+  git -C "$case_dir/project" fetch -q origin
+  cat > "$case_dir/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = kill-window ]; then
+  meta="$FM_STATE_OVERRIDE/task-x1.meta"
+  grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$meta" || exit 1
+  cp "$meta" "$FM_STATE_OVERRIDE/captured-before-close"
+  pid=$(cat "$FM_STATE_OVERRIDE/observer-group")
+  kill -TERM -- "-$pid"
+fi
+SH
+  chmod +x "$case_dir/fakebin/tmux"
+  python3 - "$ROOT" "$case_dir" <<'PYTHON' &
+import os, pathlib, subprocess, sys, time
+root, case = map(pathlib.Path, sys.argv[1:])
+lock = case / 'state/.meta-task-x1.lock'
+for _ in range(500):
+    if lock.exists():
+        break
+    time.sleep(0.01)
+else:
+    raise SystemExit('teardown never acquired metadata lock')
+env = dict(os.environ, PATH=str(case / 'fakebin') + os.pathsep + os.environ['PATH'],
+           FM_OMNIGENT_RECORD_META=str(case / 'state/task-x1.meta'),
+           FM_OMNIGENT_RECORD_GEN='teardown-test-task-x1', OMNI_HOLD='1')
+with (case / 'observer-stderr').open('wb') as err:
+    proc = subprocess.Popen([str(root / 'bin/fm-omnigent.sh'), 'run', 'claude', 'fixture'],
+                            env=env, start_new_session=True, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=err)
+    (case / 'state/observer-group').write_text(str(proc.pid))
+    try:
+        proc.wait(timeout=30)
+    finally:
+        try:
+            os.killpg(proc.pid, 15)
+        except ProcessLookupError:
+            pass
+PYTHON
+  watcher=$!
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  wait "$watcher" || fail 'observer fixture failed'
+  expect_code 0 "$rc" "pending observer teardown failed"$'\n'"$(cat "$case_dir/stderr")"
+  [ -f "$case_dir/state/captured-before-close" ] || fail 'session identity was not captured before endpoint close'
+  [ ! -e "$case_dir/state/task-x1.meta" ] || fail 'teardown retained task metadata'
+  jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+    "$case_dir/serve/archived.jsonl" >/dev/null || fail 'killing the blocked observer lost its session'
+  pass 'teardown captures a blocked observer session before killing its process group'
+}
+
 test_no_mistakes_truly_unpushed_refuses() {
   local case_dir rc
   case_dir=$(make_case nm-unpushed)
@@ -5973,6 +6032,12 @@ test_status_archive_nested_secondmate_children() {
   pass "forced secondmate retirement preserves two descendant levels and refuses linked child directories"
 }
 
+if [ "${1:-}" = --omnigent ]; then
+  test_teardown_archives_the_recorded_omnigent_session
+  test_teardown_captures_before_killing_observer
+  exit 0
+fi
+
 test_hidden_untracked_work_refuses_before_return
 test_content_fallback_git_capability_boundary
 test_status_archive_opt_in
@@ -6004,6 +6069,7 @@ test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows
 test_no_mistakes_origin_remote_allows
 test_teardown_archives_the_recorded_omnigent_session
+test_teardown_captures_before_killing_observer
 test_no_mistakes_truly_unpushed_refuses
 test_local_only_force_overrides_unpushed
 test_secondmate_pr_registration_publishes_ready_line

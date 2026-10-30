@@ -62,7 +62,10 @@ flowchart LR
 Takeaway: every wrapped worker's Omnigent session is recorded at launch, watched while it runs, and archived when the worker is retired.
 
 A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
-After the session identity check, the launcher records `omnigent_session` and `omnigent_server` in that task record under the record lock.
+After the session identity check, the launcher publishes a generation-specific session handoff before waiting for the task record lock.
+The launcher then records `omnigent_session` and `omnigent_server` in that task record under the record lock.
+Retirement reads the verified handoff under that lock before stopping the attach client or closing the endpoint.
+A missing handoff produces a bounded warning and does not block cleanup.
 It records only while the record still names the launching spawn generation and that generation has not retired.
 Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
 The same naming request adds the labels `firstmate.home`, the full home-identity hash, and `firstmate.task`; Omnigent merges labels rather than replacing them.

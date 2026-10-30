@@ -116,7 +116,7 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
 # lock and only while the record still names the launching spawn generation, so
 # a superseded or rolled-back launch can never overwrite a newer binding.
 record_session() { # <absolute task meta> <spawn generation>
-  local meta=$1 gen=$2 dir base
+  local meta=$1 gen=$2 dir base locked=${3:-0} pending
   [[ "$meta" == /*.meta ]] && [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task record binding'
   fm_dirname_to dir "$meta"
   fm_basename_to base "$meta"
@@ -126,8 +126,18 @@ record_session() { # <absolute task meta> <spawn generation>
     . "$SCRIPT_DIR/fm-wake-lib.sh"
     # shellcheck source=bin/fm-backlog-transition-lib.sh
     . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+    pending="$dir/.${base%.meta}.omnigent.$gen.meta"
+    tmp="$pending.${BASHPID:-$$}"
+    if [ "$locked" != 1 ]; then
+      printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+        "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" > "$tmp" &&
+        fm_backlog_atomic_transition publish "$tmp" "$pending" 'session handoff' "$dir" \
+        || title_fail "session handoff update failed: $meta"
+    fi
     lock=$(fm_meta_lock_path "$meta") || title_fail 'invalid task record path'
-    fm_lock_acquire_wait_bounded "$lock" 150 || title_fail "task record lock unavailable: $meta"
+    if [ "$locked" != 1 ]; then
+      fm_lock_acquire_wait_bounded "$lock" 150 || title_fail "task record lock unavailable: $meta"
+    fi
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     status=0
     if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
@@ -143,9 +153,53 @@ record_session() { # <absolute task meta> <spawn generation>
       printf 'error: Omnigent session title: session %s: task record update failed\n' "$SESSION_ID" >&2
       status=1
     fi
-    fm_lock_release "$lock"
+    rm -f "$pending"
+    [ "$locked" = 1 ] || fm_lock_release "$lock"
     exit "$status"
   )
+}
+
+capture_session() {
+  local locked=0 meta dir base gen pending lock status=0 attempt
+  if [ "${1:-}" = --record-locked ]; then locked=1; shift; fi
+  [ "$#" -eq 1 ] || fail 'capture requires one task record'
+  meta=$1
+  fm_dirname_to dir "$meta"
+  fm_basename_to base "$meta"
+  export FM_STATE_OVERRIDE="$dir"
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  lock=$(fm_meta_lock_path "$meta") || return 1
+  if [ "$locked" = 0 ]; then
+    fm_lock_acquire_wait_bounded "$lock" 10 || return 1
+  fi
+  if read_binding "$meta" && [ -n "$SESSION_ID" ]; then
+    [ "$locked" = 1 ] || fm_lock_release "$lock"
+    return 0
+  fi
+  if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
+    gen=$FM_BACKLOG_META_SPAWN_GEN
+    pending="$dir/.${base%.meta}.omnigent.$gen.meta"
+    for ((attempt=0; attempt<100; attempt++)); do
+      [ ! -f "$pending" ] || break
+      sleep 0.1
+    done
+    if [ "$(fm_meta_get "$pending" spawn_gen)" = "$gen" ] &&
+       read_binding "$pending" && [ -n "$SESSION_ID" ]; then
+      FM_OMNIGENT_ATTACH_PID=$(fm_meta_get "$pending" omnigent_attach_pid) \
+        FM_OMNIGENT_ATTACH_START=$(fm_meta_get "$pending" omnigent_attach_start) \
+        record_session "$meta" "$gen" 1 || status=1
+    else
+      status=1
+    fi
+  else
+    status=1
+  fi
+  [ "$locked" = 1 ] || fm_lock_release "$lock"
+  if [ "$status" != 0 ]; then
+    printf 'warning: Omnigent capture: no verified session handoff for %s before retirement\n' "$meta" >&2
+  fi
+  return "$status"
 }
 
 # Read one recorded launch binding. Empty values mean no wrapped launch was
@@ -387,6 +441,7 @@ shift || true
 case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
+  capture) capture_session "$@"; exit ;;
   probe) probe_session "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;

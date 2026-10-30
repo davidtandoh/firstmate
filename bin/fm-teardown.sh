@@ -656,6 +656,9 @@ fm_backlog_record_present "$META" "task record" "$STATE" || {
 META_LOCK=$(fm_meta_lock_path "$META") || exit 1
 fm_lock_acquire_wait "$META_LOCK"
 META_LOCK_HELD=1
+if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+  "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$META" || true
+fi
 fm_backlog_record_present "$META" "task record" "$STATE" || {
   echo "error: teardown refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
   exit 1

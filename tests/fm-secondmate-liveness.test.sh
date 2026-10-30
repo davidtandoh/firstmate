@@ -871,6 +871,36 @@ test_remote_probe_invalid_budget_stays_bounded() {
   pass "remote probe: unset and invalid budgets cannot disable the default timeout"
 }
 
+test_omnigent_secondmate_session_verdict() {
+  local w tools out state expected
+  w=$(new_world omni-probe)
+  add_sm_home "$w" sm1 firstmate:fm-sm1
+  tools=$(make_liveness_tmux "$w")
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$w/serve" "$tools" )
+  printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' >> "$w/home/state/sm1.meta"
+  for state in alive runner-gone missing server-error; do
+    expected=alive
+    case "$state" in runner-gone|missing) expected=relaunchable ;; esac
+    out=$(PATH="$tools:$PATH" FM_HOME="$w/home" STATE="$w/home/state" \
+      FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE="$state" bash -c '
+      . "$1/bin/fm-secondmate-liveness-lib.sh"
+      fm_secondmate_liveness_lock sm1 || exit 1
+      trap "fm_secondmate_liveness_unlock sm1" EXIT
+      fm_secondmate_liveness_probe "$2" sm1 poll
+      printf "%s" "$FM_SM_LIVE_STATUS"
+    ' _ "$ROOT" "$w/home/state/sm1.meta")
+    [ "$out" = "$expected" ] || fail "$state wrapped secondmate: expected $expected, got $out"
+  done
+  pass 'secondmate probe applies the recorded Omnigent session verdict'
+}
+
+if [ "${1:-}" = --omnigent ]; then
+  test_omnigent_secondmate_session_verdict
+  exit 0
+fi
+
+test_omnigent_secondmate_session_verdict
+
 test_remote_poll_probe_timeout_preserves_route
 test_remote_probe_invalid_budget_stays_bounded
 test_tmux_agent_state_classifies

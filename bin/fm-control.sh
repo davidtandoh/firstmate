@@ -704,6 +704,9 @@ do_exit() {
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"
+  if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" capture "$META" || true
+  fi
   state=$(agent_state)
   if [ "$state" = alive ] && [ "$(fm_backend_omnigent_agent_state "$state" "$META")" = dead ]; then
     "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$META" \
