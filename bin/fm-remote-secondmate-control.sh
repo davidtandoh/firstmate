@@ -131,7 +131,7 @@ remote_endpoint_require() {
 }
 
 state_value() { # <id>; prints recovery-grade state
-  local id=$1 meta
+  local id=$1 meta state
   meta=$(meta_path "$id")
   [ -f "$meta" ] && [ ! -L "$meta" ] || { printf 'missing\n'; return 0; }
   if ! remote_endpoint_load "$id"; then
@@ -139,7 +139,8 @@ state_value() { # <id>; prints recovery-grade state
     printf 'unverified\n'
     return 0
   fi
-  fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null || printf 'unreadable\n'
+  state=$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null) || state=unreadable
+  fm_backend_omnigent_agent_state "$state" "$meta"
 }
 
 print_route() { # <id>
@@ -194,7 +195,7 @@ cmd_launch() {
   meta=$(meta_path "$id")
   if [ -f "$meta" ]; then
     remote_endpoint_require "$id"
-    current=$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null || printf 'unreadable\n')
+    current=$(state_value "$id")
     case "$current" in
       alive)
         if [ "$omnigent_mode" = on ] && [ "$(fm_meta_get "$meta" omnigent)" != on ]; then
@@ -204,12 +205,26 @@ cmd_launch() {
         return 0
         ;;
       dead)
+        if [ "$(fm_meta_get "$meta" omnigent)" = on ]; then
+          "$SCRIPT_DIR/fm-omnigent.sh" capture "$meta" || true
+          if [ "$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null)" = alive ]; then
+            "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$meta" \
+              || die "could not stop the retained remote Omnigent attach client"
+          fi
+        fi
         fm_backend_kill "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null \
           || die "could not remove the confirmed agent-less endpoint"
         ;;
       missing) ;;
       *) die "remote endpoint state is $current; refusing duplicate launch" ;;
     esac
+    if [ "$(fm_meta_get "$meta" omnigent)" = on ]; then
+      current=$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null) || current=unreadable
+      case "$current" in
+        dead|missing) "$SCRIPT_DIR/fm-omnigent.sh" archive "$meta" >/dev/null || true ;;
+        *) die "remote endpoint stop is unconfirmed; preserving its Omnigent session and metadata" ;;
+      esac
+    fi
   fi
   # The parent owns both convergence legs before it asks for this launch: it
   # already fast-forwarded this home to ITS primary commit and pushed inherited

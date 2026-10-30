@@ -317,7 +317,8 @@ pass 'native git configuration is forwarded as a complete counted set or not at 
 binding_home="$TMP_ROOT/binding/state"
 mkdir -p "$binding_home"
 printf 'harness=codex\nomnigent=on\nspawn_gen=s1.1.1\n' > "$binding_home/bound.meta"
-cp "$binding_home/bound.meta" "$binding_home/expected.meta"
+printf 'omnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$binding_home/expected.meta"
+cat "$binding_home/bound.meta" >> "$binding_home/expected.meta"
 home_hash=$(printf '%0.s0123456789abcdef' 1 2 3 4)
 reset_title
 FM_OMNIGENT_RECORD_META="$binding_home/bound.meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 FM_OMNIGENT_HOME_ID="$home_hash" \
@@ -326,7 +327,6 @@ wait_title
 jq -e --arg home "$home_hash" '.labels["firstmate.home"] == $home and .labels["firstmate.task"] == "bound" and
   .labels["omnigent.wrapper"] == "codex-native-ui"' "$TMP_ROOT/serve/title.json" >/dev/null \
   || fail 'launch did not merge Firstmate identity labels'
-printf 'omnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >> "$binding_home/expected.meta"
 attach_pid=$(sed -n 's/^omnigent_attach_pid=//p' "$binding_home/bound.meta")
 attach_start=$(sed -n 's/^omnigent_attach_start=//p' "$binding_home/bound.meta")
 [[ "$attach_pid" =~ ^[0-9]+$ ]] && [ -n "$attach_start" ] || fail 'launch did not bind its attach process identity'

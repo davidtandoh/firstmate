@@ -929,6 +929,20 @@ test_teardown_archives_the_recorded_omnigent_session() {
     write_meta "$case_dir" no-mistakes ship
     printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$case_dir/state/task-x1.meta"
     ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+    printf 'pr=https://github.com/o/r/pull/18\npr_head=%s\n' "$(git -C "$case_dir/wt" rev-parse HEAD)" >> "$case_dir/state/task-x1.meta"
+    (
+      . "$ROOT/bin/fm-pr-lib.sh"
+      fm_pr_poll_prepare "$case_dir/state" task-x1 github https://github.com/o/r/pull/18 github.com o/r 18 "$ROOT/bin/fm-pr-poll.sh" &&
+        fm_pr_poll_publish_prepared &&
+        fm_pr_poll_snapshot_capture "$case_dir/state" task-x1 "$ROOT/bin/fm-pr-poll.sh" &&
+        fm_pr_poll_retirement_publish "$case_dir/state" task-x1 "$ROOT/bin/fm-pr-poll.sh" merged
+    ) || fail 'could not prepare wrapped task PR retirement receipt'
+    PATH="$case_dir/fakebin:$PATH" FM_OMNIGENT_RECORD_META="$case_dir/state/task-x1.meta" \
+      FM_OMNIGENT_RECORD_GEN=teardown-test-task-x1 "$ROOT/bin/fm-omnigent.sh" \
+      _title-session http://127.0.0.1:6767 "$session" claude fixture 1 > /dev/null \
+      || fail 'could not record wrapped task session'
+    ( . "$ROOT/bin/fm-pr-lib.sh"; fm_pr_poll_retirement_receipt_valid "$case_dir/state" task-x1 ) \
+      || fail 'session recording invalidated the terminal PR block'
     wt_commit "$case_dir" "shippable work"
     git -C "$case_dir/wt" push -q origin fm/task-x1
     git -C "$case_dir/project" fetch -q origin
@@ -938,6 +952,7 @@ test_teardown_archives_the_recorded_omnigent_session() {
     set -e
     expect_code 0 "$rc" "omni-archive-$archive_mode: teardown should succeed"$'\n'"$(cat "$case_dir/stderr")"
     [ ! -e "$case_dir/state/task-x1.meta" ] || fail "omni-archive-$archive_mode: teardown kept the task record"
+    [ ! -e "$case_dir/state/task-x1.pr-poll-retirement" ] || fail 'wrapped teardown retained its PR receipt'
     if [ "$archive_mode" = ok ]; then
       jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
         "$case_dir/serve/archived.jsonl" >/dev/null || fail "teardown did not archive exactly the recorded session"

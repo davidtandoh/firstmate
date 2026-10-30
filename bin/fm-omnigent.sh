@@ -145,9 +145,11 @@ record_session() { # <absolute task meta> <spawn generation>
       archive_bound_session || true
       printf 'error: Omnigent session title: session %s: task record no longer names this launch; not recorded\n' "$SESSION_ID" >&2
       status=1
-    elif ! awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server" && $1 != "omnigent_attach_pid" && $1 != "omnigent_attach_start"' "$meta" > "$tmp" ||
-      ! printf 'omnigent_session=%s\nomnigent_server=%s\n' "$SESSION_ID" "${SERVER%/}" >> "$tmp" ||
-      ! printf 'omnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" >> "$tmp" ||
+    elif ! {
+      printf 'omnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+        "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" &&
+      awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server" && $1 != "omnigent_attach_pid" && $1 != "omnigent_attach_start"' "$meta"
+    } > "$tmp" ||
       ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir"; then
       rm -f "$tmp"
       printf 'error: Omnigent session title: session %s: task record update failed\n' "$SESSION_ID" >&2
@@ -238,8 +240,10 @@ archive_session() { # [--dry-run] <task meta>
     if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
       gen=$FM_BACKLOG_META_SPAWN_GEN
       tmp="$meta.omnigent.${BASHPID:-$$}"
-      if awk -F= '$1 != "omnigent_retired_gen"' "$meta" > "$tmp" &&
-         printf 'omnigent_retired_gen=%s\n' "$gen" >> "$tmp"; then
+      if {
+        printf 'omnigent_retired_gen=%s\n' "$gen" &&
+        awk -F= '$1 != "omnigent_retired_gen"' "$meta"
+      } > "$tmp"; then
         fm_backlog_atomic_transition publish "$tmp" "$meta" 'task record' "$dir" || status=1
       else
         status=1
