@@ -1444,6 +1444,12 @@ fi
 # Only an exact busy verdict reports working here, and only an exact idle
 # verdict permits the status-log fallback below. Missing, malformed, stale, or
 # unverified semantic state remains unknown.
+# A readable pane proves only that a wrapped worker's attach client runs; its
+# recorded Omnigent session must still be reachable (bin/fm-backend.sh owns the
+# overlay), or the agent is gone.
+if [ "$(fm_backend_omnigent_agent_state alive "$META")" = dead ]; then
+  emit unknown none "Omnigent session gone: server unreachable or runner gone (attach client remains in $BACKEND_TARGET)"
+fi
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
   case "${BUSY_VERDICT%% *}" in

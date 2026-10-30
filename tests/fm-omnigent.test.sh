@@ -82,6 +82,12 @@ if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 
 grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
+# The running fork build descends from the enforcing commit and is admitted.
+jq '.omnigent.commit="bbda8af3d7e7792b16d957cfdadd116449712135"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
+jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
+  || fail 'admitted daemon build did not receive the selected Claude account'
+cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
 env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'unconfigured default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'unset default selector was changed at the daemon boundary'
 
@@ -291,6 +297,102 @@ jq -e --arg home "FM_HOME=$TMP_ROOT/secondmate" '
 ' "$OMNI_RESULT" >/dev/null || fail 'launch lost native arguments or owned environment'
 pass 'managed executable receives exact arguments and explicit worker environment'
 
+# Git refuses to run when GIT_CONFIG_COUNT names an entry it cannot find, so
+# the native environment receives the complete counted set or none of it.
+GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0=fixture \
+  GIT_CONFIG_KEY_1=core.hooksPath GIT_CONFIG_VALUE_1=/hooks "$OMNI" run codex 'git env'
+jq -e '.environment.GIT_CONFIG_COUNT == "2" and
+  .environment.GIT_CONFIG_KEY_0 == "credential.helper" and .environment.GIT_CONFIG_VALUE_0 == "fixture" and
+  .environment.GIT_CONFIG_KEY_1 == "core.hooksPath" and .environment.GIT_CONFIG_VALUE_1 == "/hooks"' \
+  "$OMNI_RESULT" >/dev/null || fail 'counted git configuration was not forwarded completely'
+GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/hooks "$OMNI" run codex 'git env'
+jq -e '.environment | (has("GIT_CONFIG_COUNT") or has("GIT_CONFIG_KEY_0")) | not' "$OMNI_RESULT" >/dev/null \
+  || fail 'incomplete git configuration reached the native environment'
+env -u GIT_CONFIG_COUNT "$OMNI" run codex 'git env'
+jq -e '.environment | has("GIT_CONFIG_COUNT") | not' "$OMNI_RESULT" >/dev/null || fail 'absent git configuration was invented'
+pass 'native git configuration is forwarded as a complete counted set or not at all'
+
+# A spawn-supplied binding records the verified session in its own task
+# record and labels it; a record that names another generation is untouched.
+binding_home="$TMP_ROOT/binding/state"
+mkdir -p "$binding_home"
+printf 'harness=codex\nomnigent=on\nspawn_gen=s1.1.1\n' > "$binding_home/bound.meta"
+printf 'omnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$binding_home/expected.meta"
+cat "$binding_home/bound.meta" >> "$binding_home/expected.meta"
+home_hash=$(printf '%0.s0123456789abcdef' 1 2 3 4)
+reset_title
+FM_OMNIGENT_RECORD_META="$binding_home/bound.meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 FM_OMNIGENT_HOME_ID="$home_hash" \
+  FM_OMNIGENT_TASK=bound FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID=bound "$OMNI" run codex 'bind' 2> "$TMP_ROOT/title-error"
+wait_title
+jq -e --arg home "$home_hash" '.labels["firstmate.home"] == $home and .labels["firstmate.task"] == "bound" and
+  .labels["omnigent.wrapper"] == "codex-native-ui"' "$TMP_ROOT/serve/title.json" >/dev/null \
+  || fail 'launch did not merge Firstmate identity labels'
+attach_pid=$(sed -n 's/^omnigent_attach_pid=//p' "$binding_home/bound.meta")
+attach_start=$(sed -n 's/^omnigent_attach_start=//p' "$binding_home/bound.meta")
+[[ "$attach_pid" =~ ^[0-9]+$ ]] && [ -n "$attach_start" ] || fail 'launch did not bind its attach process identity'
+sed '/^omnigent_attach_/d' "$binding_home/bound.meta" > "$binding_home/actual.meta"
+cmp "$binding_home/expected.meta" "$binding_home/actual.meta" || fail 'verified session was not recorded exactly once'
+printf 'harness=codex\nomnigent=on\nspawn_gen=s2.2.2\n' > "$binding_home/newer.meta"
+cp "$binding_home/newer.meta" "$binding_home/newer.expected"
+reset_title
+FM_OMNIGENT_RECORD_META="$binding_home/newer.meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 FM_OMNIGENT_HOME_ID="$home_hash" \
+  FM_OMNIGENT_TASK=newer FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID=newer "$OMNI" run codex 'stale' 2> "$TMP_ROOT/title-error"
+for _ in $(seq 1 80); do grep -q 'no longer names this launch' "$TMP_ROOT/title-error" && break; sleep 0.1; done
+cmp "$binding_home/newer.expected" "$binding_home/newer.meta" || fail 'superseded launch overwrote a newer task record'
+grep -q 'no longer names this launch' "$TMP_ROOT/title-error" || fail 'superseded launch did not report its skipped record'
+reset_title
+OMNI_TITLE_MODE=drop-labels FM_OMNIGENT_HOME_ID="$home_hash" FM_OMNIGENT_TASK=bound \
+  FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID=bound "$OMNI" run codex 'labels' 2> "$TMP_ROOT/title-error"
+for _ in $(seq 1 80); do grep -q 'Firstmate labels' "$TMP_ROOT/title-error" && break; sleep 0.1; done
+grep -q 'did not confirm the Firstmate labels' "$TMP_ROOT/title-error" || fail 'unconfirmed labels were not reported'
+pass 'launch records its verified session only in its own generation and confirms merged identity labels'
+
+# Archive targets exactly the recorded session, never its worktree, and a
+# failure only warns. Records without a binding send nothing.
+rm -f "$TMP_ROOT/serve/archived.jsonl" "$TMP_ROOT/serve/requests.jsonl"
+"$OMNI" archive --dry-run "$binding_home/bound.meta" > "$TMP_ROOT/out"
+grep -qx 'would archive Omnigent session http://127.0.0.1:6767/v1/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$TMP_ROOT/out" || fail 'archive preview omitted its target'
+[ ! -e "$TMP_ROOT/serve/requests.jsonl" ] || fail 'archive preview contacted the service'
+"$OMNI" archive "$binding_home/bound.meta" > "$TMP_ROOT/out"
+jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+  "$TMP_ROOT/serve/archived.jsonl" >/dev/null || fail 'archive did not PATCH exactly archived=true for the recorded session'
+jq -se 'length == 1 and .[0].method == "PATCH" and
+  .[0].url == "http://127.0.0.1:6767/v1/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+  "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail 'archive sent requests beyond its one PATCH'
+rm -f "$TMP_ROOT/serve/requests.jsonl"
+"$OMNI" archive "$binding_home/newer.meta" > "$TMP_ROOT/out"
+[ ! -s "$TMP_ROOT/out" ] && [ ! -e "$TMP_ROOT/serve/requests.jsonl" ] || fail 'archive without a recorded session contacted the service'
+rc=0
+OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$binding_home/bound.meta" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error" || rc=$?
+[ "$rc" = 1 ] || fail 'failed archive did not exit 1'
+grep -q 'warning: Omnigent archive' "$TMP_ROOT/error" || fail 'failed archive did not warn'
+printf 'omnigent_session=../other\nomnigent_server=http://127.0.0.1:6767\n' > "$binding_home/forged.meta"
+rm -f "$TMP_ROOT/serve/requests.jsonl"
+if "$OMNI" archive "$binding_home/forged.meta" > "$TMP_ROOT/out" 2>&1; then fail 'malformed recorded session was archived'; fi
+[ ! -e "$TMP_ROOT/serve/requests.jsonl" ] || fail 'malformed recorded session reached the service'
+pass 'archive PATCHes only the recorded session and reports failure without blocking'
+
+# The supervision probe maps a gone server or session to dead.
+probe() { "$OMNI" probe "$binding_home/bound.meta"; }
+[ "$(probe)" = alive ] || fail 'live session did not probe alive'
+for gone in runner-gone failed archived missing; do
+  [ "$(OMNI_SESSION_STATE=$gone probe)" = dead ] || fail "$gone session did not probe dead"
+done
+[ "$(OMNI_HEALTH=down probe)" = dead ] || fail 'unreachable server did not probe dead'
+[ "$(OMNI_SESSION_STATE=server-error probe)" = unknown ] || fail 'unproven session reply was treated as a verdict'
+[ "$("$OMNI" probe "$binding_home/newer.meta")" = unknown ] || fail 'record without a session was given a verdict'
+(
+. "$ROOT/bin/fm-backend.sh"
+[ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$binding_home/bound.meta")" = dead ] \
+  || fail 'supervision view kept a wrapped worker with a gone session alive'
+[ "$(fm_backend_omnigent_agent_state alive "$binding_home/bound.meta")" = alive ] || fail 'supervision view changed a live wrapped worker'
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$binding_home/bound.meta")" = missing ] \
+  || fail 'supervision view rewrote a non-alive pane verdict'
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$binding_home/newer.meta")" = alive ] \
+  || fail 'supervision view probed a record without a session'
+)
+pass 'a stopped server or gone session reads dead in the supervision view only when the pane reads alive'
+
 if OMNI_HEALTH=down "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'unreachable server accepted'; fi
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
 if "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'stopped server accepted'; fi
@@ -352,8 +454,12 @@ for kind in ship scout; do
     (.argv | any(.[]; startswith("notify="))) and
     .environment.FM_OMNIGENT == "on" and .environment.COMPACT_ADVISER_DISABLE == "1"' "$OMNI_RESULT" >/dev/null || fail "$kind lost dispatch, turn-end notification, or session propagation"
   grep -qx 'omnigent=on' "$spawn_home/state/$id.meta" || fail "$kind metadata lost wrapping"
+  grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$spawn_home/state/$id.meta" || fail "$kind did not record its session"
+  expected_home=$(printf '%s' "$(cd "$spawn_home" && pwd -P)" | shasum -a 256 | awk '{print $1}')
+  jq -e --arg home "$expected_home" --arg task "$id" '.labels["firstmate.home"] == $home and .labels["firstmate.task"] == $task' \
+    "$TMP_ROOT/serve/title.json" >/dev/null || fail "$kind session lacks its home and task labels"
 done
-pass 'ship and scout pane launches preserve dispatch, notify, and explicit session environment'
+pass 'ship and scout pane launches preserve dispatch, notify, and explicit session environment, and record their labelled session'
 
 printf 'on\n' > "$spawn_home/config/omnigent"
 sm="$TMP_ROOT/secondmate"
@@ -436,7 +542,10 @@ for lane in guidex home; do
     fm_test_spawn_brief "$spawn_home" "$id"
     args=(--mode no-mistakes --yolo off)
     [ "$kind" != scout ] || args=(--scout)
+    : > "$TMP_ROOT/serve/agent-kit.log"
     USER=fixture-user LOGNAME=fixture-user spawn "$id" "$project" "${args[@]}" --harness claude --model sonnet > "$TMP_ROOT/error" 2>&1 || fail "automatic Omnigent $lane $kind refused: $(cat "$TMP_ROOT/error")"
+    [ "$(grep -cx 'observe serve status --json' "$TMP_ROOT/serve/agent-kit.log")" = 1 ] \
+      || fail "$lane $kind spawn did not run exactly one spawn-side preflight"
     execute_launch
     wait_title
     jq -e --arg root "$expected_root" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null || fail "$lane $kind lost the exact selected account at the daemon boundary"

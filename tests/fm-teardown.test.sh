@@ -920,6 +920,108 @@ test_no_mistakes_origin_remote_allows() {
   pass "no-mistakes worktree with HEAD on origin is torn down (no regression)"
 }
 
+# A wrapped task's recorded Omnigent session is archived once its endpoint is
+# closed; an archive failure warns without blocking cleanup.
+test_teardown_archives_the_recorded_omnigent_session() {
+  local case_dir rc archive_mode session=dddddddddddddddddddddddddddddddd
+  for archive_mode in ok http-error; do
+    case_dir=$(make_case "omni-archive-$archive_mode")
+    write_meta "$case_dir" no-mistakes ship
+    printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$case_dir/state/task-x1.meta"
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+    printf 'pr=https://github.com/o/r/pull/18\npr_head=%s\n' "$(git -C "$case_dir/wt" rev-parse HEAD)" >> "$case_dir/state/task-x1.meta"
+    (
+      . "$ROOT/bin/fm-pr-lib.sh"
+      fm_pr_poll_prepare "$case_dir/state" task-x1 github https://github.com/o/r/pull/18 github.com o/r 18 "$ROOT/bin/fm-pr-poll.sh" &&
+        fm_pr_poll_publish_prepared &&
+        fm_pr_poll_snapshot_capture "$case_dir/state" task-x1 "$ROOT/bin/fm-pr-poll.sh" &&
+        fm_pr_poll_retirement_publish "$case_dir/state" task-x1 "$ROOT/bin/fm-pr-poll.sh" merged
+    ) || fail 'could not prepare wrapped task PR retirement receipt'
+    PATH="$case_dir/fakebin:$PATH" FM_OMNIGENT_RECORD_META="$case_dir/state/task-x1.meta" \
+      FM_OMNIGENT_RECORD_GEN=teardown-test-task-x1 "$ROOT/bin/fm-omnigent.sh" \
+      _title-session http://127.0.0.1:6767 "$session" claude fixture 1 > /dev/null \
+      || fail 'could not record wrapped task session'
+    ( . "$ROOT/bin/fm-pr-lib.sh"; fm_pr_poll_retirement_receipt_valid "$case_dir/state" task-x1 ) \
+      || fail 'session recording invalidated the terminal PR block'
+    wt_commit "$case_dir" "shippable work"
+    git -C "$case_dir/wt" push -q origin fm/task-x1
+    git -C "$case_dir/project" fetch -q origin
+    set +e
+    OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    expect_code 0 "$rc" "omni-archive-$archive_mode: teardown should succeed"$'\n'"$(cat "$case_dir/stderr")"
+    [ ! -e "$case_dir/state/task-x1.meta" ] || fail "omni-archive-$archive_mode: teardown kept the task record"
+    [ ! -e "$case_dir/state/task-x1.pr-poll-retirement" ] || fail 'wrapped teardown retained its PR receipt'
+    if [ "$archive_mode" = ok ]; then
+      jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
+        "$case_dir/serve/archived.jsonl" >/dev/null || fail "teardown did not archive exactly the recorded session"
+    else
+      grep -q 'warning: Omnigent archive' "$case_dir/stderr" || fail "a failed archive was not reported"
+    fi
+  done
+  pass "teardown archives the recorded Omnigent session and a failed archive only warns"
+}
+
+test_teardown_captures_before_killing_observer() {
+  local case_dir watcher rc
+  case_dir=$(make_case omni-pending)
+  write_meta "$case_dir" no-mistakes ship
+  printf 'omnigent=on\n' >> "$case_dir/state/task-x1.meta"
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+  wt_commit "$case_dir" 'shippable work'
+  git -C "$case_dir/wt" push -q origin fm/task-x1
+  git -C "$case_dir/project" fetch -q origin
+  cat > "$case_dir/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = kill-window ]; then
+  meta="$FM_STATE_OVERRIDE/task-x1.meta"
+  grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$meta" || exit 1
+  cp "$meta" "$FM_STATE_OVERRIDE/captured-before-close"
+  pid=$(cat "$FM_STATE_OVERRIDE/observer-group")
+  kill -TERM -- "-$pid"
+fi
+SH
+  chmod +x "$case_dir/fakebin/tmux"
+  python3 - "$ROOT" "$case_dir" <<'PYTHON' &
+import os, pathlib, subprocess, sys, time
+root, case = map(pathlib.Path, sys.argv[1:])
+lock = case / 'state/.meta-task-x1.lock'
+for _ in range(500):
+    if lock.exists():
+        break
+    time.sleep(0.01)
+else:
+    raise SystemExit('teardown never acquired metadata lock')
+env = dict(os.environ, PATH=str(case / 'fakebin') + os.pathsep + os.environ['PATH'],
+           FM_OMNIGENT_RECORD_META=str(case / 'state/task-x1.meta'),
+           FM_OMNIGENT_RECORD_GEN='teardown-test-task-x1', OMNI_HOLD='1')
+with (case / 'observer-stderr').open('wb') as err:
+    proc = subprocess.Popen([str(root / 'bin/fm-omnigent.sh'), 'run', 'claude', 'fixture'],
+                            env=env, start_new_session=True, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=err)
+    (case / 'state/observer-group').write_text(str(proc.pid))
+    try:
+        proc.wait(timeout=30)
+    finally:
+        try:
+            os.killpg(proc.pid, 15)
+        except ProcessLookupError:
+            pass
+PYTHON
+  watcher=$!
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  wait "$watcher" || fail 'observer fixture failed'
+  expect_code 0 "$rc" "pending observer teardown failed"$'\n'"$(cat "$case_dir/stderr")"
+  [ -f "$case_dir/state/captured-before-close" ] || fail 'session identity was not captured before endpoint close'
+  [ ! -e "$case_dir/state/task-x1.meta" ] || fail 'teardown retained task metadata'
+  jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+    "$case_dir/serve/archived.jsonl" >/dev/null || fail 'killing the blocked observer lost its session'
+  pass 'teardown captures a blocked observer session before killing its process group'
+}
+
 test_no_mistakes_truly_unpushed_refuses() {
   local case_dir rc
   case_dir=$(make_case nm-unpushed)
@@ -5945,6 +6047,12 @@ test_status_archive_nested_secondmate_children() {
   pass "forced secondmate retirement preserves two descendant levels and refuses linked child directories"
 }
 
+if [ "${1:-}" = --omnigent ]; then
+  test_teardown_archives_the_recorded_omnigent_session
+  test_teardown_captures_before_killing_observer
+  exit 0
+fi
+
 test_hidden_untracked_work_refuses_before_return
 test_content_fallback_git_capability_boundary
 test_status_archive_opt_in
@@ -5975,6 +6083,8 @@ test_teardown_manual_backend_leaves_the_backlog_to_the_operator
 test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows
 test_no_mistakes_origin_remote_allows
+test_teardown_archives_the_recorded_omnigent_session
+test_teardown_captures_before_killing_observer
 test_no_mistakes_truly_unpushed_refuses
 test_local_only_force_overrides_unpushed
 test_secondmate_pr_registration_publishes_ready_line

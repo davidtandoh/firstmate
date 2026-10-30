@@ -27,3 +27,11 @@ if bash "$ROOT/bin/fm-omnigent.sh" check codex > "$TMP_ROOT/out" 2> "$TMP_ROOT/e
   fail 'timing weakened readiness process-identity validation'
 fi
 pass 'status and readiness stages are measured; the shared deadline and identity checks remain fail closed'
+# Readiness has no fixed stage limit: a slow report inside the shared budget
+# passes even when it outlasts the former 15-second readiness cap.
+fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
+export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=50
+: > "$FM_TIMING_LOG"
+OMNI_DELAY_STAGE=readiness OMNI_STAGE_DELAY=16 bash "$ROOT/bin/fm-omnigent.sh" check codex 2> "$TMP_ROOT/error" \
+  || fail "slow readiness inside the shared budget refused: $(cat "$TMP_ROOT/error")"
+pass 'readiness uses the remaining shared budget instead of a fixed stage limit'

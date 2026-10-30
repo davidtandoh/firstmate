@@ -234,6 +234,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || target="$window"
   agent_state=$(fm_backend_agent_state "$backend" "$target" 2>/dev/null) || agent_state=unreadable
+  agent_state=$(fm_backend_omnigent_agent_state "$agent_state" "$meta")
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|omp) ;;
     *)
@@ -363,6 +364,23 @@ fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
     fi
     fm_lock_release "$relaunch_lock" || true
     return "$rc"
+  fi
+  if [ "$(fm_meta_get "$meta" omnigent)" = on ] && [ -z "$(fm_meta_get "$meta" remote_host)" ]; then
+    local archive_backend archive_target archive_state
+    archive_backend=$(fm_backend_of_meta "$meta")
+    archive_target=$(fm_backend_target_of_meta "$meta")
+    archive_state=$(fm_backend_agent_state "$archive_backend" "$archive_target" 2>/dev/null) || archive_state=unreadable
+    case "$archive_state" in
+      dead|missing) "$FM_SM_LIVE_LIB_DIR/fm-omnigent.sh" archive "$meta" >/dev/null || true ;;
+      *)
+        fm_secondmate_liveness_ledger_add "$id" failed || true
+        FM_SM_LIVE_STATUS=skipped
+        FM_SM_LIVE_REASON="could not confirm the old Omnigent attach client stopped; its session and record are left in place"
+        FM_SM_LIVE_RC=1
+        fm_lock_release "$relaunch_lock" || true
+        return 1
+        ;;
+    esac
   fi
   if [ -n "$timeout" ]; then
     FM_SM_LIVE_OUT=$(FM_SPAWN_NO_GUARD=1 fm_run_timed "$timeout" "$FM_ROOT/bin/fm-spawn.sh" "$id" --secondmate 2>&1) || rc=$?

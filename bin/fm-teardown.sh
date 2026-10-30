@@ -656,6 +656,9 @@ fm_backlog_record_present "$META" "task record" "$STATE" || {
 META_LOCK=$(fm_meta_lock_path "$META") || exit 1
 fm_lock_acquire_wait "$META_LOCK"
 META_LOCK_HELD=1
+if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+  "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$META" || true
+fi
 fm_backlog_record_present "$META" "task record" "$STATE" || {
   echo "error: teardown refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
   exit 1
@@ -4033,6 +4036,12 @@ if [ "$BACKEND" = herdr ]; then
     echo "error: herdr pane $T for $ID is not confirmed gone after its close was refused, skipped, or failed; retaining every durable task record - rerun teardown once the close can run under the session lock" >&2
     exit 1
   fi
+fi
+# The endpoint is closed, so the wrapped worker it held has stopped: archive
+# exactly its recorded Omnigent session (bin/fm-omnigent.sh archive). A
+# failure warns and never blocks cleanup.
+if [ "$(meta_value "$META" omnigent)" = on ]; then
+  "$SCRIPT_DIR/fm-omnigent.sh" archive --record-locked "$META" >/dev/null || true
 fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \

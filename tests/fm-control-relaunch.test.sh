@@ -457,6 +457,31 @@ test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   pass "fm-control relaunch: a same-harness relaunch replaces the agent in the same endpoint and worktree"
 }
 
+# A wrapped task's recorded Omnigent session is archived exactly once, only
+# after the old agent is proven stopped, and the replacement record drops it.
+test_omnigent_relaunch_archives_the_stopped_session() {
+  local dir out rc id=rl-omni session=cccccccccccccccccccccccccccccccc
+  dir=$(new_case omni-archive "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+  printf 'i' > "$dir/fake/composer"
+  out=$(run_control "$dir" "$id" relaunch --note "pending draft"); rc=$?
+  expect_code 1 "$rc" "a relaunch refused before exit must fail"$'\n'"$out"
+  [ ! -e "$dir/serve/archived.jsonl" ] || fail "a session was archived while its agent was still running"
+  rm -f "$dir/fake/composer"
+  out=$(run_control "$dir" "$id" relaunch --note "continue wrapped work"); rc=$?
+  expect_code 0 "$rc" "a wrapped relaunch should succeed"$'\n'"$out"
+  assert_grep "/exit" "$dir/fake/literal" "the previous agent should have been exited"
+  [ "$(grep -cx 'observe serve status --json' "$dir/serve/agent-kit.log")" = 2 ] \
+    || fail "each relaunch transaction must preflight only once, including the refused transaction"
+  jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
+    "$dir/serve/archived.jsonl" >/dev/null || fail "the stopped agent's recorded session was not archived exactly once"
+  [ -z "$(meta_field "$dir" "$id" omnigent_session)" ] || fail "the replacement record kept the archived session"
+  [ "$(meta_field "$dir" "$id" omnigent)" = on ] || fail "the replacement record lost wrapping"
+  pass "fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it"
+}
+
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text() {
   local dir out rc
   dir=$(new_case pending-exit rl43)
@@ -3038,6 +3063,65 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+test_omnigent_dead_attach_recovery() {
+  local dir out rc id=rl-dead session=dddddddddddddddddddddddddddddddd
+  dir=$(new_case omni-dead "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+  local pid started
+  pid=$(python3 - "$dir/fake/command" <<'SPAWN'
+import subprocess, sys
+p = subprocess.Popen(['bash', '-c', "trap 'printf zsh > \"$1\"; exit 0' TERM; while :; do sleep 0.01; done", '_', sys.argv[1]],
+                     start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(p.pid)
+SPAWN
+)
+  started=$(
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-wake-lib.sh"
+    fm_pid_start_time "$pid"
+  )
+  printf 'omnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "$pid" "$started" >> "$dir/home/state/$id.meta"
+  out=$(OMNI_SESSION_STATE=runner-gone run_control "$dir" "$id" relaunch --note 'recover dead runner'); rc=$?
+  kill -TERM "$pid" 2>/dev/null || true
+  expect_code 0 "$rc" "dead wrapped runner must recover"$'\n'"$out"
+  [ ! -e "$dir/fake/closed-windows" ] || fail 'recovery removed the endpoint'
+  [ -s "$dir/serve/archived.jsonl" ] || fail 'dead session was not archived'
+  [ "$(journal_field "$dir" "$id" phase)" = complete ] || fail 'dead session replacement did not complete'
+  pass 'dead wrapped runner stops its exact attach client and recovers'
+}
+
+test_omnigent_late_binding_retirement() {
+  local dir state meta id=rl-late mode
+  dir=$(new_case omni-late "$id")
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  state="$dir/home/state"
+  meta="$state/$id.meta"
+  for mode in retired missing superseded; do
+    printf 'omnigent=on\nspawn_gen=s1.1.1\n' > "$meta"
+    PATH="$dir/fakebin:$PATH" "$ROOT/bin/fm-omnigent.sh" archive "$meta" || fail 'unbound retirement failed'
+    case "$mode" in
+      missing) rm "$meta" ;;
+      superseded) printf 'spawn_gen=s2.2.2\n' > "$meta" ;;
+    esac
+    rm -f "$dir/serve/archived.jsonl"
+    PATH="$dir/fakebin:$PATH" FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 \
+      "$ROOT/bin/fm-omnigent.sh" _title-session http://127.0.0.1:6767 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa claude late 1
+    jq -se 'length == 1 and .[0].body == {archived:true}' "$dir/serve/archived.jsonl" >/dev/null \
+      || fail "$mode late binding was not archived"
+    [ "$mode" != missing ] || [ ! -e "$meta" ] || fail 'late binding recreated removed metadata'
+  done
+  pass 'late binding archives retired, removed and superseded launches'
+}
+
+if [ "${1:-}" = --omnigent ]; then
+  test_omnigent_relaunch_archives_the_stopped_session
+  test_omnigent_dead_attach_recovery
+  test_omnigent_late_binding_retirement
+  exit 0
+fi
+
 if [ "${1:-}" = --claude-accounts ]; then
   test_claude_floor_null_relaunch
   test_signed_out_worker_account_pin_refuses_before_stop
@@ -3100,6 +3184,9 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch
+test_omnigent_relaunch_archives_the_stopped_session
+test_omnigent_dead_attach_recovery
+test_omnigent_late_binding_retirement
 test_missing_worktree_refuses_before_stopping_anything
 test_missing_instructions_refuse_before_stopping_anything
 test_checkpoint_refusal_leaves_the_record_byte_identical
