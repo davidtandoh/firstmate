@@ -120,8 +120,8 @@ record_session() { # <absolute task meta> <spawn generation>
   [[ "$meta" == /*.meta ]] && [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task record binding'
   fm_dirname_to dir "$meta"
   fm_basename_to base "$meta"
+  local -x FM_STATE_OVERRIDE="$dir"
   (
-    export FM_STATE_OVERRIDE="$dir"
     # shellcheck source=bin/fm-wake-lib.sh
     . "$SCRIPT_DIR/fm-wake-lib.sh"
     # shellcheck source=bin/fm-backlog-transition-lib.sh
@@ -129,10 +129,13 @@ record_session() { # <absolute task meta> <spawn generation>
     pending="$dir/.${base%.meta}.omnigent.$gen.meta"
     tmp="$pending.${BASHPID:-$$}"
     if [ "$locked" != 1 ]; then
-      printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
-        "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" > "$tmp" &&
+      if printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+        "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" > "$tmp"; then
         fm_backlog_atomic_transition publish "$tmp" "$pending" 'session handoff' "$dir" \
-        || title_fail "session handoff update failed: $meta"
+          || title_fail "session handoff update failed: $meta"
+      else
+        title_fail "session handoff update failed: $meta"
+      fi
     fi
     lock=$(fm_meta_lock_path "$meta") || title_fail 'invalid task record path'
     if [ "$locked" != 1 ]; then
