@@ -60,6 +60,10 @@ FM_QUOTA_ROW_JQ='
     if length > 0 then min else null end;
   # Firstmate owns these two account keys. Only its account collector emits
   # them; a legacy single-account snapshot still uses quota_row fallback.
+  # claude_task_lane leaves an unreadable (non-fresh) account out of the Fable
+  # choice. Only account-level floor evidence can make a readable account
+  # unknown; a missing Fable weekly window or model-scoped bound is disclosed
+  # uncertainty that keeps it eligible, ranked after measured headroom.
   def claude_floors($floor):
     (if $floor == null then [] elif ($floor | type) == "array" then $floor else [$floor] end) |
     group_by(.scope) | map({scope: .[0].scope, min_percent: (map(.min_percent) | max)});
@@ -75,7 +79,7 @@ FM_QUOTA_ROW_JQ='
         (if $row.accountKey == "claude-home" then
           [{scope:"all_models", min_percent:40}] + claude_floors($floor)
          else [{scope:"all_models", min_percent:0}] end) as $floors |
-        if ($row.state.status // "fresh") != "fresh" then "unknown"
+        if ($row.state.status // "fresh") != "fresh" then "unreadable"
         elif ($weekly != null and $weekly <= 0) or
           any($bounds[]; .runway.status == "exhausted_now" or
             (.status == "known" and .effectivePercentRemaining <= 0)) or
@@ -84,9 +88,7 @@ FM_QUOTA_ROW_JQ='
               .scope == $limit.scope and .status == "known" and
               .effectivePercentRemaining < $limit.min_percent))
         then "unavailable"
-        elif $weekly == null or
-          ($bounds | length) == 0 or any($bounds[]; .status != "known") or
-          any($floors[]; . as $limit |
+        elif any($floors[]; . as $limit |
             ([$row.quotaSemantics.effectiveAvailability[]? | select(.scope == $limit.scope)] | length) == 0 or
             any($row.quotaSemantics.effectiveAvailability[]?;
               .scope == $limit.scope and .status != "known"))
@@ -97,9 +99,11 @@ FM_QUOTA_ROW_JQ='
       [$accounts[] | . + {status:account_status(.row; .weekly)}] as $evaluated |
       [$evaluated[] | select(.status == "ready")] as $ready |
       if ($ready | length) > 0 then
-        ($ready | sort_by([.weekly, (if .row.accountKey == $repo_lane then 1 else 0 end)]) | last | .row.accountKey)
+        ($ready | sort_by([(.weekly != null), (.weekly // 0), (if .row.accountKey == $repo_lane then 1 else 0 end)]) |
+          last | .row.accountKey)
       elif any($evaluated[]; .status == "unknown") then ""
-      else "unavailable" end
+      elif any($evaluated[]; .status == "unavailable") then "unavailable"
+      else "" end
     end;
 '
 

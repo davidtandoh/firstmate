@@ -1618,7 +1618,9 @@ T3 Code refuses automatic routing because its provider instance owns the account
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
 When `$HOME/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
+A failed or invalid read of one login becomes that account's unreadable row with a sign-in remedy; the collection fails only when no login is readable.
 Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
+An account with known weekly Fable allowance ranks ahead of an eligible account whose Fable allowance is unknown.
 Equal allowances use the repository's account.
 The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor and applicable rule floor; the GuideX account has no reserve floor.
 Typed dispatch combines the profile and applicable Claude rule floors into a list of scoped floors in its launch arguments.
@@ -1628,8 +1630,11 @@ Spawn and relaunch accept this list and preserve it in the task record for the s
 Old single-floor records are read as one-item lists.
 An explicit `null` or empty list clears the recorded floors; selecting a replacement profile can supply new floors.
 Account exhaustion excludes that account.
-Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
-If neither measured account is eligible, dispatch considers the remaining configured profiles.
+An unreadable account, which is any account whose quota row is not fresh, is excluded from the Fable choice.
+A missing weekly Fable window or an unknown model-scoped bound keeps the account eligible.
+A missing or unknown account-level floor bound stays unknown unless a known bound proves the account unavailable.
+If no readable account is eligible, dispatch considers the remaining configured profiles.
+Typed dispatch refuses a Claude candidate that is pinned or repository-bound to an unreadable account, names that account's remedy, and considers the remaining configured profiles.
 Other Claude models keep the repository account split and their configured personal-account floor.
 
 [`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`, including the effective home account pin; its header owns the command flags.

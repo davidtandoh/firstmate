@@ -7,12 +7,15 @@
 # login with CLAUDE_CONFIG_DIR unset and the GuideX login with its exact root
 # selected. quota-axi alone reads credentials, caches, and quota semantics;
 # --no-credential-refresh forbids delegated login renewal. No auth data is read
-# or printed here. Schema 6 keys are claude-home and claude-guidex.
+# or printed here. Schema 6 keys are claude-home and claude-guidex. A failed or
+# invalid read of one account becomes that account's non-fresh row carrying a
+# sign-in remedy, so the other account stays selectable; only two failed reads
+# fail the collection. Each non-fresh Claude row carries state.remedy.
 # fm_claude_repo_lane <project path or registration> <projects root> resolves
 # physical paths; only a path under the physical ~/workspace/guidex qualifies.
 # fm_claude_account_lane <snapshot JSON> <model> <repo lane> [<scoped floor JSON>]
 # delegates selection to the shared quota jq contract. Empty means unknown;
-# unavailable means both measured accounts are ineligible, so dispatch falls
+# unavailable means every readable account is ineligible, so dispatch falls
 # through to its other configured profiles. Fable ties use the repository lane.
 # fm_claude_spawn_root <project> <projects root> <model> <claude executable> [<scoped floor JSON>]
 # prints the automatic root, or an empty line for the ordinary personal login.
@@ -133,16 +136,34 @@ fm_quota_snapshot() {
     return $?
   fi
   for name in $FM_WORKER_ACCOUNT_CLAUDE_SHED; do clean+=(-u "$name"); done
-  base=$(fm_run_timed 45 "${clean[@]}" quota-axi --json --no-credential-refresh 2>/dev/null) || return 1
-  guidex=$(fm_run_timed 45 "${clean[@]}" "CLAUDE_CONFIG_DIR=$root" quota-axi --provider claude --json --no-credential-refresh 2>/dev/null) || return 1
-  printf '%s\n' "$base" | fm_quota_json_valid || return 1
-  printf '%s\n' "$guidex" | fm_quota_json_valid || return 1
-  jq -cSn --argjson base "$base" --argjson guidex "$guidex" '
-    ([$base.providers[] | select(.provider == "claude")]) as $personal |
-    ([$guidex.providers[] | select(.provider == "claude")]) as $work |
-    if ($personal|length) != 1 or ($work|length) != 1 then error("expected one selected Claude account per read")
-    else $base | .schemaVersion=6 |
-      .providers=([.providers[] | select(.provider != "claude") | .accountKey=(.accountKey // "default")] +
-        [($personal[0] | .accountKey="claude-home"),($work[0] | .accountKey="claude-guidex")])
-    end'
+  # A valid snapshot is kept even from a failing read, since it can carry the
+  # account's own non-fresh state and remedy.
+  base=$(fm_run_timed 45 "${clean[@]}" quota-axi --json --no-credential-refresh 2>/dev/null) || true
+  base=$(fm_quota_account_read <<< "$base") || base=null
+  guidex=$(fm_run_timed 45 "${clean[@]}" "CLAUDE_CONFIG_DIR=$root" quota-axi --provider claude --json --no-credential-refresh 2>/dev/null) || true
+  guidex=$(fm_quota_account_read <<< "$guidex") || guidex=null
+  [ "$base" != null ] || [ "$guidex" != null ] || return 1
+  jq -cSn --argjson base "$base" --argjson guidex "$guidex" --arg root "$root" '
+    def account($read; $key; $login):
+      ($read.providers // [] | map(select(.provider == "claude"))) as $rows |
+      (if ($rows | length) == 1 then $rows[0]
+       else {provider:"claude", state:{status:"unreadable"}, windows:[],
+             quotaSemantics:{status:"unknown", effectiveAvailability:[]}} end) |
+      .accountKey = $key |
+      if (.state.status // "fresh") == "fresh" then .
+      else .state.remedy = (.state.remedy // "sign in with \($login), then /login") end;
+    ($base // {}) | .schemaVersion=6 |
+      .providers=([.providers[]? | select(.provider != "claude") | .accountKey=(.accountKey // "default")] +
+        [account($base; "claude-home"; "env -u CLAUDE_CONFIG_DIR claude"),
+         account($guidex; "claude-guidex"; "CLAUDE_CONFIG_DIR=\($root) claude")])'
+}
+
+# A usable account read is one valid quota-axi snapshot; anything else is an
+# unreadable account that fm_quota_snapshot reports instead of failing.
+fm_quota_account_read() {
+  local read
+  read=$(cat) || return 1
+  [ -n "$read" ] || return 1
+  printf '%s\n' "$read" | fm_quota_json_valid || return 1
+  printf '%s\n' "$read"
 }
