@@ -894,12 +894,62 @@ test_omnigent_secondmate_session_verdict() {
   pass 'secondmate probe applies the recorded Omnigent session verdict'
 }
 
+test_omnigent_secondmate_relaunch_archives() {
+  local w tools mode out rc
+  for mode in ok http-error refused; do
+    w=$(new_world "omni-relaunch-$mode")
+    add_sm_home "$w" sm1 firstmate:fm-sm1
+    tools=$(make_liveness_tmux "$w")
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$w/serve" "$tools" )
+    printf 'spawn_gen=s1.1.1\nomnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' >> "$w/home/state/sm1.meta"
+    mkdir -p "$w/runtime/bin"
+    cat > "$w/runtime/bin/fm-spawn.sh" <<'SPAWN'
+#!/usr/bin/env bash
+set -euo pipefail
+[ -e "$FM_TMUX_CALL_LOG.killed" ] || exit 1
+printf 'spawned\n' > "$STATE/spawned"
+if [ -f "$FM_HOME/../serve/archived.jsonl" ]; then
+  cp "$FM_HOME/../serve/archived.jsonl" "$STATE/archived-before-spawn"
+fi
+printf 'spawn_gen=replacement\n' > "$STATE/sm1.meta"
+SPAWN
+    chmod +x "$w/runtime/bin/fm-spawn.sh"
+    rc=0
+    out=$(PATH="$tools:$PATH" FM_HOME="$w/home" FM_ROOT="$w/runtime" STATE="$w/home/state" \
+      FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=runner-gone \
+      OMNI_ARCHIVE_MODE="$mode" FM_TEST_FAIL_KILL="$([ "$mode" != refused ] && printf 0 || printf 1)" bash -c '
+      . "$1/bin/fm-secondmate-liveness-lib.sh"
+      fm_secondmate_liveness_lock sm1 || exit 1
+      trap "fm_secondmate_liveness_unlock sm1" EXIT
+      fm_secondmate_liveness_probe "$2" sm1 poll
+      [ "$FM_SM_LIVE_STATUS" = relaunchable ] || exit 1
+      fm_secondmate_liveness_relaunch "$2" sm1
+    ' _ "$ROOT" "$w/home/state/sm1.meta" 2>&1) || rc=$?
+    if [ "$mode" = refused ]; then
+      [ "$rc" = 1 ] || fail 'unconfirmed stop allowed recovery'
+      [ ! -e "$w/home/state/spawned" ] && [ ! -e "$w/serve/archived.jsonl" ] || fail 'unconfirmed stop archived or replaced the worker'
+      grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$w/home/state/sm1.meta" || fail 'unconfirmed stop lost its binding'
+    else
+      [ "$rc" = 0 ] && [ -e "$w/home/state/spawned" ] || fail "$mode recovery failed: $out"
+      if [ "$mode" = ok ]; then
+        jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+          "$w/home/state/archived-before-spawn" >/dev/null || fail 'old session was not archived before replacement'
+      else
+        assert_contains "$out" 'warning: Omnigent archive' 'archive failure must warn without blocking recovery'
+      fi
+    fi
+  done
+  pass 'automatic secondmate recovery archives after stop and before replacement, best-effort'
+}
+
 if [ "${1:-}" = --omnigent ]; then
   test_omnigent_secondmate_session_verdict
+  test_omnigent_secondmate_relaunch_archives
   exit 0
 fi
 
 test_omnigent_secondmate_session_verdict
+test_omnigent_secondmate_relaunch_archives
 
 test_remote_poll_probe_timeout_preserves_route
 test_remote_probe_invalid_budget_stays_bounded
