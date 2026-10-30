@@ -1,0 +1,1 @@
+{"command": ["env", "FM_CODEX_NOTIFY_LIVE=1", "EVIDENCE_DIR=/Users/davidtandoh/.no-mistakes/evidence/01M673X951CCR6EKS9SGVHH1TZ", "bash", "/Users/davidtandoh/.no-mistakes/evidence/01M673X951CCR6EKS9SGVHH1TZ/live-lifecycle.test.sh"], "duration_ms": 53626, "exit": 0, "gate_skip": false, "timed_out": false}

@@ -1,0 +1,7 @@
+Waiting for the host daemon to register with http://127.0.0.1:64473 (up to 30s)...
+Started the host daemon in the background (pid 68947).
+  server: http://127.0.0.1:64473
+  log:    /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/omnigent/data/logs/host/host-20261030-200031-658023.log
+
+Stop it with:
+  omnigent host stop --server http://127.0.0.1:64473

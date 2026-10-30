@@ -1,0 +1,8 @@
+ok - codex-cli 0.166.0 direct: tools start without a nudge; returned gate is handled once; canonical completion signals
+ok - codex-cli 0.166.0 wrapped: tools start without a nudge; returned gate is handled once; canonical completion signals
+recorded-and-labelled=04ada60df95c4943bcd614baac11180e probe=alive server=http://127.0.0.1:64473
+missing-session=dead
+archived Omnigent session 04ada60df95c4943bcd614baac11180e
+native-exit=confirmed archive=confirmed workspace=retained archived-probe=dead
+stopped-daemon-probe=dead
+curl: (7) Failed to connect to 127.0.0.1 port 64473 after 0 ms: Couldn't connect to server

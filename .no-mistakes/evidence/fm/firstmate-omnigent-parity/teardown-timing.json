@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-teardown.test.sh", "--omnigent"], "duration_ms": 14570, "exit": 0, "gate_skip": false, "timed_out": false}

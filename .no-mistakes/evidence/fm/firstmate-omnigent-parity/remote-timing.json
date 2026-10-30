@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-remote-secondmate-capture.test.sh"], "duration_ms": 3613, "exit": 0, "gate_skip": false, "timed_out": false}

@@ -1,0 +1,8 @@
+ok - dry-run and failed launches preserve the old owner and never close it
+ok - replacement claims ownership before old-session stop and archive
+ok - completed handoff permits stale-anchor recovery with the retained token
+ok - existing tmux server preserves set, unset, and empty caller account environments
+ok - failed old-session stop preserves replacement ownership and reports failure
+ok - failed old-session archive warns and keeps the completed handoff
+ok - ordinary, mismatched, revoked, oversized, and same-session claims cannot take over
+ok - replacement death after claim restores the live original owner

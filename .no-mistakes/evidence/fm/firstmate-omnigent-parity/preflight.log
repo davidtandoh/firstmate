@@ -1,0 +1,2 @@
+ok - status and readiness stages are measured; the shared deadline and identity checks remain fail closed
+ok - readiness uses the remaining shared budget instead of a fixed stage limit

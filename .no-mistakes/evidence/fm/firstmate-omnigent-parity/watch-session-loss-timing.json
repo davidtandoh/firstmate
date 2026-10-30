@@ -1,0 +1,1 @@
+{"command": ["env", "FM_TEST_ONLY=test_omnigent_session_loss_reports_dead_instead_of_wedging", "bash", "tests/fm-watch-triage.test.sh"], "duration_ms": 4686, "exit": 0, "gate_skip": false, "timed_out": false}

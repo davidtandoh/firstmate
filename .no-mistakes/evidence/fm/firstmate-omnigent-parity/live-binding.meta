@@ -1,0 +1,10 @@
+omnigent_session=04ada60df95c4943bcd614baac11180e
+omnigent_server=http://127.0.0.1:64473
+omnigent_attach_pid=72318
+omnigent_attach_start=Fri Oct 30 20:00:50 2026
+worktree=/private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/wt
+harness=codex
+kind=scout
+spawn_gen=s1793390450.67627.1041
+omnigent=on
+model=gpt-6.1-sol

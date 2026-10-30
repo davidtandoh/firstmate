@@ -1,0 +1,9 @@
+ok - fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it
+ok - dead wrapped runner stops its exact attach client and recovers
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+ok - late binding archives retired, removed and superseded launches

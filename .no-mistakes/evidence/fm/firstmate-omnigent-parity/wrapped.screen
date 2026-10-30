@@ -1,0 +1,40 @@
+     Before ending your turn with your own background shell or monitor still running, or before waiting on your own pipeline run or a long foreground
+  command, append `paused [at=<epoch>]: {job and completion condition}` to the status file.
+     A declared pause does not arrange resumption: end the model turn only when a task-owned job has an actual completion wake that starts the next
+  turn.
+     Otherwise stay attached until the job returns; in Codex use empty `write_stdin` polls of up to 300000 ms on the running session, or reattach to
+  the task-owned drive after a bounded wait.
+     Read each drive return and handle its gate or outcome before waiting again.
+     The one exception is `respond`: it sent its answer before it began waiting, so reattach with `no-mistakes axi run --wait` instead, and never
+  send the same `respond` again, because it would answer whichever gate parks next without you reading it.
+     Name what you are waiting for and what will let you resume; do not repeat the declaration on every poll.
+     Do not declare active implementation or reasoning as a wait.
+     Firstmate may still raise one first-sight alert; the declared wait then uses the existing long recheck cadence instead of repeated possible-
+  wedge alarms.
+     When you know when the wait clears, include `until <YYYY-MM-DDTHH:MMZ>` (UTC) for a recheck at that time; for your own background job or command
+  with a timeout, that time is its start plus its timeout, rounded up to the minute.
+     Follow the resolution rule below when the wait clears, then resume the task.
+     Use `blocked:` when you are stuck and need help.
+  Run python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/gate.py, read its returned gate, and handle that
+  gate exactly once before replying COMPLETE.
+
+
+• I’ll run the gate script, read its result, and handle the returned gate once before replying COMPLETE.
+
+• Ran python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/gate.py
+  └ {"gate": "approval", "action": "Run python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/gate.py respond …
+    + 1 line (⌃t to expand)
+
+• Ran python3 /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/gate.py respond
+  └ Gate handled; completion confirmed.
+
+• COMPLETE
+
+  Worked for 11s • 20:01
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/wt · Prepare v1 launch brief
+  ← for agents · ? for shortcuts                                                                                            ⚠ 2 warnings · f2 to view
+Omnigent: http://127.0.0.1:64473/c/04ada60df95c4943bcd614baac11180e

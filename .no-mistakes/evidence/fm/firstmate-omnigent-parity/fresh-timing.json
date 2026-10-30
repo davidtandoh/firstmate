@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-fresh-session.test.sh"], "duration_ms": 28244, "exit": 0, "gate_skip": false, "timed_out": false}

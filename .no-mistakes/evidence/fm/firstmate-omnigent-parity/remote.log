@@ -1,0 +1,7 @@
+ok - short capture is unchanged
+ok - oversized capture drains successfully and retains exactly 65536 bytes
+ok - empty failing capture preserves backend exit status
+ok - short failing capture preserves backend exit status
+ok - large failing capture preserves backend exit status
+ok - host-local state overlays the recorded Omnigent session verdict
+ok - host-local launch archives stopped sessions before replacement and only warns on archive failure

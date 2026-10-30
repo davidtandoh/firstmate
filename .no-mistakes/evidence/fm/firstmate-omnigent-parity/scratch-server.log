@@ -1,0 +1,4 @@
+Starting omnigent server on 127.0.0.1:64473
+  database:  sqlite:////private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/omnigent/omnigent.db
+  artifacts: /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/omnigent/artifacts
+  log:       /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-codex-notify-live.pJYs65/omnigent/data/logs/server/server-20261030-200029-855614.log

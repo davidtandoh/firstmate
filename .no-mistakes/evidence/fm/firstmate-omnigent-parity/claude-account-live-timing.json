@@ -1,0 +1,1 @@
+{"command": ["env", "CLAUDE_CONFIG_DIR=/Users/davidtandoh/.claude_b", "bash", "bin/fm-omnigent.sh", "check", "claude"], "duration_ms": 2165, "exit": 0, "gate_skip": false, "timed_out": false}

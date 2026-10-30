@@ -1,0 +1,1 @@
+ok - a wrapped worker whose Omnigent session is gone is reported dead once, not escalated as a wedge
