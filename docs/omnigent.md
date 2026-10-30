@@ -21,6 +21,8 @@ Native permission flags, prompts, busy hooks, and turn-end wiring retain their e
 Quota dispatch continues to use the native harness identity.
 
 `bin/fm-omnigent.sh` queries the local Kit status for every preflight and again when the pane executes its launch.
+Claude launches run one preflight with the selected account before endpoint launch; a control relaunch shares that check with spawn and retains the account refusal before stopping the old worker.
+The pane-side preflight remains independent.
 Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
 The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
 The reports must agree on a running service and its server URL.
@@ -29,6 +31,7 @@ A separate Omnigent executable on `PATH` can be stale.
 The launcher checks the native `--env` capability and server health before invoking that runtime.
 A failure never executes the original native command as a fallback.
 Preflight records stage timing and bounds the combined external-command wait.
+Readiness can use the remaining shared budget instead of a fixed stage allowance.
 Slow or failed stages report timing on stderr; `bin/fm-omnigent.sh`'s header owns the stage limits and timing-log interface.
 The increased status allowance mitigates transient timeouts; it does not establish why a status probe was slow or relax service identity checks.
 
@@ -46,7 +49,7 @@ The observer never reads the terminal display or chooses a session from a shared
 `fm-omnigent.sh` reads the exact session through the supported API, verifies its ID, wrapper label, and creation time against this launch, then sends `PATCH /v1/sessions/<id>` with the requested title.
 Record waiting, response size, and API requests are bounded; the launcher header owns the exact mechanics.
 Naming errors appear on stderr without interrupting the native terminal or changing its exit status.
-The observer handles launch titles only; it does not rename resumed sessions or later conversations created inside the native harness.
+The observer handles the initial launch's title and worker session binding; it does not rename resumed sessions or later conversations created inside the native harness.
 [Verification](verification/omnigent.md#launch-title-verification) distinguishes deterministic coverage from real-wrapper proof.
 
 ## Worker session lifecycle
@@ -68,7 +71,7 @@ Retirement reads the verified handoff under that lock before stopping the attach
 A missing handoff produces a bounded warning and does not block cleanup.
 It records only while the record still names the launching spawn generation and that generation has not retired.
 Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
-The same naming request adds the labels `firstmate.home`, the full home-identity hash, and `firstmate.task`; Omnigent merges labels rather than replacing them.
+The same naming request sets `firstmate.home` to the full home-identity hash and `firstmate.task` to the task id; Omnigent merges labels rather than replacing them.
 A relaunch drops the previous binding from the replacement record.
 
 Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
@@ -81,8 +84,9 @@ The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.
 
 The pane check proves only that the Omnigent attach client is running.
-When it reads alive, the stale-endpoint report and the current-state reader also make one bounded read of the server's `/health` and the recorded session.
+When it reads alive and a session binding exists, supervision readers and local or remote secondmate liveness probes also make one bounded read of the server's `/health` and the recorded session.
 An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
+An absent binding or an inconclusive session response leaves the pane verdict unchanged.
 Lifecycle commands use the dead-session verdict to stop a retained attach client, then require the pane-level verdict to confirm that the client stopped.
 
 ## Fresh main sessions
