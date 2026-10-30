@@ -49,6 +49,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/fm-path-lib.sh"
 # shellcheck source=bin/fm-timing-lib.sh
 . "$SCRIPT_DIR/fm-timing-lib.sh"
+. "$SCRIPT_DIR/fm-backend.sh"
 
 fail() {
   [ -z "${PREFLIGHT_STARTED:-}" ] || fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" failed
@@ -92,7 +93,7 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
   ' >/dev/null 2>&1 || title_fail "session $SESSION_ID: launch identity verification failed"
   # Record before naming: retirement depends on the recorded identity, while a
   # rejected title or label PATCH only affects presentation.
-  [ -z "${FM_OMNIGENT_RECORD_META:-}" ] || record_session "$FM_OMNIGENT_RECORD_META" "${FM_OMNIGENT_RECORD_GEN:-}" || true
+  [ -z "${FM_OMNIGENT_RECORD_META:-}" ] || record_session "$FM_OMNIGENT_RECORD_META" "${FM_OMNIGENT_RECORD_GEN:-}" || return 0
   # Omnigent merges PATCH labels into the existing set, so the wrapper's own
   # labels survive. Only a spawn-supplied identity adds Firstmate labels.
   labels='{}'
@@ -129,11 +130,14 @@ record_session() { # <absolute task meta> <spawn generation>
     fm_lock_acquire_wait_bounded "$lock" 150 || title_fail "task record lock unavailable: $meta"
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     status=0
-    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ]; then
+    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
+       [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ]; then
+      archive_bound_session || true
       printf 'error: Omnigent session title: session %s: task record no longer names this launch; not recorded\n' "$SESSION_ID" >&2
       status=1
-    elif ! awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server"' "$meta" > "$tmp" ||
+    elif ! awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server" && $1 != "omnigent_attach_pid" && $1 != "omnigent_attach_start"' "$meta" > "$tmp" ||
       ! printf 'omnigent_session=%s\nomnigent_server=%s\n' "$SESSION_ID" "${SERVER%/}" >> "$tmp" ||
+      ! printf 'omnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" >> "$tmp" ||
       ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir"; then
       rm -f "$tmp"
       printf 'error: Omnigent session title: session %s: task record update failed\n' "$SESSION_ID" >&2
@@ -163,9 +167,34 @@ read_binding() { # <task meta>
 # session workspace is a shared worktree slot. Archive stops the session's
 # runner, so callers invoke it only after the worker is proven stopped.
 archive_session() { # [--dry-run] <task meta>
-  local dry=0
+  local dry=0 locked=0 meta dir lock tmp gen status=0
   if [ "${1:-}" = --dry-run ]; then dry=1; shift; fi
+  if [ "${1:-}" = --record-locked ]; then locked=1; shift; fi
   [ "$#" -eq 1 ] || fail 'archive requires one task record'
+  meta=$1
+  fm_dirname_to dir "$meta"
+  export FM_STATE_OVERRIDE="$dir"
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  lock=$(fm_meta_lock_path "$meta") || return 1
+  if [ "$dry" = 0 ] && [ "$locked" = 0 ]; then
+    fm_lock_acquire_wait_bounded "$lock" 10 || return 1
+  fi
+  if [ "$dry" = 0 ]; then
+    if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
+      gen=$FM_BACKLOG_META_SPAWN_GEN
+      tmp="$meta.omnigent.${BASHPID:-$$}"
+      if awk -F= '$1 != "omnigent_retired_gen"' "$meta" > "$tmp" &&
+         printf 'omnigent_retired_gen=%s\n' "$gen" >> "$tmp"; then
+        fm_backlog_atomic_transition publish "$tmp" "$meta" 'task record' "$dir" || status=1
+      else
+        status=1
+      fi
+      rm -f "$tmp"
+    fi
+    [ "$locked" = 1 ] || fm_lock_release "$lock"
+    [ "$status" = 0 ] || return 1
+  fi
   BINDING_ERROR=
   read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
   [ -n "$SESSION_ID" ] || return 0
@@ -173,6 +202,10 @@ archive_session() { # [--dry-run] <task meta>
     printf 'would archive Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
     return 0
   fi
+  archive_bound_session
+}
+
+archive_bound_session() {
   if ! session_request PATCH '{"archived":true}' ||
     ! printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" '.id == $id and .archived == true' >/dev/null 2>&1; then
     printf 'warning: Omnigent archive: %s\n' "${REQUEST_ERROR:-session $SESSION_ID: archive was not confirmed}" >&2
@@ -212,6 +245,20 @@ probe_session() { # <task meta>
     echo unknown
   fi
 }
+stop_attach() {
+  local meta=$1 pid started current pgid
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  pid=$(fm_meta_get "$meta" omnigent_attach_pid)
+  started=$(fm_meta_get "$meta" omnigent_attach_start)
+  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ -n "$started" ] || return 1
+  [ "$(probe_session "$meta")" = dead ] || return 1
+  current=$(fm_pid_start_time "$pid") || return 1
+  [ "$current" = "$started" ] || return 1
+  pgid=$(LC_ALL=C ps -p "$pid" -o pgid= | tr -d '[:space:]') || return 1
+  [ "$pgid" = "$pid" ] || return 1
+  kill -TERM -- "-$pid"
+}
+
 mode() {
   local file=$1/omnigent value=auto inherited=${FM_OMNIGENT:-}
   case "$inherited" in ''|on|off) ;; *) fail 'FM_OMNIGENT must be on or off' ;; esac
@@ -341,6 +388,7 @@ case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
   probe) probe_session "$@"; exit ;;
+  stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
   check|run|start) ;;
   -h|--help) sed -n '2,/^set /{ /^#/s/^# \{0,1\}//p; }' "$0"; exit ;;
@@ -448,6 +496,10 @@ elif [ -n "${FM_PUBLIC_FOLLOWUP_PRIMARY_HOME:-}" ]; then
 fi
 printf '%s' "$TITLE" | jq -eRs 'length > 0 and (test("[\u0000-\u001f\u007f]") | not)' >/dev/null || fail 'invalid session title identity'
 TITLE_STARTED=$(date +%s)
+. "$SCRIPT_DIR/fm-wake-lib.sh"
+export FM_OMNIGENT_ATTACH_PID=$$
+FM_OMNIGENT_ATTACH_START=$(fm_pid_start_time "$$") || fail 'cannot identify attach process'
+export FM_OMNIGENT_ATTACH_START
 # Keep the native wrapper as the foreground exec owner. Only its diagnostic
 # stderr enters the invocation-private reader; terminal attach/stdin/stdout,
 # signals and native exit status retain the existing transport owner.

@@ -3501,7 +3501,9 @@ if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ] && [ -z "$WORKER_ACCOUNT
     CLAUDE_AUTO_SELECTED=1
   fi
 fi
-if [ "$HARNESS" = claude ] && [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+if [ "$HARNESS" = claude ] && [ "$SPAWN_OMNIGENT_MODE" = on ] &&
+   ! { [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "${FM_CONTROL_OMNIGENT_CHECKED:-}" = 1 ] &&
+       [ "${FM_CONTROL_OMNIGENT_ROOT:-}" = "${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" ]; }; then
   CLAUDE_CONFIG_DIR="${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" "$SCRIPT_DIR/fm-omnigent.sh" check claude || exit 1
 fi
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
@@ -7150,7 +7152,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential omnigent_session omnigent_server", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential omnigent_session omnigent_server omnigent_retired_gen omnigent_attach_pid omnigent_attach_start", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)

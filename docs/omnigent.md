@@ -63,7 +63,8 @@ Takeaway: every wrapped worker's Omnigent session is recorded at launch, watched
 
 A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
 After the session identity check, the launcher records `omnigent_session` and `omnigent_server` in that task record under the record lock.
-It records only while the record still names the launching spawn generation, so a superseded launch cannot overwrite a newer binding.
+It records only while the record still names the launching spawn generation and that generation has not retired.
+Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
 The same naming request adds the labels `firstmate.home`, the full home-identity hash, and `firstmate.task`; Omnigent merges labels rather than replacing them.
 A relaunch drops the previous binding from the replacement record.
 
@@ -72,11 +73,14 @@ Archive is a `PATCH` of `{"archived": true}` for the recorded session only.
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
 Archiving stops the session's runner, so it never runs against a live worker.
 An archive failure warns and never blocks cleanup or relaunch.
+If a dead session retains an attach client, exit signals only the recorded attach process group after checking its process start time and group ownership.
+The daemon and other tasks remain outside that process group.
+Relaunch waits for the attach client to stop before it reuses the endpoint.
 
 The pane check proves only that the Omnigent attach client is running.
 When it reads alive, the stale-endpoint report and the current-state reader also make one bounded read of the server's `/health` and the recorded session.
 An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
-Lifecycle commands such as exit and relaunch keep the pane-level verdict.
+Lifecycle commands use the dead-session verdict to stop a retained attach client, then require the pane-level verdict to confirm that the client stopped.
 
 ## Fresh main sessions
 

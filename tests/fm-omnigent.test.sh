@@ -327,13 +327,17 @@ jq -e --arg home "$home_hash" '.labels["firstmate.home"] == $home and .labels["f
   .labels["omnigent.wrapper"] == "codex-native-ui"' "$TMP_ROOT/serve/title.json" >/dev/null \
   || fail 'launch did not merge Firstmate identity labels'
 printf 'omnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >> "$binding_home/expected.meta"
-cmp "$binding_home/expected.meta" "$binding_home/bound.meta" || fail 'verified session was not recorded exactly once'
+attach_pid=$(sed -n 's/^omnigent_attach_pid=//p' "$binding_home/bound.meta")
+attach_start=$(sed -n 's/^omnigent_attach_start=//p' "$binding_home/bound.meta")
+[[ "$attach_pid" =~ ^[0-9]+$ ]] && [ -n "$attach_start" ] || fail 'launch did not bind its attach process identity'
+sed '/^omnigent_attach_/d' "$binding_home/bound.meta" > "$binding_home/actual.meta"
+cmp "$binding_home/expected.meta" "$binding_home/actual.meta" || fail 'verified session was not recorded exactly once'
 printf 'harness=codex\nomnigent=on\nspawn_gen=s2.2.2\n' > "$binding_home/newer.meta"
 cp "$binding_home/newer.meta" "$binding_home/newer.expected"
 reset_title
 FM_OMNIGENT_RECORD_META="$binding_home/newer.meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 FM_OMNIGENT_HOME_ID="$home_hash" \
   FM_OMNIGENT_TASK=newer FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID=newer "$OMNI" run codex 'stale' 2> "$TMP_ROOT/title-error"
-wait_title
+for _ in $(seq 1 80); do grep -q 'no longer names this launch' "$TMP_ROOT/title-error" && break; sleep 0.1; done
 cmp "$binding_home/newer.expected" "$binding_home/newer.meta" || fail 'superseded launch overwrote a newer task record'
 grep -q 'no longer names this launch' "$TMP_ROOT/title-error" || fail 'superseded launch did not report its skipped record'
 reset_title

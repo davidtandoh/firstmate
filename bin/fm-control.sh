@@ -705,6 +705,15 @@ do_exit() {
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"
   state=$(agent_state)
+  if [ "$state" = alive ] && [ "$(fm_backend_omnigent_agent_state "$state" "$META")" = dead ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$META" \
+      || die "could not stop task $ID's retained Omnigent attach client"
+    wait_agent_state "$EXIT_WAIT" dead >/dev/null \
+      || die "task $ID's retained Omnigent attach client was not confirmed stopped"
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
+  fi
   case "$state" in
     dead)
       printf 'already-stopped'
@@ -1094,6 +1103,8 @@ resolve_relaunch_profile() {
     fi
     if [ "$account_mode" = on ]; then
       CLAUDE_CONFIG_DIR="$account_root" "$SCRIPT_DIR/fm-omnigent.sh" check claude || return 1
+      OMNIGENT_CHECKED_ROOT=$account_root
+      OMNIGENT_CHECKED=1
     fi
   fi
   fm_omp_profile_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
@@ -1279,7 +1290,9 @@ do_relaunch() {
   [ "$TARGET_HARNESS" != claude ] || spawn_args+=(--claude-floor "$TARGET_CLAUDE_FLOOR")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
-  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
+  if FM_CONTROL_OMNIGENT_CHECKED="${OMNIGENT_CHECKED:-0}" \
+      FM_CONTROL_OMNIGENT_ROOT="${OMNIGENT_CHECKED_ROOT:-}" \
+      FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded
