@@ -31,7 +31,7 @@ A separate Omnigent executable on `PATH` can be stale.
 The launcher checks the native `--env` capability and server health before invoking that runtime.
 A failure never executes the original native command as a fallback.
 Preflight records stage timing and bounds the combined external-command wait.
-Readiness can use the remaining shared budget instead of a fixed stage allowance.
+Readiness and the capability check can use the remaining shared budget instead of a fixed stage allowance.
 Slow or failed stages report timing on stderr; `bin/fm-omnigent.sh`'s header owns the stage limits and timing-log interface.
 The increased status allowance mitigates transient timeouts; it does not establish why a status probe was slow or relax service identity checks.
 

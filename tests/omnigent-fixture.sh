@@ -103,7 +103,11 @@ SHIM
   cat > "$service/runtime/bin/omnigent" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
-case "$*" in *--help) printf '  --env KEY=VALUE\n'; exit 0 ;; esac
+case "$*" in *--help)
+  if [ "${OMNI_DELAY_STAGE:-}" = capability ]; then sleep "${OMNI_STAGE_DELAY:-0}"; fi
+  printf '  --env KEY=VALUE\n'
+  exit 0
+  ;; esac
 python3 - "$0" "$@" <<'PY'
 import json, os, pathlib, subprocess, sys, time
 service = pathlib.Path(os.environ['OMNIGENT_CONFIG_HOME']).parent
