@@ -1,0 +1,5 @@
+v1	omnigent-preflight	status	0	0	exit-0
+v1	omnigent-preflight	readiness	0	1000	exit-0
+v1	omnigent-preflight	capability	0	1000	exit-0
+v1	omnigent-preflight	health	0	0	exit-0
+v1	omnigent-preflight	total	0	2000	passed

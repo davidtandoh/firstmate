@@ -1,0 +1,11 @@
+FM_TEST_BEGIN 2026-10-31T03:09:34Z tests/fm-omnigent-preflight.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - status and readiness stages are measured; the shared deadline and identity checks remain fail closed
+ok - readiness uses the remaining shared budget instead of a fixed stage limit
+ok - capability uses the remaining shared budget instead of a fixed stage limit
+ok - capability remains bounded by the shared deadline
+FM_TEST_END 2026-10-31T03:10:22Z tests/fm-omnigent-preflight.test.sh exit=0 duration_ms=48748 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=48826
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=48748 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent-preflight.test.sh duration_ms=48748
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M67YWQP5NBH1N900BYDX3RW9/preflight-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=48826
