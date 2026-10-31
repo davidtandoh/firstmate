@@ -1,0 +1,25 @@
+FM_TEST_BEGIN 2026-10-31T03:02:32Z tests/fm-claude-accounts.test.sh family=standalone expected_gate_skip=none
+GuideX non-Fable -> claude-guidex
+registered GuideX symlink -> claude-guidex
+non-GuideX non-Fable -> claude-home
+Fable personal ahead, GuideX repo -> claude-home
+Fable GuideX ahead, personal repo -> claude-guidex
+personal floor removes the larger allowance -> claude-guidex
+personal floor includes exactly 40% -> claude-home
+raw weekly allowance wins over session headroom -> claude-home
+equal allowance uses repository account -> claude-guidex
+Fable both exhausted -> dispatch fallback
+missing Fable weekly windows stay eligible -> claude-guidex
+unknown model-level bound stays eligible -> claude-home
+measured Fable headroom outranks a missing window -> claude-home
+missing GuideX Fable window stays selectable -> claude-guidex
+unreadable claude-guidex leaves the other account selectable -> claude-home
+unreadable claude-home leaves the other account selectable -> claude-guidex
+GuideX path boundary -> claude-home
+ok - Claude account routing, personal floor, unknown evidence, and per-account reporting
+FM_TEST_END 2026-10-31T03:02:36Z tests/fm-claude-accounts.test.sh exit=0 duration_ms=3752 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=3848
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=3752 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-claude-accounts.test.sh duration_ms=3752
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M67XZWDE3GERX0WVDH939XBP/accounts-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=3848
