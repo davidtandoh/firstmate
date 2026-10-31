@@ -1254,10 +1254,10 @@ for unranked in claude-home claude-guidex; do
   for evidence in unknown missing-priority; do
     if [ "$unranked" = claude-home ]; then
       account_quota 70 20 80 80
-      ranked=claude-guidex
+      ranked='claude-guidex'
     else
       account_quota 20 70 80 80
-      ranked=claude-home
+      ranked='claude-home'
     fi
     jq --arg key "$unranked" --arg evidence "$evidence" '
       (.providers[] | select(.accountKey == $key)).quotaSemantics |=
