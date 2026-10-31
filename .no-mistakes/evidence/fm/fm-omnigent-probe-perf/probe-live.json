@@ -1,0 +1,148 @@
+{
+  "baseline_large_alive": {
+    "elapsed_ms": 266,
+    "exit": 0,
+    "stderr": "",
+    "stdout": "unknown",
+    "timeout": false
+  },
+  "checks": [
+    {
+      "elapsed_ms": 300,
+      "exit": 0,
+      "expected": "alive",
+      "leftover_probe_files": 0,
+      "name": "large real alive record probe 1",
+      "pass_": true,
+      "response_bytes": 236834,
+      "stderr": "",
+      "stdout": "alive",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 475,
+      "exit": 0,
+      "expected": "alive",
+      "leftover_probe_files": 0,
+      "name": "large real alive record probe 2",
+      "pass_": true,
+      "response_bytes": 236834,
+      "stderr": "",
+      "stdout": "alive",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 253,
+      "exit": 0,
+      "expected": "alive",
+      "leftover_probe_files": 0,
+      "name": "large real alive record probe 3",
+      "pass_": true,
+      "response_bytes": 236834,
+      "stderr": "",
+      "stdout": "alive",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 248,
+      "exit": 0,
+      "expected": "alive",
+      "leftover_probe_files": 0,
+      "name": "supervision backend with large real alive record",
+      "pass_": true,
+      "response_bytes": 236834,
+      "stderr": "",
+      "stdout": "alive",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 1075,
+      "exit": 0,
+      "expected": "dead",
+      "leftover_probe_files": 0,
+      "name": "large real dead record probe 1",
+      "pass_": true,
+      "response_bytes": 215006,
+      "stderr": "",
+      "stdout": "dead",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 234,
+      "exit": 0,
+      "expected": "dead",
+      "leftover_probe_files": 0,
+      "name": "large real dead record probe 2",
+      "pass_": true,
+      "response_bytes": 215006,
+      "stderr": "",
+      "stdout": "dead",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 217,
+      "exit": 0,
+      "expected": "dead",
+      "leftover_probe_files": 0,
+      "name": "large real dead record probe 3",
+      "pass_": true,
+      "response_bytes": 215006,
+      "stderr": "",
+      "stdout": "dead",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 463,
+      "exit": 0,
+      "expected": "dead",
+      "leftover_probe_files": 0,
+      "name": "supervision backend with large real dead record",
+      "pass_": true,
+      "response_bytes": 215006,
+      "stderr": "",
+      "stdout": "dead",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 740,
+      "exit": 0,
+      "expected": "dead",
+      "leftover_probe_files": 0,
+      "name": "nonexistent session returns dead",
+      "pass_": true,
+      "response_bytes": null,
+      "stderr": "",
+      "stdout": "dead",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 17,
+      "exit": 0,
+      "expected": "unknown",
+      "leftover_probe_files": 0,
+      "name": "unbound task returns unknown",
+      "pass_": true,
+      "response_bytes": null,
+      "stderr": "",
+      "stdout": "unknown",
+      "timeout": false
+    },
+    {
+      "elapsed_ms": 8,
+      "exit": 0,
+      "expected": "alive",
+      "leftover_probe_files": 0,
+      "name": "unbound task preserves alive pane verdict",
+      "pass_": true,
+      "response_bytes": null,
+      "stderr": "",
+      "stdout": "alive",
+      "timeout": false
+    }
+  ],
+  "large_records_found": [
+    "alive",
+    "dead"
+  ],
+  "server": "http://127.0.0.1:52131"
+}

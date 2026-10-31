@@ -1,0 +1,2 @@
+ok - large session records return the correct supervision verdict within six seconds
+ok - a stopped server or gone session reads dead in the supervision view only when the pane reads alive

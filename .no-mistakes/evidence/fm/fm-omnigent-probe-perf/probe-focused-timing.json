@@ -1,0 +1,1 @@
+{"command": "bash tests/fm-omnigent.test.sh --probe", "duration_ms": 1211, "exit": 0, "gate_skip": false}

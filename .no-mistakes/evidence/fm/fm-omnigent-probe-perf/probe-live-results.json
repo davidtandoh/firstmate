@@ -1,0 +1,97 @@
+{
+  "cases": [
+    {
+      "archived": false,
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record>",
+      "elapsed_ms": 274,
+      "exit": 0,
+      "expected": "alive",
+      "pass": true,
+      "response_bytes": 236834,
+      "runner_online": true,
+      "session_id": "931f4bd03ba3478083b482d4c4b9bf86",
+      "status": "running",
+      "stderr": "",
+      "stdout": "alive",
+      "supervision": {
+        "elapsed_ms": 250,
+        "exit": 0,
+        "stdout": "alive"
+      },
+      "temporary_files_remaining": 0
+    },
+    {
+      "archived": false,
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record>",
+      "elapsed_ms": 238,
+      "exit": 0,
+      "expected": "dead",
+      "pass": true,
+      "response_bytes": 215006,
+      "runner_online": false,
+      "session_id": "ba855d2f0854430986da2b932b1b22fe",
+      "status": "idle",
+      "stderr": "",
+      "stdout": "dead",
+      "supervision": {
+        "elapsed_ms": 282,
+        "exit": 0,
+        "stdout": "dead"
+      },
+      "temporary_files_remaining": 0
+    },
+    {
+      "case": "missing session (HTTP 404)",
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record>",
+      "elapsed_ms": 101,
+      "exit": 0,
+      "expected": "dead",
+      "pass": true,
+      "session_id": "00000000000000000000000000000000",
+      "stderr": "",
+      "stdout": "dead",
+      "temporary_files_remaining": 0
+    },
+    {
+      "case": "no recorded session",
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record>",
+      "elapsed_ms": 23,
+      "exit": 0,
+      "expected": "unknown",
+      "pass": true,
+      "session_id": null,
+      "stderr": "",
+      "stdout": "unknown",
+      "temporary_files_remaining": 0
+    },
+    {
+      "case": "malformed session binding",
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record>",
+      "elapsed_ms": 15,
+      "exit": 0,
+      "expected": "unknown",
+      "pass": true,
+      "session_id": "../invalid",
+      "stderr": "",
+      "stdout": "unknown",
+      "temporary_files_remaining": 0
+    },
+    {
+      "case": "server refuses connection",
+      "command": "bash bin/fm-omnigent.sh probe <isolated task record with non-listening loopback port>",
+      "elapsed_ms": 5137,
+      "exit": 0,
+      "expected": "dead",
+      "pass": true,
+      "stderr": "",
+      "stdout": "dead",
+      "temporary_files_remaining": 0
+    }
+  ],
+  "large_states_found": [
+    "alive",
+    "dead"
+  ],
+  "remote_mutations": false,
+  "server": "http://127.0.0.1:52131"
+}
