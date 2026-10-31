@@ -400,6 +400,17 @@ pass 'archive PATCHes only the recorded session and reports failure without bloc
 # The supervision probe maps a gone server or session to dead.
 probe() { "$OMNI" probe "$binding_home/bound.meta"; }
 [ "$(probe)" = alive ] || fail 'live session did not probe alive'
+# Real records exceed 150 KB. Bound the entire probe, including shell parsing.
+. "$ROOT/bin/fm-timeout-lib.sh"
+for state in alive runner-gone; do
+  expected=alive
+  [ "$state" != runner-gone ] || expected=dead
+  result=$(OMNI_SESSION_PADDING=170000 OMNI_SESSION_STATE="$state" \
+    fm_run_timed 6 bash "$OMNI" probe "$binding_home/bound.meta") \
+    || fail "large $state session probe exceeded its completion bound"
+  [ "$result" = "$expected" ] || fail "large $state session probed $result instead of $expected"
+done
+pass 'large session records return the correct supervision verdict within six seconds'
 for gone in runner-gone failed archived missing; do
   [ "$(OMNI_SESSION_STATE=$gone probe)" = dead ] || fail "$gone session did not probe dead"
 done

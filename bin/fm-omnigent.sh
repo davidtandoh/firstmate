@@ -22,7 +22,7 @@
 # --dry-run prints the resolved executable and service paths without launch.
 # Session title roles and safety boundaries: docs/omnigent.md#session-titles.
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
-# process bound, at most 128 KiB of JSON. No naming retry or session backfill.
+# process bound; naming reads at most 128 KiB of JSON. No naming retry or session backfill.
 # Preflight shares a 50-second external-command budget (status 20s, readiness
 # and capability whatever remains, health 5s), retaining Kit process-identity
 # verification.
@@ -284,7 +284,7 @@ archive_bound_session() {
 # dead means the server is unreachable or the record proves the session's
 # runner is gone, failed, archived or deleted. No binding, or a reply that
 # proves neither, is unknown. One bounded request each; never retried here.
-probe_session() { # <task meta>
+probe_session() ( # <task meta>
   local code body rc=0
   [ "$#" -eq 1 ] || fail 'probe requires one task record'
   if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
@@ -292,25 +292,25 @@ probe_session() { # <task meta>
     "$SERVER/health" 2>/dev/null | jq -e '.status == "ok"' >/dev/null 2>&1; then
     echo dead; return 0
   fi
-  body=$(fm_run_timed 6 curl --silent --max-time 5 --noproxy '*' --proto '=http' \
-    --write-out '\n%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null | head -c 131080) || rc=$?
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-probe.XXXXXX") || { echo unknown; return 0; }
+  trap 'rm -f -- "$body"' EXIT
+  code=$(fm_run_timed 6 curl --silent --max-time 5 --noproxy '*' --proto '=http' \
+    --output "$body" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null) || rc=$?
   [ "$rc" = 0 ] || { echo unknown; return 0; }
-  code=${body##*$'\n'}
-  body=${body%$'\n'*}
   case "$code" in
     404) echo dead; return 0 ;;
     200) ;;
     *) echo unknown; return 0 ;;
   esac
-  if printf '%s' "$body" | jq -e --arg id "$SESSION_ID" '.id == $id and
-    (.archived == true or .status == "failed" or .runner_online == false)' >/dev/null 2>&1; then
+  if jq -e --arg id "$SESSION_ID" '.id == $id and
+    (.archived == true or .status == "failed" or .runner_online == false)' "$body" >/dev/null 2>&1; then
     echo dead
-  elif printf '%s' "$body" | jq -e --arg id "$SESSION_ID" '.id == $id and .runner_online == true' >/dev/null 2>&1; then
+  elif jq -e --arg id "$SESSION_ID" '.id == $id and .runner_online == true' "$body" >/dev/null 2>&1; then
     echo alive
   else
     echo unknown
   fi
-}
+)
 stop_attach() {
   local meta=$1 pid started current pgid
   # shellcheck source=bin/fm-wake-lib.sh
