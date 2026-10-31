@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-omnigent.test.sh", "--claude-accounts"], "coverage": "isolated service and CLI doubles; not live Omnigent acceptance", "duration_ms": 29855, "exit": 0, "gate_skip": false, "gate_skip_reason": ""}
