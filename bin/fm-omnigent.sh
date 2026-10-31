@@ -432,12 +432,16 @@ resolve_service() {
   health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
   printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
   CLAUDE_ACCOUNT_ENFORCEMENT=0
+  # Retain fork provenance; capability support survives upgrades without a
+  # commit allowlist. Only an exact entry in the help's capability section counts.
   if printf '%s' "$status" | jq -e '
-    .omnigent.repository == "https://github.com/davidtandoh/omnigent.git" and
-    (.omnigent.commit == "ee228c44a98dd36c149f73025905817b003282c0" or
-     .omnigent.commit == "bea4e262f08245deabed86a9b1eb4cafbcac1423" or
-     .omnigent.commit == "bbda8af3d7e7792b16d957cfdadd116449712135")
-  ' >/dev/null 2>&1; then
+    .omnigent.repository == "https://github.com/davidtandoh/omnigent.git"
+  ' >/dev/null 2>&1 && printf '%s\n' "$help" | awk '
+    /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
+    /^[^[:space:]]/ { section = 0 }
+    section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
+    END { exit !found }
+  '; then
     CLAUDE_ACCOUNT_ENFORCEMENT=1
   fi
   if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ]; then

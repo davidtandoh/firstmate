@@ -1611,9 +1611,11 @@ Relaunch validates automatic account availability and enforcement before stoppin
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
 Omnigent launches pass a non-empty selected directory verbatim through the native environment interface and omit empty or unset selectors for the ordinary personal account.
 An empty `CLAUDE_CONFIG_DIR` must not reach Claude because Claude treats it as the current directory and writes session state there.
-Firstmate verifies the running service through Kit status and admits the enforcement commits merged in Omnigent PRs [18](https://github.com/davidtandoh/omnigent/pull/18) and [17](https://github.com/davidtandoh/omnigent/pull/17), and the descendant build merged in PR [19](https://github.com/davidtandoh/omnigent/pull/19).
-An unrecognized service build refuses a non-empty selected account before launch or before relaunch stops the current worker.
-Ordinary personal launches on older builds keep the daemon's ambient default and send no account override.
+Firstmate requires Kit status to identify `https://github.com/davidtandoh/omnigent.git` and the managed runtime's `claude --help` to advertise the exact `claude-account-enforcement` token in its `Capabilities:` section.
+The token can be followed by whitespace and a description; a suffixed token or text outside that section does not qualify.
+The existing help probe supplies this check; no commit allowlist or additional help probe is required.
+If either requirement fails, Firstmate refuses a non-empty selected account before launch or before relaunch stops the current worker.
+Ordinary personal launches without this capability keep the daemon's ambient default and send no account override.
 T3 Code refuses automatic routing because its provider instance owns the account.
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
