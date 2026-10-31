@@ -1,0 +1,47 @@
+FM_TEST_BEGIN 2026-10-31T01:09:41Z tests/fm-omnigent.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - only native Omnigent launch commands identify an agent
+ok - session detection, explicit home policy, and inherited mode fail closed
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - exact advertised capability admits new fork builds and preserves provenance and single-probe boundaries
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - fresh primary launch keeps the firstmate title and forwards its handoff token
+ok - main, every wrapped worker, and secondmate primary receive exact role titles
+ok - naming fails visibly within bounds and preserves the native launch exit status
+ok - private stderr observation preserves bytes, foreground exec identity, signals and bounded record waiting
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - check, dry run, and launch select web activation and retained rollback afresh
+ok - malformed, unsafe, inconsistent readiness and stopped service refuse
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - Omnigent attach uses UTF-8 or refuses before native launch
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - managed executable receives exact arguments and explicit worker environment
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - native git configuration is forwarded as a complete counted set or not at all
+ok - launch records its verified session only in its own generation and confirms merged identity labels
+ok - archive PATCHes only the recorded session and reports failure without blocking
+ok - a stopped server or gone session reads dead in the supervision view only when the pane reads alive
+ok - missing, unreachable, malformed service and unverified harness refuse
+ok - spawn refuses before endpoint publication when tracing is unavailable
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - ship and scout pane launches preserve dispatch, notify, and explicit session environment, and record their labelled session
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - local secondmate receives its isolated home and passes mode to its own workers
+ok - ordinary sessions preserve direct launch while serve is unavailable
+ok - wrapped launches refuse guarantees the additive daemon environment cannot enforce
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Web UI: http://127.0.0.1:6767/c/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+not ok - tests/fm-omnigent.test.sh exceeded the per-script bound of 90s and was terminated
+FM_TEST_END 2026-10-31T01:11:11Z tests/fm-omnigent.test.sh exit=124 duration_ms=90544 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=90634
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=90544 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent.test.sh duration_ms=90544
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M67QXQTMAHQYDAJ33JMSKC8F/omnigent-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=90634

@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 90544,
+      "failed": 1,
+      "name": "pure-contract-unit"
+    }
+  ],
+  "finished_at": "2026-10-31T01:11:11Z",
+  "run_id": "fm-test-run-1793408981285-73464",
+  "scripts": [
+    {
+      "duration_ms": 90544,
+      "exit": 124,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-omnigent.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-10-31T01:09:41Z",
+  "summary": {
+    "duration_ms": 90634,
+    "failed": 1,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}
