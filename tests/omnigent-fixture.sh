@@ -61,7 +61,7 @@ session = {'id': url.rsplit('/', 1)[-1], 'labels': {'omnigent.wrapper': labels[h
            'created_at': time.time(), 'title': None, 'status': 'idle',
            'runner_online': True, 'archived': False}
 # Session reads for supervision: OMNI_SESSION_STATE selects the record shape;
-# --write-out appends the HTTP status the way curl does.
+# --output and --write-out keep the body and HTTP status separate like curl.
 state = os.environ.get('OMNI_SESSION_STATE', 'alive')
 code = 200
 if state == 'runner-gone':
@@ -83,7 +83,13 @@ if method == 'PATCH' and body.get('archived') is True:
     print(json.dumps(session))
     sys.exit(0)
 if '--write-out' in args:
-    print((json.dumps(session) if code == 200 else '{"error":"not found"}') + '\n' + str(code))
+    session['padding'] = 'x' * int(os.environ.get('OMNI_SESSION_PADDING', '0'))
+    response = json.dumps(session) if code == 200 else '{"error":"not found"}'
+    if '--output' in args:
+        pathlib.Path(args[args.index('--output') + 1]).write_text(response)
+    else:
+        sys.stdout.write(response)
+    sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 if mode == 'wrong-id':
     session['id'] = 'b' * 32

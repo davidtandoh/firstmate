@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Contracts for the Omnigent launch boundary and its observed process shapes.
 # Run with --claude-accounts for focused Claude account boundary checks.
+# Run with --probe for focused session-probe and supervision checks.
 set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 . "$ROOT/bin/fm-agent-process-lib.sh"
 
-if [ "${1:-}" != --claude-accounts ]; then
+if [ "${1:-}" != --claude-accounts ] && [ "${1:-}" != --probe ]; then
 for harness in claude codex kiro agy antigravity; do
   got=$(fm_agent_process_classify_name python3.12 python3 "/home/user/serve/runtime/bin/python3 /home/user/serve/runtime/bin/omnigent $harness --server http://127.0.0.1:6767")
   [ "$got" = agent ] || fail "Omnigent $harness Python wrapper should be an agent, got $got"
@@ -44,7 +45,7 @@ trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
 OMNI="$ROOT/bin/fm-omnigent.sh"
-if [ "${1:-}" != --claude-accounts ]; then
+if [ "${1:-}" != --claude-accounts ] && [ "${1:-}" != --probe ]; then
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
 [ "$(mode)" = off ] || fail 'ordinary sessions must stay native'
 [ "$(OMNIGENT=1 "$OMNI" mode "$TMP_ROOT/config")" = on ] || fail 'verified Omnigent marker must enable wrapping'
@@ -73,6 +74,47 @@ fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
+if [ "${1:-}" != --claude-accounts ]; then
+probe_home="$TMP_ROOT/probe/state"
+mkdir -p "$probe_home"
+printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$probe_home/bound.meta"
+printf 'harness=codex\nomnigent=on\n' > "$probe_home/newer.meta"
+# The supervision probe maps a gone server or session to dead.
+probe() { "$OMNI" probe "$probe_home/bound.meta"; }
+[ "$(probe)" = alive ] || fail 'live session did not probe alive'
+# Real records exceed 150 KB. Bound the entire probe, including shell parsing.
+. "$ROOT/bin/fm-timeout-lib.sh"
+for state in alive runner-gone; do
+  expected=alive
+  [ "$state" != runner-gone ] || expected=dead
+  result=$(OMNI_SESSION_PADDING=170000 OMNI_SESSION_STATE="$state" \
+    fm_run_timed 6 bash "$OMNI" probe "$probe_home/bound.meta") \
+    || fail "large $state session probe exceeded its completion bound"
+  [ "$result" = "$expected" ] || fail "large $state session probed $result instead of $expected"
+done
+pass 'large session records return the correct supervision verdict within six seconds'
+for gone in runner-gone failed archived missing; do
+  [ "$(OMNI_SESSION_STATE=$gone probe)" = dead ] || fail "$gone session did not probe dead"
+done
+[ "$(OMNI_HEALTH=down probe)" = dead ] || fail 'unreachable server did not probe dead'
+[ "$(OMNI_SESSION_STATE=server-error probe)" = unknown ] || fail 'unproven session reply was treated as a verdict'
+[ "$("$OMNI" probe "$probe_home/newer.meta")" = unknown ] || fail 'record without a session was given a verdict'
+(
+. "$ROOT/bin/fm-backend.sh"
+[ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = dead ] \
+  || fail 'supervision view kept a wrapped worker with a gone session alive'
+[ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = alive ] || fail 'supervision view changed a live wrapped worker'
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$probe_home/bound.meta")" = missing ] \
+  || fail 'supervision view rewrote a non-alive pane verdict'
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$probe_home/newer.meta")" = alive ] \
+  || fail 'supervision view probed a record without a session'
+)
+pass 'a stopped server or gone session reads dead in the supervision view only when the pane reads alive'
+fi
+if [ "${1:-}" = --probe ]; then
+  exit 0
+fi
+
 "$OMNI" check codex
 cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
 legacy_help='  --env KEY=VALUE'
@@ -396,27 +438,6 @@ rm -f "$TMP_ROOT/serve/requests.jsonl"
 if "$OMNI" archive "$binding_home/forged.meta" > "$TMP_ROOT/out" 2>&1; then fail 'malformed recorded session was archived'; fi
 [ ! -e "$TMP_ROOT/serve/requests.jsonl" ] || fail 'malformed recorded session reached the service'
 pass 'archive PATCHes only the recorded session and reports failure without blocking'
-
-# The supervision probe maps a gone server or session to dead.
-probe() { "$OMNI" probe "$binding_home/bound.meta"; }
-[ "$(probe)" = alive ] || fail 'live session did not probe alive'
-for gone in runner-gone failed archived missing; do
-  [ "$(OMNI_SESSION_STATE=$gone probe)" = dead ] || fail "$gone session did not probe dead"
-done
-[ "$(OMNI_HEALTH=down probe)" = dead ] || fail 'unreachable server did not probe dead'
-[ "$(OMNI_SESSION_STATE=server-error probe)" = unknown ] || fail 'unproven session reply was treated as a verdict'
-[ "$("$OMNI" probe "$binding_home/newer.meta")" = unknown ] || fail 'record without a session was given a verdict'
-(
-. "$ROOT/bin/fm-backend.sh"
-[ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$binding_home/bound.meta")" = dead ] \
-  || fail 'supervision view kept a wrapped worker with a gone session alive'
-[ "$(fm_backend_omnigent_agent_state alive "$binding_home/bound.meta")" = alive ] || fail 'supervision view changed a live wrapped worker'
-[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$binding_home/bound.meta")" = missing ] \
-  || fail 'supervision view rewrote a non-alive pane verdict'
-[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$binding_home/newer.meta")" = alive ] \
-  || fail 'supervision view probed a record without a session'
-)
-pass 'a stopped server or gone session reads dead in the supervision view only when the pane reads alive'
 
 if OMNI_HEALTH=down "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'unreachable server accepted'; fi
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"
