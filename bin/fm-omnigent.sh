@@ -22,7 +22,8 @@
 # --dry-run prints the resolved executable and service paths without launch.
 # Session title roles and safety boundaries: docs/omnigent.md#session-titles.
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
-# process bound; naming reads at most 128 KiB of JSON. No naming retry or session backfill.
+# process bound; naming and archive responses are limited to 128 KiB of JSON.
+# No naming retry or session backfill.
 # Preflight shares a 50-second external-command budget (status 20s, readiness
 # and capability whatever remains, health 5s), retaining Kit process-identity
 # verification.
@@ -292,6 +293,7 @@ probe_session() ( # <task meta>
     "$SERVER/health" 2>/dev/null | jq -e '.status == "ok"' >/dev/null 2>&1; then
     echo dead; return 0
   fi
+  # Keep large records out of shell pattern expansion so parsing cannot stall supervision.
   body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-probe.XXXXXX") || { echo unknown; return 0; }
   trap 'rm -f -- "$body"' EXIT
   code=$(fm_run_timed 6 curl --silent --max-time 5 --noproxy '*' --proto '=http' \
