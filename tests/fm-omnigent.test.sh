@@ -75,18 +75,38 @@ OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
 "$OMNI" check codex
 cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
-jq '.omnigent.commit="f165e117cfefa08df674d5a837025f51b7834536"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
-CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
+legacy_help='  --env KEY=VALUE'
+OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'legacy personal launch received an account override'
-if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
+if OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
 grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
-# The running fork build descends from the enforcing commit and is admitted.
-jq '.omnigent.commit="bbda8af3d7e7792b16d957cfdadd116449712135"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+# A previously unknown fork build is admitted by capability, with one help probe.
+jq '.omnigent.commit="4bcd9fbf71d38290d7d4915ace697cd08cf515d8"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+: > "$TMP_ROOT/serve/runtime/bin/help.log"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
 jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
-  || fail 'admitted daemon build did not receive the selected Claude account'
+  || fail 'capable daemon build did not receive the selected Claude account'
+[ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'account enforcement added another help probe'
+for help in \
+  "$legacy_help
+  claude-account-enforcement" \
+  "$legacy_help
+Capabilities:
+  claude-account-enforcement-extra" \
+  "$legacy_help
+Capabilities:
+  other-capability
+Examples:
+  claude-account-enforcement"; do
+  if OMNI_HELP="$help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then
+    fail 'non-capability text accepted as Claude account enforcement'
+  fi
+done
+jq '.omnigent.repository="https://github.com/other/omnigent.git"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
+if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'foreign repository accepted for account enforcement'; fi
+pass 'exact advertised capability admits new fork builds and preserves provenance and single-probe boundaries'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
 CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'empty personal selector reached the daemon boundary'
