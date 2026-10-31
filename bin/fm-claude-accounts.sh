@@ -6,8 +6,8 @@
 # --dry-run reads quota and prints the account and Claude configuration selector;
 # it never launches a worker, changes login, or writes configuration.
 # --snapshot uses captured quota without contacting quota-axi.
-# Exit 1 means unavailable or unknown Fable allowance; use the remaining
-# dispatch profiles. The home account pin wins, then an explicit
+# An automatic --dry-run exits 1 when no Fable account can be selected; use
+# the remaining dispatch profiles. The home account pin wins, then an explicit
 # CLAUDE_CONFIG_DIR, then automatic routing.
 # bin/fm-claude-accounts-lib.sh owns account collection and binding.
 set -euo pipefail

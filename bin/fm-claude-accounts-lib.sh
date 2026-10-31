@@ -7,10 +7,9 @@
 # login with CLAUDE_CONFIG_DIR unset and the GuideX login with its exact root
 # selected. quota-axi alone reads credentials, caches, and quota semantics;
 # --no-credential-refresh forbids delegated login renewal. No auth data is read
-# or printed here. Schema 6 keys are claude-home and claude-guidex. A failed or
-# invalid read of one account becomes that account's non-fresh row carrying a
-# sign-in remedy, so the other account stays selectable; only two failed reads
-# fail the collection. Each non-fresh Claude row carries state.remedy.
+# or printed here. Schema 6 keys are claude-home and claude-guidex; each
+# non-fresh Claude row carries state.remedy. Collection failure handling is
+# documented in docs/configuration.md under "Automatic Claude accounts".
 # fm_claude_repo_lane <project path or registration> <projects root> resolves
 # physical paths; only a path under the physical ~/workspace/guidex qualifies.
 # fm_claude_account_lane <snapshot JSON> <model> <repo lane> [<scoped floor JSON>]
@@ -159,7 +158,7 @@ fm_quota_snapshot() {
 }
 
 # A usable account read is one valid quota-axi snapshot; anything else is an
-# unreadable account that fm_quota_snapshot reports instead of failing.
+# unreadable account that fm_quota_snapshot reports if another snapshot is valid.
 fm_quota_account_read() {
   local read
   read=$(cat) || return 1
