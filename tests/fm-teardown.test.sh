@@ -6047,9 +6047,48 @@ test_status_archive_nested_secondmate_children() {
   pass "forced secondmate retirement preserves two descendant levels and refuses linked child directories"
 }
 
+# Forced secondmate retirement archives each wrapped local descendant's session
+# after closing its endpoint, including a grandchild whose observer had only
+# published its pending handoff; an archive failure warns without blocking.
+test_forced_secondmate_archives_descendant_omnigent_sessions() {
+  local case_dir home nested_home rc archive_mode
+  for archive_mode in ok http-error; do
+    case_dir=$(make_case "omni-children-$archive_mode")
+    write_meta "$case_dir" local-only secondmate
+    home="$case_dir/secondmate-home"
+    nested_home="$home/nested-home"
+    mkdir -p "$home/state" "$home/data" "$home/config" "$home/projects" \
+      "$nested_home/state" "$nested_home/data" "$nested_home/config" "$nested_home/projects"
+    printf 'task-x1\n' > "$home/.fm-secondmate-home"
+    printf 'nested-sm\n' > "$nested_home/.fm-secondmate-home"
+    printf 'home=%s\n' "$home" >> "$case_dir/state/task-x1.meta"
+    fm_write_meta "$home/state/nested-sm.meta" "window=firstmate:fm-nested-sm" \
+      "kind=secondmate" "mode=local-only" "home=$nested_home" "project=$case_dir/project" "worktree=$case_dir/wt" \
+      "omnigent=on" "omnigent_session=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "omnigent_server=http://127.0.0.1:6767"
+    fm_write_meta "$nested_home/state/grandchild.meta" "window=firstmate:fm-grandchild" \
+      "kind=scout" "mode=local-only" "project=$case_dir/project" "worktree=$case_dir/wt" \
+      "spawn_gen=g1" "omnigent=on"
+    printf 'spawn_gen=g1\nomnigent_session=cccccccccccccccccccccccccccccccc\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=\nomnigent_attach_start=\n' \
+      > "$nested_home/state/.grandchild.omnigent.g1.meta"
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+    rc=0
+    OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 0 "$rc" "omni-children-$archive_mode: forced retirement failed: $(cat "$case_dir/stderr")"
+    assert_absent "$home" "forced retirement retained secondmate home"
+    if [ "$archive_mode" = ok ]; then
+      jq -se '(map(.id) | sort) == ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","cccccccccccccccccccccccccccccccc"] and all(.[]; .body == {archived:true})' \
+        "$case_dir/serve/archived.jsonl" >/dev/null 2>&1 || fail "forced retirement did not archive exactly the descendant sessions"
+    else
+      assert_grep 'warning: Omnigent archive' "$case_dir/stderr" "a failed descendant archive was not reported"
+    fi
+  done
+  pass "forced secondmate retirement archives descendant Omnigent sessions, best-effort"
+}
+
 if [ "${1:-}" = --omnigent ]; then
   test_teardown_archives_the_recorded_omnigent_session
   test_teardown_captures_before_killing_observer
+  test_forced_secondmate_archives_descendant_omnigent_sessions
   exit 0
 fi
 
@@ -6062,6 +6101,7 @@ test_record_export_archives_before_teardown_or_preserves_sources_on_failure
 test_record_export_captures_forced_secondmate_sub_state
 test_record_export_waits_for_endpoint_quiescence_before_archiving
 test_status_archive_nested_secondmate_children
+test_forced_secondmate_archives_descendant_omnigent_sessions
 test_status_archive_missing_status_noop
 test_status_archive_reuse_and_retention
 test_status_archive_unsafe_paths_refuse

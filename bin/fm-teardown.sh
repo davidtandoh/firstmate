@@ -3456,7 +3456,7 @@ endpoint_close_refusal() {  # <subject> <backend> <target> <honors-force>
 }
 
 cleanup_firstmate_home_children() {
-  local home=$1 archive_parent=${2:-$ID} sub_state child_meta child_id child_t child_wt child_proj child_kind child_home child_rex_home child_backend child_orca_worktree_id child_return_rc child_busy_gen child_owner_rc child_pool_slot
+  local home=$1 archive_parent=${2:-$ID} sub_state child_meta child_id child_t child_wt child_proj child_kind child_home child_rex_home child_backend child_orca_worktree_id child_return_rc child_busy_gen child_owner_rc child_pool_slot child_omnigent
   sub_state="$home/state"
   [ -d "$sub_state" ] || return 0
   for child_meta in "$sub_state"/*.meta; do
@@ -3477,6 +3477,15 @@ cleanup_firstmate_home_children() {
       if [ -n "$child_wt" ] && [ -e "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
       fi
+    fi
+    # A local wrapped child's session is captured while its observer can still
+    # publish a pending handoff, then archived once its endpoint is closed,
+    # before its record is removed. preflight_descendant_task_locks already
+    # holds the child's record lock. Both are best-effort and only warn.
+    child_omnigent=0
+    if [ "$(meta_value "$child_meta" omnigent)" = on ] && [ -z "$(meta_value "$child_meta" remote_host)" ]; then
+      child_omnigent=1
+      "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$child_meta" || true
     fi
     if [ -n "$child_t" ]; then
       if [ "$child_backend" = herdr ]; then
@@ -3508,6 +3517,9 @@ cleanup_firstmate_home_children() {
         fm_backend_kill "$child_backend" "$child_t" "$(meta_value "$child_meta" zellij_tab_id)" "fm-$child_id" \
           || { endpoint_close_refusal "child $child_id" "$child_backend" "$child_t" 0; return 1; }
       fi
+    fi
+    if [ "$child_omnigent" = 1 ]; then
+      "$SCRIPT_DIR/fm-omnigent.sh" archive --record-locked "$child_meta" >/dev/null || true
     fi
     teardown_export_records "$sub_state" "$child_id" || return 1
     if [ "$child_kind" = secondmate ]; then

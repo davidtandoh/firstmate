@@ -75,6 +75,7 @@ The same naming request sets `firstmate.home` to the full home-identity hash and
 A relaunch drops the previous binding from the replacement record.
 
 Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
+Forced secondmate cleanup does the same for each local descendant before removing its record, and automatic local secondmate recovery captures the handoff before closing the old endpoint.
 Archive is a `PATCH` of `{"archived": true}` for the recorded session only.
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
 Archiving stops the session's runner, so it never runs against a live worker.
