@@ -942,14 +942,57 @@ SPAWN
   pass 'automatic secondmate recovery archives after stop and before replacement, best-effort'
 }
 
+# The observer published its handoff but was still waiting for the record lock
+# when its attach client exited: recovery must capture that pending binding
+# before closing the endpoint (which kills the observer) and archive it.
+test_omnigent_secondmate_relaunch_captures_pending_handoff() {
+  local w tools out rc
+  w=$(new_world omni-relaunch-pending)
+  add_sm_home "$w" sm1 firstmate:fm-sm1
+  tools=$(make_liveness_tmux "$w")
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$w/serve" "$tools" )
+  printf 'spawn_gen=s1.1.1\nomnigent=on\n' >> "$w/home/state/sm1.meta"
+  printf 'spawn_gen=s1.1.1\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=\nomnigent_attach_start=\n' \
+    > "$w/home/state/.sm1.omnigent.s1.1.1.meta"
+  mkdir -p "$w/runtime/bin"
+  cat > "$w/runtime/bin/fm-spawn.sh" <<'SPAWN'
+#!/usr/bin/env bash
+set -euo pipefail
+[ -e "$FM_TMUX_CALL_LOG.killed" ] || exit 1
+cp "$STATE/sm1.meta" "$STATE/meta-before-spawn"
+if [ -f "$FM_HOME/../serve/archived.jsonl" ]; then
+  cp "$FM_HOME/../serve/archived.jsonl" "$STATE/archived-before-spawn"
+fi
+printf 'spawn_gen=replacement\n' > "$STATE/sm1.meta"
+SPAWN
+  chmod +x "$w/runtime/bin/fm-spawn.sh"
+  rc=0
+  out=$(PATH="$tools:$PATH" FM_HOME="$w/home" FM_ROOT="$w/runtime" STATE="$w/home/state" \
+    FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=runner-gone bash -c '
+    . "$1/bin/fm-secondmate-liveness-lib.sh"
+    fm_secondmate_liveness_lock sm1 || exit 1
+    trap "fm_secondmate_liveness_unlock sm1" EXIT
+    FM_SM_LIVE_STATE=dead FM_SM_LIVE_KILL=1 FM_SM_LIVE_RESUME=0
+    fm_secondmate_liveness_relaunch "$2" sm1
+  ' _ "$ROOT" "$w/home/state/sm1.meta" 2>&1) || rc=$?
+  [ "$rc" = 0 ] || fail "pending-handoff recovery failed: $out"
+  grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$w/home/state/meta-before-spawn" \
+    || fail 'recovery did not capture the pending session handoff'
+  jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+    "$w/home/state/archived-before-spawn" >/dev/null || fail 'recovery lost the pending session instead of archiving it'
+  pass 'automatic secondmate recovery captures a pending session handoff before closing the endpoint'
+}
+
 if [ "${1:-}" = --omnigent ]; then
   test_omnigent_secondmate_session_verdict
   test_omnigent_secondmate_relaunch_archives
+  test_omnigent_secondmate_relaunch_captures_pending_handoff
   exit 0
 fi
 
 test_omnigent_secondmate_session_verdict
 test_omnigent_secondmate_relaunch_archives
+test_omnigent_secondmate_relaunch_captures_pending_handoff
 
 test_remote_poll_probe_timeout_preserves_route
 test_remote_probe_invalid_budget_stays_bounded

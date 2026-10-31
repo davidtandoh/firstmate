@@ -324,6 +324,11 @@ fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
     FM_SM_LIVE_RC=1
     return 1
   fi
+  # Capture a wrapped local session while its observer can still publish a
+  # pending handoff; closing the endpoint below kills that observer.
+  if [ "$(fm_meta_get "$meta" omnigent)" = on ] && [ -z "$(fm_meta_get "$meta" remote_host)" ]; then
+    "$FM_SM_LIVE_LIB_DIR/fm-omnigent.sh" capture "$meta" || true
+  fi
   if [ "$FM_SM_LIVE_KILL" = 1 ]; then
     local backend target window
     backend=$(fm_backend_of_meta "$meta")
