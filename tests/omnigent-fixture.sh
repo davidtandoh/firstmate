@@ -108,7 +108,7 @@ case "$*" in *--help)
   printf '%s\n' "$*" >> "${0%/*}/help.log"
   printf '%s\n' "${OMNI_HELP-  --env KEY=VALUE
 Capabilities:
-  claude-account-enforcement}"
+  claude-account-enforcement --env CLAUDE_CONFIG_DIR=<dir> selects the}"
   exit 0 ;;
 esac
 python3 - "$0" "$@" <<'PY'

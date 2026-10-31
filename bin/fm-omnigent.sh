@@ -439,7 +439,7 @@ resolve_service() {
   ' >/dev/null 2>&1 && printf '%s\n' "$help" | awk '
     /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
     /^[^[:space:]]/ { section = 0 }
-    section && /^[[:space:]]+claude-account-enforcement[[:space:]]*$/ { found = 1 }
+    section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
     END { exit !found }
   '; then
     CLAUDE_ACCOUNT_ENFORCEMENT=1

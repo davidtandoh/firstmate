@@ -89,6 +89,9 @@ CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
 jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
   || fail 'capable daemon build did not receive the selected Claude account'
 [ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'account enforcement added another help probe'
+OMNI_HELP="$legacy_help
+Capabilities:
+  claude-account-enforcement" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude
 for help in \
   "$legacy_help
   claude-account-enforcement" \
