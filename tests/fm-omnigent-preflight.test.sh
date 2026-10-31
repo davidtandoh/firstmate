@@ -7,7 +7,7 @@ set -euo pipefail
 TMP_ROOT=$(fm_test_tmproot fm-omnigent-preflight)
 fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH" FM_TIMING_LOG="$TMP_ROOT/timing.tsv"
-export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=3
+export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=8
 # Delay exactly one service-owned stage without bypassing its returned identity.
 for stage in status readiness; do
   : > "$FM_TIMING_LOG"
@@ -35,3 +35,14 @@ export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=50
 OMNI_DELAY_STAGE=readiness OMNI_STAGE_DELAY=16 bash "$ROOT/bin/fm-omnigent.sh" check codex 2> "$TMP_ROOT/error" \
   || fail "slow readiness inside the shared budget refused: $(cat "$TMP_ROOT/error")"
 pass 'readiness uses the remaining shared budget instead of a fixed stage limit'
+# Capability probing shares the deadline too, including on a busy host.
+: > "$FM_TIMING_LOG"
+OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=11 bash "$ROOT/bin/fm-omnigent.sh" check claude 2> "$TMP_ROOT/error" \
+  || fail "slow capability inside the shared budget refused: $(cat "$TMP_ROOT/error")"
+pass 'capability uses the remaining shared budget instead of a fixed stage limit'
+export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=8
+if OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=10 bash "$ROOT/bin/fm-omnigent.sh" check claude > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+  fail 'preflight accepted a capability command beyond its total budget'
+fi
+grep -q 'stage=capability.*timed out' "$TMP_ROOT/error" || fail 'timeout did not name the capability stage'
+pass 'capability remains bounded by the shared deadline'

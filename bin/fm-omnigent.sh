@@ -24,7 +24,7 @@
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
 # process bound, at most 128 KiB of JSON. No naming retry or session backfill.
 # Preflight shares a 50-second external-command budget (status 20s, readiness
-# whatever remains, capability 10s, health 5s), retaining Kit process-identity
+# and capability whatever remains, health 5s), retaining Kit process-identity
 # verification.
 # A spawn launch passes FM_OMNIGENT_RECORD_META, FM_OMNIGENT_RECORD_GEN,
 # FM_OMNIGENT_HOME_ID and FM_OMNIGENT_TASK. The verified session is then
@@ -427,7 +427,7 @@ resolve_service() {
     fm_dirname_to candidate "$candidate"
   done
   [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "managed executable is missing: $OMNIGENT_BIN"
-  help=$(preflight_stage capability 10 "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
+  help=$(preflight_stage capability "$budget" "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
   health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
   printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
