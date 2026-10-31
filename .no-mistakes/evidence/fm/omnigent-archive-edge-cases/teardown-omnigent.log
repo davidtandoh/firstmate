@@ -1,0 +1,4 @@
+ok - teardown leaves opencode's busy plugin in the returned pool worktree as on main
+ok - teardown archives the recorded Omnigent session and a failed archive only warns
+ok - teardown captures a blocked observer session before killing its process group
+ok - forced secondmate retirement archives descendant Omnigent sessions, best-effort

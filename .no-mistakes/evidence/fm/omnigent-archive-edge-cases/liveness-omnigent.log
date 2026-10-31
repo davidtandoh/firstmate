@@ -1,0 +1,3 @@
+ok - secondmate probe applies the recorded Omnigent session verdict
+ok - automatic secondmate recovery archives after stop and before replacement, best-effort
+ok - automatic secondmate recovery captures a pending session handoff before closing the endpoint
