@@ -75,7 +75,7 @@ FM_QUOTA_ROW_JQ='
         (if $row.accountKey == "claude-home" then
           [{scope:"all_models", min_percent:40}] + claude_floors($floor)
          else [{scope:"all_models", min_percent:0}] end) as $floors |
-        if ($row.state.status // "fresh") != "fresh" then "unknown"
+        if ($row.state.status // "fresh") != "fresh" then "unreadable"
         elif ($weekly != null and $weekly <= 0) or
           any($bounds[]; .runway.status == "exhausted_now" or
             (.status == "known" and .effectivePercentRemaining <= 0)) or
@@ -84,9 +84,7 @@ FM_QUOTA_ROW_JQ='
               .scope == $limit.scope and .status == "known" and
               .effectivePercentRemaining < $limit.min_percent))
         then "unavailable"
-        elif $weekly == null or
-          ($bounds | length) == 0 or any($bounds[]; .status != "known") or
-          any($floors[]; . as $limit |
+        elif any($floors[]; . as $limit |
             ([$row.quotaSemantics.effectiveAvailability[]? | select(.scope == $limit.scope)] | length) == 0 or
             any($row.quotaSemantics.effectiveAvailability[]?;
               .scope == $limit.scope and .status != "known"))
@@ -97,9 +95,14 @@ FM_QUOTA_ROW_JQ='
       [$accounts[] | . + {status:account_status(.row; .weekly)}] as $evaluated |
       [$evaluated[] | select(.status == "ready")] as $ready |
       if ($ready | length) > 0 then
-        ($ready | sort_by([.weekly, (if .row.accountKey == $repo_lane then 1 else 0 end)]) | last | .row.accountKey)
+        ($ready | sort_by([
+          ([.row.quotaSemantics.effectiveAvailability[]? | select(quota_scope_matches(.scope; $model))] |
+            all(.[]; .status == "known" and (.selection.spendPriority | type) == "number")),
+          (.weekly != null), (.weekly // 0), (if .row.accountKey == $repo_lane then 1 else 0 end)]) |
+          last | .row.accountKey)
       elif any($evaluated[]; .status == "unknown") then ""
-      else "unavailable" end
+      elif any($evaluated[]; .status == "unavailable") then "unavailable"
+      else "" end
     end;
 '
 

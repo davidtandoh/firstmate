@@ -1618,8 +1618,13 @@ T3 Code refuses automatic routing because its provider instance owns the account
 Unpinned raw Claude commands require an explicit selector instead of automatic routing.
 
 When `$HOME/.claude_b` exists, the account collector asks `quota-axi` for each login separately and reports schema 6 rows keyed `claude-home` and `claude-guidex`.
-Fable selects the eligible account with more weekly Fable allowance remaining, regardless of the repository.
-Equal allowances use the repository's account.
+A failed read that still returns a valid quota snapshot retains that snapshot, including its reported account state.
+An invalid or missing snapshot becomes that account's unreadable row; every non-fresh account row carries a sign-in remedy.
+The collection fails only when neither read returns a valid quota snapshot.
+Fable first prefers eligible accounts whose applicable quota bounds are all known and have numeric `spendPriority` values, regardless of the repository.
+Within that group, an account with known weekly Fable allowance ranks ahead of one whose weekly allowance is unknown, then more weekly allowance wins.
+If neither account has fully rankable bounds, the same weekly comparison applies among eligible accounts.
+Remaining ties use the repository's account.
 The personal account requires at least 40% `all_models` remaining and must also meet the selected profile floor and applicable rule floor; the GuideX account has no reserve floor.
 Typed dispatch combines the profile and applicable Claude rule floors into a list of scoped floors in its launch arguments.
 The shared account selector applies every floor to the personal account; the GuideX account remains exempt.
@@ -1628,8 +1633,12 @@ Spawn and relaunch accept this list and preserve it in the task record for the s
 Old single-floor records are read as one-item lists.
 An explicit `null` or empty list clears the recorded floors; selecting a replacement profile can supply new floors.
 Account exhaustion excludes that account.
-Missing weekly or applicable account bounds and partial unknown bounds stay unknown unless a known bound proves the account unavailable.
-If neither measured account is eligible, dispatch considers the remaining configured profiles.
+An unreadable account, which is any account whose quota row is not fresh, is excluded from the Fable choice.
+A missing weekly Fable window or an unknown model-scoped bound keeps the account eligible.
+A missing or unknown required floor bound stays unknown unless a known bound proves the account unavailable.
+If at least one account is readable and every readable account is exhausted or below its floor, dispatch considers the remaining configured profiles.
+If no account can be selected because required floor evidence is unknown or every account is unreadable, typed dispatch escalates for resolution.
+Typed dispatch refuses a Fable candidate that is pinned to an unreadable account, names that account's remedy, and considers the remaining configured profiles.
 Other Claude models keep the repository account split and their configured personal-account floor.
 
 [`bin/fm-claude-accounts.sh`](../bin/fm-claude-accounts.sh) reports each account's quota and previews a task with `--dry-run`, including the effective home account pin; its header owns the command flags.

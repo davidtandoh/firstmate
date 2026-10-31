@@ -66,15 +66,18 @@ printf 'Fable both exhausted -> dispatch fallback\n'
 fixture 60 50
 jq 'del(.providers[].windows)' "$SNAPSHOT" > "$TMP_ROOT/unknown.json"
 mv "$TMP_ROOT/unknown.json" "$SNAPSHOT"
-if out=$(select_account projects/guidex_app fable); then fail 'missing weekly evidence selected an account'; fi
-assert_contains "$out" 'account: unknown' 'missing weekly evidence stays unknown'
+expect_account 'missing Fable weekly windows stay eligible' projects/guidex_app fable claude-guidex
 for scope in all_models model:fable; do
   fixture 60 50
   jq --arg scope "$scope" '.providers[].quotaSemantics |= (.status="partial" |
     .effectiveAvailability |= map(if .scope == $scope then {scope:.scope,status:"unknown"} else . end))' "$SNAPSHOT" > "$TMP_ROOT/partial.json"
   mv "$TMP_ROOT/partial.json" "$SNAPSHOT"
-  if out=$(select_account projects/guidex_app fable); then fail 'partial evidence selected an account'; fi
-  assert_contains "$out" 'account: unknown' 'partial applicable evidence stays unknown'
+  if [ "$scope" = all_models ]; then
+    if out=$(select_account projects/guidex_app fable); then fail 'partial account evidence selected an account'; fi
+    assert_contains "$out" 'account: unknown' 'partial account-level evidence stays unknown'
+  else
+    expect_account 'unknown model-level bound stays eligible' projects/guidex_app fable claude-home
+  fi
   jq '.providers[].windows[].percentRemaining=0' "$SNAPSHOT" > "$TMP_ROOT/exhausted.json"
   mv "$TMP_ROOT/exhausted.json" "$SNAPSHOT"
   if out=$(select_account projects/guidex_app fable); then fail 'exhausted partial evidence selected an account'; fi
@@ -85,6 +88,32 @@ jq '.providers[].quotaSemantics.effectiveAvailability |= map(select(.scope != "a
 mv "$TMP_ROOT/missing.json" "$SNAPSHOT"
 if out=$(select_account projects/guidex_app fable); then fail 'missing account bound selected an account'; fi
 assert_contains "$out" 'account: unknown' 'missing account bound stays unknown'
+# One account's missing Fable window or unreadable quota never blocks the other.
+fixture 60 50
+jq '(.providers[] | select(.accountKey == "claude-guidex")) |= del(.windows)' "$SNAPSHOT" > "$TMP_ROOT/no-window.json"
+mv "$TMP_ROOT/no-window.json" "$SNAPSHOT"
+expect_account 'measured Fable headroom outranks a missing window' projects/guidex_app fable claude-home
+fixture 60 50 30 70
+jq '(.providers[] | select(.accountKey == "claude-guidex")) |= del(.windows)' "$SNAPSHOT" > "$TMP_ROOT/no-window.json"
+mv "$TMP_ROOT/no-window.json" "$SNAPSHOT"
+expect_account 'missing GuideX Fable window stays selectable' "$HOME/workspace/other" fable claude-guidex
+for unreadable in claude-guidex claude-home; do
+  fixture 30 30
+  jq --arg key "$unreadable" '(.providers[] | select(.accountKey == $key)).state={status:"auth_required"}' "$SNAPSHOT" > "$TMP_ROOT/unreadable.json"
+  mv "$TMP_ROOT/unreadable.json" "$SNAPSHOT"
+  readable=claude-home
+  [ "$unreadable" != claude-home ] || readable=claude-guidex
+  expect_account "unreadable $unreadable leaves the other account selectable" projects/guidex_app fable "$readable"
+  jq --arg key "$readable" '(.providers[] | select(.accountKey == $key)).windows[].percentRemaining=0' "$SNAPSHOT" > "$TMP_ROOT/unreadable.json"
+  mv "$TMP_ROOT/unreadable.json" "$SNAPSHOT"
+  if out=$(select_account "$HOME/workspace/other" fable); then fail 'unreadable account was selected'; fi
+  assert_contains "$out" 'account: unavailable' 'unreadable account is left out of the choice'
+done
+fixture 30 30
+jq '.providers[].state={status:"auth_required"}' "$SNAPSHOT" > "$TMP_ROOT/unreadable.json"
+mv "$TMP_ROOT/unreadable.json" "$SNAPSHOT"
+if out=$(select_account projects/guidex_app fable); then fail 'no readable account selected an account'; fi
+assert_contains "$out" 'account: unknown' 'no readable account stays unknown'
 fixture 60 50
 out=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/custom" bash "$TOOL" --snapshot "$SNAPSHOT" --project projects/guidex_app --model fable --dry-run)
 assert_contains "$out" 'account: explicit' 'explicit root wins'
@@ -149,7 +178,12 @@ cat > "$TMP_ROOT/tools/quota-axi" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s|%s|%s\n' "${CLAUDE_CONFIG_DIR-unset}" "${CLAUDE_CODE_OAUTH_TOKEN-unset}" "$*" >> "$QUOTA_CALLS"
-if [ "${CLAUDE_CONFIG_DIR-unset}" = unset ]; then
+account=guidex
+[ "${CLAUDE_CONFIG_DIR-unset}" != unset ] || account=personal
+if [ -e "$QUOTA_FAIL.$account" ]; then
+  echo '{"error":"auth_required"}'
+  exit 1
+elif [ "${CLAUDE_CONFIG_DIR-unset}" = unset ]; then
   jq '.schemaVersion=5 | .providers=[(.providers[0] | del(.accountKey))]' "$QUOTA_FIXTURE"
 else
   [ "$CLAUDE_CONFIG_DIR" = "$HOME/.claude_b" ] || exit 2
@@ -157,11 +191,27 @@ else
 fi
 SH
 chmod +x "$TMP_ROOT/tools/quota-axi"
-export PATH="$TMP_ROOT/tools:$PATH" QUOTA_CALLS="$TMP_ROOT/calls" QUOTA_FIXTURE="$SNAPSHOT"
+export PATH="$TMP_ROOT/tools:$PATH" QUOTA_CALLS="$TMP_ROOT/calls" QUOTA_FIXTURE="$SNAPSHOT" QUOTA_FAIL="$TMP_ROOT/quota-fail"
 out=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/inherited" CLAUDE_CODE_OAUTH_TOKEN=fixture bash "$TOOL" --json)
 jq -e '.schemaVersion==6 and ([.providers[].accountKey]|sort)==["claude-guidex","claude-home"]' <<< "$out" >/dev/null || fail 'collector did not expand both Claude rows'
 grep -q '^unset|unset|--json --no-credential-refresh$' "$QUOTA_CALLS" || fail 'personal collection changed its Keychain selector or kept an ambient token'
 grep -qF "$HOME/.claude_b|unset|--provider claude --json --no-credential-refresh" "$QUOTA_CALLS" || fail 'GuideX collection selected the wrong login'
+for failed in guidex personal; do
+  touch "$QUOTA_FAIL.$failed"
+  out=$(bash "$TOOL" --json) || fail "one failed account read failed the collection: $failed"
+  jq -e '.schemaVersion==6 and ([.providers[].accountKey]|sort)==["claude-guidex","claude-home"] and
+    ([.providers[] | select(.state.status == "unreadable") | .state.remedy | strings] | length)==1' <<< "$out" >/dev/null ||
+    fail "failed account read was not reported as one unreadable row with a remedy: $failed"
+  rm "$QUOTA_FAIL.$failed"
+done
+touch "$QUOTA_FAIL.guidex"
+out=$(bash "$TOOL" --json)
+jq -e '(.providers[] | select(.accountKey == "claude-guidex") | .state.remedy | contains("CLAUDE_CONFIG_DIR='"$HOME"'/.claude_b claude"))' <<< "$out" >/dev/null ||
+  fail 'unreadable GuideX remedy does not name its login root'
+touch "$QUOTA_FAIL.personal"
+if bash "$TOOL" --json > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'collection succeeded with no readable account'; fi
+assert_contains "$(cat "$TMP_ROOT/err")" 'account quota collection failed' 'no readable account fails the collection'
+rm "$QUOTA_FAIL.personal" "$QUOTA_FAIL.guidex"
 out=$(bash "$TOOL" --snapshot "$SNAPSHOT")
 assert_contains "$out" 'claude-home' 'report labels personal account'
 assert_contains "$out" 'claude-guidex' 'report labels GuideX account'
@@ -198,6 +248,14 @@ selected_root=$(CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$
 fixture 0 0
 if CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status" > "$TMP_ROOT/out" 2> "$TMP_ROOT/err"; then fail 'spawn selected an exhausted Fable account'; fi
 assert_contains "$(cat "$TMP_ROOT/err")" 'remaining dispatch profiles' 'spawn requests fallback instead of launching exhausted Fable'
+fixture 20 80
+touch "$QUOTA_FAIL.guidex"
+: > "$TMP_ROOT/auth-calls"
+selected_root=$(CLAUDE_CONFIG_DIR='' fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" fable "$TMP_ROOT/tools/claude-status") ||
+  fail 'unreadable GuideX quota blocked a personal Fable spawn'
+[ -z "$selected_root" ] || fail 'Fable spawn selected the unreadable GuideX account'
+grep -q '^unset|.*|auth status$' "$TMP_ROOT/auth-calls" || fail 'personal Fable probe did not run'
+rm "$QUOTA_FAIL.guidex"
 ln -s "$HOME/.claude_b" "$TMP_ROOT/profile-link"
 selected_root=$(CLAUDE_CONFIG_DIR="$TMP_ROOT/profile-link/" fm_claude_spawn_root projects/guidex_app "$TMP_ROOT/projects" sonnet "$TMP_ROOT/tools/claude-status")
 [ "$selected_root" = "$TMP_ROOT/profile-link/" ] || fail 'normalization rewrote a symlink selector'

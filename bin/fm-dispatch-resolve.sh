@@ -454,7 +454,13 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def evaluate($c):
     (provider_of($c)) as $p | (lane_of($c)) as $lane |
     (if $lane == "unavailable" and $c.harness == "claude" then
-      {profile: $c, provider: $p, eligible: false, reason: "both Claude Fable accounts below their available allowance or personal floor"}
+      {profile: $c, provider: $p, eligible: false, reason: "no readable Claude Fable account has allowance above its floor"}
+    elif $c.harness == "claude" and claude_is_fable($c.model) and
+      ($lane == "claude-home" or $lane == "claude-guidex") and
+      (prov($p; $lane) | .accountKey == $lane and (.state.status // "fresh") != "fresh") then
+      prov($p; $lane).state as $state |
+      {profile: $c, provider: $p, eligible: false,
+       reason: "Claude account \($lane) quota unreadable (\($state.status)); \($state.remedy // "refresh that account login")"}
     elif $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
     elif prov($p; $lane) == null then
       {profile: $c, provider: $p, eligible: true, unranked: true,

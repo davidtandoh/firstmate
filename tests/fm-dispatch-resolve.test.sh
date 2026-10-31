@@ -1247,14 +1247,53 @@ account_quota 20 70 60 15
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" 'account=claude-guidex' 'Fable can use GuideX account for personal repository'
 assert_contains "$out" "profile: --harness 'claude'" 'GuideX Fable ignores personal all_models floor'
+cp "$RULES" "$TMP_ROOT/account-array-rules.json"
+jq '.rules[3].use=.rules[3].use[0]' "$RULES" > "$TMP_ROOT/claude-only-rules.json"
+cp "$TMP_ROOT/claude-only-rules.json" "$RULES"
+for unranked in claude-home claude-guidex; do
+  for evidence in unknown missing-priority; do
+    if [ "$unranked" = claude-home ]; then
+      account_quota 70 20 80 80
+      ranked='claude-guidex'
+    else
+      account_quota 20 70 80 80
+      ranked='claude-home'
+    fi
+    jq --arg key "$unranked" --arg evidence "$evidence" '
+      (.providers[] | select(.accountKey == $key)).quotaSemantics |=
+        (.status="partial" | .effectiveAvailability |= map(
+          if .scope != "model:fable" then .
+          elif $evidence == "unknown" then {scope:.scope,status:"unknown",runway:{status:"unknown"}}
+          else del(.selection) end))' "$QUOTA" > "$TMP_ROOT/unranked-account.json"
+    mv "$TMP_ROOT/unranked-account.json" "$QUOTA"
+    TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+    assert_contains "$out" 'status: clear' "$unranked $evidence cannot escalate a rankable alternative"
+    assert_contains "$out" "account=$ranked" "$unranked $evidence selects the other account"
+    assert_contains "$out" "profile: --harness 'claude' --model 'claude-fable-5-1'" "$unranked $evidence retains Fable"
+  done
+done
+cp "$TMP_ROOT/account-array-rules.json" "$RULES"
 account_quota 0 0 39 15
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'both exhausted use the remaining dispatch profiles'
+account_quota 20 70 60 15
+jq '(.providers[] | select(.accountKey == "claude-guidex")).state={status:"unreadable",remedy:"sign in again"} |
+  (.providers[] | select(.accountKey == "claude-guidex")).quotaSemantics={status:"unknown",effectiveAvailability:[]}' "$QUOTA" > "$TMP_ROOT/unreadable.json"
+mv "$TMP_ROOT/unreadable.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'account=claude-home' 'unreadable GuideX quota leaves the personal account selectable'
+assert_contains "$out" "profile: --harness 'claude' --model 'claude-fable-5-1'" 'unreadable GuideX quota does not block Fable'
+account_quota 0 0 39 15
 jq '.rules[3].use[0].model="sonnet"' "$RULES" > "$TMP_ROOT/non-fable-rules.json"
 mv "$TMP_ROOT/non-fable-rules.json" "$RULES"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'account=claude-guidex' 'GuideX non-Fable uses repository account'
 assert_contains "$out" "profile: --harness 'claude' --model 'sonnet'" 'GuideX non-Fable has no personal floor'
+jq '(.providers[] | select(.accountKey == "claude-guidex")).state={status:"stale"}' "$QUOTA" > "$TMP_ROOT/stale-sonnet.json"
+mv "$TMP_ROOT/stale-sonnet.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
+assert_contains "$out" 'status: clear' 'stale quota preserves non-Fable dispatch behavior'
+assert_contains "$out" "profile: --harness 'claude' --model 'sonnet'" 'stale usable bounds retain repository Sonnet'
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" "profile: --harness 'codex' --model 'fallback'" 'personal non-Fable retains configured floor'
 account_quota 70 80 30 70
@@ -1268,6 +1307,16 @@ account_quota 90 20 80 10
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
 assert_contains "$out" 'account=claude-guidex' 'GuideX pin overrides personal repository routing'
 assert_contains "$out" "profile: --harness 'claude'" 'GuideX pin has no personal floor'
+cp "$RULES" "$TMP_ROOT/pinned-sonnet-rules.json"
+jq '.rules[3].use[0].model="fable"' "$RULES" > "$TMP_ROOT/pinned-fable-rules.json"
+mv "$TMP_ROOT/pinned-fable-rules.json" "$RULES"
+jq '(.providers[] | select(.accountKey == "claude-guidex")).state={status:"auth_required",remedy:"sign in with the GuideX login"}' "$QUOTA" > "$TMP_ROOT/unreadable.json"
+mv "$TMP_ROOT/unreadable.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'Claude account claude-guidex quota unreadable (auth_required); sign in with the GuideX login' 'pin to an unreadable account refuses with the remedy'
+assert_contains "$out" "profile: --harness 'codex'" 'pin to an unreadable account falls through to the remaining profiles'
+cp "$TMP_ROOT/pinned-sonnet-rules.json" "$RULES"
+account_quota 90 20 80 10
 printf '%s\n' "$HOME_DIR/custom-profile" > "$HOME_DIR/config/claude-account"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project projects/guidex_app
 assert_contains "$out" 'account=claude-explicit' 'custom pin does not borrow a known account'
@@ -1318,7 +1367,14 @@ assert_not_contains "$out" 'unverifiable' 'unavailable account selection is not 
 jq '(.providers[] | select(.accountKey == "claude-guidex")) |= (del(.windows) | .quotaSemantics.effectiveAvailability |= map(select(.scope != "model:fable")))' "$QUOTA" > "$TMP_ROOT/unknown-weekly.json"
 cp "$TMP_ROOT/unknown-weekly.json" "$QUOTA"
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
-assert_contains "$out" 'status: escalate' 'unknown GuideX weekly allowance remains unknown'
+assert_contains "$out" 'status: clear' 'unknown GuideX Fable allowance keeps GuideX eligible'
+assert_contains "$out" 'account=claude-guidex' 'unknown Fable headroom does not block the remaining account'
+assert_contains "$out" "profile: --harness 'claude' --model 'fable'" 'unknown Fable headroom keeps the Fable rule'
+jq '(.providers[] | select(.accountKey == "claude-guidex")).quotaSemantics |= (.status="partial" |
+  .effectiveAvailability |= map(if .scope == "all_models" then {scope:.scope,status:"unknown"} else . end))' "$QUOTA" > "$TMP_ROOT/unknown-account.json"
+cp "$TMP_ROOT/unknown-account.json" "$QUOTA"
+TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project "$HOME_DIR/workspace/personal"
+assert_contains "$out" 'status: escalate' 'unknown GuideX account-level allowance remains unknown'
 assert_contains "$out" 'unverifiable' 'missing quota evidence cannot authorize default fallback'
 assert_not_contains "$out" 'profile: --harness' 'unknown account selection emits no launch profile'
 account_quota 80 20 50 70
