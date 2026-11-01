@@ -216,6 +216,13 @@ test_ship_modes_generate_clean_briefs() {
     assert_grep 'never a bare number such as "PR 108"' "$brief" "$id: brief missing the full-PR-URL rule"
     assert_grep "mid-task \`working:\` line (including setup complete) is nonterminal" "$brief" \
       "$id: brief missing nonterminal working:/setup-complete gate protection"
+    if [ "$mode" = local-only ]; then
+      assert_no_grep "A companion PR in any repository other than this task's own" "$brief" \
+        "$id: a local-only brief, which opens no PR, gained the companion-PR base rule"
+    else
+      assert_grep "A companion PR in any repository other than this task's own must target that repository's integration branch as named in these instructions, passed explicitly on the PR (\`--base <branch>\`), never the forge default; if these instructions name no integration branch for that repository, append \`needs-decision\` and stop" "$brief" \
+        "$id: brief missing the companion-PR explicit base-branch rule"
+    fi
     assert_no_grep "EOF" "$brief" "$id: brief leaked a heredoc EOF marker (unterminated heredoc)"
   done
   pass "fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly"
