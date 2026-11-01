@@ -52,7 +52,7 @@ test_open_writes_schema_record() {
   assert_equals "opened: gb-hook-1031-decision-1" "$out" "open names the new ask id"
   file="$home/state/captain-asks/gb-hook-1031-decision-1.json"
   assert_present "$file" "the record is one file named by ask id"
-  assert_equals 600 "$(stat -f %Lp "$file" 2>/dev/null || stat -c %a "$file")" "record mode is 600"
+  assert_equals 600 "$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")" "record mode is 600"
   assert_equals "1|gb-hook-1031-decision-1|GB-hook-1031|decision|open" \
     "$(field "$file" '"|".join(str(r[k]) for k in ("schema","ask_id","task_id","kind","state"))')" \
     "core fields"
@@ -219,7 +219,7 @@ test_close_by_id_and_task_and_never_reopen() {
   assert_equals "withdrawn: t1-decision-1" "$out" "close by id"
   file="$home/state/captain-asks/t1-decision-1.json"
   assert_equals "withdrawn|True" "$(field "$file" 'r["state"] + "|" + str("closed_at" in r)')" "a closed ask records closed_at"
-  assert_equals 600 "$(stat -f %Lp "$file" 2>/dev/null || stat -c %a "$file")" "a rewritten record stays mode 600"
+  assert_equals 600 "$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")" "a rewritten record stays mode 600"
   out=$(run_ask "$home" close t1-decision-1 --withdrawn)
   assert_equals "withdrawn: t1-decision-1" "$out" "closing again with the same outcome is a no-op"
   run_ask "$home" close t1-decision-1 --answered >/dev/null 2>&1 || code=$?
