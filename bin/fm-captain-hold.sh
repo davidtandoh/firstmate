@@ -76,6 +76,8 @@
 # `held:` bit, prove the captain owned it.
 # Every successful or replayed answer also closes the task's open captain-ask
 # records as answered through bin/fm-ask.sh, which owns those records.
+# A closure failure fails the answer before publishing resolution or retiring
+# reconciliation; an exact retry completes closure using the durable answer.
 #
 # ONE KEYED-ANSWER INTAKE, FED BY EVERY CHANNEL.
 # "A keyed answer resolves its matching captain-held task" is a single
@@ -1660,10 +1662,8 @@ reconcile_request_retire() {  # <task-id>
 publish_parent_resolution_then_retire() {  # <task-id> <occurrence> <note>
   local id=$1 occurrence=$2 note=$3 request
   request=$(reconcile_request_path "$id")
-  # The answer is already durable; an ask record that cannot close is reported,
-  # not undone, and an exact retry closes it (bin/fm-ask.sh owns the records).
   FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-ask.sh" close --task "$id" --answered >/dev/null \
-    || printf 'actionable: could not close the captain asks recorded for answered task %s; run bin/fm-ask.sh close --task %s --answered\n' "$id" "$id" >&2
+    || fail "could not close the captain asks recorded for answered task $id; retry the same answer"
   publish_parent_hold "$id" "$occurrence" resolved "$note"
   if [ -e "$request" ] && [ "$PARENT_HOLD_PUBLISHED" != 1 ]; then
     fail "could not publish the answered captain-held task $id to its parent"

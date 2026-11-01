@@ -2,9 +2,9 @@
 # tests/fm-ask.test.sh - structured captain-ask records.
 #
 # Covers the schema 1 record a notifier reads (fields, file name, mode 600),
-# stable ask ids and idempotent re-recording, caller keys, plain-text and
-# credential validation, closing by id and by task, and the rule that a closed
-# ask is never reopened.
+# stable ask ids and idempotent re-recording, caller keys, plain-text
+# validation, closing by id and by task, and the rule that a closed ask is
+# never reopened.
 set -euo pipefail
 
 # shellcheck source=tests/lib.sh
@@ -106,35 +106,49 @@ test_caller_key_is_stable_and_refuses_drift() {
   pass "a caller key is a stable ask id and refuses changed content"
 }
 
-test_validation_refuses_markdown_secrets_and_bad_values() {
-  local home long
+test_validation_refuses_markdown_and_bad_values() {
+  local home
   home=$(make_home validate)
+  refused "$home" "single-star emphasis" --task t1 --kind approval --question 'Merge *now*?'
+  refused "$home" "single-underscore emphasis" --task t1 --kind approval --question 'Merge _now_?'
+  refused "$home" "emphasized identifier" --task t1 --kind approval --question 'Merge _snake_case_?'
+  refused "$home" "emphasis in an option" --task t1 --kind decision --question "Pick?" --option 'A=Ship *now*'
+  refused "$home" "emphasis in a reason" --task t1 --kind decision --question "Pick?" \
+    --recommend A --reason 'Ship _today_'
+  refused "$home" "single-letter emphasis" --task t1 --kind decision --question 'Pick *A* or _B_?'
   refused "$home" "bold markdown" --task t1 --kind decision --question "Ship **now**?"
-  refused "$home" "code markdown" --task t1 --kind decision --question 'Run `make` first?'
+  refused "$home" "code markdown" --task t1 --kind decision --question "Run \`make\` first?"
   refused "$home" "link markdown" --task t1 --kind decision --question "See [PR](https://x.test)?"
   refused "$home" "heading markdown" --task t1 --kind decision --question "# Decide"
   refused "$home" "list markdown in an option" --task t1 --kind decision --question "Pick?" --option "A=- first"
   refused "$home" "a line break" --task t1 --kind decision --question $'Pick?\nNow.'
   refused "$home" "an empty question" --task t1 --kind decision --question ""
-  long=$(printf 'x%.0s' $(seq 1 301))
-  refused "$home" "a question over 300 characters" --task t1 --kind decision --question "$long"
-  run_ask "$home" open --task t1 --kind decision --question "${long:1}" >/dev/null \
-    || fail "a question of exactly 300 characters is accepted"
-  refused "$home" "option text over 160 characters" --task t1 --kind decision --question "Pick?" \
-    --option "A=$(printf 'y%.0s' $(seq 1 161))"
   refused "$home" "an unknown kind" --task t1 --kind question --question "Pick?"
   refused "$home" "an http link" --task t1 --kind approval --question "Merge?" --link http://example.com/pr/1
   refused "$home" "a link with no host" --task t1 --kind approval --question "Merge?" --link https:///pr
   refused "$home" "a duplicate option label" --task t1 --kind decision --question "Pick?" --option A=a --option A=b
   refused "$home" "a recommendation naming no option" --task t1 --kind decision --question "Pick?" \
     --option A=a --recommend B --reason "B is better."
-  refused "$home" "a password" --task t1 --kind blocker --question "The password is hunter2."
-  refused "$home" "a token in a link" --task t1 --kind approval --question "Merge?" \
-    --link "https://example.com/pr/1?token=abc"
-  refused "$home" "an api key in an option" --task t1 --kind decision --question "Pick?" --option "A=Use the API key"
-  refused "$home" "an authorization header" --task t1 --kind blocker --question "Authorization: Bearer x"
-  refused "$home" "a private key" --task t1 --kind blocker --question "Upload the private key?"
-  pass "plain-text, length, link and credential rules refuse bad asks without writing"
+  pass "plain-text and link rules refuse bad asks without writing"
+}
+
+test_plain_prose_accepts_vocabulary_and_long_text() {
+  local home file question text
+  home=$(make_home prose)
+  question="$(printf 'Long %.0s' {1..70})question?"
+  text="$(printf 'Plain %.0s' {1..35})snake_case and another_identifier"
+  run_ask "$home" open --task token-secret --kind blocker --question "The token expired." \
+    --key secret-renewal --option "A=Renew the API key" --recommend A \
+    --reason "Authorization needs renewal." --link https://example.com/token >/dev/null
+  file="$home/state/captain-asks/secret-renewal.json"
+  assert_equals "The token expired." "$(field "$file" 'r["question"]')" "credential vocabulary is plain prose"
+  run_ask "$home" open --task t1 --kind decision --question "$question" \
+    --option "A=$text" --recommend A --reason "$text" >/dev/null
+  file="$home/state/captain-asks/t1-decision-1.json"
+  assert_equals "$question" "$(field "$file" 'r["question"]')" "long question is preserved"
+  assert_equals "$text" "$(field "$file" 'r["options"][0]["text"]')" "long option and identifiers are preserved"
+  assert_equals "$text" "$(field "$file" 'r["recommendation"]["reason"]')" "long reason is preserved"
+  pass "plain prose accepts credential vocabulary, identifiers and long text"
 }
 
 test_usage_errors_exit_2() {
@@ -169,12 +183,12 @@ test_close_by_id_and_task_and_never_reopen() {
   expect_code 1 "$code" "a different outcome on a closed ask is refused"
   out=$(run_ask "$home" close --task t1 --answered)
   assert_equals "answered: t1-approval-1" "$out" "close --task closes only that task's open asks"
-  assert_equals "t2-blocker-1	open	t2	blocker	Third." "$(run_ask "$home" list --open)" "list --open keeps other tasks' asks"
-  assert_equals 3 "$(run_ask "$home" list | wc -l | tr -d ' ')" "list shows every ask"
+  assert_equals "open" "$(field "$home/state/captain-asks/t2-blocker-1.json" 'r["state"]')" "other tasks' asks stay open"
+  assert_equals "answered" "$(field "$home/state/captain-asks/t1-approval-1.json" 'r["state"]')" "the task's open ask closes"
   code=0
   run_ask "$home" open --task t1 --kind approval --question "Second?" >/dev/null 2>&1 || code=$?
   expect_code 3 "$code" "re-recording a closed ask is refused with exit 3"
-  assert_equals "" "$(run_ask "$home" list --open | grep t1 || true)" "the closed ask stays closed"
+  assert_equals "answered" "$(field "$home/state/captain-asks/t1-approval-1.json" 'r["state"]')" "the closed ask stays closed"
   code=0
   run_ask "$home" close no-such-ask --answered >/dev/null 2>&1 || code=$?
   expect_code 1 "$code" "closing an unknown ask fails"
@@ -186,8 +200,8 @@ test_corrupt_record_stops_reads() {
   home=$(make_home corrupt)
   run_ask "$home" open --task t1 --kind decision --question "First?" >/dev/null
   printf '{not json' > "$home/state/captain-asks/broken.json"
-  err=$(run_ask "$home" list 2>&1 >/dev/null) || code=$?
-  expect_code 1 "$code" "a corrupt record stops list"
+  err=$(run_ask "$home" close --task t1 --answered 2>&1 >/dev/null) || code=$?
+  expect_code 1 "$code" "a corrupt record stops closure"
   assert_contains "$err" "broken.json" "the failure names the corrupt record"
   pass "a corrupt record is reported, not skipped"
 }
@@ -197,7 +211,8 @@ fm_test_run \
   test_plain_approval_has_empty_options_and_null_recommendation \
   test_reopen_is_idempotent_and_new_asks_number_up \
   test_caller_key_is_stable_and_refuses_drift \
-  test_validation_refuses_markdown_secrets_and_bad_values \
+  test_validation_refuses_markdown_and_bad_values \
+  test_plain_prose_accepts_vocabulary_and_long_text \
   test_usage_errors_exit_2 \
   test_close_by_id_and_task_and_never_reopen \
   test_corrupt_record_stops_reads

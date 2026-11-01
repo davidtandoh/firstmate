@@ -851,21 +851,37 @@ test_answer_records_and_closes() {
   assert_contains "$show" "state: queued" "a refused answer closed the captain-held task"
   assert_contains "$show" "held: yes" "a refused answer released the captain-held task"
 
-  local asks
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
     --task sample-guard-call --kind decision --question "Which guard option ships?" >/dev/null \
     || fail "could not record the captain ask for the held task"
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
     --task sample-guard-work --kind blocker --question "The guard work waits on the call." >/dev/null \
     || fail "could not record an unrelated captain ask"
+  request_reconciles "$home" guard-board sample-guard-call \
+    || fail "could not record the pending reconciliation"
+  printf '{not json' > "$home/state/captain-asks/broken.json"
   printf 'Captain chose the guard option.\n' > "$home/guard-decision.txt"
+  if run_captain "$home" answer sample-guard-call --decision-file "$home/guard-decision.txt" \
+    > "$home/close-answer.out" 2> "$home/close-answer.err"; then
+    fail "answer succeeded despite failing to close its captain ask"
+  fi
+  assert_grep "could not close the captain asks" "$home/close-answer.err" \
+    "answer did not report the ask closure failure"
+  assert_present "$home/state/reconcile-requests/sample-guard-call.request" \
+    "failed ask closure retired the pending reconciliation"
+  jq -e '.state == "open"' "$home/state/captain-asks/sample-guard-call-decision-1.json" >/dev/null \
+    || fail "the corrupt record fixture did not leave the answered ask open"
+  rm "$home/state/captain-asks/broken.json"
   run_captain "$home" answer sample-guard-call --decision-file "$home/guard-decision.txt" >/dev/null \
-    || fail "answer could not close the captain-held task"
-  asks=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" list)
-  assert_contains "$asks" "sample-guard-call-decision-1	answered	sample-guard-call" \
-    "answering the held task did not close its recorded captain ask"
-  assert_contains "$asks" "sample-guard-work-blocker-1	open	sample-guard-work" \
-    "answering one task closed another task's captain ask"
+    || fail "exact retry could not finish closing the captain ask"
+  jq -e '.state == "answered" and has("closed_at")' \
+    "$home/state/captain-asks/sample-guard-call-decision-1.json" >/dev/null \
+    || fail "answering the held task did not close its recorded captain ask"
+  jq -e '.state == "open" and (has("closed_at") | not)' \
+    "$home/state/captain-asks/sample-guard-work-blocker-1.json" >/dev/null \
+    || fail "answering one task closed another task's captain ask"
+  assert_absent "$home/state/reconcile-requests/sample-guard-call.request" \
+    "successful answer retry did not retire the pending reconciliation"
   show=$(tasks_in "$home" show sample-guard-call --full)
   assert_contains "$show" "state: done" "an answered captain-held task did not close"
   assert_contains "$show" "Resolution recorded by fm-captain-hold" "the answered task lost the decision record"

@@ -13,7 +13,6 @@
 #     --question <text> [--option <LABEL>=<text>]... \
 #     [--recommend <LABEL> --reason <text>] [--link <https-url>]... [--key <ask-id>]
 #   fm-ask.sh close (<ask-id> | --task <task-id>) --answered|--withdrawn
-#   fm-ask.sh list [--open]
 #
 # RECORD FORMAT (schema 1). One JSON object per ask, one file per ask at
 # `$FM_HOME/state/captain-asks/<ask_id>.json`, written atomically (temp file in
@@ -22,7 +21,7 @@
 #   ask_id          lowercase slug `<task_id>-<kind>-<n>`, or the caller's --key
 #   task_id         the task the ask belongs to, as given (e.g. GB-hook-1031)
 #   kind            decision | approval | blocker
-#   question        one plain-text line, at most 300 characters
+#   question        one plain-text sentence
 #   options         list of {"label": "A", "text": "<one plain line>"}; may be empty
 #   recommendation  {"label": "A", "reason": "<one plain line>"} or null
 #   links           list of full https URLs
@@ -33,15 +32,12 @@
 # dot-prefixed and end in `.tmp`).
 #
 # VALIDATION. Every text field must be one line of plain text: line breaks,
-# control characters and markdown (`**`, `__`, `~~`, backticks, `](`, and a
-# leading `#`, `>`, `- `, `* `, or `+ `) are refused rather than stripped, so
-# what a notifier sends is exactly what was recorded. Option text and the
-# recommendation reason are at most 160 characters. Option labels are 1-16
+# control characters and markdown (emphasis pairs, `~~`, backticks, `](`, and
+# a leading `#`, `>`, `- `, `* `, or `+ `) are refused rather than stripped, so
+# what a notifier sends is exactly what was recorded. Option labels are 1-16
 # letters, digits or hyphens, unique per ask, and a recommendation must name an
 # option label when options exist. Links must be https URLs with a host and no
-# whitespace. Values containing credential vocabulary (password, passwd,
-# token, secret, api key, private key, authorization) are refused in every
-# field, so a record can never carry a secret.
+# whitespace.
 #
 # IDENTITY AND IDEMPOTENCY. Without --key, `open` reuses the record whose
 # task, kind, question, options, recommendation and links are identical, so a
@@ -62,9 +58,6 @@
 # whenever it records the captain's answer for a task, so asks recorded under
 # the held task's id close with the answer.
 #
-# `list` prints one tab-separated line per ask, sorted by asked_at then ask_id:
-# `<ask_id>\t<state>\t<task_id>\t<kind>\t<question>`; `--open` keeps open asks.
-#
 # All mutations hold an exclusive lock on `captain-asks/.lock`. A record that
 # cannot be parsed stops the command with its path rather than being skipped.
 # Exit codes: 0 success, 1 failure, 2 usage, 3 the matching ask is closed.
@@ -81,7 +74,7 @@ usage() {
 }
 
 case "${1:-}" in
-  open|close|list) ;;
+  open|close) ;;
   -h|--help|help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
 esac
@@ -100,9 +93,8 @@ KINDS = ("decision", "approval", "blocker")
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,127}\Z")
 TASK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,15}\Z")
-CREDENTIAL = re.compile(
-    r"pass(?:word|wd)|token|secret|api[\s_-]?key|private[\s_-]?key|authori[sz]ation", re.I)
 MARKDOWN_INLINE = ("**", "__", "~~", "`", "](")
+MARKDOWN_EMPHASIS = re.compile(r"\*(?=\S)(?:[^*]*?\S)?\*|(?<!\w)_(?=\S)(?:.*?\S)?_(?!\w)")
 MARKDOWN_LEAD = re.compile(r"(?:#|>|[-*+]\s)")
 
 
@@ -119,24 +111,18 @@ def now():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def no_secret(label, value):
-    if CREDENTIAL.search(value):
-        die(f"{label} contains credential vocabulary; never record secrets in a captain ask")
-
-
-def plain(label, value, limit):
+def plain(label, value):
     if value != value.strip() or not value:
         die(f"{label} must be non-empty with no leading or trailing whitespace")
     if any(ord(c) < 32 or ord(c) == 127 for c in value):
         die(f"{label} must be one plain line with no line breaks or control characters")
-    if len(value) > limit:
-        die(f"{label} is {len(value)} characters; the limit is {limit}")
     for frag in MARKDOWN_INLINE:
         if frag in value:
             die(f"{label} contains markdown ({frag}); use plain text")
+    if MARKDOWN_EMPHASIS.search(value):
+        die(f"{label} contains markdown emphasis; use plain text")
     if MARKDOWN_LEAD.match(value):
         die(f"{label} starts with markdown; use plain text")
-    no_secret(label, value)
     return value
 
 
@@ -145,7 +131,6 @@ def https_link(value):
     if parts.scheme != "https" or not parts.hostname or re.search(r"\s", value) \
             or len(value) > 2048 or any(ord(c) < 32 for c in value):
         die(f"link must be a full https URL: {value!r}")
-    no_secret("link", value)
     return value
 
 
@@ -238,10 +223,9 @@ def cmd_open():
         raise Usage("open needs --task, --kind and --question")
     if not TASK.match(task):
         die(f"invalid task id {task!r}")
-    no_secret("task id", task)
     if kind not in KINDS:
         die(f"kind must be one of {', '.join(KINDS)}, not {kind!r}")
-    question = plain("question", question, 300)
+    question = plain("question", question)
     opts, seen = [], set()
     for label, text in options:
         if not LABEL.match(label):
@@ -249,7 +233,7 @@ def cmd_open():
         if label in seen:
             die(f"duplicate option label {label!r}")
         seen.add(label)
-        opts.append({"label": label, "text": plain(f"option {label}", text, 160)})
+        opts.append({"label": label, "text": plain(f"option {label}", text)})
     if (rec_label is None) != (reason is None):
         raise Usage("--recommend and --reason go together")
     recommendation = None
@@ -258,12 +242,11 @@ def cmd_open():
             die(f"invalid recommendation label {rec_label!r}")
         if opts and rec_label not in seen:
             die(f"recommendation {rec_label!r} names no option")
-        recommendation = {"label": rec_label, "reason": plain("recommendation reason", reason, 160)}
+        recommendation = {"label": rec_label, "reason": plain("recommendation reason", reason)}
     links = [https_link(u) for u in links]
     if key is not None:
         if not SLUG.match(key):
             die(f"--key must be a lowercase slug of at most 128 characters: {key!r}")
-        no_secret("key", key)
 
     rec = {"schema": 1, "ask_id": None, "task_id": task, "kind": kind,
            "question": question, "options": opts, "recommendation": recommendation,
@@ -337,22 +320,8 @@ def cmd_close():
         print(f"{outcome}: {r['ask_id']}")
 
 
-def cmd_list():
-    only_open = False
-    for a in args:
-        if a == "--open":
-            only_open = True
-        else:
-            raise Usage(f"unknown argument {a!r}")
-    records = sorted(load_all(), key=lambda r: (str(r.get("asked_at")), r["ask_id"]))
-    for r in records:
-        if only_open and r.get("state") != "open":
-            continue
-        print("\t".join(str(r.get(k, "")) for k in ("ask_id", "state", "task_id", "kind", "question")))
-
-
 try:
-    {"open": cmd_open, "close": cmd_close, "list": cmd_list}[cmd]()
+    {"open": cmd_open, "close": cmd_close}[cmd]()
 except Usage as exc:
     die(f"{exc}; see fm-ask.sh --help", 2)
 PY
