@@ -40,6 +40,18 @@ trap cleanup EXIT
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/fm-gotmp-tests.XXXXXX")
 
+# These temp-directory cases have no live processes. Keep both cleanup scans
+# inside the fixture, including the ownership-based scan added to teardown.
+mkdir -p "$TMP_ROOT/fakebin"
+for tool in ps lsof; do
+  cat > "$TMP_ROOT/fakebin/$tool" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$TMP_ROOT/fakebin/$tool"
+done
+export PATH="$TMP_ROOT/fakebin:$PATH"
+
 # Build a fake FM_HOME/FM_ROOT so the real fm-teardown.sh (symlinked in) resolves
 # state and helper scripts inside it. Stub the helper scripts fm-teardown calls so no
 # live tmux/treehouse/fleet state is touched. A nonexistent worktree path makes both
@@ -64,10 +76,13 @@ SH
   ln -s "$ROOT/bin/fm-cursor-lib.sh" "$fake/bin/fm-cursor-lib.sh"
   ln -s "$ROOT/bin/fm-composer-lib.sh" "$fake/bin/fm-composer-lib.sh"
   ln -s "$ROOT/bin/fm-nm-run-lib.sh" "$fake/bin/fm-nm-run-lib.sh"
+  ln -s "$ROOT/bin/fm-task-proc-lib.sh" "$fake/bin/fm-task-proc-lib.sh"
+  ln -s "$ROOT/bin/fm-backend-hometag-lib.sh" "$fake/bin/fm-backend-hometag-lib.sh"
   # fm-lock-lib.sh: teardown sources it for the shared lock-staleness proof.
   ln -s "$ROOT/bin/fm-lock-lib.sh" "$fake/bin/fm-lock-lib.sh"
   # fm-lease-lib.sh: teardown sources it for the supervision lease guard.
   ln -s "$ROOT/bin/fm-lease-lib.sh" "$fake/bin/fm-lease-lib.sh"
+  ln -s "$ROOT/bin/fm-supervision-engine-lib.sh" "$fake/bin/fm-supervision-engine-lib.sh"
   # Lifecycle serialization, status presentation retirement, and shared adapter
   # ownership are sourced by teardown.
   ln -s "$ROOT/bin/fm-control-lib.sh" "$fake/bin/fm-control-lib.sh"
@@ -147,8 +162,8 @@ test_teardown_removes_tasktmp_dir() {
   # Sanity: dir + contents exist before teardown.
   [ -d "$task_tmp/gotmp" ] || fail "precondition: gotmp missing before teardown"
   # Run the REAL teardown against the fake root.
-  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >/dev/null 2>&1 \
-    || fail "teardown exited non-zero with a valid tasktmp"
+  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >"$fake/teardown.log" 2>&1 \
+    || { cat "$fake/teardown.log" >&2; fail "teardown exited non-zero with a valid tasktmp"; }
   [ ! -e "$task_tmp" ] \
     || fail "teardown did not remove the tasktmp dir ($task_tmp still exists)"
   pass "fm-teardown removes the dir pointed to by tasktmp= in meta"
@@ -172,9 +187,12 @@ SH
   ln -s "$ROOT/bin/fm-cursor-lib.sh" "$fake/bin/fm-cursor-lib.sh"
   ln -s "$ROOT/bin/fm-composer-lib.sh" "$fake/bin/fm-composer-lib.sh"
   ln -s "$ROOT/bin/fm-nm-run-lib.sh" "$fake/bin/fm-nm-run-lib.sh"
+  ln -s "$ROOT/bin/fm-task-proc-lib.sh" "$fake/bin/fm-task-proc-lib.sh"
+  ln -s "$ROOT/bin/fm-backend-hometag-lib.sh" "$fake/bin/fm-backend-hometag-lib.sh"
   ln -s "$ROOT/bin/fm-lock-lib.sh" "$fake/bin/fm-lock-lib.sh"
   # fm-lease-lib.sh: teardown sources it for the supervision lease guard.
   ln -s "$ROOT/bin/fm-lease-lib.sh" "$fake/bin/fm-lease-lib.sh"
+  ln -s "$ROOT/bin/fm-supervision-engine-lib.sh" "$fake/bin/fm-supervision-engine-lib.sh"
   ln -s "$ROOT/bin/fm-control-lib.sh" "$fake/bin/fm-control-lib.sh"
   ln -s "$ROOT/bin/fm-classify-lib.sh" "$fake/bin/fm-classify-lib.sh"
   # fm-timeout-lib.sh: the shared hard bound fm-classify-lib.sh sources for the
@@ -228,8 +246,8 @@ kind=ship
 mode=no-mistakes
 yolo=off
 META
-  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >/dev/null 2>&1 \
-    || fail "teardown exited non-zero when tasktmp= was absent"
+  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >"$fake/teardown.log" 2>&1 \
+    || { cat "$fake/teardown.log" >&2; fail "teardown exited non-zero when tasktmp= was absent"; }
   pass "fm-teardown skips gracefully when tasktmp= is absent (backward compat)"
 }
 
@@ -241,8 +259,8 @@ test_teardown_skips_gracefully_when_dir_missing() {
   [ ! -e "$task_tmp" ] || fail "precondition: task_tmp should not exist yet"
   local fake
   fake=$(make_fake_root "$id" "$task_tmp")
-  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >/dev/null 2>&1 \
-    || fail "teardown exited non-zero when tasktmp dir was missing"
+  FM_HOME="$fake" bash "$fake/bin/fm-teardown.sh" "$id" >"$fake/teardown.log" 2>&1 \
+    || { cat "$fake/teardown.log" >&2; fail "teardown exited non-zero when tasktmp dir was missing"; }
   [ ! -e "$task_tmp" ] || fail "teardown created/left the tasktmp dir unexpectedly"
   pass "fm-teardown skips gracefully when tasktmp= points to a nonexistent dir"
 }

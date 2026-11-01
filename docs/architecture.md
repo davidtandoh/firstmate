@@ -488,6 +488,7 @@ A slot's own owner claim, written by the spawn that takes it under the allocatio
 Allocation and return serialize on one project lock per machine-local Firstmate tree: every home reachable through local parent links shares that lock, and a home seeded from another machine anchors its own, because a lock taken on this filesystem is neither held nor observable across that boundary.
 Before the worktree is returned, teardown concludes the task's own no-mistakes run when it is parked at a gate, including a run whose head the task copy cannot resolve - the shared runs-ledger continuation proof is the only recognition for that case, so cleanup never orphans a parked run the pipeline advanced past the submitted head.
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the landed-work proofs, slot-ownership proof, endpoint-close refusal, PR-discovery fallback, pre-teardown run conclusion, and stale-lock recovery procedure; [`tests/fm-teardown-endpoint-safety.test.sh`](../tests/fm-teardown-endpoint-safety.test.sh) and [`tests/fm-secondmate-safety.test.sh`](../tests/fm-secondmate-safety.test.sh) pin the slot-collision boundary.
+Brief generation and teardown share browser identity through [`bin/fm-task-proc-lib.sh`](../bin/fm-task-proc-lib.sh), whose header owns leftover-process cleanup for direct tasks and children of retiring secondmates; [`tests/fm-task-proc-lib.test.sh`](../tests/fm-task-proc-lib.test.sh) covers that contract with fake process listings.
 
 ## Optional Relay
 
