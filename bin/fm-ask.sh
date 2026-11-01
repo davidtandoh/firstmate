@@ -32,14 +32,17 @@
 # Readers ignore any file that does not end in `.json` (temporary files are
 # dot-prefixed and end in `.tmp`).
 #
-# VALIDATION. Every text field must be one line of plain text: line breaks,
-# control characters and markdown (emphasis pairs, `~~`, backticks, `](`, and
-# a leading `#`, `>`, `- `, `* `, `+ `, `1. `, or `1) `) are refused rather than stripped, so
-# what a notifier sends is exactly what was recorded. Option labels are 1-16
-# letters, digits or hyphens, unique per ask, and a recommendation must name an
-# option label when options exist. Links must be https URLs with a host and no
-# whitespace. Questions containing more than one question mark are refused
-# so separate questions must be recorded as separate asks.
+# VALIDATION. Every text field must be one line of plain text with no line
+# breaks or control characters. The shared validator for questions, option
+# text and recommendation reasons rejects any <, >, backtick or asterisk;
+# any __, _text_ emphasis pair, ]( or ~~; and any leading heading (#), quote
+# (>), unordered list (-, * or + followed by space) or ordered list (1. or 1)
+# followed by space) marker. Values are refused rather than stripped.
+# Questions containing more than one question mark are refused so separate
+# questions must be recorded as separate asks. Option labels are 1-16 letters,
+# digits or hyphens, unique per ask, and a recommendation must name an option
+# label when options exist. Links must be https URLs with a host and no
+# whitespace.
 #
 # IDENTITY AND IDEMPOTENCY. Without --key, `open` reuses the record whose
 # task, kind, question, options, recommendation and links are identical, so a
@@ -101,9 +104,8 @@ KINDS = ("decision", "approval", "blocker")
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,127}\Z")
 TASK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,15}\Z")
-MARKDOWN_INLINE = ("**", "__", "~~", "`", "](")
-MARKDOWN_EMPHASIS = re.compile(r"\*(?=\S)(?:[^*]*?\S)?\*|(?<!\w)_(?=\S)(?:.*?\S)?_(?!\w)")
-MARKDOWN_LEAD = re.compile(r"(?:#|>|[-*+]\s|[0-9]+[.)]\s)")
+MARKDOWN = re.compile(
+    r"[<>`*]|__|\]\(|~~|(?<!\w)_(?=\S)(?:.*?\S)?_(?!\w)|^(?:#|[-+]\s|[0-9]+[.)]\s)")
 
 
 class Usage(Exception):
@@ -124,13 +126,8 @@ def plain(label, value):
         die(f"{label} must be non-empty with no leading or trailing whitespace")
     if any(ord(c) < 32 or ord(c) == 127 for c in value):
         die(f"{label} must be one plain line with no line breaks or control characters")
-    for frag in MARKDOWN_INLINE:
-        if frag in value:
-            die(f"{label} contains markdown ({frag}); use plain text")
-    if MARKDOWN_EMPHASIS.search(value):
-        die(f"{label} contains markdown emphasis; use plain text")
-    if MARKDOWN_LEAD.match(value):
-        die(f"{label} starts with markdown; use plain text")
+    if MARKDOWN.search(value):
+        die(f"{label} contains markdown; use plain text")
     return value
 
 

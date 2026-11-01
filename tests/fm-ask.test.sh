@@ -106,26 +106,62 @@ test_caller_key_is_stable_and_refuses_drift() {
   pass "a caller key is a stable ask id and refuses changed content"
 }
 
-test_validation_refuses_markdown_and_bad_values() {
+test_plain_text_markdown_rules() {
+  local home expected value target row=0 expression file
+  local -a args
+  home=$(make_home markdown)
+  while IFS='|' read -r expected value; do
+    row=$((row + 1))
+    for target in question option reason; do
+      args=(--task "markdown-$row-$target" --kind decision)
+      case "$target" in
+        question) args+=(--question "$value"); expression='r["question"]' ;;
+        option) args+=(--question "Pick?" --option "A=$value"); expression='r["options"][0]["text"]' ;;
+        reason) args+=(--question "Pick?" --option A=Proceed --recommend A --reason "$value")
+          expression='r["recommendation"]["reason"]' ;;
+      esac
+      if [ "$expected" = reject ]; then
+        refused "$home" "$target rejects $value" "${args[@]}"
+      else
+        run_ask "$home" open "${args[@]}" >/dev/null || fail "$target refused $value"
+        file="$home/state/captain-asks/markdown-$row-$target-decision-1.json"
+        assert_equals "$value" "$(field "$file" "$expression")" "$target preserves plain text"
+      fi
+    done
+  done <<'CASES'
+reject|Merge <https://github.com/example/repo/pull/7>?
+reject|Value < limit.
+reject|Value > limit.
+reject|Run `make` first?
+reject|Use a backtick ` here.
+reject|Merge *now*?
+reject|Ship **now**?
+reject|Value * count.
+reject|Merge _now_?
+reject|Pick _A_?
+reject|Merge _snake_case_?
+reject|Ship __now__?
+reject|Use __ here.
+reject|See [PR](https://example.com/pr/7)?
+reject|Ship ~~later~~?
+reject|- Ship now
+reject|* Ship now
+reject|+ Ship now
+reject|1. Ship now
+reject|1) Ship now
+reject|# Decide
+reject|> Decide
+accept|Use the snake_case identifier.
+accept|The blocker needs attention.
+accept|Merge the fix?
+CASES
+  pass "one plain-text rule accepts prose and rejects markdown in every prose field"
+}
+
+test_validation_refuses_bad_values() {
   local home
   home=$(make_home validate)
   refused "$home" "bundled questions" --task t1 --kind approval --question "Merge the fix? Restart the relay?"
-  refused "$home" "single-star emphasis" --task t1 --kind approval --question 'Merge *now*?'
-  refused "$home" "single-underscore emphasis" --task t1 --kind approval --question 'Merge _now_?'
-  refused "$home" "emphasized identifier" --task t1 --kind approval --question 'Merge _snake_case_?'
-  refused "$home" "emphasis in an option" --task t1 --kind decision --question "Pick?" --option 'A=Ship *now*'
-  refused "$home" "emphasis in a reason" --task t1 --kind decision --question "Pick?" \
-    --recommend A --reason 'Ship _today_'
-  refused "$home" "single-letter emphasis" --task t1 --kind decision --question 'Pick *A* or _B_?'
-  refused "$home" "bold markdown" --task t1 --kind decision --question "Ship **now**?"
-  refused "$home" "code markdown" --task t1 --kind decision --question "Run \`make\` first?"
-  refused "$home" "link markdown" --task t1 --kind decision --question "See [PR](https://x.test)?"
-  refused "$home" "heading markdown" --task t1 --kind decision --question "# Decide"
-  refused "$home" "list markdown in an option" --task t1 --kind decision --question "Pick?" --option "A=- first"
-  refused "$home" "ordered list question" --task t1 --kind approval --question "1. Merge the fix?"
-  refused "$home" "ordered list option" --task t1 --kind decision --question "Pick?" --option "A=1) Ship now"
-  refused "$home" "ordered list reason" --task t1 --kind decision --question "Pick?" \
-    --recommend A --reason "2. It unblocks alerts"
   refused "$home" "a line break" --task t1 --kind decision --question $'Pick?\nNow.'
   refused "$home" "an empty question" --task t1 --kind decision --question ""
   refused "$home" "an unknown kind" --task t1 --kind question --question "Pick?"
@@ -256,7 +292,8 @@ fm_test_run \
   test_plain_approval_has_empty_options_and_null_recommendation \
   test_reopen_is_idempotent_and_new_asks_number_up \
   test_caller_key_is_stable_and_refuses_drift \
-  test_validation_refuses_markdown_and_bad_values \
+  test_plain_text_markdown_rules \
+  test_validation_refuses_bad_values \
   test_plain_prose_accepts_vocabulary_and_long_text \
   test_usage_errors_exit_2 \
   test_close_by_id_and_task_and_never_reopen \
