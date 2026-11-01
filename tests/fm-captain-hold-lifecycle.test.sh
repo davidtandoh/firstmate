@@ -851,9 +851,21 @@ test_answer_records_and_closes() {
   assert_contains "$show" "state: queued" "a refused answer closed the captain-held task"
   assert_contains "$show" "held: yes" "a refused answer released the captain-held task"
 
+  local asks
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
+    --task sample-guard-call --kind decision --question "Which guard option ships?" >/dev/null \
+    || fail "could not record the captain ask for the held task"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
+    --task sample-guard-work --kind blocker --question "The guard work waits on the call." >/dev/null \
+    || fail "could not record an unrelated captain ask"
   printf 'Captain chose the guard option.\n' > "$home/guard-decision.txt"
   run_captain "$home" answer sample-guard-call --decision-file "$home/guard-decision.txt" >/dev/null \
     || fail "answer could not close the captain-held task"
+  asks=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" list)
+  assert_contains "$asks" "sample-guard-call-decision-1	answered	sample-guard-call" \
+    "answering the held task did not close its recorded captain ask"
+  assert_contains "$asks" "sample-guard-work-blocker-1	open	sample-guard-work" \
+    "answering one task closed another task's captain ask"
   show=$(tasks_in "$home" show sample-guard-call --full)
   assert_contains "$show" "state: done" "an answered captain-held task did not close"
   assert_contains "$show" "Resolution recorded by fm-captain-hold" "the answered task lost the decision record"
