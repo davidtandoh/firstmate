@@ -74,6 +74,7 @@
 # answered captain call. A hold that expired by date (`--until` in the past) is
 # still answerable: the surviving hold annotations, not tasks-axi's live
 # `held:` bit, prove the captain owned it.
+# bin/fm-ask.sh owns hold-scoped ask closure, replay guards, and failure semantics.
 #
 # ONE KEYED-ANSWER INTAKE, FED BY EVERY CHANNEL.
 # "A keyed answer resolves its matching captain-held task" is a single
@@ -1286,7 +1287,6 @@ command_answer() {
         || fail "task $id records this resolution with mode ${recorded_mode:-unknown}; it is not a captain-answer replay"
       [ "$release" = 0 ] \
         || fail "task $id records this answer with mode ${recorded_mode:-unknown}; --release cannot reopen a closed task"
-      remove_interrupted_answer_stamp "$id"
       if [ "$recorded_mode" = repaired ]; then
         publish_parent_resolution_then_retire "$id" $((occurrence - 1)) "answered (repaired)"
       else
@@ -1302,7 +1302,6 @@ command_answer() {
     [ "$hold_kind" = captain ] \
       || fail "task $id was never held for the captain; nothing to record an answer on"
     write_resolution_record "$id" repaired "$body"
-    remove_interrupted_answer_stamp "$id"
     task_show "$id" || fail "task $id disappeared while recording the answer"
     show=$TASK_SHOW_OUTPUT
     [ "$(show_field "$show" state)" = "done" ] || fail "recording the answer reopened closed task $id"
@@ -1331,7 +1330,6 @@ command_answer() {
       if ! close_answered "$id" "$release"; then
         fail "could not close answered captain-held task $id"
       fi
-      remove_interrupted_answer_stamp "$id"
       publish_parent_resolution_then_retire "$id" $((occurrence - 1)) "$outcome"
       printf '%s: %s\n' "$outcome" "$id"
       return 0
@@ -1340,7 +1338,6 @@ command_answer() {
     if ! close_answered "$id" "$release"; then
       fail "could not close answered captain-held task $id"
     fi
-    remove_interrupted_answer_stamp "$id"
     task_show "$id" || fail "task $id disappeared after closing"
     show=$TASK_SHOW_OUTPUT
     body_has_resolution_record "$(show_field "$show" body)" \
@@ -1357,7 +1354,6 @@ command_answer() {
       || fail "task $id records a different captain decision with mode ${recorded_mode:-unknown}"
     [ "$recorded_mode" = released ] && [ "$release" = 1 ] \
       || fail "task $id records this answer with mode ${recorded_mode:-unknown}; replay requires matching --release"
-    remove_interrupted_answer_stamp "$id"
     publish_parent_resolution_then_retire "$id" $((occurrence - 1)) released
     printf 'released: %s\n' "$id"
     return 0
@@ -1656,8 +1652,16 @@ reconcile_request_retire() {  # <task-id>
 }
 
 publish_parent_resolution_then_retire() {  # <task-id> <occurrence> <note>
-  local id=$1 occurrence=$2 note=$3 request
+  local id=$1 occurrence=$2 note=$3 request show hold_start body
   request=$(reconcile_request_path "$id")
+  task_show_or_fail "$id" "answered task $id disappeared before closing its captain asks"
+  body=$(decode_shown_value "$(show_field "$show" body)") \
+    || fail "could not decode the answered body for $id"
+  hold_start=$(body_hold_set_timestamp "$body")
+  case "$hold_start" in ????-??-??) hold_start="${hold_start}T00:00:00Z" ;; esac
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-ask.sh" close --task "$id" --asked-since "$hold_start" --answered >/dev/null \
+    || fail "could not close the captain asks recorded for answered task $id; retry the same answer"
+  remove_interrupted_answer_stamp "$id"
   publish_parent_hold "$id" "$occurrence" resolved "$note"
   if [ -e "$request" ] && [ "$PARENT_HOLD_PUBLISHED" != 1 ]; then
     fail "could not publish the answered captain-held task $id to its parent"

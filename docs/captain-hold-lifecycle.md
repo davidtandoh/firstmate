@@ -81,12 +81,13 @@ It requires a non-empty captain decision file of at most 8192 bytes.
 It then works in this order:
 
 1. It durably writes a resolution block carrying the decision digest and a `Resolution mode:`.
-2. It retains the leading hold-set stamp until the selected `tasks-axi done` or `tasks-axi unhold` transition succeeds.
-3. It then restores the successful record's resolution-first body ordering.
+2. It performs the selected `tasks-axi done` or `tasks-axi unhold` transition while retaining the leading hold-set stamp.
+3. It delegates structured ask closure to [`bin/fm-ask.sh`](../bin/fm-ask.sh), whose header owns hold scoping, replay guards, and failure semantics.
+4. After ask closure succeeds, it restores the successful record's resolution-first body ordering.
    The previous body remains preserved below the block and archived through tasks-axi `--archive-body`.
 
 If the close is interrupted, the still-held task therefore keeps its original age basis.
-A matching retry also completes any resolution-first normalization left unfinished after the close itself succeeded.
+A matching retry also completes ask closure and any resolution-first normalization left unfinished after the backlog transition succeeded.
 
 ### Answer retries and tasks closed elsewhere
 
