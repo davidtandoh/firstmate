@@ -3869,7 +3869,7 @@ fi
 # Fix 4 (see script header): close what the task launched outside its copy.
 if [ "$KIND" != secondmate ]; then
   FM_TASK_PROC_INBOX="$(cd "$STATE" && pwd -P)/$ID.inbox" FM_TASK_PROC_ID=$ID \
-    FM_TASK_PROC_PROFILE=$TASK_TMP FM_TASK_PROC_PATHS="$WT
+    FM_TASK_PROC_PROFILE="/tmp/$(fm_task_proc_browser_session "$FM_HOME" "$ID")/browser-profile" FM_TASK_PROC_PATHS="$WT
 $TASK_TMP" fm_task_proc_close "$ID"
 fi
 if [ "$KIND" = ship ] && teardown_owns_worktree && [ -e "$CONFIG/pipeline-spend" ]; then

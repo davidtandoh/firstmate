@@ -34,6 +34,18 @@
 #   FM_TASK_PROC_PROFILE  per-job profile root (the task temp root)
 #   FM_TASK_PROC_PATHS    newline-separated task-owned paths (copy, temp root)
 
+. "$(dirname "${BASH_SOURCE[0]}")/fm-backend-hometag-lib.sh"
+
+fm_task_proc_browser_session() {
+  local tag
+  tag=$(FM_HOME=$1 FM_ROOT=$1 fm_backend_hometag) || return 1
+  printf 'fm-%s-%s\n' "$tag" "$2"
+}
+
+fm_task_proc_executable() {
+  ps -p "$1" -o comm= 2>/dev/null
+}
+
 # Listing format on stdout: one process per line, "<pid> <command and env>".
 fm_task_proc_listing() {
   if [ "$(uname -s)" = Darwin ]; then
@@ -74,7 +86,7 @@ fm_task_proc_ancestors() {
 # the task. Pids named in FM_TASK_PROC_EXCLUDE (newline-separated) are skipped.
 fm_task_proc_classify() {
   local inbox=${FM_TASK_PROC_INBOX:-} id=${FM_TASK_PROC_ID:-} profile=${FM_TASK_PROC_PROFILE:-}
-  local line pid text padded reason p alt
+  local line pid text padded reason p alt executable
   [ -n "$inbox" ] || return 1
   while IFS= read -r line; do
     line=${line#"${line%%[![:space:]]*}"}
@@ -91,7 +103,7 @@ fm_task_proc_classify() {
     if [ -n "$profile" ]; then
       for p in "$profile" "/private$profile"; do
         case "$padded" in
-          *" --user-data-dir=$p "*|*" --user-data-dir=$p/"*) reason=browser-profile ;;
+          *" --user-data-dir=$p "*) reason=browser-profile ;;
         esac
       done
     fi
@@ -101,7 +113,7 @@ fm_task_proc_classify() {
     fi
     case "$padded" in
       *" FM_TASK_INBOX=$inbox "*)
-        if fm_task_proc_protected "$text"; then
+        if ! executable=$(fm_task_proc_executable "$pid") || [ -z "$executable" ] || fm_task_proc_protected "$executable"; then
           printf 'unclear\t%s\t%s\t%s\n' "$pid" protected-app "$text"
         else
           printf 'own\t%s\t%s\t%s\n' "$pid" task-env "$text"
@@ -138,7 +150,7 @@ fm_task_proc_short() {  # <text> -> first 160 characters, for reports
 # Close the task's own processes. <label> names the task in report lines.
 # Reports go to stderr. Always returns 0.
 fm_task_proc_close() {  # <label>
-  local label=$1 listing classes own_pids remaining pid kind reason text waited=0
+  local label=$1 listing classes own_pids remaining pid kind reason text identity current waited=0
   FM_TASK_PROC_EXCLUDE=$(fm_task_proc_ancestors)
   if ! listing=$(fm_task_proc_listing) || [ -z "$listing" ]; then
     echo "warning: could not list processes to close $label's leftover helpers; nothing was closed" >&2
@@ -155,7 +167,13 @@ EOF
   [ -n "$own_pids" ] || return 0
   echo "teardown: closing $label's leftover process(es): $(printf '%s' "$own_pids" | tr '\n' ' ')" >&2
   while IFS= read -r pid; do
-    [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null || true
+    [ -n "$pid" ] || continue
+    identity=$(task_process_identity "$pid") || continue
+    listing=$(fm_task_proc_listing) || continue
+    current=$(printf '%s\n' "$listing" | FM_TASK_PROC_EXCLUDE=$FM_TASK_PROC_EXCLUDE fm_task_proc_classify) || continue
+    printf '%s\n' "$current" | awk -F '\t' -v pid="$pid" '$1 == "own" && $2 == pid { found=1 } END { exit !found }' || continue
+    task_process_identity_matches "$pid" "$identity" || continue
+    kill -TERM "$pid" 2>/dev/null || true
   done <<EOF
 $own_pids
 EOF
