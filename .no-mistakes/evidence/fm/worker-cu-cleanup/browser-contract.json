@@ -1,0 +1,11 @@
+{
+  "browser_started": false,
+  "command": "bash bin/fm-brief.sh browser-check fixture-project --mode local-only",
+  "emitted_command_prefix": "env -u CHROME_DEVTOOLS_AXI_BROWSER_URL -u CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_SESSION=fm-firstmate-eb45217b-browser-check CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/fm-firstmate-eb45217b-browser-check/browser-profile",
+  "exit": 0,
+  "inherited_connection_overrides_removed": true,
+  "observed_browser_environment": {
+    "CHROME_DEVTOOLS_AXI_SESSION": "fm-firstmate-eb45217b-browser-check",
+    "CHROME_DEVTOOLS_AXI_USER_DATA_DIR": "/tmp/fm-firstmate-eb45217b-browser-check/browser-profile"
+  }
+}
