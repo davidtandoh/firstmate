@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Close the processes a finished task launched, and only those.
 #
-# Sourced by bin/fm-teardown.sh after the recorded endpoint is closed and the
-# cwd-based reap (its header's Fix 2) has run. That reap only reaches processes
+# Sourced by bin/fm-teardown.sh for direct task cleanup and child retirement
+# before a secondmate home is removed. Direct cleanup runs after the recorded
+# endpoint is closed and the cwd-based reap (its header's Fix 2) has run.
+# That reap only reaches processes
 # whose working directory is inside the task's own copy or temp root; a helper
 # or browser the worker started elsewhere survives it. This step closes those
 # survivors by identity, never by process name.
@@ -12,8 +14,8 @@
 #   own      the environment carries this home's exact FM_TASK_INBOX for the
 #            task (bin/fm-spawn.sh exports that absolute, home-scoped path into
 #            every launch, and children inherit it), or the process is a browser
-#            whose --user-data-dir is under the task's per-job profile root
-#            (the task temp root, where briefs place the per-job profile).
+#            whose --user-data-dir exactly matches the task's per-job profile
+#            (also accepting macOS's /private prefix).
 #   unclear  some trace of the task without that proof: the bare FM_TASK_ID
 #            (another home can reuse a task id), a mention of the task's copy or
 #            temp root, or an env-tagged process that looks like a protected
@@ -22,16 +24,27 @@
 #            or the 6767 server). Unclear processes are listed, never signalled.
 #   (none)   everything else is not printed at all.
 #
+# fm_task_proc_browser_session derives the browser identity from the home tag
+# and task id; briefs and both cleanup paths use that same identity.
+# The profile is /tmp/<browser-session>/browser-profile, separate from the
+# older /tmp/fm-<task-id> task temp root.
+# Protected-app checks use the executable identity, plus only the script or
+# -m module for Python-launched Omnigent, never arbitrary later arguments or
+# environment values. An exact job profile match takes precedence over that
+# check so the job's own browser can close.
+#
 # fm_task_proc_close signals `own` processes with SIGTERM once, waits a short
 # grace period, and reports what remains. It never escalates to SIGKILL and
 # never fails the caller: cleanup reports survivors for a human to judge.
 # It never signals itself or any ancestor.
+# Before each signal it reclassifies ownership and checks process identity
+# through teardown's task_process_identity/task_process_identity_matches.
 #
 # Inputs to both functions are passed as variables so tests can drive the
 # classifier with fake listings and never touch real processes:
 #   FM_TASK_PROC_INBOX    absolute steering inbox path of the task (required)
 #   FM_TASK_PROC_ID       task id
-#   FM_TASK_PROC_PROFILE  per-job profile root (the task temp root)
+#   FM_TASK_PROC_PROFILE  exact per-job browser profile directory
 #   FM_TASK_PROC_PATHS    newline-separated task-owned paths (copy, temp root)
 
 . "$(dirname "${BASH_SOURCE[0]}")/fm-backend-hometag-lib.sh"
