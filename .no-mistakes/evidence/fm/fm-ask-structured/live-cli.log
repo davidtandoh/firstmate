@@ -1,0 +1,330 @@
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw
+exit=0
+$ tasks-axi add GB-hook-1031 Live ask validation --kind ship --repo sample
+ok: added GB-hook-1031 (ship, repo sample) -> Queued
+task:
+  id: GB-hook-1031
+  title: Live ask validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: sample
+  priority: "-"
+  created: 2026-11-01
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start GB-hook-1031` to move it to in flight
+  - Run `tasks-axi block GB-hook-1031 --by <other>` to record a dependency
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh hold GB-hook-1031 --reason Approval needed
+GB-hook-1031
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind decision --question Which approach ships? --option A=Ship the records --option B=Wait --recommend A --reason This unblocks alerts. --link https://example.com/pr/7
+opened: gb-hook-1031-decision-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind decision --question Which approach ships? --option A=Ship the records --option B=Wait --recommend A --reason This unblocks alerts. --link https://example.com/pr/7
+unchanged: gb-hook-1031-decision-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind approval --question Merge the fix?
+opened: gb-hook-1031-approval-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task other --kind blocker --question The token expired. --key other-blocker
+opened: other-blocker
+exit=0
+{
+  "gb-hook-1031-decision-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-decision-1",
+    "task_id": "GB-hook-1031",
+    "kind": "decision",
+    "question": "Which approach ships?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ship the records"
+      },
+      {
+        "label": "B",
+        "text": "Wait"
+      }
+    ],
+    "recommendation": {
+      "label": "A",
+      "reason": "This unblocks alerts."
+    },
+    "links": [
+      "https://example.com/pr/7"
+    ],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "open"
+  },
+  "other-blocker": {
+    "schema": 1,
+    "ask_id": "other-blocker",
+    "task_id": "other",
+    "kind": "blocker",
+    "question": "The token expired.",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "open"
+  },
+  "gb-hook-1031-approval-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-1",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Merge the fix?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "open"
+  }
+}
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question Merge <https://github.com/example/repo/pull/7>?
+fm-ask: question contains markdown; use plain text
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question Merge *now*?
+fm-ask: question contains markdown; use plain text
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question 1. Merge now?
+fm-ask: question contains markdown; use plain text
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question Merge the fix? Restart the relay?
+fm-ask: question must contain at most one question mark; record separate asks for separate questions
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answer GB-hook-1031 --decision-file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/decision.txt --release
+released: GB-hook-1031
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind decision --question Which approach ships? --option A=Ship the records --option B=Wait --recommend A --reason This unblocks alerts. --link https://example.com/pr/7
+fm-ask: ask gb-hook-1031-decision-1 is already answered; a closed ask is never reopened - use a new --key to ask again
+exit=3
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind approval --question Proceed with follow-up?
+opened: gb-hook-1031-approval-2
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answer GB-hook-1031 --decision-file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/decision.txt --release
+fm-ask: hold-start time (--asked-since) must be an RFC 3339 UTC time
+fm-captain-hold: could not close the captain asks recorded for answered task GB-hook-1031; retry the same answer
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh hold GB-hook-1031 --reason Follow-up approval needed
+GB-hook-1031
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task GB-hook-1031 --kind approval --question Approve new hold?
+opened: gb-hook-1031-approval-3
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answer GB-hook-1031 --decision-file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/decision.txt --release
+released: GB-hook-1031
+exit=0
+$ tasks-axi add keyed-task Keyed answer validation --kind ship --repo sample
+ok: added keyed-task (ship, repo sample) -> Queued
+task:
+  id: keyed-task
+  title: Keyed answer validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: sample
+  priority: "-"
+  created: 2026-11-01
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start keyed-task` to move it to in flight
+  - Run `tasks-axi block keyed-task --by <other>` to record a dependency
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh hold keyed-task --reason Keyed approval needed
+keyed-task
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task keyed-task --kind approval --question Proceed with keyed task?
+opened: keyed-task-approval-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answers --source live CLI validation
+closed: keyed-task
+answers: closed=1 skipped=0
+exit=0
+$ tasks-axi add retry-task Closure retry validation --kind ship --repo sample
+ok: added retry-task (ship, repo sample) -> Queued
+task:
+  id: retry-task
+  title: Closure retry validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: sample
+  priority: "-"
+  created: 2026-11-01
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start retry-task` to move it to in flight
+  - Run `tasks-axi block retry-task --by <other>` to record a dependency
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh hold retry-task --reason Retry approval needed
+retry-task
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task retry-task --kind approval --question Proceed with retry task?
+opened: retry-task-approval-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answer retry-task --decision-file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/decision.txt --release
+fm-ask: unreadable captain ask record /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/state/captain-asks/broken.json: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+fm-captain-hold: could not close the captain asks recorded for answered task retry-task; retry the same answer
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-captain-hold.sh answer retry-task --decision-file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/.ask-live-_3cawqiw/decision.txt --release
+released: retry-task
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question Proceed? --option A=Merge <https://example.com/pr/7>?
+fm-ask: option A contains markdown; use plain text
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task bad --kind decision --question Proceed? --option A=Proceed --recommend A --reason Merge *now*.
+fm-ask: recommendation reason contains markdown; use plain text
+exit=1
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh open --task plain --kind decision --question Use the snake_case identifier.
+opened: plain-decision-1
+exit=0
+$ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6B8YQ847HW4RDWF30TF0SAS/bin/fm-ask.sh close other-blocker --withdrawn
+withdrawn: other-blocker
+exit=0
+{
+  "keyed-task-approval-1": {
+    "schema": 1,
+    "ask_id": "keyed-task-approval-1",
+    "task_id": "keyed-task",
+    "kind": "approval",
+    "question": "Proceed with keyed task?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:52Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:53Z"
+  },
+  "gb-hook-1031-decision-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-decision-1",
+    "task_id": "GB-hook-1031",
+    "kind": "decision",
+    "question": "Which approach ships?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ship the records"
+      },
+      {
+        "label": "B",
+        "text": "Wait"
+      }
+    ],
+    "recommendation": {
+      "label": "A",
+      "reason": "This unblocks alerts."
+    },
+    "links": [
+      "https://example.com/pr/7"
+    ],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:49Z"
+  },
+  "other-blocker": {
+    "schema": 1,
+    "ask_id": "other-blocker",
+    "task_id": "other",
+    "kind": "blocker",
+    "question": "The token expired.",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "withdrawn",
+    "closed_at": "2026-11-01T10:58:56Z"
+  },
+  "gb-hook-1031-approval-3": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-3",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Approve new hold?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:50Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:51Z"
+  },
+  "gb-hook-1031-approval-2": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-2",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Proceed with follow-up?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:49Z",
+    "state": "open"
+  },
+  "gb-hook-1031-approval-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-1",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Merge the fix?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:49Z"
+  },
+  "retry-task-approval-1": {
+    "schema": 1,
+    "ask_id": "retry-task-approval-1",
+    "task_id": "retry-task",
+    "kind": "approval",
+    "question": "Proceed with retry task?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:54Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:55Z"
+  },
+  "plain-decision-1": {
+    "schema": 1,
+    "ask_id": "plain-decision-1",
+    "task_id": "plain",
+    "kind": "decision",
+    "question": "Use the snake_case identifier.",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:56Z",
+    "state": "open"
+  }
+}
+LIVE CLI SCENARIOS PASSED

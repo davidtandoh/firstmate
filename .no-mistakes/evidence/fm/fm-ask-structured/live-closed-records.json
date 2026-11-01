@@ -1,0 +1,118 @@
+{
+  "keyed-task-approval-1": {
+    "schema": 1,
+    "ask_id": "keyed-task-approval-1",
+    "task_id": "keyed-task",
+    "kind": "approval",
+    "question": "Proceed with keyed task?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:52Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:53Z"
+  },
+  "gb-hook-1031-decision-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-decision-1",
+    "task_id": "GB-hook-1031",
+    "kind": "decision",
+    "question": "Which approach ships?",
+    "options": [
+      {
+        "label": "A",
+        "text": "Ship the records"
+      },
+      {
+        "label": "B",
+        "text": "Wait"
+      }
+    ],
+    "recommendation": {
+      "label": "A",
+      "reason": "This unblocks alerts."
+    },
+    "links": [
+      "https://example.com/pr/7"
+    ],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:49Z"
+  },
+  "other-blocker": {
+    "schema": 1,
+    "ask_id": "other-blocker",
+    "task_id": "other",
+    "kind": "blocker",
+    "question": "The token expired.",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "withdrawn",
+    "closed_at": "2026-11-01T10:58:56Z"
+  },
+  "gb-hook-1031-approval-3": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-3",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Approve new hold?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:50Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:51Z"
+  },
+  "gb-hook-1031-approval-2": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-2",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Proceed with follow-up?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:49Z",
+    "state": "open"
+  },
+  "gb-hook-1031-approval-1": {
+    "schema": 1,
+    "ask_id": "gb-hook-1031-approval-1",
+    "task_id": "GB-hook-1031",
+    "kind": "approval",
+    "question": "Merge the fix?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:48Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:49Z"
+  },
+  "retry-task-approval-1": {
+    "schema": 1,
+    "ask_id": "retry-task-approval-1",
+    "task_id": "retry-task",
+    "kind": "approval",
+    "question": "Proceed with retry task?",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:54Z",
+    "state": "answered",
+    "closed_at": "2026-11-01T10:58:55Z"
+  },
+  "plain-decision-1": {
+    "schema": 1,
+    "ask_id": "plain-decision-1",
+    "task_id": "plain",
+    "kind": "decision",
+    "question": "Use the snake_case identifier.",
+    "options": [],
+    "recommendation": null,
+    "links": [],
+    "asked_at": "2026-11-01T10:58:56Z",
+    "state": "open"
+  }
+}
