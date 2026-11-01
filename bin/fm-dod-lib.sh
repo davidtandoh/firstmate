@@ -278,7 +278,7 @@ fm_brief_base_branches() {  # <brief>
 # fm_companion_pr_base_rule owns the publishing-mode rule for a pull request a
 # ship opens in a repository other than its task's own: the base is that
 # repository's integration branch, named in the brief, and never the forge
-# default, because a companion PR left on the default lands on production.
+# default, because a companion PR left on the default can target production.
 fm_companion_pr_base_rule() {
   printf '%s\n' "   A companion PR in any repository other than this task's own must target that repository's integration branch as named in these instructions, passed explicitly on the PR (\`--base <branch>\`), never the forge default; if these instructions name no integration branch for that repository, append \`needs-decision\` and stop rather than use the default."
 }
