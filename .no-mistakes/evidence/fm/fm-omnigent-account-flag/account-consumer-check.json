@@ -1,0 +1,6 @@
+{
+  "command": "real managed runtime account API with isolated provider configuration",
+  "exit": 0,
+  "stderr": "",
+  "stdout": "{\"/Users/davidtandoh/.claude_b\": \"guidex\", \"/Users/davidtandoh/.claude_b/\": null, \"/nonexistent/fm-test-account\": null}\n"
+}

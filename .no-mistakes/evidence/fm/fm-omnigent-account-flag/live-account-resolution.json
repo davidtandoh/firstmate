@@ -1,0 +1,9 @@
+{
+  "command": "managed-runtime/bin/python -I (real Omnigent load_global_config and account_name_for_config_dir)",
+  "exit": 0,
+  "managed_status": "running",
+  "readiness": "ready",
+  "runtime_commit": "4eb473fec2370c1c458968cad15010b2b1d654a7",
+  "stderr": "",
+  "stdout": "{\"/Users/davidtandoh/.claude_b\": null, \"/Users/davidtandoh/.claude_b/\": null, \"/nonexistent/fm-test-account\": null}\n"
+}
