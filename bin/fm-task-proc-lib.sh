@@ -58,13 +58,41 @@ fm_task_proc_listing() {
 # Lowercase-glob patterns of applications cleanup must never close, even when
 # they carry the task's environment tag. Matching one only downgrades to unclear.
 fm_task_proc_protected() {  # <text>
-  local lower
+  local lower index=1 token
+  local -a argv
   lower=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$lower" in
     *chatgpt*|*codex.app*|*skycomputeruseservice*|*"brave browser"*|*"google chrome.app"*|\
     *safari*|*grok*|*omnigent*|*hermes*|*mlflow*|*tailscale*|*"screen sharing"*|\
     *screensharing*|*fm-remote-job-worker*|*6767*) return 0 ;;
   esac
+  [[ "${lower##*/}" =~ ^python(3([.][0-9]+)*)?$ ]] || return 1
+  read -r -a argv <<< "${2:-}"
+  while [ "$index" -lt "${#argv[@]}" ]; do
+    token=${argv[$index]}
+    case "$token" in
+      -m)
+        index=$((index + 1))
+        case "${argv[$index]:-}" in omnigent|omnigent.*) return 0 ;; esac
+        return 1
+        ;;
+      -c|-) return 1 ;;
+      --)
+        index=$((index + 1))
+        token=${argv[$index]:-}
+        [ "${token##*/}" = omnigent ]
+        return $?
+        ;;
+      -W|-X) index=$((index + 2)); continue ;;
+      -W?*|-X?*) ;;
+      -*) [[ "$token" =~ ^-[bBdEIOPqRsSuvx]+$ ]] || return 1 ;;
+      *)
+        [ "${token##*/}" = omnigent ]
+        return $?
+        ;;
+    esac
+    index=$((index + 1))
+  done
   return 1
 }
 
@@ -113,7 +141,7 @@ fm_task_proc_classify() {
     fi
     case "$padded" in
       *" FM_TASK_INBOX=$inbox "*)
-        if ! executable=$(fm_task_proc_executable "$pid") || [ -z "$executable" ] || fm_task_proc_protected "$executable"; then
+        if ! executable=$(fm_task_proc_executable "$pid") || [ -z "$executable" ] || fm_task_proc_protected "$executable" "$text"; then
           printf 'unclear\t%s\t%s\t%s\n' "$pid" protected-app "$text"
         else
           printf 'own\t%s\t%s\t%s\n' "$pid" task-env "$text"

@@ -67,6 +67,18 @@ CASES=(
   "unclear|protected-app|427 /System/Applications/Safari.app/Contents/MacOS/Safari FM_TASK_INBOX=$INBOX"
   "unclear|protected-app|428 Grok Bot FM_TASK_INBOX=$INBOX"
   "unclear|protected-app|429 /Applications/Codex.app/Contents/MacOS/Codex FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|430 /usr/bin/python3 /opt/serve/runtime/bin/omnigent codex FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|431 python -P -m omnigent.cli server FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|432 python -P -m omnigent.host._daemon_entry FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|433 python -P -m omnigent.runner._zygote FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|434 python3.12 -I -W ignore -X dev -m omnigent FM_TASK_INBOX=$INBOX"
+  "unclear|protected-app|435 python3 -- /opt/serve/bin/omnigent FM_TASK_INBOX=$INBOX"
+  "own|task-env|436 python3 helper.py /opt/bin/omnigent FM_TASK_INBOX=$INBOX"
+  "own|task-env|437 python3 -P -m helper omnigent.cli FM_TASK_INBOX=$INBOX"
+  "own|task-env|438 python3 -c omnigent FM_TASK_INBOX=$INBOX"
+  "own|task-env|439 python3 helper.py FM_OMNIGENT=on FM_TASK_INBOX=$INBOX"
+  "own|task-env|440 python3 -W omnigent -X omnigent helper.py FM_TASK_INBOX=$INBOX"
+  "own|task-env|441 python3 -m omnigently.cli FM_TASK_INBOX=$INBOX"
 
 )
 
@@ -86,6 +98,9 @@ fm_task_proc_executable() {
     427) printf '%s\n' '/System/Applications/Safari.app/Contents/MacOS/Safari' ;;
     428) printf '%s\n' 'Grok Bot' ;;
     429) printf '%s\n' '/Applications/Codex.app/Contents/MacOS/Codex' ;;
+    430|435|436|437|438|439|440|441) printf '%s\n' /usr/bin/python3 ;;
+    431|432|433) printf '%s\n' /usr/bin/python ;;
+    434) printf '%s\n' /usr/bin/python3.12 ;;
     *) printf '%s\n' node ;;
   esac
 }
@@ -116,11 +131,11 @@ test_mixed_listing_and_exclusion() {
   local listing out
   listing=$(printf '%s\n' "${CASES[@]}" | cut -d'|' -f3-)
   out=$(classify "$listing" | awk -F '\t' '$1 == "own" { print $2 }' | tr '\n' ' ')
-  assert_equals "$out" "101 102 103 405 406 407 " "own pids from a mixed listing"
+  assert_equals "$out" "101 102 103 405 406 407 436 437 438 439 440 441 " "own pids from a mixed listing"
   out=$(printf '%s\n' "$listing" | FM_TASK_PROC_EXCLUDE=$'101\n999' FM_TASK_PROC_INBOX=$INBOX \
     FM_TASK_PROC_ID=$ID FM_TASK_PROC_PROFILE=$PROFILE fm_task_proc_classify \
     | awk -F '\t' '$1 == "own" { print $2 }' | tr '\n' ' ')
-  assert_equals "$out" "102 103 405 406 407 " "excluded (own or ancestor) pids are never classified"
+  assert_equals "$out" "102 103 405 406 407 436 437 438 439 440 441 " "excluded (own or ancestor) pids are never classified"
   pass "a mixed listing yields exactly the task's own pids and honors exclusions"
 }
 
@@ -243,6 +258,22 @@ test_retiring_child_cleanup() (
   pass "child retirement closes owned processes before removing records"
 )
 
+test_python_omnigent_survives() (
+  local signals
+  fm_task_proc_ancestors() { printf '999\n'; }
+  fm_task_proc_listing() {
+    printf '%s\n' "${CASES[@]}" | cut -d'|' -f3- | awk '$1 >= 430 && $1 <= 435'
+  }
+  kill() { printf '%s\n' "$*" >> "$TMP_ROOT/python-signals"; }
+  : > "$TMP_ROOT/python-signals"
+  FM_TASK_PROC_INBOX=$INBOX FM_TASK_PROC_ID=$ID FM_TASK_PROC_PROFILE=$PROFILE \
+    FM_TASK_PROC_GRACE=0 fm_task_proc_close "$ID" 2> "$TMP_ROOT/python-report"
+  signals=$(cat "$TMP_ROOT/python-signals")
+  assert_equals "$signals" '' "interpreted Omnigent processes must never receive signals"
+  assert_contains "$(cat "$TMP_ROOT/python-report")" 'ownership unclear: protected-app' "protected Python processes remain visible for review"
+  pass "cleanup leaves interpreted Omnigent programs running"
+)
+
 test_wrapped_worker_inbox() (
   . "$ROOT/tests/omnigent-fixture.sh"
   fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
@@ -255,4 +286,4 @@ test_wrapped_worker_inbox() (
 )
 
 TMP_ROOT=$(fm_test_tmproot fm-task-proc)
-fm_test_run test_classifier_table test_mixed_listing_and_exclusion test_requires_inbox test_browser_identity test_close_revalidates test_retiring_child_cleanup test_wrapped_worker_inbox
+fm_test_run test_classifier_table test_mixed_listing_and_exclusion test_requires_inbox test_browser_identity test_close_revalidates test_retiring_child_cleanup test_python_omnigent_survives test_wrapped_worker_inbox
