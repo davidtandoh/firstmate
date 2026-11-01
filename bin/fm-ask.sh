@@ -38,7 +38,8 @@
 # what a notifier sends is exactly what was recorded. Option labels are 1-16
 # letters, digits or hyphens, unique per ask, and a recommendation must name an
 # option label when options exist. Links must be https URLs with a host and no
-# whitespace.
+# whitespace. Questions containing more than one question mark are refused
+# so separate questions must be recorded as separate asks.
 #
 # IDENTITY AND IDEMPOTENCY. Without --key, `open` reuses the record whose
 # task, kind, question, options, recommendation and links are identical, so a
@@ -233,6 +234,8 @@ def cmd_open():
     if kind not in KINDS:
         die(f"kind must be one of {', '.join(KINDS)}, not {kind!r}")
     question = plain("question", question)
+    if question.count("?") > 1:
+        die("question must contain at most one question mark; record separate asks for separate questions")
     opts, seen = [], set()
     for label, text in options:
         if not LABEL.match(label):

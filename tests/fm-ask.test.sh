@@ -109,6 +109,7 @@ test_caller_key_is_stable_and_refuses_drift() {
 test_validation_refuses_markdown_and_bad_values() {
   local home
   home=$(make_home validate)
+  refused "$home" "bundled questions" --task t1 --kind approval --question "Merge the fix? Restart the relay?"
   refused "$home" "single-star emphasis" --task t1 --kind approval --question 'Merge *now*?'
   refused "$home" "single-underscore emphasis" --task t1 --kind approval --question 'Merge _now_?'
   refused "$home" "emphasized identifier" --task t1 --kind approval --question 'Merge _snake_case_?'
