@@ -399,6 +399,10 @@ if [ "$KIND" = ship ] && [ "$MODE" != local-only ] && [ "$PROJECT_DIR_SET" -eq 1
   esac
 fi
 ID=${POS[0]}
+# Browser work uses a per-job browser session and profile under the task temp
+# root that bin/fm-spawn.sh creates, so cleanup (bin/fm-task-proc-lib.sh) can
+# close it and never reaches the captain's own browsers.
+BROWSER_RULE_LINE="   For browser work, start each chrome-devtools-axi command with \`CHROME_DEVTOOLS_AXI_SESSION=fm-$ID CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/fm-$ID/browser-profile\` so the browser is this job's own and closes at cleanup; never set CHROME_DEVTOOLS_AXI_AUTO_CONNECT or drive the captain's own browsers."
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2
@@ -723,6 +727,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; outside it, write only the report and status file below, except for the task's empty-inventory attestation through \`fm-captain-hold.sh complete --none\`, exactly as specified under Definition of done.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+$BROWSER_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -804,6 +809,7 @@ $RULE1
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. $FORGE_RULE_LINE
+$BROWSER_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.

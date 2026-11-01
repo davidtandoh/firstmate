@@ -317,6 +317,15 @@
 #     root still exists, so the account's healthy LaunchAgent worker and every
 #     live remote secondmate worker are out of scope. Best effort: a sweep
 #     failure never blocks this teardown.
+#   Fix 4 - close what the task launched outside its copy. A helper or a
+#     browser the worker started elsewhere keeps running after Fix 2, because
+#     its working directory is not under the task's roots.
+#     bin/fm-task-proc-lib.sh owns which processes count as the task's own
+#     (its exact steering-inbox environment tag, or a browser using the
+#     task's per-job profile under the task temp root), sends them SIGTERM
+#     once, and reports survivors without SIGKILL. A process with only a
+#     weaker trace of the task, or that looks like a protected application,
+#     is listed and left running. Best effort: it never blocks this teardown.
 # After Fix 1 and Fix 2, when config/pipeline-spend opts this home in, a ship
 # task whose local copy this teardown owns has its no-mistakes pipeline spend
 # recorded by bin/fm-pipeline-spend.sh, which owns the attribution and the
@@ -427,6 +436,8 @@ unset _teardown_source
 . "$SCRIPT_DIR/fm-secondmate-parent-lib.sh"
 # shellcheck source=bin/fm-nm-run-lib.sh
 . "$SCRIPT_DIR/fm-nm-run-lib.sh"
+# shellcheck source=bin/fm-task-proc-lib.sh
+. "$SCRIPT_DIR/fm-task-proc-lib.sh"
 # Archive paths live only in teardown; presentation/wake readers stay unaware.
 teardown_archive_directory() {  # <directory>
   if [ -L "$1" ] || { [ -e "$1" ] && [ ! -d "$1" ]; }; then
@@ -3854,6 +3865,12 @@ if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"
 elif [ "$KIND" != secondmate ]; then
   reap_task_worktree_processes tasktmp "$TASK_TMP"
+fi
+# Fix 4 (see script header): close what the task launched outside its copy.
+if [ "$KIND" != secondmate ]; then
+  FM_TASK_PROC_INBOX="$(cd "$STATE" && pwd -P)/$ID.inbox" FM_TASK_PROC_ID=$ID \
+    FM_TASK_PROC_PROFILE=$TASK_TMP FM_TASK_PROC_PATHS="$WT
+$TASK_TMP" fm_task_proc_close "$ID"
 fi
 if [ "$KIND" = ship ] && teardown_owns_worktree && [ -e "$CONFIG/pipeline-spend" ]; then
   FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
