@@ -1,0 +1,24 @@
+[
+  {
+    "companion_rule": [
+      "   A companion PR in any repository other than this task's own must target that repository's integration branch as named in these instructions, passed explicitly on the PR (`--base <branch>`), never the forge default; if these instructions name no integration branch for that repository, append `needs-decision` and stop rather than use the default."
+    ],
+    "mode": "no-mistakes",
+    "result": "pass",
+    "rule_one": "1. Never push to the base branch `dev` or the default branch. Never merge a PR."
+  },
+  {
+    "companion_rule": [
+      "   A companion PR in any repository other than this task's own must target that repository's integration branch as named in these instructions, passed explicitly on the PR (`--base <branch>`), never the forge default; if these instructions name no integration branch for that repository, append `needs-decision` and stop rather than use the default."
+    ],
+    "mode": "direct-PR",
+    "result": "pass",
+    "rule_one": "1. Never push to the base branch `dev` or the default branch (push only your `fm/companion-direct` branch). Never merge a PR."
+  },
+  {
+    "companion_rule": [],
+    "mode": "local-only",
+    "result": "pass",
+    "rule_one": "1. Never push to any remote and never open a PR. Work only on your `fm/companion-local` branch; firstmate handles the merge into local `main`."
+  }
+]
