@@ -12,7 +12,7 @@
 #   fm-ask.sh open --task <task-id> --kind decision|approval|blocker \
 #     --question <text> [--option <LABEL>=<text>]... \
 #     [--recommend <LABEL> --reason <text>] [--link <https-url>]... [--key <ask-id>]
-#   fm-ask.sh close (<ask-id> | --task <task-id> [--asked-before <UTC-time>]) \
+#   fm-ask.sh close (<ask-id> | --task <task-id> [--asked-since <UTC-time>]) \
 #     --answered|--withdrawn
 #
 # RECORD FORMAT (schema 1). One JSON object per ask, one file per ask at
@@ -52,14 +52,18 @@
 # `opened: <ask_id>` or `unchanged: <ask_id>`.
 #
 # CLOSING. `close <ask_id>` marks one ask answered or withdrawn; `close --task`
-# closes every open ask of that task. With --asked-before <RFC 3339 UTC time>,
-# it closes only asks whose asked_at is at or before that time.
-# Closing an already-closed ask with the
-# same outcome is a no-op; a different outcome is refused. `close` prints
+# closes every open ask of that task. With --asked-since <RFC 3339 UTC time>,
+# it closes only asks whose asked_at is at or after that time.
+# The bound is validated only when the task has open asks; an empty or invalid
+# hold-start time then fails without closing any ask. With no open asks it is
+# a no-op. Closing an already-closed ask with the same outcome is a no-op;
+# a different outcome is refused. `close` prints
 # `<state>: <ask_id>` for each ask it changed or confirmed. bin/fm-captain-hold.sh
 # `answer` (and its keyed `answers` intake) runs `close --task <task> --answered`
-# with --asked-before set to the answer record's recorded time, so a replay
-# never closes asks recorded after that answer.
+# with --asked-since set to the leading Captain hold set: timestamp in the
+# task body. The stamp survives failed closure and is removed after success.
+# A new hold supplies a new bound even when the answer text is unchanged.
+# A replay with no current hold stamp cannot close later asks.
 #
 # All mutations hold an exclusive lock on `captain-asks/.lock`. A record that
 # cannot be parsed stops the command with its path rather than being skipped.
@@ -293,7 +297,7 @@ def utc_time(label, value):
 
 
 def cmd_close():
-    target = task = outcome = asked_before = None
+    target = task = outcome = asked_since = None
     i = 0
     while i < len(args):
         a = args[i]
@@ -305,8 +309,8 @@ def cmd_close():
         elif a == "--task":
             task = take(i, a)
             i += 2
-        elif a == "--asked-before":
-            asked_before = utc_time(a, take(i, a))
+        elif a == "--asked-since":
+            asked_since = take(i, a)
             i += 2
         elif not a.startswith("-") and target is None:
             target = a
@@ -315,8 +319,8 @@ def cmd_close():
             raise Usage(f"unknown argument {a!r}")
     if outcome is None or (target is None) == (task is None):
         raise Usage("close needs one <ask_id> or --task, and --answered or --withdrawn")
-    if asked_before is not None and task is None:
-        raise Usage("--asked-before requires --task")
+    if asked_since is not None and task is None:
+        raise Usage("--asked-since requires --task")
     if target is not None and not SLUG.match(target):
         die(f"invalid ask id {target!r}")
     lock()
@@ -327,8 +331,9 @@ def cmd_close():
             die(f"no captain ask {target}")
     else:
         chosen = [r for r in records if r.get("task_id") == task and r.get("state") == "open"]
-    if asked_before is not None:
-        chosen = [r for r in chosen if utc_time("asked_at", r.get("asked_at")) <= asked_before]
+    if asked_since is not None and chosen:
+        since = utc_time("hold-start time (--asked-since)", asked_since)
+        chosen = [r for r in chosen if utc_time("asked_at", r.get("asked_at")) >= since]
     stamp = now()
     for r in chosen:
         if r.get("state") == "open":

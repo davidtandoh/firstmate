@@ -220,15 +220,20 @@ for name, stamp in (("before", "2026-01-01T00:00:00Z"),
     record["asked_at"] = stamp
     path.write_text(json.dumps(record))
 PYTIME
-  run_ask "$home" close --task t1 --asked-before invalid --answered >/dev/null 2>&1 || code=$?
+  run_ask "$home" close --task absent --asked-since "" --answered >/dev/null \
+    || fail "a task with no open asks required a hold-start time"
+  run_ask "$home" close --task t1 --asked-since "" --answered >/dev/null 2>&1 || code=$?
+  expect_code 1 "$code" "open asks require a hold-start time"
+  code=0
+  run_ask "$home" close --task t1 --asked-since invalid --answered >/dev/null 2>&1 || code=$?
   expect_code 1 "$code" "invalid time fails"
   assert_equals open "$(field "$home/state/captain-asks/before.json" 'r["state"]')" "invalid time changes no ask"
-  run_ask "$home" close --task t1 --asked-before 2026-01-01T00:00:01+00:00 --answered >/dev/null
-  for name in before equal; do
+  run_ask "$home" close --task t1 --asked-since 2026-01-01T00:00:01+00:00 --answered >/dev/null
+  for name in equal after; do
     assert_equals answered "$(field "$home/state/captain-asks/$name.json" 'r["state"]')" "inclusive bound closes $name"
   done
-  run_ask "$home" close --task t1 --asked-before 2026-01-01T00:00:01Z --answered >/dev/null
-  for name in after other; do
+  run_ask "$home" close --task t1 --asked-since 2026-01-01T00:00:01Z --answered >/dev/null
+  for name in before other; do
     assert_equals open "$(field "$home/state/captain-asks/$name.json" 'r["state"]')" "bound preserves $name"
   done
   pass "bounded closure is inclusive, task-specific and idempotent"

@@ -998,8 +998,8 @@ EOF
   pass "release frees held work with the captain's words recorded and the body preserved"
 }
 
-test_answer_replays_preserve_later_asks() {
-  local home channel
+test_answer_closes_current_hold_asks() {
+  local home channel code
   for channel in direct keyed; do
     home=$(make_home "answer-replay-$channel")
     tasks_in "$home" add sample-replay "Replay release" --kind ship --repo sample >/dev/null
@@ -1007,29 +1007,71 @@ test_answer_replays_preserve_later_asks() {
       --reason "captain go needed" >/dev/null || fail "could not hold the replay task"
     printf 'Proceed.\n' > "$home/decision.txt"
     if [ "$channel" = direct ]; then
-      FM_CAPTAIN_HOLD_NOW=2000-01-02T00:00:00Z run_captain "$home" answer sample-replay \
-        --decision-file "$home/decision.txt" --release >/dev/null || fail "initial direct release failed"
+      run_captain "$home" answer sample-replay --decision-file "$home/decision.txt" --release >/dev/null \
+        || fail "initial direct release failed"
     else
       printf 'sample-replay\tgo\tProceed\trelease\n' \
-        | FM_CAPTAIN_HOLD_NOW=2000-01-02T00:00:00Z run_captain "$home" answers --source "replay fixture" >/dev/null \
+        | run_captain "$home" answers --source "replay fixture" >/dev/null \
         || fail "initial keyed release failed"
     fi
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
       --task sample-replay --kind decision --question "Which follow-up ships?" >/dev/null \
       || fail "could not record the later ask"
+    code=0
     if [ "$channel" = direct ]; then
-      FM_CAPTAIN_HOLD_NOW=2099-01-01T00:00:00Z run_captain "$home" answer sample-replay \
-        --decision-file "$home/decision.txt" --release >/dev/null || fail "direct release replay failed"
+      run_captain "$home" answer sample-replay --decision-file "$home/decision.txt" --release \
+        > "$home/replay.out" 2> "$home/replay.err" || code=$?
     else
       printf 'sample-replay\tgo\tProceed\trelease\n' \
-        | FM_CAPTAIN_HOLD_NOW=2099-01-01T00:00:00Z run_captain "$home" answers --source "replay fixture" >/dev/null \
-        || fail "keyed release replay failed"
+        | run_captain "$home" answers --source "replay fixture" \
+          > "$home/replay.out" 2> "$home/replay.err" || code=$?
     fi
+    [ "$code" -ne 0 ] || fail "$channel replay accepted open asks without a current hold start"
     jq -e '.state == "open" and (has("closed_at") | not)' \
       "$home/state/captain-asks/sample-replay-decision-1.json" >/dev/null \
       || fail "$channel answer replay closed a later ask"
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" close \
+      sample-replay-decision-1 --withdrawn >/dev/null || fail "could not withdraw the later ask"
+    run_captain "$home" hold sample-replay --reason "captain follow-up needed" >/dev/null \
+      || fail "could not re-hold the replay task"
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
+      --task sample-replay --kind decision --question "Proceed with the follow-up?" >/dev/null \
+      || fail "could not record the new hold's ask"
+    if [ "$channel" = direct ]; then
+      run_captain "$home" answer sample-replay --decision-file "$home/decision.txt" --release >/dev/null \
+        || fail "identical direct answer on the new hold failed"
+    else
+      printf 'sample-replay\tgo\tProceed\trelease\n' \
+        | run_captain "$home" answers --source "replay fixture" >/dev/null \
+        || fail "identical keyed answer on the new hold failed"
+    fi
+    jq -e '.state == "answered" and has("closed_at")' \
+      "$home/state/captain-asks/sample-replay-decision-2.json" >/dev/null \
+      || fail "$channel identical answer did not close the new hold's ask"
   done
-  pass "direct and keyed answer replays preserve asks recorded after the answer"
+  pass "direct and keyed identical answers close only current hold asks"
+}
+
+test_missing_hold_start_refuses_open_asks() {
+  local home
+  home=$(make_home missing-hold-start)
+  run_captain "$home" hold sample-missing-start --title "Missing start" --reason "captain needed" >/dev/null \
+    || fail "could not hold the task"
+  printf 'Legacy task body.\n' > "$home/unstamped-body.txt"
+  tasks_in "$home" update sample-missing-start --body-file "$home/unstamped-body.txt" >/dev/null \
+    || fail "could not remove the hold-start fixture"
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
+    --task sample-missing-start --kind approval --question "Proceed?" >/dev/null
+  printf 'Proceed.\n' > "$home/decision.txt"
+  if run_captain "$home" answer sample-missing-start --decision-file "$home/decision.txt" \
+    > "$home/answer.out" 2> "$home/answer.err"; then
+    fail "answer accepted open asks without a hold-start timestamp"
+  fi
+  assert_grep "hold-start time" "$home/answer.err" "the failure did not name the missing hold start"
+  jq -e '.state == "open" and (has("closed_at") | not)' \
+    "$home/state/captain-asks/sample-missing-start-approval-1.json" >/dev/null \
+    || fail "an answer without a hold start closed the ask"
+  pass "missing hold-start timestamps refuse closure when asks are open"
 }
 
 # The hold-set stamp must be durable before the captain hold becomes visible.
@@ -4841,7 +4883,8 @@ test_retained_body_keeps_its_utf8_bytes
 test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
-test_answer_replays_preserve_later_asks
+test_answer_closes_current_hold_asks
+test_missing_hold_start_refuses_open_asks
 test_hold_stamp_precedes_hold_visibility
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due
