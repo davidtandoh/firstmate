@@ -401,7 +401,8 @@ fi
 ID=${POS[0]}
 # Browser instructions and cleanup share the home-scoped task identity owned
 # by bin/fm-task-proc-lib.sh, independently of the older task temp root.
-. "$FM_ROOT/bin/fm-task-proc-lib.sh"
+# shellcheck source=bin/fm-task-proc-lib.sh
+. "$SCRIPT_DIR/fm-task-proc-lib.sh"
 BROWSER_SESSION=$(fm_task_proc_browser_session "$FM_HOME" "$ID") || exit 1
 BROWSER_RULE_LINE="   For browser work, start each chrome-devtools-axi command with \`env -u CHROME_DEVTOOLS_AXI_BROWSER_URL -u CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_SESSION=$BROWSER_SESSION CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$BROWSER_SESSION/browser-profile\` so the browser is this job's own and closes at cleanup; never set CHROME_DEVTOOLS_AXI_AUTO_CONNECT or drive the captain's own browsers."
 BRANCH="$BRANCH_PREFIX$ID"

@@ -47,6 +47,7 @@
 #   FM_TASK_PROC_PROFILE  exact per-job browser profile directory
 #   FM_TASK_PROC_PATHS    newline-separated task-owned paths (copy, temp root)
 
+# shellcheck source=bin/fm-backend-hometag-lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fm-backend-hometag-lib.sh"
 
 fm_task_proc_browser_session() {

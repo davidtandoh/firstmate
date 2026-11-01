@@ -5462,14 +5462,16 @@ assert_source_refusal_preserved_state() {  # <case-dir> <label> <stderr-needle>
 }
 
 test_missing_startup_source_refuses_before_cleanup() {
-  local case_dir rc
-  case_dir=$(make_case missing-startup-source)
-  write_meta "$case_dir" local-only ship
-  prepare_teardown_source_copy "$case_dir"
-  rm -f "$case_dir/test-root/bin/fm-nm-run-lib.sh"
-  rc=0
-  run_copied_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  assert_source_refusal_preserved_state "$case_dir" "missing-startup-source" "required source fm-nm-run-lib.sh"
+  local case_dir rc source
+  for source in fm-nm-run-lib.sh fm-task-proc-lib.sh fm-backend-hometag-lib.sh; do
+    case_dir=$(make_case "missing-startup-source-$source")
+    write_meta "$case_dir" local-only ship
+    prepare_teardown_source_copy "$case_dir"
+    rm -f "$case_dir/test-root/bin/$source"
+    rc=0
+    run_copied_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    assert_source_refusal_preserved_state "$case_dir" "missing-startup-source" "required source $source"
+  done
   pass "a missing teardown startup source refuses before cleanup"
 }
 
@@ -5557,7 +5559,7 @@ SH
   rm -f "$case_dir/test-root/bin/fm-backend-hometag-lib.sh"
   rc=0
   run_copied_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  assert_source_refusal_preserved_state "$case_dir" "missing-own-source" "required zellij source"
+  assert_source_refusal_preserved_state "$case_dir" "missing-own-source" "required source fm-backend-hometag-lib.sh"
   [ -e "$home/state/child-tmux.meta" ] || fail "missing-own-source: the refusal erased the child record"
   [ -e "$home/state/child-tmux.status" ] || fail "missing-own-source: the refusal erased the child status"
   [ -d "$home" ] || fail "missing-own-source: the refusal removed the secondmate home"

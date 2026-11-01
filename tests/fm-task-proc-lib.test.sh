@@ -180,6 +180,7 @@ PYCODE
   pass "browser identities match emitted briefs and clear inherited connection overrides"
 }
 
+# shellcheck disable=SC2329 # Overrides called by the sourced cleanup library.
 test_close_revalidates() (
   local scenario signals expected
   fm_task_proc_ancestors() { printf '999\n'; }
@@ -215,6 +216,7 @@ test_close_revalidates() (
   pass "cleanup rechecks ownership and identity and skips exited or reused pids"
 )
 
+# shellcheck disable=SC2329 # Overrides called by the extracted retirement function.
 test_retiring_child_cleanup() (
   local home child=retiring-worker session out
   home="$TMP_ROOT/retiring-home"
@@ -223,6 +225,7 @@ test_retiring_child_cleanup() (
   session=$(fm_task_proc_browser_session "$home" "$child")
   awk '/^cleanup_firstmate_home_children\(\)/ { emitting=1 } emitting { print } emitting && /^}/ { exit }' \
     "$ROOT/bin/fm-teardown.sh" > "$TMP_ROOT/retire-function.sh"
+  # shellcheck source=/dev/null
   . "$TMP_ROOT/retire-function.sh"
   meta_value() { sed -n "s/^$2=//p" "$1"; }
   fm_backend_of_meta() { printf 'tmux\n'; }
@@ -258,6 +261,7 @@ test_retiring_child_cleanup() (
   pass "child retirement closes owned processes before removing records"
 )
 
+# shellcheck disable=SC2329 # Overrides called by the sourced cleanup library.
 test_python_omnigent_survives() (
   local signals
   fm_task_proc_ancestors() { printf '999\n'; }
