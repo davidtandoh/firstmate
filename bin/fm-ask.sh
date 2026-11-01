@@ -66,6 +66,8 @@
 # `answer` (and its keyed `answers` intake) runs `close --task <task> --answered`
 # with --asked-since set to the leading Captain hold set: timestamp in the
 # task body. The stamp survives failed closure and is removed after success.
+# If ask closure fails, the answer command fails before publishing the parent
+# resolution or retiring a pending reconcile request; retry the same answer.
 # A new hold supplies a new bound even when the answer text is unchanged.
 # A replay with no current hold stamp cannot close later asks.
 #
