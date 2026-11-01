@@ -998,6 +998,40 @@ EOF
   pass "release frees held work with the captain's words recorded and the body preserved"
 }
 
+test_answer_replays_preserve_later_asks() {
+  local home channel
+  for channel in direct keyed; do
+    home=$(make_home "answer-replay-$channel")
+    tasks_in "$home" add sample-replay "Replay release" --kind ship --repo sample >/dev/null
+    FM_CAPTAIN_HOLD_NOW=2000-01-01T00:00:00Z run_captain "$home" hold sample-replay \
+      --reason "captain go needed" >/dev/null || fail "could not hold the replay task"
+    printf 'Proceed.\n' > "$home/decision.txt"
+    if [ "$channel" = direct ]; then
+      FM_CAPTAIN_HOLD_NOW=2000-01-02T00:00:00Z run_captain "$home" answer sample-replay \
+        --decision-file "$home/decision.txt" --release >/dev/null || fail "initial direct release failed"
+    else
+      printf 'sample-replay\tgo\tProceed\trelease\n' \
+        | FM_CAPTAIN_HOLD_NOW=2000-01-02T00:00:00Z run_captain "$home" answers --source "replay fixture" >/dev/null \
+        || fail "initial keyed release failed"
+    fi
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-ask.sh" open \
+      --task sample-replay --kind decision --question "Which follow-up ships?" >/dev/null \
+      || fail "could not record the later ask"
+    if [ "$channel" = direct ]; then
+      FM_CAPTAIN_HOLD_NOW=2099-01-01T00:00:00Z run_captain "$home" answer sample-replay \
+        --decision-file "$home/decision.txt" --release >/dev/null || fail "direct release replay failed"
+    else
+      printf 'sample-replay\tgo\tProceed\trelease\n' \
+        | FM_CAPTAIN_HOLD_NOW=2099-01-01T00:00:00Z run_captain "$home" answers --source "replay fixture" >/dev/null \
+        || fail "keyed release replay failed"
+    fi
+    jq -e '.state == "open" and (has("closed_at") | not)' \
+      "$home/state/captain-asks/sample-replay-decision-1.json" >/dev/null \
+      || fail "$channel answer replay closed a later ask"
+  done
+  pass "direct and keyed answer replays preserve asks recorded after the answer"
+}
+
 # The hold-set stamp must be durable before the captain hold becomes visible.
 # A wrapper observes the real tasks-axi hold boundary, and a forced stamp-write
 # failure proves the command never publishes the hold without its timestamp.
@@ -4807,6 +4841,7 @@ test_retained_body_keeps_its_utf8_bytes
 test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
+test_answer_replays_preserve_later_asks
 test_hold_stamp_precedes_hold_visibility
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due

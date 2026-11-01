@@ -12,7 +12,8 @@
 #   fm-ask.sh open --task <task-id> --kind decision|approval|blocker \
 #     --question <text> [--option <LABEL>=<text>]... \
 #     [--recommend <LABEL> --reason <text>] [--link <https-url>]... [--key <ask-id>]
-#   fm-ask.sh close (<ask-id> | --task <task-id>) --answered|--withdrawn
+#   fm-ask.sh close (<ask-id> | --task <task-id> [--asked-before <UTC-time>]) \
+#     --answered|--withdrawn
 #
 # RECORD FORMAT (schema 1). One JSON object per ask, one file per ask at
 # `$FM_HOME/state/captain-asks/<ask_id>.json`, written atomically (temp file in
@@ -33,7 +34,7 @@
 #
 # VALIDATION. Every text field must be one line of plain text: line breaks,
 # control characters and markdown (emphasis pairs, `~~`, backticks, `](`, and
-# a leading `#`, `>`, `- `, `* `, or `+ `) are refused rather than stripped, so
+# a leading `#`, `>`, `- `, `* `, `+ `, `1. `, or `1) `) are refused rather than stripped, so
 # what a notifier sends is exactly what was recorded. Option labels are 1-16
 # letters, digits or hyphens, unique per ask, and a recommendation must name an
 # option label when options exist. Links must be https URLs with a host and no
@@ -51,12 +52,14 @@
 # `opened: <ask_id>` or `unchanged: <ask_id>`.
 #
 # CLOSING. `close <ask_id>` marks one ask answered or withdrawn; `close --task`
-# closes every open ask of that task. Closing an already-closed ask with the
+# closes every open ask of that task. With --asked-before <RFC 3339 UTC time>,
+# it closes only asks whose asked_at is at or before that time.
+# Closing an already-closed ask with the
 # same outcome is a no-op; a different outcome is refused. `close` prints
 # `<state>: <ask_id>` for each ask it changed or confirmed. bin/fm-captain-hold.sh
 # `answer` (and its keyed `answers` intake) runs `close --task <task> --answered`
-# whenever it records the captain's answer for a task, so asks recorded under
-# the held task's id close with the answer.
+# with --asked-before set to the answer record's recorded time, so a replay
+# never closes asks recorded after that answer.
 #
 # All mutations hold an exclusive lock on `captain-asks/.lock`. A record that
 # cannot be parsed stops the command with its path rather than being skipped.
@@ -95,7 +98,7 @@ TASK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,15}\Z")
 MARKDOWN_INLINE = ("**", "__", "~~", "`", "](")
 MARKDOWN_EMPHASIS = re.compile(r"\*(?=\S)(?:[^*]*?\S)?\*|(?<!\w)_(?=\S)(?:.*?\S)?_(?!\w)")
-MARKDOWN_LEAD = re.compile(r"(?:#|>|[-*+]\s)")
+MARKDOWN_LEAD = re.compile(r"(?:#|>|[-*+]\s|[0-9]+[.)]\s)")
 
 
 class Usage(Exception):
@@ -129,7 +132,7 @@ def plain(label, value):
 def https_link(value):
     parts = urlsplit(value)
     if parts.scheme != "https" or not parts.hostname or re.search(r"\s", value) \
-            or len(value) > 2048 or any(ord(c) < 32 for c in value):
+            or any(ord(c) < 32 for c in value):
         die(f"link must be a full https URL: {value!r}")
     return value
 
@@ -279,8 +282,18 @@ def cmd_open():
     print(f"opened: {key}")
 
 
+def utc_time(label, value):
+    if not isinstance(value, str) or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|\+00:00)", value):
+        die(f"{label} must be an RFC 3339 UTC time")
+    try:
+        return datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        die(f"{label} must be an RFC 3339 UTC time")
+
+
 def cmd_close():
-    target = task = outcome = None
+    target = task = outcome = asked_before = None
     i = 0
     while i < len(args):
         a = args[i]
@@ -292,6 +305,9 @@ def cmd_close():
         elif a == "--task":
             task = take(i, a)
             i += 2
+        elif a == "--asked-before":
+            asked_before = utc_time(a, take(i, a))
+            i += 2
         elif not a.startswith("-") and target is None:
             target = a
             i += 1
@@ -299,6 +315,8 @@ def cmd_close():
             raise Usage(f"unknown argument {a!r}")
     if outcome is None or (target is None) == (task is None):
         raise Usage("close needs one <ask_id> or --task, and --answered or --withdrawn")
+    if asked_before is not None and task is None:
+        raise Usage("--asked-before requires --task")
     if target is not None and not SLUG.match(target):
         die(f"invalid ask id {target!r}")
     lock()
@@ -309,6 +327,8 @@ def cmd_close():
             die(f"no captain ask {target}")
     else:
         chosen = [r for r in records if r.get("task_id") == task and r.get("state") == "open"]
+    if asked_before is not None:
+        chosen = [r for r in chosen if utc_time("asked_at", r.get("asked_at")) <= asked_before]
     stamp = now()
     for r in chosen:
         if r.get("state") == "open":

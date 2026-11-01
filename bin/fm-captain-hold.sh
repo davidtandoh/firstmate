@@ -76,6 +76,10 @@
 # `held:` bit, prove the captain owned it.
 # Every successful or replayed answer also closes the task's open captain-ask
 # records as answered through bin/fm-ask.sh, which owns those records.
+# The resolution block stores Resolution recorded at as RFC 3339 UTC.
+# Its time bounds close --task with --asked-before, inclusive, on every replay;
+# asks recorded after that answer remain open. A missing recorded time fails
+# closure rather than using the replay time.
 # A closure failure fails the answer before publishing resolution or retiring
 # reconciliation; an exact retry completes closure using the durable answer.
 #
@@ -511,6 +515,19 @@ recorded_resolution_mode() {  # <task-body>
   printf '%s' "$rest"
 }
 
+recorded_resolution_time() {
+  local body
+  body=$(decode_shown_value "$1") || return 1
+  printf '%s\n' "$body" | awk '
+    /^Resolution recorded by fm-(captain|decision)-hold\.$/ { record++; next }
+    record == 1 && /^$/ { exit }
+    record == 1 && /^Resolution recorded at: / {
+      sub(/^Resolution recorded at: /, ""); print; found=1; exit
+    }
+    END { if (!found) exit 1 }
+  '
+}
+
 closed_answer_replay_mode_compatible() {  # <mode> <task-body>
   case "$1" in
     answered|repaired|routed) return 0 ;;
@@ -524,8 +541,8 @@ closed_answer_replay_mode_compatible() {  # <mode> <task-body>
 resolution_block() {  # <mode>
   local label='Captain decision:'
   [ "$1" != reconciled ] || label='Reconciliation evidence:'
-  printf 'Resolution recorded by fm-captain-hold.\nDecision digest: %s\nResolution mode: %s\n\n%s\n%s\n' \
-    "$DECISION_DIGEST" "$1" "$label" "$DECISION_TEXT"
+  printf 'Resolution recorded by fm-captain-hold.\nDecision digest: %s\nResolution mode: %s\nResolution recorded at: %s\n\n%s\n%s\n' \
+    "$DECISION_DIGEST" "$1" "${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" "$label" "$DECISION_TEXT"
 }
 
 # Durable state of one captain call: an active captain hold (annotations
@@ -1660,9 +1677,12 @@ reconcile_request_retire() {  # <task-id>
 }
 
 publish_parent_resolution_then_retire() {  # <task-id> <occurrence> <note>
-  local id=$1 occurrence=$2 note=$3 request
+  local id=$1 occurrence=$2 note=$3 request show recorded_at
   request=$(reconcile_request_path "$id")
-  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-ask.sh" close --task "$id" --answered >/dev/null \
+  task_show_or_fail "$id" "answered task $id disappeared before closing its captain asks"
+  recorded_at=$(recorded_resolution_time "$(show_field "$show" body)") \
+    || fail "answered task $id has no recorded resolution time"
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-ask.sh" close --task "$id" --asked-before "$recorded_at" --answered >/dev/null \
     || fail "could not close the captain asks recorded for answered task $id; retry the same answer"
   publish_parent_hold "$id" "$occurrence" resolved "$note"
   if [ -e "$request" ] && [ "$PARENT_HOLD_PUBLISHED" != 1 ]; then

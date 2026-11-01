@@ -121,6 +121,10 @@ test_validation_refuses_markdown_and_bad_values() {
   refused "$home" "link markdown" --task t1 --kind decision --question "See [PR](https://x.test)?"
   refused "$home" "heading markdown" --task t1 --kind decision --question "# Decide"
   refused "$home" "list markdown in an option" --task t1 --kind decision --question "Pick?" --option "A=- first"
+  refused "$home" "ordered list question" --task t1 --kind approval --question "1. Merge the fix?"
+  refused "$home" "ordered list option" --task t1 --kind decision --question "Pick?" --option "A=1) Ship now"
+  refused "$home" "ordered list reason" --task t1 --kind decision --question "Pick?" \
+    --recommend A --reason "2. It unblocks alerts"
   refused "$home" "a line break" --task t1 --kind decision --question $'Pick?\nNow.'
   refused "$home" "an empty question" --task t1 --kind decision --question ""
   refused "$home" "an unknown kind" --task t1 --kind question --question "Pick?"
@@ -133,21 +137,23 @@ test_validation_refuses_markdown_and_bad_values() {
 }
 
 test_plain_prose_accepts_vocabulary_and_long_text() {
-  local home file question text
+  local home file question text link
   home=$(make_home prose)
   question="$(printf 'Long %.0s' {1..70})question?"
   text="$(printf 'Plain %.0s' {1..35})snake_case and another_identifier"
+  link="https://example.com/artifact?query=$(printf 'x%.0s' {1..2100})"
   run_ask "$home" open --task token-secret --kind blocker --question "The token expired." \
     --key secret-renewal --option "A=Renew the API key" --recommend A \
     --reason "Authorization needs renewal." --link https://example.com/token >/dev/null
   file="$home/state/captain-asks/secret-renewal.json"
   assert_equals "The token expired." "$(field "$file" 'r["question"]')" "credential vocabulary is plain prose"
   run_ask "$home" open --task t1 --kind decision --question "$question" \
-    --option "A=$text" --recommend A --reason "$text" >/dev/null
+    --option "A=$text" --recommend A --reason "$text" --link "$link" >/dev/null
   file="$home/state/captain-asks/t1-decision-1.json"
   assert_equals "$question" "$(field "$file" 'r["question"]')" "long question is preserved"
   assert_equals "$text" "$(field "$file" 'r["options"][0]["text"]')" "long option and identifiers are preserved"
   assert_equals "$text" "$(field "$file" 'r["recommendation"]["reason"]')" "long reason is preserved"
+  assert_equals "$link" "$(field "$file" 'r["links"][0]')" "long HTTPS URL is preserved"
   pass "plain prose accepts credential vocabulary, identifiers and long text"
 }
 
@@ -195,6 +201,39 @@ test_close_by_id_and_task_and_never_reopen() {
   pass "asks close by id or task and a closed ask is never reopened"
 }
 
+test_close_bound_preserves_later_asks() {
+  local home name code=0
+  home=$(make_home bounded-close)
+  for name in before equal after other; do
+    run_ask "$home" open --task "$([ "$name" = other ] && printf t2 || printf t1)" \
+      --kind approval --key "$name" --question "Merge $name?" >/dev/null
+  done
+  python3 - "$home/state/captain-asks" <<'PYTIME'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+for name, stamp in (("before", "2026-01-01T00:00:00Z"),
+                    ("equal", "2026-01-01T00:00:01Z"),
+                    ("after", "2026-01-01T00:00:01.001Z"),
+                    ("other", "2026-01-01T00:00:00Z")):
+    path = root / (name + ".json")
+    record = json.loads(path.read_text())
+    record["asked_at"] = stamp
+    path.write_text(json.dumps(record))
+PYTIME
+  run_ask "$home" close --task t1 --asked-before invalid --answered >/dev/null 2>&1 || code=$?
+  expect_code 1 "$code" "invalid time fails"
+  assert_equals open "$(field "$home/state/captain-asks/before.json" 'r["state"]')" "invalid time changes no ask"
+  run_ask "$home" close --task t1 --asked-before 2026-01-01T00:00:01+00:00 --answered >/dev/null
+  for name in before equal; do
+    assert_equals answered "$(field "$home/state/captain-asks/$name.json" 'r["state"]')" "inclusive bound closes $name"
+  done
+  run_ask "$home" close --task t1 --asked-before 2026-01-01T00:00:01Z --answered >/dev/null
+  for name in after other; do
+    assert_equals open "$(field "$home/state/captain-asks/$name.json" 'r["state"]')" "bound preserves $name"
+  done
+  pass "bounded closure is inclusive, task-specific and idempotent"
+}
+
 test_corrupt_record_stops_reads() {
   local home code=0 err
   home=$(make_home corrupt)
@@ -215,4 +254,5 @@ fm_test_run \
   test_plain_prose_accepts_vocabulary_and_long_text \
   test_usage_errors_exit_2 \
   test_close_by_id_and_task_and_never_reopen \
+  test_close_bound_preserves_later_asks \
   test_corrupt_record_stops_reads
