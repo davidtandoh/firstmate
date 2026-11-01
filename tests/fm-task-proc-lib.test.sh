@@ -132,7 +132,7 @@ test_requires_inbox() {
 }
 
 test_browser_identity() {
-  local first second session home brief out
+  local first second session home brief out prefix
   first=$(fm_task_proc_browser_session /Users/cap/home-a "$ID")
   second=$(fm_task_proc_browser_session /Users/cap/home-b "$ID")
   [ "$first" != "$second" ] || fail "equal task IDs in different homes share a browser"
@@ -145,7 +145,24 @@ test_browser_identity() {
   session=$(fm_task_proc_browser_session "$home" "$ID")
   brief="$home/data/$ID/brief.md"
   assert_grep "CHROME_DEVTOOLS_AXI_SESSION=$session CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$session/browser-profile" "$brief" "emitted browser launch contract agrees with cleanup identity"
-  pass "browser identities are stable, home scoped, and match emitted briefs"
+  prefix=$(python3 - "$brief" <<'PYCODE'
+import pathlib
+import sys
+for line in pathlib.Path(sys.argv[1]).read_text().splitlines():
+    if line.startswith("   For browser work,"):
+        print(line.split(chr(96))[1])
+        break
+else:
+    raise SystemExit("missing emitted browser launch contract")
+PYCODE
+  )
+  out=$(CHROME_DEVTOOLS_AXI_BROWSER_URL=http://captain.invalid:9222 CHROME_DEVTOOLS_AXI_AUTO_CONNECT=1 bash -c "$prefix env")
+  assert_contains "$out" "CHROME_DEVTOOLS_AXI_SESSION=$session" "browser prefix sets the job session"
+  assert_contains "$out" "CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$session/browser-profile" "browser prefix sets the job profile"
+  if printf '%s\n' "$out" | grep -Eq '^CHROME_DEVTOOLS_AXI_(BROWSER_URL|AUTO_CONNECT)='; then
+    fail "browser prefix retained an inherited connection override"
+  fi
+  pass "browser identities match emitted briefs and clear inherited connection overrides"
 }
 
 test_close_revalidates() (
@@ -183,6 +200,49 @@ test_close_revalidates() (
   pass "cleanup rechecks ownership and identity and skips exited or reused pids"
 )
 
+test_retiring_child_cleanup() (
+  local home child=retiring-worker session out
+  home="$TMP_ROOT/retiring-home"
+  mkdir -p "$home/state" "$home/data" "$home/config"
+  printf 'kind=ship\n' > "$home/state/$child.meta"
+  session=$(fm_task_proc_browser_session "$home" "$child")
+  awk '/^cleanup_firstmate_home_children\(\)/ { emitting=1 } emitting { print } emitting && /^}/ { exit }' \
+    "$ROOT/bin/fm-teardown.sh" > "$TMP_ROOT/retire-function.sh"
+  . "$TMP_ROOT/retire-function.sh"
+  meta_value() { sed -n "s/^$2=//p" "$1"; }
+  fm_backend_of_meta() { printf 'tmux\n'; }
+  fm_backend_target_of_meta() { :; }
+  teardown_export_records() { :; }
+  remove_grok_turnend_auth() { :; }
+  remove_kimi_turnend_auth() { :; }
+  remove_kiro_turnend_auth() { :; }
+  remove_pr_poll_artifacts() { :; }
+  retire_busy_state() { :; }
+  teardown_retire_status() { :; }
+  fm_wake_queue_prune_task() { :; }
+  fm_wake_signal_seen_path() { printf '%s/unused\n' "$1"; }
+  fm_backlog_atomic_transition() { rm "$2"; }
+  fm_task_proc_ancestors() { printf '999\n'; }
+  fm_task_proc_listing() {
+    printf '601 node helper FM_TASK_INBOX=%s/state/%s.inbox\n' "$home" "$child"
+    printf '602 chrome --user-data-dir=/tmp/%s/browser-profile\n' "$session"
+    printf '603 node helper FM_TASK_INBOX=%s/state/%s.inbox\n' "$TMP_ROOT/other-home" "$child"
+    printf '604 chrome --user-data-dir=/tmp/%s/browser-profile\n' "$(fm_task_proc_browser_session "$TMP_ROOT/other-home" "$child")"
+  }
+  task_process_identity() { printf 'starttime=123\n'; }
+  task_process_identity_matches() { [ "$2" = starttime=123 ]; }
+  kill() {
+    [ -f "$home/state/$child.meta" ] || fail "child record was removed before process cleanup"
+    printf '%s\n' "$*" >> "$TMP_ROOT/child-signals"
+  }
+  : > "$TMP_ROOT/child-signals"
+  FM_TASK_PROC_GRACE=0 cleanup_firstmate_home_children "$home" parent 2> "$TMP_ROOT/child-report"
+  out=$(cat "$TMP_ROOT/child-signals")
+  assert_equals "$out" $'-TERM 601\n-TERM 602' "child retirement closes only its own helper and browser"
+  assert_absent "$home/state/$child.meta" "child retirement did not remove the completed record"
+  pass "child retirement closes owned processes before removing records"
+)
+
 test_wrapped_worker_inbox() (
   . "$ROOT/tests/omnigent-fixture.sh"
   fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
@@ -195,4 +255,4 @@ test_wrapped_worker_inbox() (
 )
 
 TMP_ROOT=$(fm_test_tmproot fm-task-proc)
-fm_test_run test_classifier_table test_mixed_listing_and_exclusion test_requires_inbox test_browser_identity test_close_revalidates test_wrapped_worker_inbox
+fm_test_run test_classifier_table test_mixed_listing_and_exclusion test_requires_inbox test_browser_identity test_close_revalidates test_retiring_child_cleanup test_wrapped_worker_inbox

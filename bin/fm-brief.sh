@@ -404,7 +404,7 @@ ID=${POS[0]}
 # close it and never reaches the captain's own browsers.
 . "$FM_ROOT/bin/fm-task-proc-lib.sh"
 BROWSER_SESSION=$(fm_task_proc_browser_session "$FM_HOME" "$ID") || exit 1
-BROWSER_RULE_LINE="   For browser work, start each chrome-devtools-axi command with \`CHROME_DEVTOOLS_AXI_SESSION=$BROWSER_SESSION CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$BROWSER_SESSION/browser-profile\` so the browser is this job's own and closes at cleanup; never set CHROME_DEVTOOLS_AXI_AUTO_CONNECT or drive the captain's own browsers."
+BROWSER_RULE_LINE="   For browser work, start each chrome-devtools-axi command with \`env -u CHROME_DEVTOOLS_AXI_BROWSER_URL -u CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_SESSION=$BROWSER_SESSION CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$BROWSER_SESSION/browser-profile\` so the browser is this job's own and closes at cleanup; never set CHROME_DEVTOOLS_AXI_AUTO_CONNECT or drive the captain's own browsers."
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2

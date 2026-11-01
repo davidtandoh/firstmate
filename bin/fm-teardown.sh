@@ -3532,6 +3532,12 @@ cleanup_firstmate_home_children() {
     if [ "$child_omnigent" = 1 ]; then
       "$SCRIPT_DIR/fm-omnigent.sh" archive --record-locked "$child_meta" >/dev/null || true
     fi
+    if [ "$child_kind" != secondmate ]; then
+      FM_TASK_PROC_INBOX="$(cd "$sub_state" && pwd -P)/$child_id.inbox" FM_TASK_PROC_ID=$child_id \
+        FM_TASK_PROC_PROFILE="/tmp/$(fm_task_proc_browser_session "$home" "$child_id")/browser-profile" \
+        FM_TASK_PROC_PATHS="$child_wt
+/tmp/fm-$child_id" fm_task_proc_close "$child_id"
+    fi
     teardown_export_records "$sub_state" "$child_id" || return 1
     if [ "$child_kind" = secondmate ]; then
       child_home=$(meta_value "$child_meta" home)
