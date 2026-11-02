@@ -25,8 +25,8 @@ The concurrent isolation proof in [fm-test-isolation-proof.md](fm-test-isolation
 Local timings are not interchangeable with CI timings: platform and machine load can affect each script differently and change their relative weights.
 
 The serial hint table was refreshed on 2026-11-02 from the portable serial timing artifacts of ten `main` CI runs: [41145532723](https://github.com/davidtandoh/firstmate/actions/runs/41145532723), [41175835819](https://github.com/davidtandoh/firstmate/actions/runs/41175835819), [41179777340](https://github.com/davidtandoh/firstmate/actions/runs/41179777340), [41190197149](https://github.com/davidtandoh/firstmate/actions/runs/41190197149), [41190299711](https://github.com/davidtandoh/firstmate/actions/runs/41190299711), [41298356263](https://github.com/davidtandoh/firstmate/actions/runs/41298356263), [41321175859](https://github.com/davidtandoh/firstmate/actions/runs/41321175859), [41336318979](https://github.com/davidtandoh/firstmate/actions/runs/41336318979), [41348489993](https://github.com/davidtandoh/firstmate/actions/runs/41348489993), and [41406747104](https://github.com/davidtandoh/firstmate/actions/runs/41406747104).
-Each hint is the slowest successful `duration_ms` for that script across those artifacts.
-Every one of the 277 serial members had a successful sample: most had seven to ten, and two recently added scripts had three or four.
+Each refreshed hint is the slowest successful `duration_ms` for that script across those artifacts; the Windows-only exception below retains its separate measurement.
+Every portable-runnable serial member had a successful sample: most had seven to ten, and two recently added scripts had three or four.
 Three of those runs had a serial shard 9 cancelled at the 30-minute cap with no artifact; their other shards' artifacts are included, and the seven complete runs supply shard 9's members.
 An existing live-capability skip is a portable-runner measurement, not a timing claim for the unavailable live integration.
 
@@ -74,7 +74,7 @@ On green CI run [30725985757](https://github.com/kunchenguid/firstmate/actions/r
 On [PR 1495](https://github.com/kunchenguid/firstmate/pull/1495), its main step ran about 19m51s before the job was cancelled at that boundary.
 `portable-serial-<k>of<n>` splits it across `n` separate CI runners.
 Each shard is still strictly serial in itself, and separate runners mean no two of these stateful scripts ever share a machine, so the split needs no concurrency isolation proof.
-The lane needs thirteen serial shards to stay within the modeled packing budget: at the 2026-11-02 refresh, the measured maxima sum to about 236 minutes, so twelve shards would pack at about 19.7 minutes and leave no room for the next added test.
+The shard count reserves headroom below the modeled packing budget for added tests.
 
 `bin/fm-test-run.sh` owns `n` and refuses any lane whose `of<n>` disagrees with it.
 `.github/workflows/ci.yml` derives the same `n` from `strategy.job-total` rather than a literal, so changing the shard count in either file without the other fails the lane loudly instead of leaving part of the required suite unrun.
@@ -102,7 +102,7 @@ Refresh the CI-derived hints by downloading the per-shard timing artifacts from 
 
 ```sh
 for run in <run-id> <run-id> <run-id>; do
-  gh-axi run download "$run" -R kunchenguid/firstmate --dir "/tmp/fm-serial/$run"
+  gh-axi run download "$run" -R davidtandoh/firstmate --dir "/tmp/fm-serial/$run"
 done
 jq -r '.scripts[] | select(.exit == 0) | [.path, .duration_ms] | @tsv' /tmp/fm-serial/*/fm-test-timing-portable-serial-*/*.json \
   | awk -F'\t' '$2 > m[$1] { m[$1] = $2 } END { for (p in m) print p, m[p] }' \
@@ -135,9 +135,9 @@ Its `--list-files` interface exposes partition membership; `tests/fm-lint.test.s
 The workflow uploads each partition's quiet telemetry plus its per-root lifecycle sidecar to distinguish analysis cost, memory use, and host contention.
 No fast mode, path skips, or paid runner provisioning is part of this layout.
 
-The longer-term performance objective remains a complete green run under fifteen minutes including start delay, but the three watch-triage members still sum to about 30 minutes of CI test time.
+The longer-term performance objective remains a complete green run under fifteen minutes including start delay.
 The immediate packing target is the runner's modeled script budget, not a claim that more shards alone can make an indivisible script faster.
-The layout uses eighteen long-lived Linux jobs (thirteen serial, two parallel, Herdr, two lint), plus short checks and macOS; insufficient shared account capacity can erase the packing gain.
+The workflow owns the job inventory; insufficient shared account capacity can erase the packing gain.
 Compare complete before/after runs, preserve cancelled and partial-run evidence, and measure a representative normal-run sample before claiming a P95 improvement.
 The workflow retains per-PR supersession and keeps only the newest of close main pushes' runs, without changing the compliance workflow's event semantics.
 
