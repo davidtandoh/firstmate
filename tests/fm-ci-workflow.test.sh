@@ -704,6 +704,8 @@ raise "lint failures must not cancel another partition" unless lint.fetch("fail-
 matrix = lint.fetch("matrix")
 raise "unexpected lint dimensions" unless matrix.keys == ["partition"]
 parts = matrix.fetch("partition")
+raise "expected four lint partitions" unless parts == [1, 2, 3, 4]
+raise "aggregate must await every lint partition" unless jobs.fetch("full-suite").fetch("needs").include?("lint")
 roots = parts.flat_map do |p|
   output, result = Open3.capture2(File.join(root, "bin/fm-lint.sh"), "--partition", "#{p}of#{parts.length}", "--list-files")
   raise "unsupported lint partition" unless result.success?
