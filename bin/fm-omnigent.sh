@@ -25,8 +25,12 @@
 # process bound; naming and archive responses are limited to 128 KiB of JSON.
 # No naming retry or session backfill.
 # Preflight shares a 50-second external-command budget (status 20s, readiness
-# and capability whatever remains, health 5s), retaining Kit process-identity
-# verification.
+# and capability whatever remains, health 5s, Claude account lookup 10s),
+# retaining Kit process-identity verification.
+# A Claude launch with a non-empty CLAUDE_CONFIG_DIR asks the runtime's own
+# Python which configured account (a kind: subscription, cli: claude provider
+# claude-<name> in OMNIGENT_CONFIG_HOME/config.yaml) owns that exact folder;
+# a match launches with --account <name> instead of --env CLAUDE_CONFIG_DIR.
 # A spawn launch passes FM_OMNIGENT_RECORD_META, FM_OMNIGENT_RECORD_GEN,
 # FM_OMNIGENT_HOME_ID and FM_OMNIGENT_TASK. The verified session is then
 # recorded as omnigent_session=/omnigent_server= in that task record (record
@@ -449,10 +453,26 @@ resolve_service() {
   if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ]; then
     fail 'running daemon lacks verified exact Claude account enforcement; choose another worker or update Omnigent before selecting this account'
   fi
-  fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
-  PREFLIGHT_STARTED=
   CLIENT_ENV=()
   while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$status" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
+  # The runner refuses a session created without --account when the selected
+  # folder belongs to a configured account, so ask the pinned runtime the same
+  # question its runner asks. Only the account name leaves the lookup.
+  CLAUDE_ACCOUNT=
+  if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    CLAUDE_ACCOUNT=$(preflight_stage account 10 env "${CLIENT_ENV[@]}" "${OMNIGENT_BIN%/*}/python" -I -c '
+import sys
+try:
+    from omnigent.config import load_global_config
+    from omnigent.onboarding.claude_accounts import account_name_for_config_dir
+    print(account_name_for_config_dir(load_global_config(), sys.argv[1]) or "")
+except Exception as error:
+    sys.exit(f"account lookup failed: {type(error).__name__}")
+' "$CLAUDE_CONFIG_DIR" < /dev/null) || fail 'cannot resolve the Omnigent account for the selected Claude login'
+    [[ "$CLAUDE_ACCOUNT" =~ ^([a-z0-9]+(-[a-z0-9]+)*)?$ ]] || fail 'invalid Omnigent account name for the selected Claude login'
+  fi
+  fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
+  PREFLIGHT_STARTED=
 }
 
 OP=${1:---help}
@@ -488,8 +508,11 @@ for name in $ENV_NAMES; do
   case "$name" in
     # Claude treats an empty selector as the current directory. Omit it so
     # the default account uses ~/.claude; preserve non-empty selectors verbatim.
+    # A folder owned by a configured Omnigent account selects it by name
+    # instead; Omnigent refuses --account together with this variable.
     CLAUDE_CONFIG_DIR) if [ "$HARNESS" = claude ]; then
-      if [ "$CLAUDE_ACCOUNT_ENFORCEMENT" = 1 ] && [ -n "${!name:-}" ]; then ARGS+=(--env "$name=${!name}"); fi
+      if [ -n "$CLAUDE_ACCOUNT" ]; then ARGS+=(--account "$CLAUDE_ACCOUNT")
+      elif [ "$CLAUDE_ACCOUNT_ENFORCEMENT" = 1 ] && [ -n "${!name:-}" ]; then ARGS+=(--env "$name=${!name}"); fi
     elif [ -n "${!name:-}" ]; then ARGS+=(--env "$name=${!name}"); fi ;;
     # These owners treat empty as unset. Explicit empties also prevent stale
     # daemon routing or trace state from reappearing in a fresh native session.

@@ -158,6 +158,40 @@ jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null 
 env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'unconfigured default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'unset default selector was changed at the daemon boundary'
 
+# A login folder that a configured Omnigent account owns is selected by name.
+omni_config="$TMP_ROOT/serve/config/config.yaml"
+mkdir -p "${omni_config%/*}"
+selected_by_env() { # <selector>
+  jq -e --arg root "$1" '.environment.CLAUDE_CONFIG_DIR == $root and (.argv | index("--account") | not)' "$OMNI_RESULT" >/dev/null
+}
+printf '{"host":{"name":"fixture"}}\n' > "$omni_config"
+CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'no providers'
+selected_by_env "$HOME/.claude_b" || fail 'config without providers changed the selector transport'
+jq -n --arg dir "$HOME/.claude_b" '{providers:{"claude-subscription":{kind:"subscription",cli:"claude"},
+  "claude-guidex":{kind:"subscription",cli:"claude",config_dir:$dir}}}' > "$omni_config"
+CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
+jq -e '(.argv | index("--account")) as $at | $at != null and .argv[$at + 1] == "guidex" and
+  (.environment | has("CLAUDE_CONFIG_DIR") | not)' "$OMNI_RESULT" >/dev/null \
+  || fail 'configured GuideX folder did not launch with --account guidex alone'
+CLAUDE_CONFIG_DIR="$HOME/.claude_other" "$OMNI" run claude 'other folder'
+selected_by_env "$HOME/.claude_other" || fail 'unconfigured folder lost its environment selector'
+CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" run claude 'differently spelled folder'
+selected_by_env "$HOME/.claude_b/" || fail 'a folder the runner would not match was selected by account'
+for selector in unset empty; do
+  if [ "$selector" = unset ]; then env -u CLAUDE_CONFIG_DIR "$OMNI" run claude 'default account'
+  else CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'default account'; fi
+  jq -e '(.argv | index("--account") | not) and (.environment | has("CLAUDE_CONFIG_DIR") | not)' "$OMNI_RESULT" >/dev/null \
+    || fail "$selector default account received an account selector"
+done
+printf '{bad JSON\n' > "$omni_config"
+rm -f "$OMNI_RESULT"
+if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'unreadable config' > "$TMP_ROOT/error" 2>&1; then fail 'failed account lookup launched'; fi
+[ ! -e "$OMNI_RESULT" ] || fail 'failed account lookup reached the native wrapper'
+grep -q 'cannot resolve the Omnigent account for the selected Claude login' "$TMP_ROOT/error" || fail 'failed account lookup omitted its refusal'
+! grep -q 'bad JSON' "$TMP_ROOT/error" || fail 'failed account lookup printed config content'
+rm "$omni_config"
+pass 'a configured Claude account folder launches by account name; other selectors keep their transport'
+
 
 # The CLI double emits its own fresh session record on stderr. Drive the real
 # launcher, then observe the API requests rather than inspecting launcher text.

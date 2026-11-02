@@ -1610,7 +1610,11 @@ An ordinary pin uses personal quota and its floor; a GuideX pin uses GuideX quot
 Other pinned roots remain unmeasured, including with a legacy quota snapshot.
 Relaunch validates automatic account availability and enforcement before stopping the existing worker.
 Native automatic launches clear higher-priority credential variables and set or unset the selector in the actual child command.
-Omnigent launches pass a non-empty selected directory verbatim through the native environment interface and omit empty or unset selectors for the ordinary personal account.
+Omnigent launches ask the managed runtime's own account lookup whether a non-empty selected directory belongs to a configured Claude account.
+A match selects the account by name without forwarding `CLAUDE_CONFIG_DIR`, because Omnigent's runner refuses a configured account folder when the session does not record that account.
+For example, a `claude-guidex` provider with `kind: subscription`, `cli: claude`, and `config_dir: /Users/<user>/.claude_b` makes that exact selector launch with `--account guidex`.
+An unmatched directory passes verbatim through the native environment interface; empty or unset selectors send no account override for the ordinary personal account.
+A failed lookup refuses the launch.
 An empty `CLAUDE_CONFIG_DIR` must not reach Claude because Claude treats it as the current directory and writes session state there.
 Firstmate requires Kit status to identify `https://github.com/davidtandoh/omnigent.git` and the managed runtime's `claude --help` to advertise the exact `claude-account-enforcement` token in its `Capabilities:` section.
 The token can be followed by whitespace and a description; a suffixed token or text outside that section does not qualify.

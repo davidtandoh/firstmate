@@ -165,5 +165,31 @@ if [ "${OMNI_HOLD:-}" = 1 ]; then
 fi
 exit "${OMNI_EXIT:-0}"
 SHIM
-  chmod +x "$tool_dir/agent-kit" "$tool_dir/curl" "$service/runtime/bin/omnigent"
+  # The runtime interpreter runs the launcher's account lookup against a
+  # stand-in of Omnigent's account API. YAML is a JSON superset, so fixtures
+  # spell config.yaml as JSON; a missing file is an empty config, as in Omnigent.
+  mkdir -p "$service/runtime/fake-site/omnigent/onboarding"
+  : > "$service/runtime/fake-site/omnigent/__init__.py"
+  : > "$service/runtime/fake-site/omnigent/onboarding/__init__.py"
+  cat > "$service/runtime/fake-site/omnigent/config.py" <<'PY'
+import json, os, pathlib
+def load_global_config():
+    path = pathlib.Path(os.environ['OMNIGENT_CONFIG_HOME']) / 'config.yaml'
+    return json.loads(path.read_text()) if path.exists() else {}
+PY
+  cat > "$service/runtime/fake-site/omnigent/onboarding/claude_accounts.py" <<'PY'
+def account_name_for_config_dir(config, config_dir):
+    for name, entry in (config.get('providers') or {}).items():
+        if (entry.get('kind') == 'subscription' and entry.get('cli') == 'claude'
+                and entry.get('config_dir') == config_dir and name.startswith('claude-')
+                and name != 'claude-subscription'):
+            return name[len('claude-'):]
+    return None
+PY
+  printf '#!/usr/bin/env bash\nset -euo pipefail\nsite=%q\n' "$service/runtime/fake-site" > "$service/runtime/bin/python"
+  cat >> "$service/runtime/bin/python" <<'SHIM'
+[ "${1:-}" != -I ] || shift
+PYTHONPATH=$site exec python3 "$@"
+SHIM
+  chmod +x "$tool_dir/agent-kit" "$tool_dir/curl" "$service/runtime/bin/omnigent" "$service/runtime/bin/python"
 }
