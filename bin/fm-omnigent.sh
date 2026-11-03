@@ -20,6 +20,7 @@
 # The client is readiness runtime.executable, never a PATH install.
 # Wrapper capability flags are cached per harness under state/ in owner-only
 # JSON files, keyed by executable real path, inode and nanosecond mtime.
+# Inode and mtime use decimal strings to preserve exact identity through jq.
 # Identity mismatch or invalid cache data requires a new help probe. Status,
 # readiness, health and account lookup stay fresh for full preflight; dry-run
 # never writes a cache.

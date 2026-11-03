@@ -1618,7 +1618,7 @@ A failed lookup refuses the launch.
 An empty `CLAUDE_CONFIG_DIR` must not reach Claude because Claude treats it as the current directory and writes session state there.
 Firstmate requires Kit status to identify `https://github.com/davidtandoh/omnigent.git` and the managed runtime's `claude --help` to advertise the exact `claude-account-enforcement` token in its `Capabilities:` section.
 The token can be followed by whitespace and a description; a suffixed token or text outside that section does not qualify.
-The existing help probe supplies this check; no commit allowlist or additional help probe is required.
+The launcher's [capability cache](omnigent.md) supplies the help-probe result; no commit allowlist or additional help probe is required.
 If either requirement fails, Firstmate refuses a non-empty selected account before launch or before relaunch stops the current worker.
 Ordinary personal launches without this capability keep the daemon's ambient default and send no account override.
 T3 Code refuses automatic routing because its provider instance owns the account.
