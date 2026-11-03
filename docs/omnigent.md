@@ -20,7 +20,7 @@ The launch template substitutes the Omnigent boundary for the native executable.
 Native permission flags, prompts, busy hooks, and turn-end wiring retain their existing owners.
 Quota dispatch continues to use the native harness identity.
 
-`bin/fm-omnigent.sh` queries local Kit status and readiness before spawn.
+`bin/fm-omnigent.sh` queries local Kit status and readiness during spawn preflight.
 Claude launches run one preflight with the selected account before endpoint launch; a control relaunch shares that check with spawn and retains the account refusal before stopping the old worker.
 Ordinary worker launches pass the verified result through a private, single-use record bound to the spawn generation.
 The pane verifies the task generation, harness, Claude selector, executable identity, and server health before using that result.
