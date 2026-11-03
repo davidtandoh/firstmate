@@ -1,0 +1,16 @@
+FM_TEST_BEGIN 2026-11-03T08:57:55Z tests/fm-omnigent-preflight.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - spawn check preserves exact identity through binary64 transport and the pane reuses its result
+ok - handoff rejects replay, stale generation, retirement, wrong context and executable changes
+ok - unchanged runtime capabilities are probed once per harness
+ok - capability cache invalidates on inode, subsecond mtime and real-path changes while other preflight remains fresh
+ok - dry run preserves state and unsafe cache files refuse without modifying their targets
+ok - status and readiness stages are measured; the shared deadline and identity checks remain fail closed
+ok - readiness uses the remaining shared budget instead of a fixed stage limit
+ok - capability uses the remaining shared budget instead of a fixed stage limit
+ok - capability remains bounded by the shared deadline
+FM_TEST_END 2026-11-03T08:58:53Z tests/fm-omnigent-preflight.test.sh exit=0 duration_ms=58496 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=58550
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=58496 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent-preflight.test.sh duration_ms=58496
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M6G5652F0AEJ74NPGP738B1G/preflight-timing.json
+FM_TEST_BUDGET max_wall_ms=210000 duration_ms=58550
