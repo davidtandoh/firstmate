@@ -202,7 +202,8 @@ LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
 The local contract test executes the launch delivered to ship, scout, and secondmate panes and observes the explicit native arguments and environment at a service double.
 It checks marker detection, home policy, malformed settings, service refusal before metadata publication, ordinary native launches, backend propagation, dispatch preservation, and the attaching client's UTF-8 locale.
 It also checks readiness-selected web activation, retained headless rollback, fresh selection on full preflight paths, and refusal of malformed, oversized, unsafe, or inconsistent readiness data.
-For the [worker preflight handoff](../omnigent.md), `tests/fm-omnigent-preflight.test.sh` covers single-use consumption, generation and launch-context refusals, executable changes, health failure, and capability probing on full preflight paths.
+For the [worker preflight handoff](../omnigent.md), `tests/fm-omnigent-preflight.test.sh` covers single-use consumption, generation and launch-context refusals, executable changes, and health failure.
+Its capability-cache fixtures cover reuse, per-harness separation, exact nanosecond identity beyond binary64 precision, invalidation, fresh status and readiness checks, unsupported capabilities, dry-run state preservation, and symlink refusal.
 The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises both a wrapped parent's relaunch of a previously native secondmate and recovery without an inherited marker.
 The relaunch metadata regression checks the destination-confirmed mode, and the restart regression checks that the parent's mode crosses the transport with its resolved profile.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
