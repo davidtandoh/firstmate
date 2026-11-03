@@ -145,6 +145,7 @@ rm -f "$FM_OMNIGENT_PREFLIGHT"
 unset FM_OMNIGENT_RECORD_GEN FM_OMNIGENT_RECORD_META FM_OMNIGENT_PREFLIGHT
 rm -f "$HOME/state/.omnigent-capabilities-codex.json"
 fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
+: > "$TMP_ROOT/service/runtime/bin/help.log"
 runtime="$TMP_ROOT/service/runtime/bin/omnigent"
 python3 - "$runtime" <<'PY'
 import os, sys
