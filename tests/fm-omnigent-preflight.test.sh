@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generation-bound handoffs, capability caching and bounded preflight stages.
+# Generation-bound handoffs and bounded preflight stages.
 set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -15,6 +15,7 @@ export FM_OMNIGENT_PREFLIGHT="$HOME/state/.worker.omnigent-preflight.s.preflight
 printf 'spawn_gen=%s\n' "$FM_OMNIGENT_RECORD_GEN" > "$FM_OMNIGENT_RECORD_META"
 CLAUDE_CONFIG_DIR=/unrelated/supervisor-login bash "$ROOT/bin/fm-omnigent.sh" check codex
 [ -f "$FM_OMNIGENT_PREFLIGHT" ] || fail 'spawn check did not publish a private preflight handoff'
+jq -e 'has("created") | not' "$FM_OMNIGENT_PREFLIGHT" >/dev/null || fail 'handoff still carries a launch timestamp'
 : > "$TMP_ROOT/service/agent-kit.log"
 : > "$TMP_ROOT/service/runtime/bin/help.log"
 CLAUDE_CONFIG_DIR='' bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex > "$TMP_ROOT/preview"
@@ -40,16 +41,15 @@ if OMNI_HEALTH=down bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex > "$TMP_
   fail 'pane skipped health verification'
 fi
 grep -q 'server is unreachable' "$TMP_ROOT/error" || fail 'pane skipped health verification'
-for invalid in generation retired harness selector expired corrupt permissions symlink oversized; do
+for invalid in generation retired harness selector corrupt permissions symlink oversized; do
   handoff
   case "$invalid" in
     generation) printf 'spawn_gen=s.newer\n' > "$FM_OMNIGENT_RECORD_META" ;;
     retired) printf 'omnigent_retired_gen=%s\n' "$FM_OMNIGENT_RECORD_GEN" >> "$FM_OMNIGENT_RECORD_META" ;;
-    harness|selector|expired)
+    harness|selector)
       case "$invalid" in
         harness) filter='.harness="claude"' ;;
         selector) filter='.selector="/different/login"' ;;
-        expired) filter='.created=0' ;;
       esac
       jq "$filter" "$FM_OMNIGENT_PREFLIGHT" > "$TMP_ROOT/changed"
       cat "$TMP_ROOT/changed" > "$FM_OMNIGENT_PREFLIGHT" ;;
@@ -84,36 +84,17 @@ bash "$ROOT/bin/fm-omnigent.sh" start --dry-run codex >/dev/null
 [ -f "$FM_OMNIGENT_PREFLIGHT" ] || fail 'start consumed a worker handoff'
 rm -f "$FM_OMNIGENT_PREFLIGHT"
 unset FM_OMNIGENT_RECORD_GEN FM_OMNIGENT_RECORD_META FM_OMNIGENT_PREFLIGHT
-# Cache hits are per harness. Each executable identity change invalidates them.
-bash "$ROOT/bin/fm-omnigent.sh" check codex
 : > "$TMP_ROOT/service/runtime/bin/help.log"
 bash "$ROOT/bin/fm-omnigent.sh" check codex
 bash "$ROOT/bin/fm-omnigent.sh" check codex
-[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 0 ] || fail 'unchanged runtime was re-probed'
-bash "$ROOT/bin/fm-omnigent.sh" check claude
-[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'cache crossed harnesses'
-for change in inode mtime path corrupt-cache; do
-  case "$change" in
-    inode) cp -p "$runtime" "$runtime.new"; mv "$runtime.new" "$runtime" ;;
-    mtime) touch -t 202101010000 "$runtime" ;;
-    path)
-      next="$TMP_ROOT/service/generations/next/runtime/bin/omnigent"
-      mkdir -p "${next%/*}"
-      ln "$runtime" "$next"
-      jq --arg executable "$next" '.runtime.executable=$executable' "$TMP_ROOT/service/readiness.json" > "$TMP_ROOT/changed"
-      mv "$TMP_ROOT/changed" "$TMP_ROOT/service/readiness.json"
-      runtime=$next ;;
-    corrupt-cache) printf '{invalid\n' > "$HOME/state/.omnigent-capabilities-codex.json" ;;
-  esac
-  : > "${runtime%/*}/help.log"
-  bash "$ROOT/bin/fm-omnigent.sh" check codex
-  bash "$ROOT/bin/fm-omnigent.sh" check codex
-  [ "$(wc -l < "${runtime%/*}/help.log" | tr -d ' ')" = 1 ] || fail "cache did not re-probe exactly once after $change"
-done
-pass 'start retains full preflight; capabilities cache per harness and invalidate on runtime identity changes'
+bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex >/dev/null
+bash "$ROOT/bin/fm-omnigent.sh" start --dry-run codex >/dev/null
+[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 4 ] || fail 'full preflight skipped a capability probe'
+[ "$(find "$HOME/state" -name '.omnigent-capabilities-*' | wc -l | tr -d ' ')" = 0 ] || fail 'full preflight persisted a capability cache'
+pass 'check, unbound run and start always probe capabilities without a persistent cache'
 fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
 if OMNI_HELP='no environment option' bash "$ROOT/bin/fm-omnigent.sh" check kiro > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
-  fail 'unsupported environment interface was cached as supported'
+  fail 'unsupported environment interface was accepted'
 fi
 grep -q 'lacks the native --env interface' "$TMP_ROOT/error" || fail 'unsupported environment refusal missing'
 bash "$ROOT/bin/fm-omnigent.sh" check kiro
@@ -151,8 +132,6 @@ OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=11 bash "$ROOT/bin/fm-omnigent.sh" 
   || fail "slow capability inside the shared budget refused: $(cat "$TMP_ROOT/error")"
 pass 'capability uses the remaining shared budget instead of a fixed stage limit'
 export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=8
-# Force a new executable generation so the cached capability cannot hide the delay.
-touch -t 202201010000 "$TMP_ROOT/service/runtime/bin/omnigent"
 if OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=10 bash "$ROOT/bin/fm-omnigent.sh" check claude > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
   fail 'preflight accepted a capability command beyond its total budget'
 fi

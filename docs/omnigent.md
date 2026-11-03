@@ -26,13 +26,14 @@ Ordinary worker launches pass the verified result through a private, single-use 
 The pane verifies the task generation, harness, Claude selector, executable identity, and server health before using that result.
 Secondmates, primary `start`, and launches without a handoff keep an independent full preflight.
 Control relaunches without a generation-bound result also retain the independent pane preflight.
-`bin/fm-omnigent.sh`'s header owns the handoff lifetime and capability-cache identity contract.
+`bin/fm-omnigent.sh`'s header owns the handoff contract.
 Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
 The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
 The reports must agree on a running service and its server URL.
 The selected executable must be a regular executable file beneath the status file's parent directory, with no symlink from that directory through the executable.
 A separate Omnigent executable on `PATH` can be stale.
-The launcher caches native `--env` and Claude account-enforcement capabilities by harness and executable identity, and checks server health on every launch.
+Full preflight probes native `--env` and Claude account-enforcement capabilities; the handoff carries those verified flags to the pane.
+The launcher checks server health on every launch.
 A failure never executes the original native command as a fallback.
 Preflight records stage timing and bounds the combined external-command wait.
 Readiness and the capability check can use the remaining shared budget instead of a fixed stage allowance.
