@@ -178,13 +178,13 @@ test_list_files_reports_the_shell_inventory() {
 }
 
 test_canonical_partitions_preserve_full_lint() {
-  local tmp fakebin all part selected log flags mode rc option invocation_count root_count
+  local tmp fakebin all part selected log flags mode rc option invocation_count root_count total k
   tmp=$(fm_test_tmproot fm-lint-partitions)
   fakebin="$tmp/bin"
   mkdir -p "$fakebin"
   all=$(CI=true "$LINT" --list-files | LC_ALL=C sort)
   : > "$tmp/union"
-  for part in 1of2 2of2; do
+  for part in 1of4 2of4 3of4 4of4; do
     selected=$(CI=false GITHUB_ACTIONS=false "$LINT" --partition "$part" --list-files) \
       || fail "partition $part must select full canonical roots even on a local branch"
     [ -n "$selected" ] || fail "empty lint partition $part"
@@ -196,13 +196,17 @@ test_canonical_partitions_preserve_full_lint() {
     mode="$tmp/$part.mode"
     fm_lint_stub_shellcheck "$fakebin" "$log"
     PATH="$fakebin:$PATH" FM_TEST_FLAG_LOG="$flags" FM_TEST_MODE_LOG="$mode" \
-      "$LINT" --partition "$part" > "$tmp/$part.out" 2>&1 \
+      "$LINT" --partition "$part" --telemetry "$tmp/$part.tsv" > "$tmp/$part.out" 2>&1 \
       || fail "canonical partition $part failed: $(cat "$tmp/$part.out")"
     [ "$(LC_ALL=C sort "$log")" = "$(printf '%s\n' "$selected" | LC_ALL=C sort)" ] \
       || fail "partition $part executed a different root set than it listed"
     [ "$(LC_ALL=C sort -u "$flags")" = "$(printf 'exclude=none\nexternal-sources=yes')" ] \
       || fail "partition $part weakened source-aware analysis"
     [ "$(LC_ALL=C sort -u "$mode")" = on ] || fail "partition $part disabled full analysis"
+    awk -F '\t' '
+      $1 ~ /^shard_[0-9]+_weight_ms$/ { sum += $2; count++ }
+      END { exit !(count == 2 && sum > 0 && sum < 900000) }
+    ' "$tmp/$part.tsv" || fail "partition $part lacks balanced duration telemetry"
     root_count=$(printf '%s\n' "$selected" | grep -c .)
     invocation_count=$(grep -c '^external-sources=' "$flags" || true)
     [ "$invocation_count" -eq "$root_count" ] \
@@ -213,7 +217,14 @@ test_canonical_partitions_preserve_full_lint() {
       || fail "partition $part did not stream an end record per root"
   done
   [ "$(LC_ALL=C sort "$tmp/union")" = "$all" ] || fail "lint partitions lose or duplicate canonical roots"
-  for option in 0of2 3of2 1of3; do
+  for total in 1 2 3 7; do
+    : > "$tmp/union"
+    for ((k=1; k<=total; k++)); do
+      "$LINT" --partition "${k}of${total}" --list-files >> "$tmp/union" || fail "general partition refused"
+    done
+    [ "$(LC_ALL=C sort "$tmp/union")" = "$all" ] || fail "$total partitions lose or duplicate roots"
+  done
+  for option in "" 0of2 3of2 1of0 1of-2 1ofx 1of2of3 01of2 1of02 999999999999999999999of4; do
     rc=0
     "$LINT" --partition "$option" --list-files > "$tmp/refused" 2>&1 || rc=$?
     [ "$rc" = 2 ] || fail "invalid partition $option was not refused"
@@ -224,7 +235,7 @@ test_canonical_partitions_preserve_full_lint() {
   rc=0
   "$LINT" --partition 1of2 bin/fm-lint.sh > "$tmp/refused" 2>&1 || rc=$?
   [ "$rc" = 2 ] || fail "partition accepted an explicit subset"
-  pass "two canonical lint partitions preserve complete source-aware coverage and reject weakened modes"
+  pass "four canonical lint partitions preserve complete source-aware coverage and reject weakened modes"
 }
 
 # fm_lint_stub_git <fakebin-dir>: install a git stub for the changed-file mode
@@ -1327,6 +1338,11 @@ SH
   assert_grep $'analysis_mode\tfull' "$telemetry" "telemetry did not record full analysis mode"
   assert_grep $'jobs\t2' "$telemetry" "telemetry did not record bounded jobs"
   assert_grep $'root_count\t1' "$telemetry" "telemetry did not record root count"
+  awk -F '\t' '
+    $1 == "direct_bytes" { bytes = $2 }
+    $1 ~ /^shard_[0-9]+_weight_ms$/ { ms += $2 }
+    END { exit !(bytes > 0 && ms == int((bytes + 5) / 6)) }
+  ' "$telemetry" || fail "unmeasured fixture did not receive its byte-based duration weight"
   assert_grep $'wall_seconds\t' "$telemetry" "telemetry did not record wall time"
   assert_grep $'user_seconds\t' "$telemetry" "telemetry did not record user CPU"
   assert_grep $'system_seconds\t' "$telemetry" "telemetry did not record system CPU"
