@@ -201,6 +201,21 @@ $1
 EOF
 }
 
+# Spawn publishes the home summary in the background, so a reader polls for the
+# published ledger to name the endpoint instead of reading it once.
+wait_for_summary_endpoint() {  # <home> <id> [tenths]
+  local home=$1 id=$2 attempts=${3:-150} i=0
+  while [ "$i" -lt "$attempts" ]; do
+    jq -e --arg id "$id" '
+      .schema == "fm-secondmate-home-summary.v1"
+      and any(.endpoints[]; .id == $id)
+    ' "$home/state/home-summary.json" >/dev/null 2>&1 && return 0
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
 meta_traceparent() { sed -n 's/^traceparent=//p' "$1"; }
 injected_traceparent() { sed -n 's/^export TRACEPARENT=//p' "$1"; }
 
@@ -298,10 +313,7 @@ test_enabled_records_and_injects_identical_carrier_before_launch() {
   expect_code 0 "$status" "enabled trace-context spawn should succeed"
   assert_contains "$out" "spawned $CASE_ID" "enabled spawn should report success"
   meta="$HOME_DIR/state/$CASE_ID.meta"
-  jq -e --arg id "$CASE_ID" '
-    .schema == "fm-secondmate-home-summary.v1"
-    and any(.endpoints[]; .id == $id)
-  ' "$HOME_DIR/state/home-summary.json" >/dev/null \
+  wait_for_summary_endpoint "$HOME_DIR" "$CASE_ID" \
     || fail "successful task spawn did not publish the task in the home summary ledger"
 
   mtp=$(meta_traceparent "$meta")
@@ -622,6 +634,53 @@ test_secondmate_carrier_and_snapshot_share_one_decision() {
   pass "secondmate carrier and FM_TRACE_CONTEXT snapshot always agree, both derived from one frozen decision (file-decided path)"
 }
 
+# The home-summary refresh is side-band publication, so spawn must not hold the
+# launch on it. A live holder of the refresh lock stands in for a slow refresh:
+# spawn must report success while the lock is still held, and the refresh it
+# started must still publish this task once the lock frees.
+test_spawn_does_not_wait_on_home_summary_refresh() {
+  local rec out status lock holder release start elapsed i
+  rec=$(make_spawn_case summary-bg)
+  read_case_record "$rec"
+  lock="$HOME_DIR/state/.home-summary-refresh.lock"
+  release="$HOME_DIR/release-summary-lock"
+  ROOT="$ROOT" LOCK="$lock" RELEASE="$release" bash -c '
+    . "$ROOT/bin/fm-wake-lib.sh"
+    fm_lock_try_acquire "$LOCK" || exit 1
+    deadline=$((SECONDS + 90))
+    while [ ! -e "$RELEASE" ]; do
+      [ "$SECONDS" -lt "$deadline" ] || { fm_lock_release "$LOCK"; exit 1; }
+      sleep 0.1
+    done
+    fm_lock_release "$LOCK"
+  ' &
+  holder=$!
+  trap 'kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; fm_test_cleanup' EXIT
+  i=0
+  while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+  [ -e "$lock" ] || { touch "$release"; wait "$holder"; fail "the fixture could not hold the refresh lock"; }
+
+  start=$SECONDS
+  out=$(FM_HOME_SUMMARY_TIMEOUT=60 run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$CASE_ID" "$PROJ_DIR")
+  status=$?
+  elapsed=$((SECONDS - start))
+  kill -0 "$holder" 2>/dev/null \
+    || fail "the refresh lock holder exited before spawn returned"
+  expect_code 0 "$status" "spawn with a busy home-summary refresh should succeed"
+  assert_contains "$out" "spawned $CASE_ID" "spawn with a busy home-summary refresh should report success"
+  [ ! -e "$HOME_DIR/state/home-summary.json" ] \
+    || fail "the home summary was published while its refresh lock was still held"
+  [ "$elapsed" -lt 30 ] \
+    || fail "spawn took ${elapsed}s with a busy refresh; it is still waiting on the publication"
+
+  touch "$release"
+  wait "$holder" || fail "the refresh lock holder failed"
+  trap fm_test_cleanup EXIT
+  wait_for_summary_endpoint "$HOME_DIR" "$CASE_ID" \
+    || fail "the background refresh did not publish the spawned task after the lock freed"
+  pass "spawn returns without waiting on the home-summary refresh, which still publishes the task afterwards"
+}
+
 test_enabled_records_and_injects_identical_carrier_before_launch
 test_disabled_writes_and_injects_neither
 test_failed_delivery_omits_metadata_and_still_launches
@@ -634,5 +693,6 @@ test_secondmate_env_on_file_absent_keeps_nested_worker_enabled
 test_secondmate_env_off_file_present_keeps_nested_worker_disabled
 test_two_routed_tasks_through_one_secondmate_root_distinct_traces
 test_secondmate_carrier_and_snapshot_share_one_decision
+test_spawn_does_not_wait_on_home_summary_refresh
 
 echo "# all fm-trace-context-spawn tests passed"
