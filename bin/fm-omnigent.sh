@@ -9,8 +9,15 @@
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
-# check/run/start resolve the local Kit's serve status afresh. The client is
-# readiness runtime.executable, never a cached generation or PATH install.
+# check/start and unbound run resolve the local Kit's serve status afresh.
+# Spawn check can publish FM_OMNIGENT_PREFLIGHT, a private single-use record
+# bound to FM_OMNIGENT_RECORD_GEN. It carries the verified server URL, state
+# file, client environment, executable identity, account and capability flags.
+# Bound run requires FM_OMNIGENT_RECORD_META to name the same unretired
+# generation, and verifies the harness, Claude selector, executable identity
+# and /health without repeating status, readiness or capability probing.
+# Invalid records refuse launch.
+# The client is readiness runtime.executable, never a PATH install.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
 # Only the four native wrappers with a verified --env contract are admitted.
@@ -24,7 +31,7 @@
 # Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
 # process bound; naming and archive responses are limited to 128 KiB of JSON.
 # No naming retry or session backfill.
-# Preflight shares a 50-second external-command budget (status 20s, readiness
+# Full preflight shares a 50-second external-command budget (status 20s, readiness
 # and capability whatever remains, health 5s, Claude account lookup 10s),
 # retaining Kit process-identity verification.
 # A Claude launch with a non-empty CLAUDE_CONFIG_DIR asks the runtime's own
@@ -370,8 +377,123 @@ preflight_stage() { # <stage> <stage-cap-seconds> <command...>
   return "$rc"
 }
 
+# Persistence and executable identity share the bounded record primitives.
+# No saved record is evaluated as shell code. A bad
+# launch handoff refuses rather than silently switching to a different runtime.
+preflight_record() { # <action> <path> [values...]
+  python3 -I -S - "$SCRIPT_DIR" "$@" <<'PY'
+from __future__ import annotations
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+from fm_record_io import RecordError, canonical, read_regular, safe_path
+
+parser = argparse.ArgumentParser()
+parser.add_argument('action', choices=('identity', 'publish', 'load'))
+parser.add_argument('path', type=Path)
+parser.add_argument('values', nargs='*')
+parser.add_argument('--dry-run', action='store_true')
+args = parser.parse_args()
+
+def identity(executable, state_file):
+    root = Path(state_file).parent
+    if not executable.is_absolute() or not root.is_absolute() or root.is_symlink():
+        raise RecordError('invalid managed executable root')
+    safe_path(root, executable)
+    info = executable.stat()
+    if not stat.S_ISREG(info.st_mode) or not os.access(str(executable), os.X_OK):
+        raise RecordError('managed executable is missing or not executable')
+    # jq transports these fields; decimal strings preserve every identity bit.
+    return dict(path=str(executable.resolve()), device=str(info.st_dev), inode=str(info.st_ino),
+                mtime_ns=str(info.st_mtime_ns), size=str(info.st_size))
+
+def private_parent(path, create=False):
+    if create:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.parent.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
+        raise RecordError('unsafe preflight record directory')
+
+def read_private(path):
+    private_parent(path)
+    raw, _ = read_regular(path, 131072)
+    info = path.lstat()
+    if info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RecordError('preflight record must be owner-only')
+    return json.loads(raw)
+
+def capabilities(value):
+    return (isinstance(value, dict) and value.get('env') is True
+            and type(value.get('claude_account_enforcement')) is bool)
+
+def write_private(path, value):
+    raw = canonical(value).encode()
+    if len(raw) > 131072:
+        raise RecordError('preflight record exceeds byte limit')
+    if args.dry_run:
+        print(str(path))
+        return
+    private_parent(path, create=True)
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'wb') as output:
+        output.write(raw)
+
+try:
+    if args.action == 'identity':
+        state_file, = args.values
+        result = identity(args.path, state_file)
+    elif args.action == 'publish':
+        handoff, = args.values
+        result = json.loads(handoff)
+        if result['identity'] != identity(Path(result['executable']), result['state_file']):
+            raise RecordError('managed executable changed during preflight')
+        write_private(args.path, result)
+        sys.exit(0)
+    else:
+        result = read_private(args.path)
+        gen, meta, harness, selector = args.values
+        selector = selector if harness == 'claude' else ''
+        raw, _ = read_regular(Path(meta), 131072)
+        generations = [line for line in raw.decode().splitlines() if line.startswith('spawn_gen=')]
+        if (generations != ['spawn_gen=' + gen] or 'omnigent_retired_gen=' + gen in raw.decode().splitlines()
+                or result.get('generation') != gen or result.get('harness') != harness
+                or result.get('selector') != selector or result.get('schema') != 1
+                or not capabilities(result.get('capabilities'))):
+            raise RecordError('preflight handoff does not name this launch')
+        if not re.fullmatch(r'http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?', result['server']):
+            raise RecordError('invalid preflight server')
+        environment = result['client_environment']
+        if not isinstance(environment, dict) or not environment or not all(
+                re.fullmatch(r'(OMNIGENT_|OTEL_)[A-Z0-9_]+', key)
+                and isinstance(value, str) and not re.search(r'[\x00-\x1f\x7f]', value)
+                for key, value in environment.items()):
+            raise RecordError('invalid preflight client environment')
+        if not re.fullmatch(r'([a-z0-9]+(-[a-z0-9]+)*)?', result['account']):
+            raise RecordError('invalid preflight account')
+        if result['identity'] != identity(Path(result['executable']), result['state_file']):
+            raise RecordError('managed executable identity changed after preflight')
+        if not args.dry_run:
+            args.path.unlink()
+    sys.stdout.write(canonical(result))
+except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+    print('preflight record: {}'.format(error), file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
+check_health() {
+  local health
+  health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
+  printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
+}
+
 resolve_service() {
-  local status readiness reason help health candidate service_root status_rc=0 readiness_rc=0 budget=50
+  local status readiness reason help identity flags handoff='' handoff_path='' status_rc=0 readiness_rc=0 budget=50
   if [ "${FM_TEST_SEAM:-}" = 1 ]; then
     budget=${FM_TEST_OMNIGENT_PREFLIGHT_BUDGET:-50}
     case "$budget" in ''|*[!0-9]*) fail 'invalid test preflight budget' ;; esac
@@ -421,33 +543,24 @@ resolve_service() {
         (split("/")[1:] | all(. != "" and . != "." and . != ".."))))
   ' >/dev/null 2>&1 || fail 'invalid or inconsistent serve readiness'
   OMNIGENT_BIN=$(printf '%s' "$readiness" | jq -r .runtime.executable)
-  fm_dirname_to service_root "$STATE_FILE"
-  case "$OMNIGENT_BIN" in
-    "$service_root/"*) ;;
-    *) fail 'readiness executable is outside the managed service root' ;;
-  esac
-  candidate=$OMNIGENT_BIN
-  while :; do
-    [ ! -L "$candidate" ] || fail "symlink in managed executable path: $candidate"
-    [ "$candidate" != "$service_root" ] || break
-    fm_dirname_to candidate "$candidate"
-  done
-  [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "managed executable is missing: $OMNIGENT_BIN"
+  identity=$(preflight_record identity "$OMNIGENT_BIN" "$STATE_FILE") || fail 'invalid managed executable identity'
   help=$(preflight_stage capability "$budget" "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
   case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
-  health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
-  printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
+  flags=false
+  if printf '%s\n' "$help" | awk '
+    /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
+    /^[^[:space:]]/ { section = 0 }
+    section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
+    END { exit !found }
+  '; then flags=true; fi
+  flags=$(jq -cn --argjson enforcement "$flags" '{env:true,claude_account_enforcement:$enforcement}')
+  check_health
   CLAUDE_ACCOUNT_ENFORCEMENT=0
   # Retain fork provenance; capability support survives upgrades without a
   # commit allowlist. Only an exact entry in the help's capability section counts.
   if printf '%s' "$status" | jq -e '
     .omnigent.repository == "https://github.com/davidtandoh/omnigent.git"
-  ' >/dev/null 2>&1 && printf '%s\n' "$help" | awk '
-    /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
-    /^[^[:space:]]/ { section = 0 }
-    section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
-    END { exit !found }
-  '; then
+  ' >/dev/null 2>&1 && [ "$(printf '%s' "$flags" | jq -r .claude_account_enforcement)" = true ]; then
     CLAUDE_ACCOUNT_ENFORCEMENT=1
   fi
   if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ]; then
@@ -470,6 +583,19 @@ except Exception as error:
     sys.exit(f"account lookup failed: {type(error).__name__}")
 ' "$CLAUDE_CONFIG_DIR" < /dev/null) || fail 'cannot resolve the Omnigent account for the selected Claude login'
     [[ "$CLAUDE_ACCOUNT" =~ ^([a-z0-9]+(-[a-z0-9]+)*)?$ ]] || fail 'invalid Omnigent account name for the selected Claude login'
+  fi
+  if [ "$OP" = check ] && [ -n "${FM_OMNIGENT_PREFLIGHT:-}" ]; then
+    [[ "${FM_OMNIGENT_RECORD_GEN:-}" =~ ^[A-Za-z0-9._-]+$ ]] || fail 'missing preflight spawn generation'
+    handoff_path=$FM_OMNIGENT_PREFLIGHT
+    handoff=$(jq -cn --arg generation "$FM_OMNIGENT_RECORD_GEN" --arg harness "$HARNESS" \
+      --arg selector "${CLAUDE_CONFIG_DIR:-}" --arg executable "$OMNIGENT_BIN" --arg server "$SERVER" \
+      --arg state_file "$STATE_FILE" --arg account "$CLAUDE_ACCOUNT" --argjson identity "$identity" \
+      --argjson enforcement "$CLAUDE_ACCOUNT_ENFORCEMENT" --argjson status "$status" \
+      '{schema:1,generation:$generation,harness:$harness,
+        selector:(if $harness == "claude" then $selector else "" end),
+        executable:$executable,server:$server,state_file:$state_file,account:$account,identity:$identity,
+        client_environment:$status.client_environment,capabilities:{env:true,claude_account_enforcement:($enforcement == 1)}}')
+    preflight_record publish "$handoff_path" "$handoff" || fail 'cannot publish verified preflight handoff'
   fi
   fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
   PREFLIGHT_STARTED=
@@ -496,7 +622,24 @@ if [ "$OP" = start ]; then
   case "$HARNESS" in claude|codex) ;; *) fail 'start supports Claude and Codex primaries' ;; esac
   [ "$#" -eq 0 ] || fail 'start takes only the primary harness'
 fi
-resolve_service
+if [ "$OP" = run ] && [ -n "${FM_OMNIGENT_PREFLIGHT:-}" ]; then
+  PREFLIGHT_STARTED=$(fm_timing_now_ms)
+  PREFLIGHT_DEADLINE=$((PREFLIGHT_STARTED + 10000))
+  saved=$(preflight_record load "$FM_OMNIGENT_PREFLIGHT" "${FM_OMNIGENT_RECORD_GEN:-}" \
+    "${FM_OMNIGENT_RECORD_META:-}" "$HARNESS" "${CLAUDE_CONFIG_DIR:-}") || fail 'invalid preflight handoff'
+  SERVER=$(printf '%s' "$saved" | jq -r .server)
+  STATE_FILE=$(printf '%s' "$saved" | jq -r .state_file)
+  OMNIGENT_BIN=$(printf '%s' "$saved" | jq -r .executable)
+  CLAUDE_ACCOUNT=$(printf '%s' "$saved" | jq -r .account)
+  CLAUDE_ACCOUNT_ENFORCEMENT=$(printf '%s' "$saved" | jq -r 'if .capabilities.claude_account_enforcement then 1 else 0 end')
+  CLIENT_ENV=()
+  while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$saved" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
+  check_health
+  fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
+  PREFLIGHT_STARTED=
+else
+  resolve_service
+fi
 [ "$OP" != check ] || exit 0
 ARGS=("$HARNESS" --server "$SERVER")
 [ "$HARNESS" != claude ] || ARGS+=(--use-native-config)

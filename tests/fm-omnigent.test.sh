@@ -44,6 +44,8 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
+export FM_HOME="$TMP_ROOT/home"
+unset FM_STATE_OVERRIDE FM_OMNIGENT_PREFLIGHT FM_OMNIGENT_RECORD_META FM_OMNIGENT_RECORD_GEN
 OMNI="$ROOT/bin/fm-omnigent.sh"
 if [ "${1:-}" != --claude-accounts ] && [ "${1:-}" != --probe ]; then
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
@@ -306,7 +308,7 @@ wait "$native_pid" || true
 native_pid=''
 pass 'private stderr observation preserves bytes, foreground exec identity, signals and bounded record waiting'
 
-# Selection is read for every operation; the retained executable stays present.
+# Unbound operations select afresh while the retained executable stays present.
 readiness="$TMP_ROOT/serve/readiness.json"
 cp "$readiness" "$TMP_ROOT/headless.json"
 web="$TMP_ROOT/serve/generations/web/runtime/bin/omnigent"
@@ -325,7 +327,7 @@ for selected in web headless web; do
   "$OMNI" start codex
   jq -e --arg expected "$expected" '.executable == $expected' "$OMNI_RESULT" >/dev/null || fail 'launch used the wrong generation'
 done
-pass 'check, dry run, and launch select web activation and retained rollback afresh'
+pass 'unbound check, dry run, and start select web activation and retained rollback afresh'
 for invalid in \
   'del(.runtime.executable)' \
   '.runtime.executable=null' \
@@ -526,7 +528,11 @@ for kind in ship scout; do
   args=(--mode no-mistakes --yolo off)
   [ "$kind" != scout ] || args=(--scout)
   FM_OMNIGENT=on spawn "$id" "$spawn_project" "${args[@]}" --harness codex --model gpt-5.4 --effort high > "$TMP_ROOT/output" 2>&1 || fail "wrapped $kind spawn: $(cat "$TMP_ROOT/output")"
+  : > "$TMP_ROOT/serve/agent-kit.log"
+  : > "$TMP_ROOT/serve/runtime/bin/help.log"
   execute_launch
+  [ ! -s "$TMP_ROOT/serve/agent-kit.log" ] || fail "$kind pane repeated status/readiness"
+  [ ! -s "$TMP_ROOT/serve/runtime/bin/help.log" ] || fail "$kind pane repeated capability probing"
   wait_title
   jq -e --arg expected "spawn-home · $id" '.title == $expected' "$TMP_ROOT/serve/title.json" >/dev/null || fail "$kind title lost dispatched home/task"
   jq -e '.argv[0] == "codex" and (.argv | index("gpt-5.4")) != null and
@@ -550,7 +556,9 @@ printf 'Test charter\n' > "$sm/data/charter.md"
 printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$sm/.gitignore"
 git -C "$sm" init -q -b main
 FM_OMNIGENT=on spawn omni-sm "$sm" --secondmate > "$TMP_ROOT/output" 2>&1 || fail "secondmate spawn: $(cat "$TMP_ROOT/output")"
+: > "$TMP_ROOT/serve/agent-kit.log"
 execute_launch
+[ "$(wc -l < "$TMP_ROOT/serve/agent-kit.log" | tr -d ' ')" = 2 ] || fail 'secondmate pane skipped its independent preflight'
 wait_title
 jq -e '.title == "secondmate · firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'spawned secondmate title lost its isolated primary identity'
 jq -e --arg home "$sm" '.environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on" and

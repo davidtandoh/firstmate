@@ -1680,6 +1680,9 @@ spawn_orca_reclaim_launch_file() {
 
 spawn_abort_cleanup() {
   local status=$?
+  if [ "$status" -ne 0 ] && [ -n "${SPAWN_OMNIGENT_PREFLIGHT:-}" ]; then
+    rm -f -- "$SPAWN_OMNIGENT_PREFLIGHT"
+  fi
   if [ "$RELAUNCH_REPLACEMENT_PENDING" = 1 ] &&
     [ "$SPAWN_META_PUBLISH_STARTED" = 1 ] &&
     [ -n "$SPAWN_META_TMP" ] &&
@@ -3252,6 +3255,8 @@ case "$ARG3" in
   ;;
 esac
 
+SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
+SPAWN_OMNIGENT_PREFLIGHT=
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   [ "$RAW_LAUNCH" = 0 ] || { echo 'error: Omnigent requires a verified harness, not a raw launch command' >&2; exit 1; }
   # --env augments the runner environment; it cannot enforce env -i semantics.
@@ -3260,9 +3265,13 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
     echo 'error: Omnigent cannot enforce config/claude-account credential removal across its daemon boundary' >&2
     exit 1
   fi
-  # A Claude launch runs its one spawn-side preflight below, with the selected
-  # account; the pane-side launch still re-resolves the executable at exec time.
-  [ "$HARNESS" = claude ] || "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
+  # Workers hand the verified result to this generation's pane. A secondmate
+  # remains an independent primary and resolves the service again at launch.
+  if [ "$KIND" != secondmate ]; then
+    SPAWN_OMNIGENT_PREFLIGHT="$STATE/.$ID.omnigent-preflight.$SPAWN_GEN.json"
+  fi
+  [ "$HARNESS" = claude ] || FM_OMNIGENT_PREFLIGHT="$SPAWN_OMNIGENT_PREFLIGHT" \
+    FM_OMNIGENT_RECORD_GEN="$SPAWN_GEN" "$SCRIPT_DIR/fm-omnigent.sh" check "$HARNESS" || exit 1
 fi
 
 # muse, gemini, agy, devin, kiro, commandcode, polytoken, and cortex are verified as CREWMATE/SCOUT adapters only. A secondmate is
@@ -3511,7 +3520,13 @@ fi
 if [ "$HARNESS" = claude ] && [ "$SPAWN_OMNIGENT_MODE" = on ] &&
    ! { [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "${FM_CONTROL_OMNIGENT_CHECKED:-}" = 1 ] &&
        [ "${FM_CONTROL_OMNIGENT_ROOT:-}" = "${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" ]; }; then
-  CLAUDE_CONFIG_DIR="${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" "$SCRIPT_DIR/fm-omnigent.sh" check claude || exit 1
+  CLAUDE_CONFIG_DIR="${CLAUDE_AUTO_ROOT-${CLAUDE_CONFIG_DIR:-}}" \
+    FM_OMNIGENT_PREFLIGHT="$SPAWN_OMNIGENT_PREFLIGHT" FM_OMNIGENT_RECORD_GEN="$SPAWN_GEN" \
+    "$SCRIPT_DIR/fm-omnigent.sh" check claude || exit 1
+elif [ "$HARNESS" = claude ]; then
+  # Control already checked the selected account before stopping the old
+  # worker, but did not supply a generation-bound result to this spawn.
+  SPAWN_OMNIGENT_PREFLIGHT=
 fi
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
@@ -7140,7 +7155,6 @@ fi
 META_WINDOW=$T
 [ "$BACKEND" = orca ] && META_WINDOW=$W
 [ "$BACKEND" = t3code ] && META_WINDOW=$W
-SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 SPAWN_META_PATH="$STATE/$ID.meta"
 if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
@@ -7417,6 +7431,7 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   # The launch records its verified session in this incarnation's task record
   # and labels it with the home identity, substituted below once it is derived.
   OMNIGENT_LAUNCH="env FM_OMNIGENT_RECORD_META=$(shell_quote "$STATE_REAL/$ID.meta") FM_OMNIGENT_RECORD_GEN=$(shell_quote "$SPAWN_GEN") FM_OMNIGENT_HOME_ID=__OMNIGENTHOME__ FM_OMNIGENT_TASK=$(shell_quote "$ID") $(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
+  OMNIGENT_LAUNCH="env FM_OMNIGENT_PREFLIGHT=$(shell_quote "$SPAWN_OMNIGENT_PREFLIGHT") $OMNIGENT_LAUNCH"
   if [ "$KIND" = secondmate ]; then
     # The primary's own FM_HOME is set by the existing secondmate launch
     # prefix below. Clear a stale task marker from a retained pane shell.
