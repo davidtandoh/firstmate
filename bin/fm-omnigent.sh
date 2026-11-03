@@ -405,8 +405,9 @@ def identity(executable, state_file):
     info = executable.stat()
     if not stat.S_ISREG(info.st_mode) or not os.access(str(executable), os.X_OK):
         raise RecordError('managed executable is missing or not executable')
-    return dict(path=str(executable.resolve()), device=info.st_dev, inode=info.st_ino,
-                mtime_ns=info.st_mtime_ns, size=info.st_size)
+    # jq transports these fields; decimal strings preserve every identity bit.
+    return dict(path=str(executable.resolve()), device=str(info.st_dev), inode=str(info.st_ino),
+                mtime_ns=str(info.st_mtime_ns), size=str(info.st_size))
 
 def private_parent(path, create=False):
     if create:

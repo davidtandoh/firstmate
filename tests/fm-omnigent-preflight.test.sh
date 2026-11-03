@@ -13,16 +13,75 @@ export PATH="$TMP_ROOT/tools:$PATH" FM_TIMING_LOG="$TMP_ROOT/timing.tsv"
 export FM_OMNIGENT_RECORD_GEN=s.preflight.1 FM_OMNIGENT_RECORD_META="$HOME/state/worker.meta"
 export FM_OMNIGENT_PREFLIGHT="$HOME/state/.worker.omnigent-preflight.s.preflight.1.json"
 printf 'spawn_gen=%s\n' "$FM_OMNIGENT_RECORD_GEN" > "$FM_OMNIGENT_RECORD_META"
+runtime="$TMP_ROOT/service/runtime/bin/omnigent"
+real_jq=$(type -P jq)
+mkdir -p "$TMP_ROOT/binary64"
+# Emulate the numeric transport of jq versions that use binary64 numbers.
+python3 - "$runtime" "$TMP_ROOT/binary64/jq" "$real_jq" <<'PY'
+import os
+from pathlib import Path
+import sys
+
+runtime, shim, jq = sys.argv[1:]
+stamp = 1700000000000123000
+os.utime(runtime, ns=(stamp, stamp))
+assert os.stat(runtime).st_mtime_ns == stamp
+assert int(float(stamp)) != stamp
+Path(shim).write_text('''#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+
+result = subprocess.run([REAL_JQ] + sys.argv[1:], input=sys.stdin.buffer.read(),
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def binary64(value):
+    if type(value) is int and abs(value) > 2**53:
+        return int(float(value))
+    if isinstance(value, list):
+        return [binary64(item) for item in value]
+    if isinstance(value, dict):
+        return {key: binary64(item) for key, item in value.items()}
+    return value
+output = result.stdout
+if result.returncode == 0:
+    try:
+        value = json.loads(output)
+        rounded = binary64(value)
+        if rounded != value:
+            output = (json.dumps(rounded) + '\\n').encode()
+    except (ValueError, UnicodeDecodeError):
+        pass
+sys.stdout.buffer.write(output)
+sys.stderr.buffer.write(result.stderr)
+sys.exit(result.returncode)
+'''.replace('REAL_JQ', repr(jq)))
+os.chmod(shim, 0o700)
+PY
+original_path=$PATH
+export PATH="$TMP_ROOT/binary64:$PATH"
+[ "$(printf '1700000000000123000\n' | jq .)" != 1700000000000123000 ] || fail 'binary64 transport fixture did not round the timestamp'
 CLAUDE_CONFIG_DIR=/unrelated/supervisor-login bash "$ROOT/bin/fm-omnigent.sh" check codex
 [ -f "$FM_OMNIGENT_PREFLIGHT" ] || fail 'spawn check did not publish a private preflight handoff'
+python3 - "$runtime" "$FM_OMNIGENT_PREFLIGHT" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+
+info = os.stat(sys.argv[1])
+identity = json.loads(Path(sys.argv[2]).read_text())['identity']
+assert identity['inode'] == str(info.st_ino)
+assert identity['mtime_ns'] == str(info.st_mtime_ns)
+PY
 jq -e 'has("created") | not' "$FM_OMNIGENT_PREFLIGHT" >/dev/null || fail 'handoff still carries a launch timestamp'
 : > "$TMP_ROOT/service/agent-kit.log"
 : > "$TMP_ROOT/service/runtime/bin/help.log"
 CLAUDE_CONFIG_DIR='' bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex > "$TMP_ROOT/preview"
+export PATH="$original_path"
 [ ! -e "$FM_OMNIGENT_PREFLIGHT" ] || fail 'pane did not consume the preflight handoff'
 [ ! -s "$TMP_ROOT/service/agent-kit.log" ] || fail 'pane repeated status or readiness'
 [ ! -s "$TMP_ROOT/service/runtime/bin/help.log" ] || fail 'pane repeated capability probing'
-pass 'spawn check hands one verified result to the pane without repeating expensive stages'
+pass 'spawn check preserves exact identity through binary64 transport and the pane reuses its result'
 handoff() {
   rm -f "$FM_OMNIGENT_PREFLIGHT"
   printf 'spawn_gen=%s\n' "$FM_OMNIGENT_RECORD_GEN" > "$FM_OMNIGENT_RECORD_META"
