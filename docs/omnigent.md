@@ -22,11 +22,9 @@ Quota dispatch continues to use the native harness identity.
 
 `bin/fm-omnigent.sh` queries local Kit status and readiness during spawn preflight.
 Claude launches run one preflight with the selected account before endpoint launch; a control relaunch shares that check with spawn and retains the account refusal before stopping the old worker.
-Ordinary worker launches pass the verified result through a private, single-use record bound to the spawn generation.
-The pane verifies the task generation, harness, Claude selector, executable identity, and server health before using that result.
+Ordinary worker panes reuse the spawn preflight result under the handoff contract in [`bin/fm-omnigent.sh`'s header](../bin/fm-omnigent.sh).
 Secondmates, primary `start`, and launches without a handoff keep an independent full preflight.
 Control relaunches without a generation-bound result also retain the independent pane preflight.
-`bin/fm-omnigent.sh`'s header owns the handoff contract.
 Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
 The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
 The reports must agree on a running service and its server URL.

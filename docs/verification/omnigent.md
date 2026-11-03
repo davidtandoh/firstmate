@@ -191,6 +191,7 @@ That cleanup is not Claude native `fm-control` exit evidence.
 ```sh
 LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
   tests/fm-omnigent.test.sh \
+  tests/fm-omnigent-preflight.test.sh \
   tests/fm-composer-lib.test.sh \
   tests/fm-remote-secondmate-trace-context.test.sh \
   tests/fm-remote-secondmate-relaunch.test.sh \

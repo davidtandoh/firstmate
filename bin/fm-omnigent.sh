@@ -11,9 +11,12 @@
 # Invalid input refuses.
 # check/start and unbound run resolve the local Kit's serve status afresh.
 # Spawn check can publish FM_OMNIGENT_PREFLIGHT, a private single-use record
-# bound to FM_OMNIGENT_RECORD_GEN. Bound run verifies the task generation,
-# harness, Claude selector, executable identity and /health without repeating
-# status/readiness. Invalid records refuse launch.
+# bound to FM_OMNIGENT_RECORD_GEN. It carries the verified server URL, state
+# file, client environment, executable identity, account and capability flags.
+# Bound run requires FM_OMNIGENT_RECORD_META to name the same unretired
+# generation, and verifies the harness, Claude selector, executable identity
+# and /health without repeating status, readiness or capability probing.
+# Invalid records refuse launch.
 # The client is readiness runtime.executable, never a PATH install.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
