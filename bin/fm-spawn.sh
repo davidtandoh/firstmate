@@ -1285,6 +1285,17 @@ else
   fi
 fi
 
+# Publish the home summary without holding the launch on it. The refresh is a
+# side-band publication spawn never consumes, and it owns its own lock, timeout,
+# atomic publish, and failure log (bin/fm-home-summary-refresh.sh). It waits
+# for that lock rather than skipping when another refresh is in flight, so the
+# published summary always includes this spawn's record, at worst a few seconds
+# after spawn returns. Detached stdio keeps a caller capturing spawn's output
+# from waiting on the refresh.
+spawn_home_summary_refresh_detached() {
+  "$SCRIPT_DIR/fm-home-summary-refresh.sh" --best-effort </dev/null >/dev/null 2>&1 &
+}
+
 spawn_remote_secondmate() {
   local id=$1 remote host root home harness positional model effort backend out rc meta tmp
   local remote_backend remote_target remote_harness remote_herdr_session registry_lock remote_lock remote_generation
@@ -1573,7 +1584,7 @@ spawn_remote_secondmate() {
   fm_lock_release "$remote_lock" || true
   fm_lock_release "$registry_lock" || true
   fm_lock_release "$SPAWN_TASK_LOCK" || true
-  "$SCRIPT_DIR/fm-home-summary-refresh.sh" --best-effort || true
+  spawn_home_summary_refresh_detached
   if ! "$SCRIPT_DIR/fm-procevent-remote-reply.sh" arm "$id" >/dev/null; then
     echo "error: remote secondmate $id launched, but its reply source could not be armed; endpoint metadata is preserved" >&2
     return 1
@@ -7336,7 +7347,7 @@ if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
   SPAWN_TASK_SET_LOCK_HELD=0
   fm_lock_release "$SPAWN_TASK_SET_LOCK"
 fi
-"$SCRIPT_DIR/fm-home-summary-refresh.sh" --best-effort || true
+spawn_home_summary_refresh_detached
 [ "$BACKEND" = orca ] && ORCA_ABORT_CLEANUP=0
 
 sq_brief=$(shell_quote "$BRIEF")
