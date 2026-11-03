@@ -647,10 +647,15 @@ test_spawn_does_not_wait_on_home_summary_refresh() {
   ROOT="$ROOT" LOCK="$lock" RELEASE="$release" bash -c '
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$LOCK" || exit 1
-    while [ ! -e "$RELEASE" ]; do sleep 0.1; done
+    deadline=$((SECONDS + 90))
+    while [ ! -e "$RELEASE" ]; do
+      [ "$SECONDS" -lt "$deadline" ] || { fm_lock_release "$LOCK"; exit 1; }
+      sleep 0.1
+    done
     fm_lock_release "$LOCK"
   ' &
   holder=$!
+  trap 'kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; fm_test_cleanup' EXIT
   i=0
   while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
   [ -e "$lock" ] || { touch "$release"; wait "$holder"; fail "the fixture could not hold the refresh lock"; }
@@ -670,6 +675,7 @@ test_spawn_does_not_wait_on_home_summary_refresh() {
 
   touch "$release"
   wait "$holder" || fail "the refresh lock holder failed"
+  trap fm_test_cleanup EXIT
   wait_for_summary_endpoint "$HOME_DIR" "$CASE_ID" \
     || fail "the background refresh did not publish the spawned task after the lock freed"
   pass "spawn returns without waiting on the home-summary refresh, which still publishes the task afterwards"
