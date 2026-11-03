@@ -2,16 +2,16 @@
   "families": [
     {
       "count": 1,
-      "duration_ms": 119058,
+      "duration_ms": 118413,
       "failed": 0,
       "name": "pure-contract-unit"
     }
   ],
-  "finished_at": "2026-11-03T06:25:33Z",
-  "run_id": "fm-test-run-1793687014054-53206",
+  "finished_at": "2026-11-03T08:15:57Z",
+  "run_id": "fm-test-run-1793693638648-27189",
   "scripts": [
     {
-      "duration_ms": 119058,
+      "duration_ms": 118413,
       "exit": 0,
       "expected_gate_skip": "none",
       "family": "pure-contract-unit",
@@ -21,9 +21,9 @@
     }
   ],
   "selection": "scripts;jobs=1",
-  "started_at": "2026-11-03T06:23:34Z",
+  "started_at": "2026-11-03T08:13:58Z",
   "summary": {
-    "duration_ms": 119124,
+    "duration_ms": 118477,
     "failed": 0,
     "skipped_gate": 0,
     "total": 1
