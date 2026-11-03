@@ -1285,13 +1285,9 @@ else
   fi
 fi
 
-# Publish the home summary without holding the launch on it. The refresh is a
-# side-band publication spawn never consumes, and it owns its own lock, timeout,
-# atomic publish, and failure log (bin/fm-home-summary-refresh.sh). It waits
-# for that lock rather than skipping when another refresh is in flight, so the
-# published summary always includes this spawn's record, at worst a few seconds
-# after spawn returns. Detached stdio keeps a caller capturing spawn's output
-# from waiting on the refresh.
+# Detached stdio keeps a caller capturing spawn's output from waiting on this
+# side-band publication. bin/fm-home-summary-refresh.sh owns refresh mechanics;
+# docs/architecture.md owns the publication lifecycle.
 spawn_home_summary_refresh_detached() {
   "$SCRIPT_DIR/fm-home-summary-refresh.sh" --best-effort </dev/null >/dev/null 2>&1 &
 }
