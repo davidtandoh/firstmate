@@ -20,15 +20,19 @@ The launch template substitutes the Omnigent boundary for the native executable.
 Native permission flags, prompts, busy hooks, and turn-end wiring retain their existing owners.
 Quota dispatch continues to use the native harness identity.
 
-`bin/fm-omnigent.sh` queries the local Kit status for every preflight and again when the pane executes its launch.
+`bin/fm-omnigent.sh` queries local Kit status and readiness before spawn.
 Claude launches run one preflight with the selected account before endpoint launch; a control relaunch shares that check with spawn and retains the account refusal before stopping the old worker.
-The pane-side preflight remains independent.
+Ordinary worker launches pass the verified result through a private, single-use record bound to the spawn generation.
+The pane verifies the task generation, harness, Claude selector, executable identity, and server health before using that result.
+Secondmates, primary `start`, and launches without a handoff keep an independent full preflight.
+Control relaunches without a generation-bound result also retain the independent pane preflight.
+`bin/fm-omnigent.sh`'s header owns the handoff lifetime and capability-cache identity contract.
 Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
 The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
 The reports must agree on a running service and its server URL.
 The selected executable must be a regular executable file beneath the status file's parent directory, with no symlink from that directory through the executable.
 A separate Omnigent executable on `PATH` can be stale.
-The launcher checks the native `--env` capability and server health before invoking that runtime.
+The launcher caches native `--env` and Claude account-enforcement capabilities by harness and executable identity, and checks server health on every launch.
 A failure never executes the original native command as a fallback.
 Preflight records stage timing and bounds the combined external-command wait.
 Readiness and the capability check can use the remaining shared budget instead of a fixed stage allowance.

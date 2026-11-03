@@ -44,6 +44,8 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/config" "$TMP_ROOT/tools" "$TMP_ROOT/serve/runtime/bin"
 export HOME="$TMP_ROOT/home"
+export FM_HOME="$TMP_ROOT/home"
+unset FM_STATE_OVERRIDE FM_OMNIGENT_PREFLIGHT FM_OMNIGENT_RECORD_META FM_OMNIGENT_RECORD_GEN
 OMNI="$ROOT/bin/fm-omnigent.sh"
 if [ "${1:-}" != --claude-accounts ] && [ "${1:-}" != --probe ]; then
 mode() { env -u FM_OMNIGENT -u OMNIGENT "$OMNI" mode "$TMP_ROOT/config"; }
@@ -118,19 +120,27 @@ fi
 "$OMNI" check codex
 cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
 legacy_help='  --env KEY=VALUE'
+new_capability_generation() {
+  local runtime="$TMP_ROOT/serve/runtime/bin/omnigent"
+  cp -p "$runtime" "$runtime.new"
+  mv "$runtime.new" "$runtime"
+}
+new_capability_generation
 OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'legacy personal launch received an account override'
 if OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
 grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
+new_capability_generation
 CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
-# A previously unknown fork build is admitted by capability, with one help probe.
+# An unknown fork commit reuses capabilities from the same executable identity.
 jq '.omnigent.commit="4bcd9fbf71d38290d7d4915ace697cd08cf515d8"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
 : > "$TMP_ROOT/serve/runtime/bin/help.log"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
 jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
   || fail 'capable daemon build did not receive the selected Claude account'
-[ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'account enforcement added another help probe'
+[ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 0 ] || fail 'unchanged runtime repeated the help probe'
+new_capability_generation
 OMNI_HELP="$legacy_help
 Capabilities:
   claude-account-enforcement" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude
@@ -145,10 +155,12 @@ Capabilities:
   other-capability
 Examples:
   claude-account-enforcement"; do
+  new_capability_generation
   if OMNI_HELP="$help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then
     fail 'non-capability text accepted as Claude account enforcement'
   fi
 done
+new_capability_generation
 jq '.omnigent.repository="https://github.com/other/omnigent.git"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
 if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'foreign repository accepted for account enforcement'; fi
 pass 'exact advertised capability admits new fork builds and preserves provenance and single-probe boundaries'
@@ -306,7 +318,7 @@ wait "$native_pid" || true
 native_pid=''
 pass 'private stderr observation preserves bytes, foreground exec identity, signals and bounded record waiting'
 
-# Selection is read for every operation; the retained executable stays present.
+# Unbound operations select afresh while the retained executable stays present.
 readiness="$TMP_ROOT/serve/readiness.json"
 cp "$readiness" "$TMP_ROOT/headless.json"
 web="$TMP_ROOT/serve/generations/web/runtime/bin/omnigent"
@@ -325,7 +337,7 @@ for selected in web headless web; do
   "$OMNI" start codex
   jq -e --arg expected "$expected" '.executable == $expected' "$OMNI_RESULT" >/dev/null || fail 'launch used the wrong generation'
 done
-pass 'check, dry run, and launch select web activation and retained rollback afresh'
+pass 'unbound check, dry run, and start select web activation and retained rollback afresh'
 for invalid in \
   'del(.runtime.executable)' \
   '.runtime.executable=null' \
@@ -526,7 +538,11 @@ for kind in ship scout; do
   args=(--mode no-mistakes --yolo off)
   [ "$kind" != scout ] || args=(--scout)
   FM_OMNIGENT=on spawn "$id" "$spawn_project" "${args[@]}" --harness codex --model gpt-5.4 --effort high > "$TMP_ROOT/output" 2>&1 || fail "wrapped $kind spawn: $(cat "$TMP_ROOT/output")"
+  : > "$TMP_ROOT/serve/agent-kit.log"
+  : > "$TMP_ROOT/serve/runtime/bin/help.log"
   execute_launch
+  [ ! -s "$TMP_ROOT/serve/agent-kit.log" ] || fail "$kind pane repeated status/readiness"
+  [ ! -s "$TMP_ROOT/serve/runtime/bin/help.log" ] || fail "$kind pane repeated capability probing"
   wait_title
   jq -e --arg expected "spawn-home · $id" '.title == $expected' "$TMP_ROOT/serve/title.json" >/dev/null || fail "$kind title lost dispatched home/task"
   jq -e '.argv[0] == "codex" and (.argv | index("gpt-5.4")) != null and
@@ -550,7 +566,9 @@ printf 'Test charter\n' > "$sm/data/charter.md"
 printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$sm/.gitignore"
 git -C "$sm" init -q -b main
 FM_OMNIGENT=on spawn omni-sm "$sm" --secondmate > "$TMP_ROOT/output" 2>&1 || fail "secondmate spawn: $(cat "$TMP_ROOT/output")"
+: > "$TMP_ROOT/serve/agent-kit.log"
 execute_launch
+[ "$(wc -l < "$TMP_ROOT/serve/agent-kit.log" | tr -d ' ')" = 2 ] || fail 'secondmate pane skipped its independent preflight'
 wait_title
 jq -e '.title == "secondmate · firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'spawned secondmate title lost its isolated primary identity'
 jq -e --arg home "$sm" '.environment.FM_HOME == $home and .environment.FM_OMNIGENT == "on" and
