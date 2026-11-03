@@ -521,7 +521,7 @@ def valid_flags(value):
 
 try:
     info = args.executable.stat()
-    key = [str(args.executable.resolve()), info.st_ino, info.st_mtime_ns]
+    key = [str(args.executable.resolve()), str(info.st_ino), str(info.st_mtime_ns)]
     if not args.path.is_absolute():
         raise RecordError('capability cache requires an absolute state path')
     result = dict(schema=1, key=key, harness=args.harness, capabilities=None)

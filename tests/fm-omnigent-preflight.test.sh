@@ -145,7 +145,23 @@ rm -f "$FM_OMNIGENT_PREFLIGHT"
 unset FM_OMNIGENT_RECORD_GEN FM_OMNIGENT_RECORD_META FM_OMNIGENT_PREFLIGHT
 rm -f "$HOME/state/.omnigent-capabilities-codex.json"
 fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
+runtime="$TMP_ROOT/service/runtime/bin/omnigent"
+python3 - "$runtime" <<'PY'
+import os, sys
+path = sys.argv[1]
+os.utime(path, ns=(os.stat(path).st_atime_ns, 1700000000123000001))
+mtime = os.stat(path).st_mtime_ns
+assert mtime != int(float(mtime)), 'fixture timestamp must lose precision in binary64'
+PY
 bash "$ROOT/bin/fm-omnigent.sh" check codex
+python3 - "$runtime" "$HOME/state/.omnigent-capabilities-codex.json" <<'PY'
+import json, os, sys
+from pathlib import Path
+info = os.stat(sys.argv[1])
+with open(sys.argv[2]) as source:
+    record = json.load(source)
+assert record['key'] == [str(Path(sys.argv[1]).resolve()), str(info.st_ino), str(info.st_mtime_ns)]
+PY
 bash "$ROOT/bin/fm-omnigent.sh" check codex
 [ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'unchanged runtime repeated its capability probe'
 pass 'unchanged runtime capabilities are probed once per harness'
@@ -158,8 +174,7 @@ fi
 grep -q 'server is unreachable' "$TMP_ROOT/error" || fail 'cached health refusal was not actionable'
 bash "$ROOT/bin/fm-omnigent.sh" check claude
 [ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 2 ] || fail 'capability cache crossed harnesses'
-runtime="$TMP_ROOT/service/runtime/bin/omnigent"
-for change in inode mtime path malformed; do
+for change in inode mtime path malformed numeric; do
   case "$change" in
     inode) cp -p "$runtime" "$runtime.new"; mv "$runtime.new" "$runtime" ;;
     mtime)
@@ -182,6 +197,17 @@ PY
       mv "$TMP_ROOT/changed" "$TMP_ROOT/service/readiness.json"
       runtime=$next ;;
     malformed) printf '{invalid\n' > "$HOME/state/.omnigent-capabilities-codex.json" ;;
+    numeric)
+      python3 - "$HOME/state/.omnigent-capabilities-codex.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as source:
+    record = json.load(source)
+record['key'][1:] = [int(value) for value in record['key'][1:]]
+with open(path, 'w') as output:
+    json.dump(record, output)
+PY
+      ;;
   esac
   : > "${runtime%/*}/help.log"
   bash "$ROOT/bin/fm-omnigent.sh" check codex
