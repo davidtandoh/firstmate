@@ -18,6 +18,11 @@
 # and /health without repeating status, readiness or capability probing.
 # Invalid records refuse launch.
 # The client is readiness runtime.executable, never a PATH install.
+# Wrapper capability flags are cached per harness under state/ in owner-only
+# JSON files, keyed by executable real path, inode and nanosecond mtime.
+# Identity mismatch or invalid cache data requires a new help probe. Status,
+# readiness, health and account lookup stay fresh for full preflight; dry-run
+# never writes a cache.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
 # Only the four native wrappers with a verified --env contract are admitted.
@@ -486,6 +491,90 @@ except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as
 PY
 }
 
+# Managed-executable admission remains resolve_service's responsibility. This
+# boundary owns only capability-cache keys and private record persistence.
+capability_record() { # <load|save> <cache-path> <executable> <harness> [JSON]
+  python3 -I -S - "$SCRIPT_DIR" "$@" <<'PY'
+from __future__ import annotations
+import argparse
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+import tempfile
+sys.path.insert(0, sys.argv.pop(1))
+from fm_record_io import RecordError, canonical, read_regular
+
+parser = argparse.ArgumentParser()
+parser.add_argument('action', choices=('load', 'save'))
+parser.add_argument('path', type=Path)
+parser.add_argument('executable', type=Path)
+parser.add_argument('harness')
+parser.add_argument('payload', nargs='?')
+parser.add_argument('--dry-run', action='store_true')
+args = parser.parse_args()
+
+def valid_flags(value):
+    return (isinstance(value, dict) and value.get('env') is True
+            and type(value.get('claude_account_enforcement')) is bool)
+
+try:
+    info = args.executable.stat()
+    key = [str(args.executable.resolve()), info.st_ino, info.st_mtime_ns]
+    if not args.path.is_absolute():
+        raise RecordError('capability cache requires an absolute state path')
+    result = dict(schema=1, key=key, harness=args.harness, capabilities=None)
+    if args.action == 'load':
+        try:
+            parent = args.path.parent.lstat()
+            if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or parent.st_mode & 0o022:
+                raise RecordError('unsafe capability cache directory')
+            raw, _ = read_regular(args.path, 16384)
+            saved_info = args.path.lstat()
+            if saved_info.st_uid != os.getuid() or saved_info.st_mode & 0o077:
+                raise RecordError('capability cache must be owner-only')
+            saved = json.loads(raw)
+            if (type(saved.get('schema')) is int and saved['schema'] == 1
+                    and saved.get('key') == key and saved.get('harness') == args.harness
+                    and valid_flags(saved.get('capabilities'))):
+                result['capabilities'] = saved['capabilities']
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass  # Only a new probe can authorize capability support on a miss.
+        sys.stdout.write(canonical(result))
+    else:
+        result = json.loads(args.payload)
+        if (result.get('key') != key or result.get('harness') != args.harness
+                or not valid_flags(result.get('capabilities'))):
+            raise RecordError('executable identity changed during capability probe')
+        raw = canonical(result).encode()
+        if len(raw) > 16384:
+            raise RecordError('capability cache exceeds byte limit')
+        if args.dry_run:
+            print(str(args.path))
+            sys.exit(0)
+        args.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        parent = args.path.parent.lstat()
+        if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or parent.st_mode & 0o022:
+            raise RecordError('unsafe capability cache directory')
+        if args.path.exists() or args.path.is_symlink():
+            previous = args.path.lstat()
+            if not stat.S_ISREG(previous.st_mode) or previous.st_uid != os.getuid():
+                raise RecordError('unsafe capability cache file')
+        fd, temporary = tempfile.mkstemp(prefix='.omnigent-capabilities.', dir=str(args.path.parent))
+        try:
+            with os.fdopen(fd, 'wb') as output:
+                output.write(raw)
+            os.replace(temporary, str(args.path))
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+    print('capability cache: {}'.format(error), file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 check_health() {
   local health
   health=$(preflight_stage health 5 curl --silent --show-error --fail --max-time 5 "${SERVER%/}/health") || fail "server is unreachable: $SERVER"
@@ -493,7 +582,7 @@ check_health() {
 }
 
 resolve_service() {
-  local status readiness reason help identity flags handoff='' handoff_path='' status_rc=0 readiness_rc=0 budget=50
+  local status readiness reason help identity flags cache cached handoff='' handoff_path='' status_rc=0 readiness_rc=0 budget=50
   if [ "${FM_TEST_SEAM:-}" = 1 ]; then
     budget=${FM_TEST_OMNIGENT_PREFLIGHT_BUDGET:-50}
     case "$budget" in ''|*[!0-9]*) fail 'invalid test preflight budget' ;; esac
@@ -544,16 +633,26 @@ resolve_service() {
   ' >/dev/null 2>&1 || fail 'invalid or inconsistent serve readiness'
   OMNIGENT_BIN=$(printf '%s' "$readiness" | jq -r .runtime.executable)
   identity=$(preflight_record identity "$OMNIGENT_BIN" "$STATE_FILE") || fail 'invalid managed executable identity'
-  help=$(preflight_stage capability "$budget" "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
-  case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
-  flags=false
-  if printf '%s\n' "$help" | awk '
-    /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
-    /^[^[:space:]]/ { section = 0 }
-    section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
-    END { exit !found }
-  '; then flags=true; fi
-  flags=$(jq -cn --argjson enforcement "$flags" '{env:true,claude_account_enforcement:$enforcement}')
+  cache="${FM_STATE_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-${SCRIPT_DIR%/bin}}}/state}/.omnigent-capabilities-$HARNESS.json"
+  cached=$(capability_record load "$cache" "$OMNIGENT_BIN" "$HARNESS") || fail 'cannot identify the managed executable for capability caching'
+  flags=$(printf '%s' "$cached" | jq -c .capabilities)
+  if [ "$flags" = null ]; then
+    help=$(preflight_stage capability "$budget" "$OMNIGENT_BIN" "$HARNESS" --help < /dev/null) || fail "$HARNESS capability probe failed"
+    case "$help" in *'--env KEY=VALUE'*) ;; *) fail "$OMNIGENT_BIN lacks the native --env interface for $HARNESS" ;; esac
+    flags=false
+    if printf '%s\n' "$help" | awk '
+      /^[[:space:]]*Capabilities:[[:space:]]*$/ { section = 1; next }
+      /^[^[:space:]]/ { section = 0 }
+      section && /^[[:space:]]+claude-account-enforcement([[:space:]]|$)/ { found = 1 }
+      END { exit !found }
+    '; then flags=true; fi
+    cached=$(printf '%s' "$cached" | jq -c --argjson enforcement "$flags" \
+      '.capabilities={env:true,claude_account_enforcement:$enforcement}')
+    flags=$(printf '%s' "$cached" | jq -c .capabilities)
+    if [ "$DRY_RUN" = 0 ]; then
+      capability_record save "$cache" "$OMNIGENT_BIN" "$HARNESS" "$cached" || fail 'cannot save capability cache'
+    fi
+  fi
   check_health
   CLAUDE_ACCOUNT_ENFORCEMENT=0
   # Retain fork provenance; capability support survives upgrades without a

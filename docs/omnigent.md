@@ -30,8 +30,9 @@ The launcher accepts the retained headless runtime when readiness reports only `
 The reports must agree on a running service and its server URL.
 The selected executable must be a regular executable file beneath the status file's parent directory, with no symlink from that directory through the executable.
 A separate Omnigent executable on `PATH` can be stale.
-Full preflight probes native `--env` and Claude account-enforcement capabilities; the handoff carries those verified flags to the pane.
-The launcher checks server health on every launch.
+Full preflight caches native `--env` and Claude account-enforcement capability flags per harness and executable identity; the handoff carries those verified flags to the pane.
+Server health is checked on every launch; service selection and account lookup remain fresh for every full preflight.
+`bin/fm-omnigent.sh`'s header owns the cache identity and dry-run contract.
 A failure never executes the original native command as a fallback.
 Preflight records stage timing and bounds the combined external-command wait.
 Readiness and the capability check can use the remaining shared budget instead of a fixed stage allowance.

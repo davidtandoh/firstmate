@@ -120,19 +120,27 @@ fi
 "$OMNI" check codex
 cp "$OMNI_STATUS" "$TMP_ROOT/enforcing-status.json"
 legacy_help='  --env KEY=VALUE'
+new_capability_generation() {
+  local runtime="$TMP_ROOT/serve/runtime/bin/omnigent"
+  cp -p "$runtime" "$runtime.new"
+  mv "$runtime.new" "$runtime"
+}
+new_capability_generation
 OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR='' "$OMNI" run claude 'personal default'
 jq -e '.environment | has("CLAUDE_CONFIG_DIR") | not' "$OMNI_RESULT" >/dev/null || fail 'legacy personal launch received an account override'
 if OMNI_HELP="$legacy_help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'legacy daemon accepted GuideX'; fi
 grep -q 'running daemon lacks verified exact Claude account enforcement' "$TMP_ROOT/error" || fail 'legacy account refusal omitted requirement'
 cp "$TMP_ROOT/enforcing-status.json" "$OMNI_STATUS"
+new_capability_generation
 CLAUDE_CONFIG_DIR="$HOME/.claude_b/" "$OMNI" check claude
-# A previously unknown fork build is admitted by capability, with one help probe.
+# An unknown fork commit reuses capabilities from the same executable identity.
 jq '.omnigent.commit="4bcd9fbf71d38290d7d4915ace697cd08cf515d8"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
 : > "$TMP_ROOT/serve/runtime/bin/help.log"
 CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" run claude 'GuideX account'
 jq -e --arg root "$HOME/.claude_b" '.environment.CLAUDE_CONFIG_DIR == $root' "$OMNI_RESULT" >/dev/null \
   || fail 'capable daemon build did not receive the selected Claude account'
-[ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'account enforcement added another help probe'
+[ "$(wc -l < "$TMP_ROOT/serve/runtime/bin/help.log" | tr -d ' ')" = 0 ] || fail 'unchanged runtime repeated the help probe'
+new_capability_generation
 OMNI_HELP="$legacy_help
 Capabilities:
   claude-account-enforcement" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude
@@ -147,10 +155,12 @@ Capabilities:
   other-capability
 Examples:
   claude-account-enforcement"; do
+  new_capability_generation
   if OMNI_HELP="$help" CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then
     fail 'non-capability text accepted as Claude account enforcement'
   fi
 done
+new_capability_generation
 jq '.omnigent.repository="https://github.com/other/omnigent.git"' "$TMP_ROOT/enforcing-status.json" > "$OMNI_STATUS"
 if CLAUDE_CONFIG_DIR="$HOME/.claude_b" "$OMNI" check claude > "$TMP_ROOT/error" 2>&1; then fail 'foreign repository accepted for account enforcement'; fi
 pass 'exact advertised capability admits new fork builds and preserves provenance and single-probe boundaries'

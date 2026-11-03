@@ -143,19 +143,71 @@ bash "$ROOT/bin/fm-omnigent.sh" start --dry-run codex >/dev/null
 [ -f "$FM_OMNIGENT_PREFLIGHT" ] || fail 'start consumed a worker handoff'
 rm -f "$FM_OMNIGENT_PREFLIGHT"
 unset FM_OMNIGENT_RECORD_GEN FM_OMNIGENT_RECORD_META FM_OMNIGENT_PREFLIGHT
-: > "$TMP_ROOT/service/runtime/bin/help.log"
-bash "$ROOT/bin/fm-omnigent.sh" check codex
-bash "$ROOT/bin/fm-omnigent.sh" check codex
-bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex >/dev/null
-bash "$ROOT/bin/fm-omnigent.sh" start --dry-run codex >/dev/null
-[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 4 ] || fail 'full preflight skipped a capability probe'
-[ "$(find "$HOME/state" -name '.omnigent-capabilities-*' | wc -l | tr -d ' ')" = 0 ] || fail 'full preflight persisted a capability cache'
-pass 'check, unbound run and start always probe capabilities without a persistent cache'
+rm -f "$HOME/state/.omnigent-capabilities-codex.json"
 fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
-if OMNI_HELP='no environment option' bash "$ROOT/bin/fm-omnigent.sh" check kiro > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
-  fail 'unsupported environment interface was accepted'
+bash "$ROOT/bin/fm-omnigent.sh" check codex
+bash "$ROOT/bin/fm-omnigent.sh" check codex
+[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 1 ] || fail 'unchanged runtime repeated its capability probe'
+pass 'unchanged runtime capabilities are probed once per harness'
+: > "$TMP_ROOT/service/agent-kit.log"
+bash "$ROOT/bin/fm-omnigent.sh" check codex
+[ "$(wc -l < "$TMP_ROOT/service/agent-kit.log" | tr -d ' ')" = 2 ] || fail 'capability cache skipped status or readiness'
+if OMNI_HEALTH=down bash "$ROOT/bin/fm-omnigent.sh" check codex > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+  fail 'capability cache skipped health verification'
 fi
-grep -q 'lacks the native --env interface' "$TMP_ROOT/error" || fail 'unsupported environment refusal missing'
+grep -q 'server is unreachable' "$TMP_ROOT/error" || fail 'cached health refusal was not actionable'
+bash "$ROOT/bin/fm-omnigent.sh" check claude
+[ "$(wc -l < "$TMP_ROOT/service/runtime/bin/help.log" | tr -d ' ')" = 2 ] || fail 'capability cache crossed harnesses'
+runtime="$TMP_ROOT/service/runtime/bin/omnigent"
+for change in inode mtime path malformed; do
+  case "$change" in
+    inode) cp -p "$runtime" "$runtime.new"; mv "$runtime.new" "$runtime" ;;
+    mtime)
+      python3 - "$runtime" <<'PY'
+import os, sys
+path = sys.argv[1]
+before = os.stat(path)
+fraction = 123000000 if before.st_mtime_ns % 1000000000 != 123000000 else 124000000
+os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns // 1000000000 * 1000000000 + fraction))
+after = os.stat(path)
+assert after.st_mtime_ns // 1000000000 == before.st_mtime_ns // 1000000000
+assert after.st_mtime_ns != before.st_mtime_ns
+PY
+      ;;
+    path)
+      next="$TMP_ROOT/service/generations/next/runtime/bin/omnigent"
+      mkdir -p "${next%/*}"
+      ln "$runtime" "$next"
+      jq --arg executable "$next" '.runtime.executable=$executable' "$TMP_ROOT/service/readiness.json" > "$TMP_ROOT/changed"
+      mv "$TMP_ROOT/changed" "$TMP_ROOT/service/readiness.json"
+      runtime=$next ;;
+    malformed) printf '{invalid\n' > "$HOME/state/.omnigent-capabilities-codex.json" ;;
+  esac
+  : > "${runtime%/*}/help.log"
+  bash "$ROOT/bin/fm-omnigent.sh" check codex
+  bash "$ROOT/bin/fm-omnigent.sh" check codex
+  [ "$(wc -l < "${runtime%/*}/help.log" | tr -d ' ')" = 1 ] || fail "$change did not trigger exactly one new probe"
+done
+pass 'capability cache invalidates on inode, subsecond mtime and real-path changes while other preflight remains fresh'
+preview_state="$TMP_ROOT/preview-state"
+FM_STATE_OVERRIDE="$preview_state" bash "$ROOT/bin/fm-omnigent.sh" run --dry-run codex > "$TMP_ROOT/preview"
+[ ! -e "$preview_state" ] || fail 'dry run wrote a capability cache'
+cache="$HOME/state/.omnigent-capabilities-codex.json"
+cp "$cache" "$TMP_ROOT/protected-cache"
+cp "$cache" "$TMP_ROOT/expected-cache"
+rm "$cache"
+ln -s "$TMP_ROOT/protected-cache" "$cache"
+if bash "$ROOT/bin/fm-omnigent.sh" check codex > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+  fail 'symlink capability cache accepted'
+fi
+cmp -s "$TMP_ROOT/expected-cache" "$TMP_ROOT/protected-cache" || fail 'cache writer changed the symlink target'
+rm "$cache"
+pass 'dry run preserves state and unsafe cache files refuse without modifying their targets'
+fm_test_omnigent_service "$TMP_ROOT/service" "$TMP_ROOT/tools"
+if OMNI_HELP='no native environment interface' bash "$ROOT/bin/fm-omnigent.sh" check kiro > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+  fail 'unsupported environment interface was cached as supported'
+fi
+[ ! -e "$HOME/state/.omnigent-capabilities-kiro.json" ] || fail 'unsupported capability was persisted'
 bash "$ROOT/bin/fm-omnigent.sh" check kiro
 export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=8
 # Delay exactly one service-owned stage without bypassing its returned identity.
@@ -191,6 +243,8 @@ OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=11 bash "$ROOT/bin/fm-omnigent.sh" 
   || fail "slow capability inside the shared budget refused: $(cat "$TMP_ROOT/error")"
 pass 'capability uses the remaining shared budget instead of a fixed stage limit'
 export FM_TEST_OMNIGENT_PREFLIGHT_BUDGET=8
+# The deadline case needs a new runtime identity rather than a cache hit.
+touch -t 202201010000 "$TMP_ROOT/service/runtime/bin/omnigent"
 if OMNI_DELAY_STAGE=capability OMNI_STAGE_DELAY=10 bash "$ROOT/bin/fm-omnigent.sh" check claude > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
   fail 'preflight accepted a capability command beyond its total budget'
 fi
