@@ -138,6 +138,14 @@ The parent sends its resolved mode for launch and relaunch, including secondmate
 The remote endpoint reports its actual mode to the parent, alongside its native profile.
 A recorded wrapped task remains wrapped through recovery.
 
+On each pane poll, the watcher reads pending approvals from the recorded Omnigent session before applying busy or declared-wait suppression.
+An outstanding approval emits one actionable check wake per session and approval id, naming the task, endpoint, and a safe prompt heading.
+The daemon routes this wake directly to escalation without stale-task or declared-wait classification.
+Unrecognized prompt text uses a generic summary; command previews and tool arguments are never included.
+`bin/fm-crew-state.sh` also reports the worker as parked while an approval is outstanding.
+An unreachable or malformed session response supplies no approval verdict.
+The watcher never answers approval prompts.
+
 `bin/fm-agent-process-lib.sh` recognizes the observed Python interpreter, Omnigent entrypoint, and native subcommand in order.
 A Python process merely mentioning Omnigent, or running its server, is not an agent.
 The native harness remains the identity used by steering, interrupt, and exit.

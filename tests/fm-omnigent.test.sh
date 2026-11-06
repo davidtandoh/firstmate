@@ -113,6 +113,71 @@ done
 )
 pass 'a stopped server or gone session reads dead in the supervision view only when the pane reads alive'
 fi
+if [ "${1:-}" != --claude-accounts ]; then
+export OMNI_PENDING='[{"type":"response.elicitation_request","elicitation_id":"approval-1","params":{"message":"Claude wants to call **Bash**\nsecret command","content_preview":"SECRET"}}]'
+approvals=$("$OMNI" approvals "$probe_home/bound.meta")
+printf '%s' "$approvals" | jq -e 'length == 1 and .[0].summary == "Claude wants to call Bash"' >/dev/null \
+  || fail 'pending approval did not report its safe prompt summary'
+case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;; esac
+[ "$(OMNI_TITLE_MODE=http-error "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'failed HTTP request reported an approval'
+[ "$(OMNI_PENDING='[{"elicitation_id":null,"params":{"message":"bad"}}]' "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'malformed approval did not report unknown'
+[ "$(OMNI_SESSION_PADDING=170000 "$OMNI" approvals "$probe_home/bound.meta")" = "$approvals" ] || fail 'large session changed approval result'
+[ "$(OMNI_SESSION_STATE=server-error "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'unreachable session was treated as parked'
+[ "$(OMNI_PENDING='[]' "$OMNI" approvals "$probe_home/bound.meta")" = '[]' ] || fail 'cleared prompt remained parked'
+[ "$("$OMNI" approvals "$probe_home/newer.meta")" = unknown ] || fail 'unbound session was treated as parked'
+# Drive the sourced poll check with a wake recorder to test receipt reuse.
+# The complete watcher subprocess below checks its real exit behavior.
+check_watcher_approvals() (
+  . "$ROOT/bin/fm-watch.sh"
+  wake() { printf '%s\n' "$1"; }
+  omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/first-approval"
+  [ "$(cat "$TMP_ROOT/first-approval")" = 'check: bound parked on Omnigent approval at session:fm-bound: Claude wants to call Bash' ] || fail 'first poll did not wake with task, endpoint, and safe heading'
+  omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/repeated-approval"
+  [ ! -s "$TMP_ROOT/repeated-approval" ] || fail 'same approval woke twice'
+  OMNI_PENDING=$(printf '%s' "$OMNI_PENDING" | sed 's/approval-1/approval-2/') \
+    omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/new-approval"
+  [ -s "$TMP_ROOT/new-approval" ] || fail 'new approval did not wake'
+  if OMNI_PENDING='[]' omnigent_approval_check session:fm-bound bound; then fail 'cleared prompt stayed parked'; fi
+  if OMNI_SESSION_STATE=server-error omnigent_approval_check session:fm-bound bound; then fail 'unreachable session alarmed'; fi
+  printf 'backend=tmux\nharness=claude\n' > "$probe_home/native.meta"
+  if omnigent_approval_check session:fm-native native; then fail 'non-Omnigent task alarmed'; fi
+  pass 'watcher poll wakes immediately once per approval, with no clear/unknown/native alarms'
+)
+FM_STATE_OVERRIDE="$probe_home" check_watcher_approvals
+printf 'worktree=%s\nkind=scout\n' "$TMP_ROOT" >> "$probe_home/bound.meta"
+state=$(FM_STATE_OVERRIDE="$probe_home" bash "$ROOT/bin/fm-crew-state.sh" bound)
+case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*) ;; *) fail "crew state did not show parked: $state" ;; esac
+[ "$(OMNI_PENDING='[{"elicitation_id":"x","params":{"message":"Approve running secret command?"}}]' "$OMNI" approvals "$probe_home/bound.meta" | jq -r '.[0].summary')" = 'approval prompt (open Omnigent for details)' ] || fail 'unrecognized message was exposed or dropped'
+(
+  . "$ROOT/tests/watch-triage-helpers.sh"
+  dir=$(make_case approval-first-poll)
+  cp "$probe_home/bound.meta" "$dir/state/bound.meta"
+  printf 'window=test:fm-bound\nharness=claude\n' >> "$dir/state/bound.meta"
+  # Thirty seconds between polls: a ten-second exit proves the first poll.
+  watch_bg "$dir/state" "$dir/fakebin" "$dir/wake" env FM_POLL=30 \
+    FM_FAKE_TMUX_WINDOW=test:fm-bound FM_FAKE_TMUX_CURRENT_COMMAND=claude \
+    FM_FAKE_CREW_STATE='state: working · source: pane · harness busy'
+  pid=$!
+  wait_for_exit "$pid" 100 || fail 'watcher missed approval on its first poll'
+  reason='check: bound parked on Omnigent approval at test:fm-bound: Claude wants to call Bash'
+  [ "$(cat "$dir/wake")" = "$reason" ] || fail 'watcher did not surface approval'
+  pass 'busy pane approval surfaces in the first complete watcher poll'
+  check_daemon_approval() (
+    . "$ROOT/bin/fm-supervise-daemon.sh"
+    LOG="$dir/daemon.log"
+    printf '[2026-11-06T00:00:00Z] paused: intentional wait\n' > "$dir/state/bound.status"
+    FM_ESCALATE_BATCH_SECS=999 handle_durable_wakes 'heartbeat' "$dir/state"
+    [ "$(cat "$dir/state/.subsuper-escalations")" = "$reason" ] || fail 'daemon deferred approval or lost its task, endpoint, or heading'
+    [ ! -e "$dir/state/.subsuper-stale-bound" ] || fail 'daemon treated approval as a transient stale'
+    [ ! -e "$dir/state/.subsuper-paused-bound" ] || fail 'daemon deferred approval as a declared wait'
+    pass 'daemon consumes the durable approval wake immediately despite a declared wait'
+  )
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+    check_daemon_approval
+)
+unset OMNI_PENDING
+pass 'approval snapshots expose safe summaries and distinguish unknown from cleared'
+fi
 if [ "${1:-}" = --probe ]; then
   exit 0
 fi

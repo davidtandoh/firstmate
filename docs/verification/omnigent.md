@@ -237,3 +237,22 @@ The command above, run under `LC_ALL=C LC_CTYPE=C` with `FM_TEST_SKIP_ORPHAN_REA
 Antigravity reported `liveness and safe exit refusal (native exit unverified)`; all four conversations reported `no terminal resources remain`.
 With `FM_COMPOSER_CAPTURE_LINES=1`, the same guard deliberately failed Claude readiness with `exit=1`, then reported `no terminal resources remain` for its conversation.
 Both runs removed their named labs and preserved the running default session.
+
+## Pending approval supervision regression
+
+On 2026-11-06, `bash tests/fm-omnigent.test.sh --probe` passed against the fake Omnigent session endpoint in `tests/omnigent-fixture.sh`.
+The endpoint uses the `pending_elicitations` event shape from the Omnigent session API.
+The focused output included:
+
+```text
+ok - watcher poll wakes immediately once per approval, with no clear/unknown/native alarms
+ok - busy pane approval surfaces in the first complete watcher poll
+ok - daemon consumes the durable approval wake immediately despite a declared wait
+ok - approval snapshots expose safe summaries and distinguish unknown from cleared
+```
+
+The complete watcher process used a thirty-second poll interval and returned the approval wake within ten seconds, before a second poll could run.
+The regression also verifies the parked crew-state reading and omission of command previews and unrecognized message bodies.
+The daemon consumer drains the watcher's durable wake and preserves the task, endpoint, and safe heading in its escalation buffer despite a paused status.
+This is protocol-fixture coverage; it does not establish a live harness approval result.
+The [Omnigent guide](../omnigent.md#native-environment-and-supervision) owns current behavior.

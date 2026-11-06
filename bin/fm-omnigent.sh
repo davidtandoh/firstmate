@@ -6,6 +6,7 @@
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
 #        fm-omnigent.sh probe <task-meta>
+#        fm-omnigent.sh approvals <task-meta>
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
@@ -54,6 +55,8 @@
 # without a recorded session. Callers archive only a proven-stopped worker.
 # probe prints alive, dead or unknown for the recorded session from one bounded
 # GET of /health and one of /v1/sessions/<id>.
+# approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
+# Its single session GET has the same time bound and a 2 MiB response limit.
 # FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
 # or failing also report their name, elapsed time and bound on stderr.
 # Kit's internal status stages remain Kit-owned; this boundary measures the
@@ -303,7 +306,7 @@ archive_bound_session() {
 # runner is gone, failed, archived or deleted. No binding, or a reply that
 # proves neither, is unknown. One bounded request each; never retried here.
 probe_session() ( # <task meta>
-  local code body rc=0
+  local code body
   [ "$#" -eq 1 ] || fail 'probe requires one task record'
   if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
   if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' \
@@ -313,9 +316,7 @@ probe_session() ( # <task meta>
   # Keep large records out of shell pattern expansion so parsing cannot stall supervision.
   body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-probe.XXXXXX") || { echo unknown; return 0; }
   trap 'rm -f -- "$body"' EXIT
-  code=$(fm_run_timed 6 curl --silent --max-time 5 --noproxy '*' --proto '=http' \
-    --output "$body" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null) || rc=$?
-  [ "$rc" = 0 ] || { echo unknown; return 0; }
+  session_snapshot "$body" || { echo unknown; return 0; }
   case "$code" in
     404) echo dead; return 0 ;;
     200) ;;
@@ -330,6 +331,35 @@ probe_session() ( # <task meta>
     echo unknown
   fi
 )
+# Shared session lookup for supervision; caller owns the temporary body file.
+# Keep response parsing off shell variables and bound both time and disk use.
+session_snapshot() { # <output file>; sets code
+  code=$(fm_run_timed 6 curl --silent --max-time 5 --max-filesize 2097152 --noproxy '*' --proto '=http' \
+    --output "$1" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null)
+}
+
+# Read-only approval snapshot: JSON array of correlation ids and safe summaries,
+# or literal unknown. Never copy content_preview, tool arguments or raw messages.
+# Only a recognized prompt heading is safe to expose; other wording is generic.
+approvals_session() ( # <task meta>
+  local body code
+  [ "$#" -eq 1 ] || fail 'approvals requires one task record'
+  if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-approvals.XXXXXX") || { echo unknown; return 0; }
+  trap 'rm -f -- "$body"' EXIT
+  session_snapshot "$body" && [ "$code" = 200 ] || { echo unknown; return 0; }
+  jq -sce --arg id "$SESSION_ID" '
+    if length == 1 then .[0] else error("multiple session records") end |
+    select(.id == $id and .runner_online == true and .archived != true and .status != "failed") |
+    .pending_elicitations | select(type == "array") |
+    if all(.[]; (.elicitation_id | type == "string" and length > 0) and (.params.message | type == "string")) then
+      map({id: .elicitation_id, summary: (
+        (.params.message | capture("^(?<heading>[A-Za-z]+ wants to call (?:\\*\\*)?[A-Za-z0-9_.:-]+)").heading | gsub("\\*"; "") | .[0:120])
+        // "approval prompt (open Omnigent for details)")})
+    else error("invalid approval") end
+  ' "$body" 2>/dev/null || echo unknown
+)
+
 stop_attach() {
   local meta=$1 pid started current pgid
   # shellcheck source=bin/fm-wake-lib.sh
@@ -708,6 +738,7 @@ case "$OP" in
   archive) archive_session "$@"; exit ;;
   capture) capture_session "$@"; exit ;;
   probe) probe_session "$@"; exit ;;
+  approvals) approvals_session "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
   check|run|start) ;;
