@@ -245,6 +245,8 @@ test_forge_selection_renders_correct_cli() {
   brief="$home/data/brief-forge-default/brief.md"
   assert_grep "3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations." "$brief" \
     "a brief with no --forge must render the exact pre-existing gh-axi Rule 3 line"
+  assert_grep "Give every helper agent or sub-agent you start these same tool rules in its instructions" "$brief" \
+    "a ship brief must require helper agents to receive the same tool rules"
   # shellcheck disable=SC2016 # Backticks are literal generated brief text.
   assert_grep 'open a PR with `gh-axi`' "$brief" \
     "a direct-PR brief with no --forge must still tell the worker to open the PR with gh-axi"
@@ -616,6 +618,8 @@ test_ask_user_escalation_format() {
   other_brief="$home/data/$other_id/brief.md"
   assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
     "scout brief received a no-mistakes-only decision case"
+  assert_grep "Give every helper agent or sub-agent you start these same tool rules in its instructions" "$other_brief" \
+    "a scout brief must require helper agents to receive the same tool rules"
 
   for mode in direct-PR local-only; do
     other_id="brief-no-ask-user-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"

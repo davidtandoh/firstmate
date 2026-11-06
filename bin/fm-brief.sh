@@ -405,6 +405,7 @@ ID=${POS[0]}
 . "$SCRIPT_DIR/fm-task-proc-lib.sh"
 BROWSER_SESSION=$(fm_task_proc_browser_session "$FM_HOME" "$ID") || exit 1
 BROWSER_RULE_LINE="   For browser work, start each chrome-devtools-axi command with \`env -u CHROME_DEVTOOLS_AXI_BROWSER_URL -u CHROME_DEVTOOLS_AXI_AUTO_CONNECT CHROME_DEVTOOLS_AXI_SESSION=$BROWSER_SESSION CHROME_DEVTOOLS_AXI_USER_DATA_DIR=/tmp/$BROWSER_SESSION/browser-profile\` so the browser is this job's own and closes at cleanup; never set CHROME_DEVTOOLS_AXI_AUTO_CONNECT or drive the captain's own browsers."
+HELPER_RULE_LINE="   Give every helper agent or sub-agent you start these same tool rules in its instructions, and run each command that touches the network or files outside the worktree as one plain step without shell variables, loops, or \`&&\` chains, apart from exact commands these instructions give, so permission checks can verify it."
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2
@@ -730,6 +731,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 2. Stay inside this worktree; outside it, write only the report and status file below, except for the task's empty-inventory attestation through \`fm-captain-hold.sh complete --none\`, exactly as specified under Definition of done.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 $BROWSER_RULE_LINE
+$HELPER_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -812,6 +814,7 @@ $RULE1
    Leave the worktree clean before reporting done.
 3. $FORGE_RULE_LINE
 $BROWSER_RULE_LINE
+$HELPER_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
