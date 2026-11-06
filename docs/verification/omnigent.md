@@ -247,10 +247,12 @@ The focused output included:
 ```text
 ok - watcher poll wakes immediately once per approval, with no clear/unknown/native alarms
 ok - busy pane approval surfaces in the first complete watcher poll
+ok - daemon consumes the durable approval wake immediately despite a declared wait
 ok - approval snapshots expose safe summaries and distinguish unknown from cleared
 ```
 
 The complete watcher process used a thirty-second poll interval and returned the approval wake within ten seconds, before a second poll could run.
 The regression also verifies the parked crew-state reading and omission of command previews and unrecognized message bodies.
+The daemon consumer drains the watcher's durable wake and preserves the task, endpoint, and safe heading in its escalation buffer despite a paused status.
 This is protocol-fixture coverage; it does not establish a live harness approval result.
 The [Omnigent guide](../omnigent.md#native-environment-and-supervision) owns current behavior.

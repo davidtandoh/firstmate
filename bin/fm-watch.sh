@@ -3350,8 +3350,8 @@ omnigent_approval_check() { # <window> <task>; success means currently parked
     receipt="$STATE/.approval-$(printf '%s\n%s\n%s' "$task" "$(fm_meta_get "$meta" omnigent_session)" "$id" | hash_pane)"
     [ ! -e "$receipt" ] || continue
     summary=$(printf '%s' "$approvals" | jq -r --arg id "$id" '.[] | select((.id | @base64) == $id) | .summary')
-    reason="stale: $task parked on Omnigent approval: $summary"
-    fm_wake_append stale "$win" "$reason" || return 1
+    reason="check: $task parked on Omnigent approval at $win: $summary"
+    fm_wake_append check "$win" "$reason" || return 1
     touch "$receipt"
     wake "$reason"
   done < <(printf '%s' "$approvals" | jq -r '.[].id | @base64')

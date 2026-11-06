@@ -132,7 +132,7 @@ case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;
   . "$ROOT/bin/fm-watch.sh"
   wake() { printf '%s\n' "$1"; }
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/first-approval"
-  grep -q 'bound parked on Omnigent approval: Claude wants to call Bash' "$TMP_ROOT/first-approval" || fail 'first poll did not wake'
+  [ "$(cat "$TMP_ROOT/first-approval")" = 'check: bound parked on Omnigent approval at session:fm-bound: Claude wants to call Bash' ] || fail 'first poll did not wake with task, endpoint, and safe heading'
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/repeated-approval"
   [ ! -s "$TMP_ROOT/repeated-approval" ] || fail 'same approval woke twice'
   OMNI_PENDING=$(printf '%s' "$OMNI_PENDING" | sed 's/approval-1/approval-2/') \
@@ -159,8 +159,20 @@ case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*
     FM_FAKE_CREW_STATE='state: working · source: pane · harness busy'
   pid=$!
   wait_for_exit "$pid" 100 || fail 'watcher missed approval on its first poll'
-  grep -q 'bound parked on Omnigent approval: Claude wants to call Bash' "$dir/wake" || fail 'watcher did not surface approval'
+  reason='check: bound parked on Omnigent approval at test:fm-bound: Claude wants to call Bash'
+  [ "$(cat "$dir/wake")" = "$reason" ] || fail 'watcher did not surface approval'
   pass 'busy pane approval surfaces in the first complete watcher poll'
+  (
+    export FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config"
+    . "$ROOT/bin/fm-supervise-daemon.sh"
+    LOG="$dir/daemon.log"
+    printf '[2026-11-06T00:00:00Z] paused: intentional wait\n' > "$dir/state/bound.status"
+    FM_ESCALATE_BATCH_SECS=999 handle_durable_wakes 'heartbeat' "$dir/state"
+    [ "$(cat "$dir/state/.subsuper-escalations")" = "$reason" ] || fail 'daemon deferred approval or lost its task, endpoint, or heading'
+    [ ! -e "$dir/state/.subsuper-stale-bound" ] || fail 'daemon treated approval as a transient stale'
+    [ ! -e "$dir/state/.subsuper-paused-bound" ] || fail 'daemon deferred approval as a declared wait'
+    pass 'daemon consumes the durable approval wake immediately despite a declared wait'
+  )
 )
 unset OMNI_PENDING
 pass 'approval snapshots expose safe summaries and distinguish unknown from cleared'
