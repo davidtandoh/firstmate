@@ -127,8 +127,7 @@ case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;
 [ "$("$OMNI" approvals "$probe_home/newer.meta")" = unknown ] || fail 'unbound session was treated as parked'
 # Drive the sourced poll check with a wake recorder to test receipt reuse.
 # The complete watcher subprocess below checks its real exit behavior.
-(
-  export FM_STATE_OVERRIDE="$probe_home"
+check_watcher_approvals() (
   . "$ROOT/bin/fm-watch.sh"
   wake() { printf '%s\n' "$1"; }
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/first-approval"
@@ -144,6 +143,7 @@ case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;
   if omnigent_approval_check session:fm-native native; then fail 'non-Omnigent task alarmed'; fi
   pass 'watcher poll wakes immediately once per approval, with no clear/unknown/native alarms'
 )
+FM_STATE_OVERRIDE="$probe_home" check_watcher_approvals
 printf 'worktree=%s\nkind=scout\n' "$TMP_ROOT" >> "$probe_home/bound.meta"
 state=$(FM_STATE_OVERRIDE="$probe_home" bash "$ROOT/bin/fm-crew-state.sh" bound)
 case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*) ;; *) fail "crew state did not show parked: $state" ;; esac
@@ -162,8 +162,7 @@ case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*
   reason='check: bound parked on Omnigent approval at test:fm-bound: Claude wants to call Bash'
   [ "$(cat "$dir/wake")" = "$reason" ] || fail 'watcher did not surface approval'
   pass 'busy pane approval surfaces in the first complete watcher poll'
-  (
-    export FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config"
+  check_daemon_approval() (
     . "$ROOT/bin/fm-supervise-daemon.sh"
     LOG="$dir/daemon.log"
     printf '[2026-11-06T00:00:00Z] paused: intentional wait\n' > "$dir/state/bound.status"
@@ -173,6 +172,8 @@ case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*
     [ ! -e "$dir/state/.subsuper-paused-bound" ] || fail 'daemon deferred approval as a declared wait'
     pass 'daemon consumes the durable approval wake immediately despite a declared wait'
   )
+  FM_HOME="$dir" FM_STATE_OVERRIDE="$dir/state" FM_DATA_OVERRIDE="$dir/data" FM_CONFIG_OVERRIDE="$dir/config" \
+    check_daemon_approval
 )
 unset OMNI_PENDING
 pass 'approval snapshots expose safe summaries and distinguish unknown from cleared'
