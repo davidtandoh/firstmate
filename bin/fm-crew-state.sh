@@ -24,7 +24,7 @@
 # Output is one stable, parseable, token-tight line firstmate can read every
 # heartbeat:
 #
-#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|codex-native|none> · <detail>
+#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|codex-native|omnigent|none> · <detail>
 #
 # For ordinary Codex workers, the canonical native failure override below
 # applies to every reconciled result except done; retain the reconciled source
@@ -40,6 +40,8 @@
 #      to the routed status log; dead/missing report the remote verdict; an
 #      unreachable or unreadable remote reports unknown-remote, never a false
 #      gone/dead.
+#   A pending Omnigent approval overrides run/pane busy state as parked.
+#   Unreachable or malformed approval reads do not change classification.
 #   2. Matching no-mistakes run for this crew's branch AND current code identity,
 #      active or terminal (from `axi status`, or the coarse `no-mistakes runs`
 #      fallback)? Branch name alone is not enough: a historical run on a reused
@@ -339,6 +341,14 @@ fi
 # endpoint-existence predicate.
 TASK_BACKEND=$(fm_backend_of_meta "$META")
 BACKEND_TARGET=$(fm_backend_target_of_meta "$META")
+# An outstanding native approval parks the worker even while its pane or an
+# attributed pipeline still looks busy. Unknown snapshots do not override state.
+if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+  APPROVALS=$(bash "$SCRIPT_DIR/fm-omnigent.sh" approvals "$META" 2>/dev/null) || APPROVALS=unknown
+  if [ "$APPROVALS" != unknown ] && [ "$APPROVALS" != '[]' ] && [ -n "$APPROVALS" ]; then
+    emit parked omnigent "parked on approval: $(printf '%s' "$APPROVALS" | jq -r '.[0].summary')"
+  fi
+fi
 EXPECTED_LABEL="fm-$ID"
 pane_readable() {  # <target>
   case "$TASK_BACKEND" in

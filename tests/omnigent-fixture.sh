@@ -62,6 +62,7 @@ session = {'id': url.rsplit('/', 1)[-1], 'labels': {'omnigent.wrapper': labels[h
            'runner_online': True, 'archived': False}
 # Session reads for supervision: OMNI_SESSION_STATE selects the record shape;
 # --output and --write-out keep the body and HTTP status separate like curl.
+session['pending_elicitations'] = json.loads(os.environ.get('OMNI_PENDING', '[]'))
 state = os.environ.get('OMNI_SESSION_STATE', 'alive')
 code = 200
 if state == 'runner-gone':

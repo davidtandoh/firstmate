@@ -3338,6 +3338,26 @@ event_wait_or_sleep() {
   esac
 }
 
+# Pending Omnigent prompts bypass pane/pipeline busy and declared-wait triage.
+# Persist one receipt per session + approval id, including across watcher arms.
+omnigent_approval_check() { # <window> <task>; success means currently parked
+  local win=$1 task=$2 meta approvals id summary receipt reason
+  meta="$STATE/$task.meta"
+  [ "$(fm_meta_get "$meta" omnigent)" = on ] || return 1
+  approvals=$(bash "$SCRIPT_DIR/fm-omnigent.sh" approvals "$meta" 2>/dev/null) || return 1
+  [ "$approvals" != unknown ] && [ "$approvals" != '[]' ] && [ -n "$approvals" ] || return 1
+  while IFS= read -r id; do
+    receipt="$STATE/.approval-$(printf '%s\n%s\n%s' "$task" "$(fm_meta_get "$meta" omnigent_session)" "$id" | hash_pane)"
+    [ ! -e "$receipt" ] || continue
+    summary=$(printf '%s' "$approvals" | jq -r --arg id "$id" '.[] | select((.id | @base64) == $id) | .summary')
+    reason="stale: $task parked on Omnigent approval: $summary"
+    fm_wake_append stale "$win" "$reason" || return 1
+    touch "$receipt"
+    wake "$reason"
+  done < <(printf '%s' "$approvals" | jq -r '.[].id | @base64')
+  return 0
+}
+
 # --- Main entry: the runtime below runs only when this file is executed as a
 # script. When sourced (unit tests loading the functions above), return here
 # before acquiring the singleton lock or entering the blocking loop.
@@ -4038,6 +4058,7 @@ EOF
     # Steering-inbox loss detection runs before the secondmate stale
     # exemption below, because a mate's steers land in an inbox too.
     [ -z "$task" ] || inbox_steer_check "$w" "$task"
+    if [ -n "$task" ] && omnigent_approval_check "$w" "$task"; then continue; fi
     key=$(window_key "$w")
     last=$(status_declared_wait_line "$STATE/$task.status")
     if ! status_is_paused_or_captain_held "$last" && [ -e "$STATE/.paused-$key" ]; then
