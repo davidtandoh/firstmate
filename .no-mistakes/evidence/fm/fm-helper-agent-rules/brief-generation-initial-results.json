@@ -1,0 +1,167 @@
+[
+  {
+    "case": "ship-no-mistakes",
+    "checks": {
+      "exit_zero": true,
+      "github_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-no-mistakes",
+      "example-project",
+      "--mode",
+      "no-mistakes"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-no-mistakes/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "ship-direct-pr",
+    "checks": {
+      "exit_zero": true,
+      "github_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-direct-pr",
+      "example-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-direct-pr/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "ship-local-only",
+    "checks": {
+      "exit_zero": true,
+      "github_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-local-only",
+      "example-project",
+      "--mode",
+      "local-only"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-local-only/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "scout",
+    "checks": {
+      "exit_zero": true,
+      "github_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "scout",
+      "example-project",
+      "--scout"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "ship-forgejo",
+    "checks": {
+      "exit_zero": true,
+      "forge_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-forgejo",
+      "example-project",
+      "--mode",
+      "direct-PR",
+      "--forge",
+      "forgejo"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-forgejo/brief.md (ship, mode=direct-PR forge=forgejo; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "ship-gerrit",
+    "checks": {
+      "exit_zero": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-gerrit",
+      "example-project",
+      "--mode",
+      "direct-PR",
+      "--forge",
+      "gerrit"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-gerrit/brief.md (ship, mode=direct-PR forge=gerrit shape=squash; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  },
+  {
+    "case": "ship-external",
+    "checks": {
+      "exit_zero": false,
+      "helper_rule_once": false,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": false
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-external",
+      "example-project",
+      "--mode",
+      "direct-PR",
+      "--forge",
+      "external"
+    ],
+    "exit": 1,
+    "output": "error: forge=external needs /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/config/external-review.md, the worker instructions for this home's review tool (docs/configuration.md \"External review tool\"); without it a worker has no way to publish except a push\n",
+    "result": "fail"
+  },
+  {
+    "case": "ship-manual-pr",
+    "checks": {
+      "exit_zero": true,
+      "github_tool_rule": true,
+      "helper_rule_once": true,
+      "no_shell_expansion_leak": true,
+      "rule_in_rules_section": true
+    },
+    "command": [
+      "bin/fm-brief.sh",
+      "ship-manual-pr",
+      "example-project",
+      "--mode",
+      "no-mistakes",
+      "--pr",
+      "manual"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6R904ARYBDJFGRTYBA73608/.helper-validation-iuh3lpo6/home/data/ship-manual-pr/brief.md (ship, mode=no-mistakes pr=manual; replace {TASK} and {FIRSTMATE_SPEC})\n",
+    "result": "pass"
+  }
+]
