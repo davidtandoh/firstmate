@@ -1,0 +1,3 @@
+$ bash bin/fm-omnigent.sh approvals <unbound-worker.meta>
+unknown
+exit=0

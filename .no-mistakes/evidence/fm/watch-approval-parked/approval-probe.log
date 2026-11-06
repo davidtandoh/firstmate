@@ -1,0 +1,14 @@
+ok - large session records return the correct supervision verdict within six seconds
+ok - a stopped server or gone session reads dead in the supervision view only when the pane reads alive
+ok - watcher poll wakes immediately once per approval, with no clear/unknown/native alarms
+ok - busy pane approval surfaces in the first complete watcher poll
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ok - daemon consumes the durable approval wake immediately despite a declared wait
+ok - approval snapshots expose safe summaries and distinguish unknown from cleared
