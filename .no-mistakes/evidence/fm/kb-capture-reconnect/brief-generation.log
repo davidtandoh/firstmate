@@ -1,0 +1,12 @@
+Command: bin/fm-brief.sh kb-no-mistakes example-project --mode no-mistakes
+scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-no-mistakes/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+Exit: 0
+Command: bin/fm-brief.sh kb-direct-PR example-project --mode direct-PR
+scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-direct-PR/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+Exit: 0
+Command: bin/fm-brief.sh kb-local-only example-project --mode local-only
+scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-local-only/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+Exit: 0
+Command: bin/fm-brief.sh kb-scout example-project --scout
+scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+Exit: 0

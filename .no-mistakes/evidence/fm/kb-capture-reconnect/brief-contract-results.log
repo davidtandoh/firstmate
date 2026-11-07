@@ -1,0 +1,14 @@
+ship-no-mistakes: emitted candidate-or-none report contract and Firstmate filing ownership verified.
+Worker boundary: Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-no-mistakes/` or a temporary directory.
+   Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
+   Leave the worktree clean before reporting done.
+ship-direct-PR: emitted candidate-or-none report contract and Firstmate filing ownership verified.
+Worker boundary: Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-direct-PR/` or a temporary directory.
+   Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
+   Leave the worktree clean before reporting done.
+ship-local-only: emitted candidate-or-none report contract and Firstmate filing ownership verified.
+Worker boundary: Keep project edits inside this worktree; keep proof and scratch output outside it, under `/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M6TWY990SRNJ32MA45JK3S14/.kb-capture-live.0zpl9ekr/data/kb-local-only/` or a temporary directory.
+   Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
+   Leave the worktree clean before reporting done.
+scout: emitted candidate-or-none report contract and Firstmate filing ownership verified.
+Worker boundary: Stay inside this worktree; outside it, write only the report and status file below, except for the task's empty-inventory attestation through `fm-captain-hold.sh complete --none`, exactly as specified under Definition of done.
