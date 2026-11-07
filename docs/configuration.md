@@ -1135,7 +1135,7 @@ There is no shared learnings file by captain decision.
 
 A home may declare memory stores outside firstmate, such as MCP-served knowledge stores, as authoritative for named classes of knowledge.
 The declaration lives in a `Memory layering` heading inside `data/captain.md`, or inside the primary home's `data/captain-shared.md` when every secondmate home should inherit it; a local `data/captain.md` declaration wins for that home when both exist.
-No declaration means firstmate's local files under `data/` are the only memory owners, which is the default.
+Without a declaration, firstmate's local files under `data/` are the default memory owners.
 
 Each declared tier states, in plain prose or a table:
 
@@ -1148,7 +1148,7 @@ For example, one home declares a Palimpsest MCP store authoritative for reasonin
 
 The declaration is per-home untracked state under `data/`, like every other captain preference, so no clone or update carries it.
 A fresh primary home has no declaration until the captain re-declares the `Memory layering` section there from their own records.
-Until then local files are the only memory owners.
+For knowledge-base candidates in worker reports, follow [`ship-landing`](../.agents/skills/ship-landing/SKILL.md) before cleanup even without a tier declaration.
 
 [`AGENTS.md`](../AGENTS.md) section 6 owns what a declaration changes about knowledge routing, and the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns how curation reads the declaration and protects tier-owned entries from pruning.
 The section counts toward the startup memory budget like the rest of its file, so keep it to the mapping rather than restating these rules.

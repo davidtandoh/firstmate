@@ -658,6 +658,10 @@ test_ship_project_memory_wording() {
     "project-memory contract still invites additions for durable knowledge"
   assert_grep "A correction edits only the wrong text: do not run \`$ROOT/bin/fm-ensure-agents-md.sh\`" "$brief" \
     "project-memory contract no longer forbids the ensure helper on a correction"
+  assert_grep "write \`$home/data/$id/report.md\` ending with a \`## Knowledge-base candidates\` section" "$brief" \
+    "ship brief must ask for a knowledge-base candidates section in its done report"
+  assert_grep "firstmate files them, so write nothing into any knowledge base yourself" "$brief" \
+    "ship brief must keep knowledge-base filing with firstmate"
   pass "fm-brief.sh: ship project-memory wording bounds edits to corrections of wrong information"
 }
 
@@ -1190,6 +1194,10 @@ test_scout_and_secondmate_scaffold() {
   assert_present "$brief" "scout brief was not scaffolded"
   assert_grep "SCOUT task" "$brief" "scout brief must declare itself a scout task"
   assert_grep "report.md" "$brief" "scout brief must point at the report deliverable"
+  assert_grep "End the report with a \`## Knowledge-base candidates\` section" "$brief" \
+    "scout brief must ask for a knowledge-base candidates section"
+  assert_grep "firstmate files them, so write nothing into any knowledge base yourself" "$brief" \
+    "scout brief must keep knowledge-base filing with firstmate"
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
