@@ -1,0 +1,99 @@
+[
+  {
+    "binding": {
+      "FM_OMNIGENT_SERVER": "https://omnigent.tail595c55.ts.net"
+    },
+    "command": [
+      "bin/fm-omnigent.sh",
+      "check",
+      "codex"
+    ],
+    "exit": 1,
+    "name": "partial binding",
+    "passed": true,
+    "stderr": "error: Omnigent launch: a remote Omnigent binding needs both a server and a registered host id\n",
+    "stdout": ""
+  },
+  {
+    "binding": {
+      "FM_OMNIGENT_HOST": "00000000000000000000000000000000",
+      "FM_OMNIGENT_SERVER": "https://omnigent.tail595c55.ts.net/api"
+    },
+    "command": [
+      "bin/fm-omnigent.sh",
+      "check",
+      "codex"
+    ],
+    "exit": 1,
+    "name": "server with path",
+    "passed": true,
+    "stderr": "error: Omnigent launch: invalid remote Omnigent server, expected an https origin: https://omnigent.tail595c55.ts.net/api\n",
+    "stdout": ""
+  },
+  {
+    "binding": {
+      "FM_OMNIGENT_HOST": "david-k8-plus",
+      "FM_OMNIGENT_SERVER": "https://omnigent.tail595c55.ts.net"
+    },
+    "command": [
+      "bin/fm-omnigent.sh",
+      "check",
+      "codex"
+    ],
+    "exit": 1,
+    "name": "display name as host",
+    "passed": true,
+    "stderr": "error: Omnigent launch: invalid registered Omnigent host id: david-k8-plus\n",
+    "stdout": ""
+  },
+  {
+    "binding": {
+      "FM_OMNIGENT_HOST": "00000000000000000000000000000000",
+      "FM_OMNIGENT_SERVER": "https://omnigent.tail595c55.ts.net"
+    },
+    "command": [
+      "bin/fm-omnigent.sh",
+      "check",
+      "codex"
+    ],
+    "exit": 1,
+    "name": "different actual host identity",
+    "passed": true,
+    "stderr": "error: Omnigent launch: this host's Omnigent identity c5921115e15a4612b01495ad052c06f5 is not the registered host 00000000000000000000000000000000\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "curl",
+      "--silent",
+      "--show-error",
+      "--fail",
+      "--max-time",
+      "10",
+      "--proto",
+      "=https",
+      "https://omnigent.tail595c55.ts.net/health"
+    ],
+    "exit": 6,
+    "name": "real server health",
+    "stderr": "curl: (6) Could not resolve host: omnigent.tail595c55.ts.net\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "curl",
+      "--silent",
+      "--show-error",
+      "--fail",
+      "--max-time",
+      "10",
+      "--proto",
+      "=https",
+      "https://omnigent.tail595c55.ts.net/v1/hosts"
+    ],
+    "exit": 6,
+    "name": "real server v1/hosts",
+    "stderr": "curl: (6) Could not resolve host: omnigent.tail595c55.ts.net\n",
+    "stdout": ""
+  }
+]
