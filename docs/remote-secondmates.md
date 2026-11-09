@@ -448,7 +448,6 @@ All remote secondmates on one host share `fm-remote` and retain separate `2ndmat
 
 A wrapped primary normally asks the remote host to wrap launches in that host's own Kit-managed Omnigent service.
 A host without a Kit, such as a Linux worker, can instead launch through the primary's Omnigent server, once its own Omnigent host daemon is connected to that server.
-Herdr on the remote host still owns the terminal pane, and the Omnigent native wrapper still runs inside it; only the server it binds to changes.
 [Remote host launches](omnigent.md#remote-host-launches) owns how the launch works and what it verifies.
 
 To opt a route in:
@@ -466,10 +465,6 @@ To opt a route in:
    `omnigent-host` is the 32-character lowercase hexadecimal host id.
    A malformed pair makes the entry invalid rather than ignored.
 4. Launch or relaunch the route from the wrapped primary as usual.
-
-The binding applies only when the primary is wrapped; a native primary launches the route natively, as before.
-The remote home records the binding, so liveness recovery and the home's own workers keep using that server and host.
-A launch refuses with the exact cause when the host is not registered, is offline, or reports a different identity, and nothing falls back to a native launch.
 
 ### Liveness recovery
 

@@ -21,16 +21,16 @@ The launch template substitutes the Omnigent boundary for the native executable.
 Native permission flags, prompts, busy hooks, and turn-end wiring retain their existing owners.
 Quota dispatch continues to use the native harness identity.
 
-`bin/fm-omnigent.sh` queries local Kit status and readiness during spawn preflight.
+`bin/fm-omnigent.sh` queries local Kit status and readiness during spawn preflight for launches without a [remote binding](#remote-host-launches).
 Claude launches run one preflight with the selected account before endpoint launch; a control relaunch shares that check with spawn and retains the account refusal before stopping the old worker.
 Ordinary worker panes reuse the spawn preflight result under the handoff contract in [`bin/fm-omnigent.sh`'s header](../bin/fm-omnigent.sh).
 Secondmates, primary `start`, and launches without a handoff keep an independent full preflight.
 Control relaunches without a generation-bound result also retain the independent pane preflight.
-Normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
+For Kit-managed launches, normal status supplies the running service coordinates; readiness selects the active runtime executable, including after activation or rollback.
 The launcher accepts the retained headless runtime when readiness reports only `serve_setup_headless_only`, `serve_web_assets_missing`, or both.
 The reports must agree on a running service and its server URL.
 The selected executable must be a regular executable file beneath the status file's parent directory, with no symlink from that directory through the executable.
-A separate Omnigent executable on `PATH` can be stale.
+Kit-managed launches never select a separate Omnigent executable from `PATH`, because that executable can be stale.
 Full preflight caches native `--env` and Claude account-enforcement capability flags per harness and executable identity; the handoff carries those verified flags to the pane.
 Server health is checked on every launch; service selection and account lookup remain fresh for every full preflight.
 `bin/fm-omnigent.sh`'s header owns the cache identity and dry-run contract.
@@ -71,6 +71,7 @@ Takeaway: every wrapped worker's Omnigent session is recorded at launch, watched
 
 A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
 After the session identity check, the launcher publishes a generation-specific session handoff before waiting for the task record lock.
+For a bound remote launch, the handoff carries the recorded parent-server binding so retirement can validate the HTTPS session without an inherited environment.
 The launcher then records `omnigent_session` and `omnigent_server` in that task record under the record lock.
 Retirement reads the verified handoff under that lock before stopping the attach client or closing the endpoint.
 A missing handoff produces a bounded warning and does not block cleanup.
@@ -197,6 +198,7 @@ Routes without a binding, local launches, and native launches keep their existin
 Shared composer classification and selected-content extraction remove one trailing `Omnigent: http://127.0.0.1:<port>/c/<32 lowercase hex digits>` line and any blank rows after it before reading the native composer.
 The port must contain only decimal digits.
 A home launched through a [parent's server](#remote-host-launches) also removes that exact server's banner, `Omnigent: <server>/c/<id>`, as named by `FM_OMNIGENT_SERVER`.
+Remote control restores the endpoint's recorded binding before shared composer operations, including send and lifecycle control, so requests with a cleared environment recognize the same banner.
 ANSI styling and trailing terminal padding do not change the match; other hosts, malformed URLs, and nonfinal banner rows remain content.
 A final exact-match line is treated as wrapper output even without separate wrapper identity.
 This prevents the banner from making an empty composer appear to hold a draft.

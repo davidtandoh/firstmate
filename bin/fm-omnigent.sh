@@ -31,13 +31,13 @@
 # and /health without repeating status, readiness or capability probing.
 # A remote-server record also carries the host id; its session must report it.
 # Invalid records refuse launch.
-# The client is readiness runtime.executable, never a PATH install.
+# In Kit mode the client is readiness runtime.executable, never a PATH install.
 # Wrapper capability flags are cached per harness under state/ in owner-only
 # JSON files, keyed by executable real path, inode and nanosecond mtime.
 # Inode and mtime use decimal strings to preserve exact identity through jq.
-# Identity mismatch or invalid cache data requires a new help probe. Status,
-# readiness, health and account lookup stay fresh for full preflight; dry-run
-# never writes a cache.
+# Identity mismatch or invalid cache data requires a new help probe. Kit status
+# and readiness, server health and account lookup stay fresh for full preflight;
+# dry-run never writes a cache.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
 # Only the four native wrappers with a verified --env contract are admitted.
@@ -52,8 +52,9 @@
 # process bound; naming and archive responses are limited to 128 KiB of JSON.
 # No naming retry or session backfill.
 # Full preflight shares a 50-second external-command budget (status 20s, readiness
-# and capability whatever remains, health 5s, Claude account lookup 10s),
-# retaining Kit process-identity verification.
+# and capability whatever remains, health 5s, Claude account lookup 10s).
+# Remote-server mode replaces status/readiness with host identity (10s) and
+# online-host confirmation (5s); Kit mode retains process-identity verification.
 # A Claude launch with a non-empty CLAUDE_CONFIG_DIR asks the runtime's own
 # Python which configured account (a kind: subscription, cli: claude provider
 # claude-<name> in OMNIGENT_CONFIG_HOME/config.yaml) owns that exact folder;
@@ -63,6 +64,10 @@
 # recorded as omnigent_session=/omnigent_server= in that task record (record
 # lock wait 150s, only while its spawn_gen still matches) and labelled
 # firstmate.home=<home hash> and firstmate.task=<task id>.
+# Before waiting for that lock, the observer publishes a generation-specific
+# handoff carrying the session and attach-process identity, plus
+# omnigent_remote_server= so capture validates HTTPS against the handoff
+# itself, using the same recorded-server check as the task record.
 # archive PATCHes {"archived":true} for the recorded session only, never
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
 # without a recorded session. Callers archive only a proven-stopped worker.
