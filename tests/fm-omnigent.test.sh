@@ -813,3 +813,163 @@ PY
   done
 done
 pass 'primary starts preserve backend overrides and clear stale daemon selection'
+
+# Remote-server mode: a remote second mate's host has no Kit. Its own omnigent
+# launches against the parent's server only as the registered host id.
+fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+remote_server=https://omnigent.example.ts.net
+remote_host=d5f2b09bd5744ef39fe34b4e58a35f5f
+remote_config="$TMP_ROOT/serve/config"
+mkdir -p "$TMP_ROOT/remote-tools" "$remote_config"
+ln -sf "$TMP_ROOT/serve/runtime/bin/omnigent" "$TMP_ROOT/remote-tools/omnigent"
+# A controlled PATH keeps any omnigent installed on the test machine out of reach.
+remote_base_path="$TMP_ROOT/tools:$(dirname "$(type -P jq)"):$(dirname "$(type -P python3)"):/usr/bin:/bin"
+remote_identity() { printf '{"host":{"host_id":"%s","name":"k8"}}\n' "$1" > "$remote_config/config.yaml"; }
+remote() {
+  env -u FM_OMNIGENT_PREFLIGHT -u FM_OMNIGENT_RECORD_META -u FM_OMNIGENT_RECORD_GEN \
+    PATH="$TMP_ROOT/remote-tools:$remote_base_path" OMNIGENT_CONFIG_HOME="$remote_config" \
+    FM_OMNIGENT_SERVER="$remote_server" FM_OMNIGENT_HOST="$remote_host" "$@"
+}
+remote_identity "$remote_host"
+: > "$TMP_ROOT/serve/agent-kit.log"
+rm -f "$TMP_ROOT/serve/requests.jsonl"
+remote "$OMNI" run --dry-run codex > "$TMP_ROOT/preview.json"
+jq -e --arg server "$remote_server" --arg host "$remote_host" --arg bin "$(cd "$TMP_ROOT/serve/runtime/bin" && pwd -P)/omnigent" '
+  .server_url == $server and .host_id == $host and .state_file == "" and .executable == $bin
+' "$TMP_ROOT/preview.json" >/dev/null || fail "remote-server preview did not resolve the parent server and host: $(cat "$TMP_ROOT/preview.json")"
+[ ! -s "$TMP_ROOT/serve/agent-kit.log" ] || fail 'remote-server mode consulted a local Kit'
+jq -se --arg url "$remote_server/v1/hosts/$remote_host" 'any(.[]; .url == $url)' "$TMP_ROOT/serve/requests.jsonl" >/dev/null \
+  || fail 'remote-server mode did not confirm the registered host on the server'
+pass 'remote-server mode resolves the parent server and registered host without a local Kit'
+
+reset_title
+OMNI_SESSION_HOST=$remote_host remote FM_HOME="$TMP_ROOT/k8-home" FM_TASK_ID=k8-task \
+  "$OMNI" run codex 'remote prompt' 2> "$TMP_ROOT/title-error"
+wait_title
+jq -e '.title == "k8-home · k8-task"' "$TMP_ROOT/serve/title.json" >/dev/null || fail 'remote-server worker title differs'
+jq -e --arg server "$remote_server" --arg host "$remote_host" '
+  .argv[0] == "codex" and .argv[(.argv | index("--server")) + 1] == $server and
+  .environment.FM_OMNIGENT_SERVER == $server and .environment.FM_OMNIGENT_HOST == $host
+' "$OMNI_RESULT" >/dev/null || fail 'remote-server launch lost its server or did not pass the binding to its own workers'
+jq -se --arg url "$remote_server/v1/sessions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" 'any(.[]; .method == "PATCH" and .url == $url)' \
+  "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail 'remote-server session was not named through the parent server'
+reset_title
+OMNI_SESSION_HOST=1504544106274a81b7bd2e2dac00ccdf remote FM_HOME="$TMP_ROOT/k8-home" FM_TASK_ID=k8-task \
+  "$OMNI" run codex 'remote prompt' 2> "$TMP_ROOT/title-error"
+for _ in $(seq 1 80); do
+  if grep -q 'launch identity verification failed' "$TMP_ROOT/title-error"; then break; fi
+  sleep 0.1
+done
+grep -q 'launch identity verification failed' "$TMP_ROOT/title-error" || fail 'session on another host was accepted'
+[ ! -f "$TMP_ROOT/serve/title.json" ] || fail 'session on another host was named and recorded'
+"$OMNI" run codex 'local prompt'
+jq -e '(.environment | has("FM_OMNIGENT_SERVER") or has("FM_OMNIGENT_HOST") | not) and
+  (.argv | map(select(startswith("FM_OMNIGENT_SERVER=") or startswith("FM_OMNIGENT_HOST="))) == []) and
+  .argv[(.argv | index("--server")) + 1] == "http://127.0.0.1:6767"' "$OMNI_RESULT" >/dev/null \
+  || fail 'local launch forwarded a remote binding or lost its Kit server'
+pass 'remote-server launches name only a session on the registered host and pass the binding on'
+
+remote_refuses() { # <expected text> <case> <command...>
+  local expected=$1 label=$2
+  shift 2
+  rm -f "$OMNI_RESULT"
+  if "$@" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then fail "remote-server $label launched"; fi
+  grep -qF -- "$expected" "$TMP_ROOT/error" || fail "remote-server $label refusal was not actionable: $(cat "$TMP_ROOT/error")"
+  [ ! -e "$OMNI_RESULT" ] || fail "remote-server $label reached the native wrapper"
+}
+OMNI_HOST_STATE=missing remote_refuses "Omnigent host $remote_host is not registered on $remote_server" \
+  'unregistered host' remote "$OMNI" run codex p
+OMNI_HOST_STATE=offline remote_refuses "registered Omnigent host $remote_host is offline on $remote_server" \
+  'offline host' remote "$OMNI" run codex p
+OMNI_HOST_REPORTED=1504544106274a81b7bd2e2dac00ccdf remote_refuses "cannot confirm registered Omnigent host" \
+  'mismatched host record' remote "$OMNI" run codex p
+OMNI_HEALTH=down remote_refuses 'server is unreachable' 'unreachable server' remote "$OMNI" run codex p
+remote_refuses 'needs both a server and a registered host id' 'partial binding' \
+  remote env FM_OMNIGENT_HOST= "$OMNI" run codex p
+remote_refuses 'expected an https origin' 'loopback binding' \
+  remote env FM_OMNIGENT_SERVER=http://127.0.0.1:6767 "$OMNI" run codex p
+remote_refuses 'expected an https origin' 'server path' \
+  remote env FM_OMNIGENT_SERVER="$remote_server/api" "$OMNI" run codex p
+remote_refuses 'invalid registered Omnigent host id' 'host name instead of id' \
+  remote env FM_OMNIGENT_HOST=david-k8-plus "$OMNI" run codex p
+remote_identity 1504544106274a81b7bd2e2dac00ccdf
+remote_refuses "this host's Omnigent identity 1504544106274a81b7bd2e2dac00ccdf is not the registered host $remote_host" \
+  'other host identity' remote "$OMNI" run codex p
+printf '{}\n' > "$remote_config/config.yaml"
+remote_refuses 'this host has no Omnigent host identity' 'missing host identity' remote "$OMNI" run codex p
+remote_identity "$remote_host"
+if ! PATH="$remote_base_path" command -v omnigent >/dev/null 2>&1; then
+  remote_refuses 'omnigent is required on this host' 'missing executable' \
+    remote env PATH="$remote_base_path" "$OMNI" run codex p
+fi
+pass 'remote-server launches refuse an unregistered, offline or different host and malformed bindings'
+
+# The spawn check hands the remote-server result to the pane like a Kit result.
+handoff_meta="$TMP_ROOT/remote-state/worker.meta"
+mkdir -p "${handoff_meta%/*}"
+remote_handoff() {
+  rm -f "$TMP_ROOT/remote-state/.handoff.json"
+  printf 'spawn_gen=s.remote.1\n' > "$handoff_meta"
+  remote env FM_OMNIGENT_PREFLIGHT="$TMP_ROOT/remote-state/.handoff.json" FM_OMNIGENT_RECORD_GEN=s.remote.1 \
+    "$OMNI" check codex
+}
+bound_remote() {
+  env -u FM_OMNIGENT_SERVER -u FM_OMNIGENT_HOST PATH="$remote_base_path" OMNIGENT_CONFIG_HOME="$remote_config" \
+    FM_OMNIGENT_PREFLIGHT="$TMP_ROOT/remote-state/.handoff.json" FM_OMNIGENT_RECORD_GEN=s.remote.1 \
+    FM_OMNIGENT_RECORD_META="$handoff_meta" "$OMNI" run --dry-run codex
+}
+remote_handoff
+jq -e --arg host "$remote_host" '.host == $host and .client_environment == {} and .state_file == ""' \
+  "$TMP_ROOT/remote-state/.handoff.json" >/dev/null || fail 'remote-server handoff omitted its host or carried a Kit environment'
+: > "$TMP_ROOT/serve/runtime/bin/help.log"
+bound_remote > "$TMP_ROOT/preview.json" || fail 'pane did not accept the remote-server handoff'
+jq -e --arg server "$remote_server" --arg host "$remote_host" '.server_url == $server and .host_id == $host' \
+  "$TMP_ROOT/preview.json" >/dev/null || fail 'pane lost the remote-server binding from its handoff'
+[ ! -s "$TMP_ROOT/serve/runtime/bin/help.log" ] || fail 'pane repeated the remote-server capability probe'
+for invalid in '.server="http://127.0.0.1:6767"' '.host="david-k8-plus"' '.state_file="/tmp/serve.json"' \
+  'del(.host)'; do
+  remote_handoff
+  jq "$invalid" "$TMP_ROOT/remote-state/.handoff.json" > "$TMP_ROOT/changed"
+  cat "$TMP_ROOT/changed" > "$TMP_ROOT/remote-state/.handoff.json"
+  if bound_remote > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then fail "pane accepted a tampered remote-server handoff: $invalid"; fi
+  grep -q 'invalid preflight handoff' "$TMP_ROOT/error" || fail "tampered remote-server handoff refusal missing: $invalid"
+done
+pass 'the pane reuses a verified remote-server handoff and refuses a tampered one'
+
+# binding: the request environment wins; recovery reuses the task record.
+binding_record="$TMP_ROOT/remote-state/bound.meta"
+printf 'omnigent=on\nomnigent_remote_server=%s\nomnigent_remote_host=%s\n' "$remote_server" "$remote_host" > "$binding_record"
+binding() { env -u FM_OMNIGENT_SERVER -u FM_OMNIGENT_HOST "$@"; }
+[ "$(binding "$OMNI" binding "$binding_record")" = "$(printf 'server=%s\nhost=%s' "$remote_server" "$remote_host")" ] \
+  || fail 'binding did not recover the recorded server and host'
+[ -z "$(binding "$OMNI" binding)" ] || fail 'binding invented a server without a request or record'
+[ -z "$(binding "$OMNI" binding "$probe_home/newer.meta")" ] || fail 'binding invented a server for a Kit record'
+[ "$(binding env FM_OMNIGENT_SERVER=https://other.example.ts.net/ FM_OMNIGENT_HOST=1504544106274a81b7bd2e2dac00ccdf \
+  "$OMNI" binding "$binding_record" | head -1)" = server=https://other.example.ts.net ] \
+  || fail 'the request binding did not take precedence over the record'
+printf 'omnigent=on\nomnigent_remote_server=%s\n' "$remote_server" > "$TMP_ROOT/remote-state/partial.meta"
+if binding "$OMNI" binding "$TMP_ROOT/remote-state/partial.meta" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+  fail 'binding accepted a partial recorded pair'
+fi
+grep -q 'needs both a server and a registered host id' "$TMP_ROOT/error" || fail 'partial recorded binding refusal was not actionable'
+pass 'binding prefers the request, recovers the recorded pair and refuses a partial one'
+
+# An HTTPS session server counts only as the explicitly named parent server.
+printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=%s\nomnigent_remote_server=%s\nomnigent_remote_host=%s\n' \
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "$remote_server" "$remote_server" "$remote_host" > "$TMP_ROOT/remote-state/session.meta"
+[ "$("$OMNI" probe "$TMP_ROOT/remote-state/session.meta")" = alive ] || fail 'recorded parent-server session was not probed'
+grep -v '^omnigent_remote_' "$TMP_ROOT/remote-state/session.meta" > "$TMP_ROOT/remote-state/unbound.meta"
+[ "$("$OMNI" probe "$TMP_ROOT/remote-state/unbound.meta")" = unknown ] \
+  || fail 'an HTTPS session server without its parent binding was trusted'
+sed "s|^omnigent_remote_server=.*|omnigent_remote_server=https://other.example.ts.net|" \
+  "$TMP_ROOT/remote-state/session.meta" > "$TMP_ROOT/remote-state/other.meta"
+[ "$("$OMNI" probe "$TMP_ROOT/remote-state/other.meta")" = unknown ] \
+  || fail 'an HTTPS session server other than the recorded parent was trusted'
+for parent in '' https://other.example.ts.net; do
+  if env -u FM_OMNIGENT_HOST FM_OMNIGENT_SERVER="$parent" "$OMNI" _title-session "$remote_server" \
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa codex title 1 > "$TMP_ROOT/out" 2> "$TMP_ROOT/error"; then
+    fail "title accepted an HTTPS server not named as the parent: '$parent'"
+  fi
+  grep -q 'invalid server' "$TMP_ROOT/error" || fail "title refusal for an unnamed HTTPS server missing: '$parent'"
+done
+pass 'an HTTPS server is trusted only as the explicitly named parent server'

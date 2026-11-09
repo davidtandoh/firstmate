@@ -16,6 +16,7 @@ Firstmate does not support placing an individual worker remotely or failing a re
 | Create the route and the remote home | [Provision a route](#provision-a-route) |
 | Launch, recover, message, and read a remote second mate | [Normal operation](#normal-operation) |
 | Route work to a host that is not always on | [Hosts that are not always on](#hosts-that-are-not-always-on) |
+| Run a remote home's sessions through the parent's Omnigent server | [Omnigent through the parent's server](#omnigent-through-the-parents-server) |
 | Move queued work to the remote home | [Backlog handoff](#backlog-handoff) |
 | Push configuration, relaunch, update, or retire | [Sync, update, and retirement](#sync-update-and-retirement) |
 | Run the tests or a real-host smoke test | [Verification](#verification) |
@@ -442,6 +443,28 @@ All remote secondmates on one host share `fm-remote` and retain separate `2ndmat
 - A launch after a host has drifted out of readiness fails with the doctor's own gap text instead of leaving a half-created endpoint.
 - Raw launch commands are not accepted for remote secondmates.
 - Backends that already refuse secondmate launch, currently Orca, cmux, and paseo, remain unsupported on the remote host.
+
+### Omnigent through the parent's server
+
+A wrapped primary normally asks the remote host to wrap launches in that host's own Kit-managed Omnigent service.
+A host without a Kit, such as a Linux worker, can instead launch through the primary's Omnigent server, once its own Omnigent host daemon is connected to that server.
+[Remote host launches](omnigent.md#remote-host-launches) owns how the launch works and what it verifies.
+
+To opt a route in:
+
+1. On the remote host, connect its Omnigent host daemon to the server, for example `omnigent host --server https://omnigent.example.ts.net --background`.
+2. On the primary, read the host's id from the server's `/v1/hosts` list.
+   Match the host by its `host_id`, not by its display name.
+3. Add the binding to the route's registry entry in `data/secondmates.md`, between `home:` (or `availability:`) and `scope:`:
+
+   ```text
+   (host: k8-fm; root: ...; home: ...; omnigent-server: https://omnigent.example.ts.net; omnigent-host: d5f2b09bd5744ef39fe34b4e58a35f5f; scope: ...; projects: ...; added YYYY-MM-DD)
+   ```
+
+   `omnigent-server` is the HTTPS origin the remote host uses to reach the server, with no path.
+   `omnigent-host` is the 32-character lowercase hexadecimal host id.
+   A malformed pair makes the entry invalid rather than ignored.
+4. Launch or relaunch the route from the wrapped primary as usual.
 
 ### Liveness recovery
 

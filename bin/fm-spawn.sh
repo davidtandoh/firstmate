@@ -1296,6 +1296,7 @@ spawn_remote_secondmate() {
   local id=$1 remote host root home harness positional model effort backend out rc meta tmp
   local remote_backend remote_target remote_harness remote_herdr_session registry_lock remote_lock remote_generation
   local remote_traceparent remote_recorded_traceparent sm_primary_head sync_out sync_rc account_config
+  local route_omnigent_server route_omnigent_host
   local -a launch_args
   id=${POS[0]:-}
   fm_task_id_creation_valid "$id" || {
@@ -1326,6 +1327,8 @@ spawn_remote_secondmate() {
   host=$(secondmate_registry_field "$DATA/secondmates.md" "$id" host)
   root=$(secondmate_registry_field "$DATA/secondmates.md" "$id" root)
   home=$(secondmate_registry_field "$DATA/secondmates.md" "$id" home)
+  route_omnigent_server=$(secondmate_registry_field "$DATA/secondmates.md" "$id" omnigent-server)
+  route_omnigent_host=$(secondmate_registry_field "$DATA/secondmates.md" "$id" omnigent-host)
   positional=${POS[1]:-}
   if [ "${#POS[@]}" -gt 2 ]; then
     fm_lock_release "$registry_lock" || true
@@ -1490,6 +1493,11 @@ spawn_remote_secondmate() {
   fi
   launch_args=("$id" "$harness" "$model" "$effort" "$backend")
   launch_args+=("$remote_traceparent" "$SPAWN_OMNIGENT_MODE")
+  # A wrapped parent sends a route's registered Omnigent binding so the remote
+  # host launches through this parent's server rather than a Kit of its own.
+  if [ "$SPAWN_OMNIGENT_MODE" = on ] && [ -n "$route_omnigent_server" ]; then
+    launch_args+=("$route_omnigent_server" "$route_omnigent_host")
+  fi
   if out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh launch \
     "${launch_args[@]}" </dev/null 2>&1); then
     rc=0
@@ -2260,6 +2268,25 @@ if { [ "$RELAUNCH" -eq 1 ] || [ "$KIND" = secondmate ]; } && { [ -e "$STATE/$ID.
     '') ;;
     *) echo 'error: invalid recorded Omnigent launch mode' >&2; exit 1 ;;
   esac
+fi
+# A wrapped launch on a remote second mate's host goes through the parent's
+# server as this host's registered Omnigent host (docs/omnigent.md#remote-host-launches).
+# The request environment names that binding; recovery reuses the task's record.
+SPAWN_OMNIGENT_SERVER=
+SPAWN_OMNIGENT_HOST=
+if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+  SPAWN_OMNIGENT_BINDING_META=
+  if { [ "$RELAUNCH" -eq 1 ] || [ "$KIND" = secondmate ]; } && [ -f "$STATE/$ID.meta" ]; then
+    SPAWN_OMNIGENT_BINDING_META="$STATE/$ID.meta"
+  fi
+  SPAWN_OMNIGENT_BINDING=$("$SCRIPT_DIR/fm-omnigent.sh" binding ${SPAWN_OMNIGENT_BINDING_META:+"$SPAWN_OMNIGENT_BINDING_META"}) || exit 1
+  SPAWN_OMNIGENT_SERVER=$(printf '%s\n' "$SPAWN_OMNIGENT_BINDING" | sed -n 's/^server=//p')
+  SPAWN_OMNIGENT_HOST=$(printf '%s\n' "$SPAWN_OMNIGENT_BINDING" | sed -n 's/^host=//p')
+fi
+if [ -n "$SPAWN_OMNIGENT_SERVER" ]; then
+  export FM_OMNIGENT_SERVER="$SPAWN_OMNIGENT_SERVER" FM_OMNIGENT_HOST="$SPAWN_OMNIGENT_HOST"
+else
+  unset FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
 fi
 if [ "$KIND" = secondmate ]; then
   if spawn_remote_secondmate "$ID"; then
@@ -7171,7 +7198,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential omnigent_session omnigent_server omnigent_retired_gen omnigent_attach_pid omnigent_attach_start", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model claude_floor effort opencode_version account account_provider omp_profile busy_gen spawn_gen approval_mode traceparent omnigent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id rex_server rex_session_id rex_window_id rex_block_id t3_thread_id t3_project_id tern_session_id tern_tab_id tern_block_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential omnigent_session omnigent_server omnigent_retired_gen omnigent_attach_pid omnigent_attach_start omnigent_remote_server omnigent_remote_host", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -7184,6 +7211,8 @@ preserve_relaunch_meta() {
   echo "project=$PROJ_ABS"
   echo "harness=$HARNESS"
   [ "$SPAWN_OMNIGENT_MODE" != on ] || echo 'omnigent=on'
+  [ -z "$SPAWN_OMNIGENT_SERVER" ] || printf 'omnigent_remote_server=%s\nomnigent_remote_host=%s\n' \
+    "$SPAWN_OMNIGENT_SERVER" "$SPAWN_OMNIGENT_HOST"
   if [ "$RAW_LAUNCH" = 0 ]; then
     case "$HARNESS" in
       claude) echo "approval_mode=$CLAUDE_PERMISSION_MODE" ;;
@@ -7432,6 +7461,9 @@ if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   # and labels it with the home identity, substituted below once it is derived.
   OMNIGENT_LAUNCH="env FM_OMNIGENT_RECORD_META=$(shell_quote "$STATE_REAL/$ID.meta") FM_OMNIGENT_RECORD_GEN=$(shell_quote "$SPAWN_GEN") FM_OMNIGENT_HOME_ID=__OMNIGENTHOME__ FM_OMNIGENT_TASK=$(shell_quote "$ID") $(shell_quote "$SCRIPT_DIR/fm-omnigent.sh") run $HARNESS"
   OMNIGENT_LAUNCH="env FM_OMNIGENT_PREFLIGHT=$(shell_quote "$SPAWN_OMNIGENT_PREFLIGHT") $OMNIGENT_LAUNCH"
+  if [ -n "$SPAWN_OMNIGENT_SERVER" ]; then
+    OMNIGENT_LAUNCH="env FM_OMNIGENT_SERVER=$(shell_quote "$SPAWN_OMNIGENT_SERVER") FM_OMNIGENT_HOST=$(shell_quote "$SPAWN_OMNIGENT_HOST") $OMNIGENT_LAUNCH"
+  fi
   if [ "$KIND" = secondmate ]; then
     # The primary's own FM_HOME is set by the existing secondmate launch
     # prefix below. Clear a stale task marker from a retained pane shell.

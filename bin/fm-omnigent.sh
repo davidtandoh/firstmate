@@ -7,24 +7,37 @@
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
 #        fm-omnigent.sh probe <task-meta>
 #        fm-omnigent.sh approvals <task-meta>
+#        fm-omnigent.sh binding [<task-meta>]
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
 # Invalid input refuses.
-# check/start and unbound run resolve the local Kit's serve status afresh.
+# check/start and unbound run resolve the local Kit's serve status afresh,
+# unless FM_OMNIGENT_SERVER and FM_OMNIGENT_HOST name a parent's server and
+# this host's registered Omnigent host id (remote-server mode). That mode needs
+# no Kit: it uses the omnigent on PATH, requires the runtime Python beside its
+# real path to report this host's identity as that exact id, and requires the
+# server's /v1/hosts/<id> to report it online. Its client environment is empty.
+# An https server is valid only as that explicit parent server: the launch's
+# FM_OMNIGENT_SERVER, or a record's own omnigent_remote_server. Local launches
+# forward neither variable.
+# binding prints server=/host= lines for that pair, taken from the environment
+# or, when both variables are empty, from the task record's
+# omnigent_remote_server=/omnigent_remote_host= lines; a partial pair refuses.
 # Spawn check can publish FM_OMNIGENT_PREFLIGHT, a private single-use record
 # bound to FM_OMNIGENT_RECORD_GEN. It carries the verified server URL, state
 # file, client environment, executable identity, account and capability flags.
 # Bound run requires FM_OMNIGENT_RECORD_META to name the same unretired
 # generation, and verifies the harness, Claude selector, executable identity
 # and /health without repeating status, readiness or capability probing.
+# A remote-server record also carries the host id; its session must report it.
 # Invalid records refuse launch.
-# The client is readiness runtime.executable, never a PATH install.
+# In Kit mode the client is readiness runtime.executable, never a PATH install.
 # Wrapper capability flags are cached per harness under state/ in owner-only
 # JSON files, keyed by executable real path, inode and nanosecond mtime.
 # Inode and mtime use decimal strings to preserve exact identity through jq.
-# Identity mismatch or invalid cache data requires a new help probe. Status,
-# readiness, health and account lookup stay fresh for full preflight; dry-run
-# never writes a cache.
+# Identity mismatch or invalid cache data requires a new help probe. Kit status
+# and readiness, server health and account lookup stay fresh for full preflight;
+# dry-run never writes a cache.
 # run accepts the exact native argv fm-spawn builds: Claude/Codex/Kiro end in
 # the initial prompt; Kiro starts with chat; AGY carries --prompt-interactive.
 # Only the four native wrappers with a verified --env contract are admitted.
@@ -39,8 +52,9 @@
 # process bound; naming and archive responses are limited to 128 KiB of JSON.
 # No naming retry or session backfill.
 # Full preflight shares a 50-second external-command budget (status 20s, readiness
-# and capability whatever remains, health 5s, Claude account lookup 10s),
-# retaining Kit process-identity verification.
+# and capability whatever remains, health 5s, Claude account lookup 10s).
+# Remote-server mode replaces status/readiness with host identity (10s) and
+# online-host confirmation (5s); Kit mode retains process-identity verification.
 # A Claude launch with a non-empty CLAUDE_CONFIG_DIR asks the runtime's own
 # Python which configured account (a kind: subscription, cli: claude provider
 # claude-<name> in OMNIGENT_CONFIG_HOME/config.yaml) owns that exact folder;
@@ -50,6 +64,10 @@
 # recorded as omnigent_session=/omnigent_server= in that task record (record
 # lock wait 150s, only while its spawn_gen still matches) and labelled
 # firstmate.home=<home hash> and firstmate.task=<task id>.
+# Before waiting for that lock, the observer publishes a generation-specific
+# handoff carrying the session and attach-process identity, plus
+# omnigent_remote_server= so capture validates HTTPS against the handoff
+# itself, using the same recorded-server check as the task record.
 # archive PATCHes {"archived":true} for the recorded session only, never
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
 # without a recorded session. Callers archive only a proven-stopped worker.
@@ -73,6 +91,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 
+# A local Kit serves loopback HTTP; a parent's server reaches a remote host only
+# as an HTTPS origin with no path. Recorded bindings may name either.
+LOCAL_SERVER_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
+REMOTE_SERVER_RE='^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$'
+HOST_ID_RE='^[a-f0-9]{32}$'
+# <server> [explicit parent server]: an HTTPS origin counts only when it is
+# exactly the parent server this launch or record names explicitly.
+server_valid() {
+  [[ "$1" =~ $LOCAL_SERVER_RE ]] && return 0
+  [ -n "${2:-}" ] && [[ "$1" =~ $REMOTE_SERVER_RE ]] && [ "${1%/}" = "${2%/}" ]
+}
+
 fail() {
   [ -z "${PREFLIGHT_STARTED:-}" ] || fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" failed
   printf 'error: Omnigent launch: %s\n' "$*" >&2
@@ -83,7 +113,7 @@ title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
 session_request() { # <GET|PATCH> [JSON body]; sets REQUEST_RESULT or REQUEST_ERROR
   local rc=0
   local LC_ALL=C
-  local args=(--silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' --request "$1")
+  local args=(--silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http,https' --request "$1")
   [ "$#" -lt 2 ] || args+=(--header 'Content-Type: application/json' --data "$2")
   REQUEST_ERROR=
   REQUEST_RESULT=$(fm_run_timed 6 curl "${args[@]}" \
@@ -98,8 +128,10 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
   [ "$#" -eq 5 ] || title_fail 'invalid private naming request'
   SERVER=$1 SESSION_ID=$2
   local wrapper title=$4 started=$5 payload
-  [[ "$SERVER" =~ ^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$ ]] || title_fail 'invalid server'
+  server_valid "$SERVER" "${FM_OMNIGENT_SERVER:-}" || title_fail 'invalid server'
   [[ "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || title_fail 'invalid session id'
+  # A remote-server launch must have created its session on the registered host.
+  [ -z "${FM_OMNIGENT_HOST:-}" ] || [[ "$FM_OMNIGENT_HOST" =~ $HOST_ID_RE ]] || title_fail 'invalid host identity'
   [[ "$started" =~ ^[0-9]+$ ]] || title_fail 'invalid launch epoch'
   case "$3" in
     claude) wrapper=claude-code-native-ui ;;
@@ -109,9 +141,11 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
     *) title_fail 'invalid harness' ;;
   esac
   session_request GET || title_fail "$REQUEST_ERROR"
-  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$wrapper" --argjson started "$started" '
+  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$wrapper" --argjson started "$started" \
+    --arg host "${FM_OMNIGENT_HOST:-}" '
     .id == $id and .labels["omnigent.wrapper"] == $wrapper and
-    (.created_at | type == "number" and . >= $started)
+    (.created_at | type == "number" and . >= $started) and
+    ($host == "" or (.host_id | type == "string" and (ascii_downcase | gsub("-"; "")) == $host))
   ' >/dev/null 2>&1 || title_fail "session $SESSION_ID: launch identity verification failed"
   # Record before naming: retirement depends on the recorded identity, while a
   # rejected title or label PATCH only affects presentation.
@@ -151,8 +185,11 @@ record_session() { # <absolute task meta> <spawn generation>
     pending="$dir/.${base%.meta}.omnigent.$gen.meta"
     tmp="$pending.${BASHPID:-$$}"
     if [ "$locked" != 1 ]; then
-      if printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
-        "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" > "$tmp"; then
+      if {
+        printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+          "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" &&
+        printf 'omnigent_remote_server=%s\n' "${FM_OMNIGENT_SERVER:-}"
+      } > "$tmp"; then
         fm_backlog_atomic_transition publish "$tmp" "$pending" 'session handoff' "$dir" \
           || title_fail "session handoff update failed: $meta"
       else
@@ -234,13 +271,14 @@ capture_session() {
 # Read one recorded launch binding. Empty values mean no wrapped launch was
 # recorded; anything present must be exactly what record_session writes.
 read_binding() { # <task meta>
-  local meta=$1
+  local meta=$1 parent
   [ -f "$meta" ] && [ ! -L "$meta" ] || { BINDING_ERROR="task record missing: $meta"; return 1; }
   SESSION_ID=$(awk -F= '$1 == "omnigent_session" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
   SERVER=$(awk -F= '$1 == "omnigent_server" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
   [ -n "$SESSION_ID$SERVER" ] || return 0
-  if [[ ! "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] ||
-    [[ ! "$SERVER" =~ ^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+$ ]]; then
+  # Only the record's own parent-server binding admits an HTTPS session server.
+  parent=$(awk -F= '$1 == "omnigent_remote_server" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
+  if [[ ! "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || [ "$SERVER" != "${SERVER%/}" ] || ! server_valid "$SERVER" "$parent"; then
     BINDING_ERROR="invalid recorded Omnigent session in $meta"
     return 1
   fi
@@ -309,7 +347,7 @@ probe_session() ( # <task meta>
   local code body
   [ "$#" -eq 1 ] || fail 'probe requires one task record'
   if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
-  if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http' \
+  if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http,https' \
     "$SERVER/health" 2>/dev/null | jq -e '.status == "ok"' >/dev/null 2>&1; then
     echo dead; return 0
   fi
@@ -334,7 +372,7 @@ probe_session() ( # <task meta>
 # Shared session lookup for supervision; caller owns the temporary body file.
 # Keep response parsing off shell variables and bound both time and disk use.
 session_snapshot() { # <output file>; sets code
-  code=$(fm_run_timed 6 curl --silent --max-time 5 --max-filesize 2097152 --noproxy '*' --proto '=http' \
+  code=$(fm_run_timed 6 curl --silent --max-time 5 --max-filesize 2097152 --noproxy '*' --proto '=http,https' \
     --output "$1" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null)
 }
 
@@ -437,10 +475,14 @@ parser.add_argument('--dry-run', action='store_true')
 args = parser.parse_args()
 
 def identity(executable, state_file):
-    root = Path(state_file).parent
-    if not executable.is_absolute() or not root.is_absolute() or root.is_symlink():
+    # Remote-server mode has no Kit state file; its executable is the host's own.
+    if not executable.is_absolute():
         raise RecordError('invalid managed executable root')
-    safe_path(root, executable)
+    if state_file:
+        root = Path(state_file).parent
+        if not root.is_absolute() or root.is_symlink():
+            raise RecordError('invalid managed executable root')
+        safe_path(root, executable)
     info = executable.stat()
     if not stat.S_ISREG(info.st_mode) or not os.access(str(executable), os.X_OK):
         raise RecordError('managed executable is missing or not executable')
@@ -501,10 +543,16 @@ try:
                 or result.get('selector') != selector or result.get('schema') != 1
                 or not capabilities(result.get('capabilities'))):
             raise RecordError('preflight handoff does not name this launch')
-        if not re.fullmatch(r'http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?', result['server']):
+        host = result.get('host', '')
+        if host:
+            if (not isinstance(host, str) or not re.fullmatch(r'[a-f0-9]{32}', host)
+                    or result['state_file'] != ''
+                    or not re.fullmatch(r'https://[A-Za-z0-9.-]+(:[0-9]+)?/?', result['server'])):
+                raise RecordError('invalid preflight remote server')
+        elif not re.fullmatch(r'http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?', result['server']):
             raise RecordError('invalid preflight server')
         environment = result['client_environment']
-        if not isinstance(environment, dict) or not environment or not all(
+        if not isinstance(environment, dict) or not (environment or host) or not all(
                 re.fullmatch(r'(OMNIGENT_|OTEL_)[A-Z0-9_]+', key)
                 and isinstance(value, str) and not re.search(r'[\x00-\x1f\x7f]', value)
                 for key, value in environment.items()):
@@ -612,19 +660,37 @@ check_health() {
   printf '%s' "$health" | jq -e '.status == "ok"' >/dev/null 2>&1 || fail "server health failed: $SERVER"
 }
 
-resolve_service() {
-  local status readiness reason help identity flags cache cached handoff='' handoff_path='' status_rc=0 readiness_rc=0 budget=50
-  if [ "${FM_TEST_SEAM:-}" = 1 ]; then
-    budget=${FM_TEST_OMNIGENT_PREFLIGHT_BUDGET:-50}
-    case "$budget" in ''|*[!0-9]*) fail 'invalid test preflight budget' ;; esac
-    [ "$budget" -ge 1 ] && [ "$budget" -le 50 ] || fail 'invalid test preflight budget'
+# Read FM_OMNIGENT_SERVER/FM_OMNIGENT_HOST into REMOTE_SERVER/REMOTE_HOST.
+# Both empty selects the local Kit; a partial or malformed pair refuses.
+remote_binding() {
+  REMOTE_SERVER=${FM_OMNIGENT_SERVER:-}
+  REMOTE_HOST=${FM_OMNIGENT_HOST:-}
+  [ -n "$REMOTE_SERVER$REMOTE_HOST" ] || return 0
+  [ -n "$REMOTE_SERVER" ] && [ -n "$REMOTE_HOST" ] \
+    || fail 'a remote Omnigent binding needs both a server and a registered host id'
+  [[ "$REMOTE_SERVER" =~ $REMOTE_SERVER_RE ]] || fail "invalid remote Omnigent server, expected an https origin: $REMOTE_SERVER"
+  [[ "$REMOTE_HOST" =~ $HOST_ID_RE ]] || fail "invalid registered Omnigent host id: $REMOTE_HOST"
+  REMOTE_SERVER=${REMOTE_SERVER%/}
+}
+
+binding_op() { # [task meta]
+  local key
+  [ "$#" -le 1 ] || fail 'binding takes at most one task record'
+  if [ -z "${FM_OMNIGENT_SERVER:-}${FM_OMNIGENT_HOST:-}" ] && [ "$#" -eq 1 ] && [ -f "$1" ] && [ ! -L "$1" ]; then
+    for key in server host; do
+      printf -v "FM_OMNIGENT_$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')" '%s' \
+        "$(awk -F= -v key="omnigent_remote_$key" '$1 == key { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$1")"
+    done
   fi
-  PREFLIGHT_STARTED=$(fm_timing_now_ms)
-  PREFLIGHT_DEADLINE=$(( PREFLIGHT_STARTED + budget * 1000 ))
-  case "$HARNESS" in claude|codex|kiro|agy) ;; *) fail "unverified wrapped harness: $HARNESS" ;; esac
+  remote_binding
+  [ -z "$REMOTE_SERVER" ] || printf 'server=%s\nhost=%s\n' "$REMOTE_SERVER" "$REMOTE_HOST"
+}
+
+# Kit mode: the local service's status and readiness reports select the server,
+# its client environment and the managed runtime executable.
+resolve_kit_runtime() {
+  local reason status_rc=0 readiness_rc=0
   command -v agent-kit >/dev/null 2>&1 || fail 'agent-kit is required on this host'
-  command -v jq >/dev/null 2>&1 || fail 'jq is required on this host'
-  command -v curl >/dev/null 2>&1 || fail 'curl is required on this host'
   status=$(preflight_stage status 20 agent-kit observe serve status --json < /dev/null | head -c 131073) || status_rc=$?
   fm_timed_out "$status_rc" && fail 'agent-kit observe serve status --json timed out'
   [ "${#status}" -le 131072 ] || fail 'serve status exceeds 128 KiB'
@@ -663,6 +729,81 @@ resolve_service() {
         (split("/")[1:] | all(. != "" and . != "." and . != ".."))))
   ' >/dev/null 2>&1 || fail 'invalid or inconsistent serve readiness'
   OMNIGENT_BIN=$(printf '%s' "$readiness" | jq -r .runtime.executable)
+  CLIENT_ENV_JSON=$(printf '%s' "$status" | jq -c .client_environment)
+  # Retain fork provenance; capability support survives upgrades without a
+  # commit allowlist.
+  PROVENANCE=0
+  if printf '%s' "$status" | jq -e '
+    .omnigent.repository == "https://github.com/davidtandoh/omnigent.git"
+  ' >/dev/null 2>&1; then PROVENANCE=1; fi
+}
+
+# Remote-server mode: no Kit runs here. This host's own Omnigent install
+# launches against the parent's server, after this host proves it is the
+# registered host. There is no Kit status to attest fork provenance, so the
+# executable's own capability section alone decides account enforcement.
+resolve_remote_runtime() {
+  local found python identity_host
+  command -v python3 >/dev/null 2>&1 || fail 'python3 is required on this host'
+  found=$(command -v omnigent) || fail "omnigent is required on this host to launch through $REMOTE_SERVER"
+  OMNIGENT_BIN=$(python3 -I -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$found") \
+    || fail "cannot resolve the omnigent executable: $found"
+  [ -f "$OMNIGENT_BIN" ] && [ -x "$OMNIGENT_BIN" ] || fail "omnigent is not an executable file: $OMNIGENT_BIN"
+  python="${OMNIGENT_BIN%/*}/python"
+  [ -x "$python" ] || fail "no Omnigent runtime Python beside $OMNIGENT_BIN"
+  SERVER=$REMOTE_SERVER HOST_ID=$REMOTE_HOST STATE_FILE='' CLIENT_ENV_JSON='{}' PROVENANCE=1
+  identity_host=$(preflight_stage identity 10 "$python" -I -c '
+import sys
+try:
+    from omnigent.host.identity import load_host_identity_if_present
+    identity = load_host_identity_if_present()
+    print(identity.host_id.replace("-", "").lower() if identity is not None else "")
+except Exception as error:
+    sys.exit(f"host identity lookup failed: {type(error).__name__}")
+' < /dev/null) || fail "cannot read this host's Omnigent host identity"
+  [ -n "$identity_host" ] \
+    || fail "this host has no Omnigent host identity; connect it with: omnigent host --server $SERVER --background"
+  [ "$identity_host" = "$HOST_ID" ] \
+    || fail "this host's Omnigent identity $identity_host is not the registered host $HOST_ID"
+}
+
+# The parent's server must list the registered host as online. One bounded GET.
+check_host() {
+  local body code rc=0 verdict='' state
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-host.XXXXXX") || fail 'cannot stage the registered host check'
+  code=$(preflight_stage host 5 curl --silent --max-time 5 --max-filesize 131072 --proto '=https' \
+    --output "$body" --write-out '%{http_code}' "$SERVER/v1/hosts/$HOST_ID") || rc=$?
+  if [ "$rc" != 0 ]; then
+    verdict="cannot reach $SERVER to confirm registered Omnigent host $HOST_ID"
+  elif [ "$code" = 404 ]; then
+    verdict="Omnigent host $HOST_ID is not registered on $SERVER; connect it with: omnigent host --server $SERVER --background"
+  elif [ "$code" != 200 ] || ! jq -e --arg id "$HOST_ID" \
+    '.host_id | type == "string" and (ascii_downcase | gsub("-"; "")) == $id' "$body" >/dev/null 2>&1; then
+    verdict="cannot confirm registered Omnigent host $HOST_ID on $SERVER (HTTP $code)"
+  else
+    state=$(jq -r '.status | tostring | .[0:40] | gsub("[^A-Za-z0-9_-]"; "")' "$body" 2>/dev/null) || state=unknown
+    [ "$state" = online ] \
+      || verdict="registered Omnigent host $HOST_ID is ${state:-unknown} on $SERVER; restart it with: omnigent host --server $SERVER --background"
+  fi
+  rm -f -- "$body"
+  [ -z "$verdict" ] || fail "$verdict"
+}
+
+resolve_service() {
+  local status readiness help identity flags cache cached handoff='' handoff_path='' budget=50
+  if [ "${FM_TEST_SEAM:-}" = 1 ]; then
+    budget=${FM_TEST_OMNIGENT_PREFLIGHT_BUDGET:-50}
+    case "$budget" in ''|*[!0-9]*) fail 'invalid test preflight budget' ;; esac
+    [ "$budget" -ge 1 ] && [ "$budget" -le 50 ] || fail 'invalid test preflight budget'
+  fi
+  PREFLIGHT_STARTED=$(fm_timing_now_ms)
+  PREFLIGHT_DEADLINE=$(( PREFLIGHT_STARTED + budget * 1000 ))
+  case "$HARNESS" in claude|codex|kiro|agy) ;; *) fail "unverified wrapped harness: $HARNESS" ;; esac
+  command -v jq >/dev/null 2>&1 || fail 'jq is required on this host'
+  command -v curl >/dev/null 2>&1 || fail 'curl is required on this host'
+  remote_binding
+  HOST_ID=
+  if [ -n "$REMOTE_SERVER" ]; then resolve_remote_runtime; else resolve_kit_runtime; fi
   identity=$(preflight_record identity "$OMNIGENT_BIN" "$STATE_FILE") || fail 'invalid managed executable identity'
   cache="${FM_STATE_OVERRIDE:-${FM_HOME:-${FM_ROOT_OVERRIDE:-${SCRIPT_DIR%/bin}}}/state}/.omnigent-capabilities-$HARNESS.json"
   cached=$(capability_record load "$cache" "$OMNIGENT_BIN" "$HARNESS") || fail 'cannot identify the managed executable for capability caching'
@@ -685,25 +826,23 @@ resolve_service() {
     fi
   fi
   check_health
+  [ -z "$HOST_ID" ] || check_host
   CLAUDE_ACCOUNT_ENFORCEMENT=0
-  # Retain fork provenance; capability support survives upgrades without a
-  # commit allowlist. Only an exact entry in the help's capability section counts.
-  if printf '%s' "$status" | jq -e '
-    .omnigent.repository == "https://github.com/davidtandoh/omnigent.git"
-  ' >/dev/null 2>&1 && [ "$(printf '%s' "$flags" | jq -r .claude_account_enforcement)" = true ]; then
+  # Only an exact entry in the help's capability section counts.
+  if [ "$PROVENANCE" = 1 ] && [ "$(printf '%s' "$flags" | jq -r .claude_account_enforcement)" = true ]; then
     CLAUDE_ACCOUNT_ENFORCEMENT=1
   fi
   if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_ACCOUNT_ENFORCEMENT" != 1 ]; then
     fail 'running daemon lacks verified exact Claude account enforcement; choose another worker or update Omnigent before selecting this account'
   fi
   CLIENT_ENV=()
-  while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$status" | jq -r '.client_environment | to_entries[] | "\(.key)=\(.value)"')
+  while IFS= read -r entry; do CLIENT_ENV+=("$entry"); done < <(printf '%s' "$CLIENT_ENV_JSON" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
   # The runner refuses a session created without --account when the selected
   # folder belongs to a configured account, so ask the pinned runtime the same
   # question its runner asks. Only the account name leaves the lookup.
   CLAUDE_ACCOUNT=
   if [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-    CLAUDE_ACCOUNT=$(preflight_stage account 10 env "${CLIENT_ENV[@]}" "${OMNIGENT_BIN%/*}/python" -I -c '
+    CLAUDE_ACCOUNT=$(preflight_stage account 10 env ${CLIENT_ENV[@]+"${CLIENT_ENV[@]}"} "${OMNIGENT_BIN%/*}/python" -I -c '
 import sys
 try:
     from omnigent.config import load_global_config
@@ -720,11 +859,12 @@ except Exception as error:
     handoff=$(jq -cn --arg generation "$FM_OMNIGENT_RECORD_GEN" --arg harness "$HARNESS" \
       --arg selector "${CLAUDE_CONFIG_DIR:-}" --arg executable "$OMNIGENT_BIN" --arg server "$SERVER" \
       --arg state_file "$STATE_FILE" --arg account "$CLAUDE_ACCOUNT" --argjson identity "$identity" \
-      --argjson enforcement "$CLAUDE_ACCOUNT_ENFORCEMENT" --argjson status "$status" \
+      --argjson enforcement "$CLAUDE_ACCOUNT_ENFORCEMENT" --argjson client "$CLIENT_ENV_JSON" --arg host "$HOST_ID" \
       '{schema:1,generation:$generation,harness:$harness,
         selector:(if $harness == "claude" then $selector else "" end),
         executable:$executable,server:$server,state_file:$state_file,account:$account,identity:$identity,
-        client_environment:$status.client_environment,capabilities:{env:true,claude_account_enforcement:($enforcement == 1)}}')
+        client_environment:$client,capabilities:{env:true,claude_account_enforcement:($enforcement == 1)}}
+        + (if $host == "" then {} else {host:$host} end)')
     preflight_record publish "$handoff_path" "$handoff" || fail 'cannot publish verified preflight handoff'
   fi
   fm_timing_record omnigent-preflight total "$PREFLIGHT_STARTED" passed
@@ -739,6 +879,7 @@ case "$OP" in
   capture) capture_session "$@"; exit ;;
   probe) probe_session "$@"; exit ;;
   approvals) approvals_session "$@"; exit ;;
+  binding) binding_op "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;
   mode) [ "$#" -eq 1 ] || fail 'mode requires a config directory'; mode "$1"; exit ;;
   check|run|start) ;;
@@ -760,6 +901,7 @@ if [ "$OP" = run ] && [ -n "${FM_OMNIGENT_PREFLIGHT:-}" ]; then
     "${FM_OMNIGENT_RECORD_META:-}" "$HARNESS" "${CLAUDE_CONFIG_DIR:-}") || fail 'invalid preflight handoff'
   SERVER=$(printf '%s' "$saved" | jq -r .server)
   STATE_FILE=$(printf '%s' "$saved" | jq -r .state_file)
+  HOST_ID=$(printf '%s' "$saved" | jq -r '.host // ""')
   OMNIGENT_BIN=$(printf '%s' "$saved" | jq -r .executable)
   CLAUDE_ACCOUNT=$(printf '%s' "$saved" | jq -r .account)
   CLAUDE_ACCOUNT_ENFORCEMENT=$(printf '%s' "$saved" | jq -r 'if .capabilities.claude_account_enforcement then 1 else 0 end')
@@ -778,6 +920,15 @@ ARGS=("$HARNESS" --server "$SERVER")
 # arbitrary ambient provider credentials, HOME, or the Omnigent-owned CODEX_HOME.
 ENV_NAMES='FM_FRESH_TOKEN FM_OMNIGENT FM_BACKEND FM_HOME FM_ROOT_OVERRIDE FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_PUBLIC_FOLLOWUP_PRIMARY_HOME FM_TRACE_CONTEXT FM_SUPERVISION_MODEL FM_TASK_ID FM_TASK_INBOX COMPACT_ADVISER_DISABLE LAVISH_AXI_HOST TRACEPARENT GOTMPDIR TMPDIR PATH CLAUDE_CONFIG_DIR CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION CLAUDE_CODE_SEND_FEEDBACK KIRO_HOME HERDR_ENV HERDR_SESSION HERDR_PANE_ID HERDR_SOCKET_PATH'
 export FM_OMNIGENT=on
+# A remote second mate's own workers launch through the same server and host,
+# and the title observer verifies the session's host from this binding.
+# Local launches forward exactly what they did before this binding existed.
+if [ -n "$HOST_ID" ]; then
+  export FM_OMNIGENT_SERVER="${SERVER%/}" FM_OMNIGENT_HOST="$HOST_ID"
+  ENV_NAMES="$ENV_NAMES FM_OMNIGENT_SERVER FM_OMNIGENT_HOST"
+else
+  unset FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
+fi
 for name in $ENV_NAMES; do
   case "$name" in
     # Claude treats an empty selector as the current directory. Omit it so
@@ -812,7 +963,9 @@ for name in CLAUDECODE PI_CODING_AGENT GROK_AGENT FM_PI_HARNESS FM_OMP_HARNESS C
 done
 if [ "$DRY_RUN" = 1 ]; then
   jq -n --arg executable "$OMNIGENT_BIN" --arg state_file "$STATE_FILE" --arg server_url "$SERVER" --arg harness "$HARNESS" \
-    '{executable:$executable,harness:$harness,server_url:$server_url,state_file:$state_file}'
+    --arg host "$HOST_ID" \
+    '{executable:$executable,harness:$harness,server_url:$server_url,state_file:$state_file}
+      + (if $host == "" then {} else {host_id:$host} end)'
   exit 0
 fi
 NATIVE=("$@")
@@ -875,6 +1028,6 @@ export FM_OMNIGENT_ATTACH_START
 # Keep the native wrapper as the foreground exec owner. Only its diagnostic
 # stderr enters the invocation-private reader; terminal attach/stdin/stdout,
 # signals and native exit status retain the existing transport owner.
-exec env "${CLIENT_ENV[@]}" LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}" \
+exec env ${CLIENT_ENV[@]+"${CLIENT_ENV[@]}"} LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}" \
   2> >(python3 "$SCRIPT_DIR/fm-omnigent-title.py" --server "$SERVER" --harness "$HARNESS" \
     --title "$TITLE" --started "$TITLE_STARTED" --launcher "$SCRIPT_DIR/fm-omnigent.sh")

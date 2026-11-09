@@ -192,6 +192,7 @@ That cleanup is not Claude native `fm-control` exit evidence.
 LC_ALL=C LC_CTYPE=C bin/fm-test-run.sh \
   tests/fm-omnigent.test.sh \
   tests/fm-omnigent-preflight.test.sh \
+  tests/fm-omnigent-recorded-binding.test.sh \
   tests/fm-composer-lib.test.sh \
   tests/fm-remote-secondmate-trace-context.test.sh \
   tests/fm-remote-secondmate-relaunch.test.sh \
@@ -206,6 +207,9 @@ For the [worker preflight handoff](../omnigent.md), `tests/fm-omnigent-preflight
 Its capability-cache fixtures cover reuse, per-harness separation, exact nanosecond identity beyond binary64 precision, invalidation, fresh status and readiness checks, unsupported capabilities, dry-run state preservation, and symlink refusal.
 The SSH fixture executes the actual remote entrypoint and remote spawn, checks destination service resolution, and exercises both a wrapped parent's relaunch of a previously native secondmate and recovery without an inherited marker.
 The relaunch metadata regression checks the destination-confirmed mode, and the restart regression checks that the parent's mode crosses the transport with its resolved profile.
+The remote-server cases in `tests/fm-omnigent.test.sh` cover host identity, online-host confirmation, parent-server selection without a local Kit, binding propagation, and invalid preflight handoffs.
+`tests/fm-omnigent-recorded-binding.test.sh` covers cleared-environment send and lifecycle requests, real-draft protection, unbound behavior, and session capture under record-lock contention for both local and HTTPS servers.
+These fixture cases do not establish live remote-host acceptance.
 The tmux test uses real Python processes with deliberately uninformative process names, plus server and unrelated-script negatives.
 It covers both the observed script entrypoint and the supported exact `python -P -m omnigent.cli <harness>` form; the latter has no native-launch observation in this record.
 

@@ -1804,6 +1804,17 @@ test_omnigent_trailing_banner_and_native_drafts() {
     out=$(fm_composer_extract_selected_content styled=1 "$screen")
     [ "$out" = "$content" ] || fail "unsupported banner host was stripped: $out"
   done
+  # A remote second mate's home recognizes only its own parent server's banner.
+  content='Omnigent: https://omnigent.example.ts.net/c/0123456789abcdef0123456789abcdef'
+  screen=$(printf '╭────────────────────────╮\n│ ❯                      │\n╰────────────────────────╯\n%s\n' "$content")
+  FM_OMNIGENT_SERVER=https://omnigent.example.ts.net assert_screen 'parent server banner' empty "$CAPS_STYLED" "$screen"
+  out=$(FM_OMNIGENT_SERVER=https://omnigent.example.ts.net/ fm_composer_extract_selected_content styled=1 "$screen")
+  [ -z "$out" ] || fail "parent server banner leaked into selected content: $out"
+  screen=$(printf '❯\n%s\n' "$content")
+  for server in '' https://other.example.ts.net 'https://omnigent.example.ts.net/c/x'; do
+    out=$(FM_OMNIGENT_SERVER=$server fm_composer_extract_selected_content styled=1 "$screen")
+    [ "$out" = "$content" ] || fail "banner for a server other than '$server' was stripped: $out"
+  done
   for content in "$banner extra" 'Omnigent: http://127.0.0.1:52131/c/short' \
     'Omnigent: http://127.0.0.1:port/c/0123456789abcdef0123456789abcdef' \
     'Omnigent: http://127.0.0.1:52131/c/0123456789abcdef0123456789abcdef0'; do

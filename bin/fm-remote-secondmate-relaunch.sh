@@ -24,11 +24,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-secondmate-registry-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -47,8 +50,15 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
 OMNIGENT_MODE=$("$SCRIPT_DIR/fm-omnigent.sh" mode "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}") || exit 1
+RELAUNCH_ARGS=(relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "$OMNIGENT_MODE")
+# A wrapped parent sends the route's registered Omnigent binding, as fm-spawn does.
+if [ "$OMNIGENT_MODE" = on ]; then
+  OMNIGENT_SERVER=$(secondmate_registry_field "$DATA/secondmates.md" "$ID" omnigent-server 2>/dev/null || true)
+  OMNIGENT_HOST=$(secondmate_registry_field "$DATA/secondmates.md" "$ID" omnigent-host 2>/dev/null || true)
+  [ -z "$OMNIGENT_SERVER" ] || RELAUNCH_ARGS+=("$OMNIGENT_SERVER" "$OMNIGENT_HOST")
+fi
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "$OMNIGENT_MODE" </dev/null 2>&1) || {
+  "${RELAUNCH_ARGS[@]}" </dev/null 2>&1) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"

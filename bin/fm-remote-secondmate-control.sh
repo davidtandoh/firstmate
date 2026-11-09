@@ -2,8 +2,8 @@
 # Host-local lifecycle control for the remote secondmate home selected by fm-on.
 #
 # Usage:
-#   fm-remote-secondmate-control.sh launch <id> <harness> <model|-> <effort|-> herdr [traceparent [omnigent-mode]]
-#   fm-remote-secondmate-control.sh relaunch <id> <harness> <model|default|-> <effort|default|-> [omnigent-mode]
+#   fm-remote-secondmate-control.sh launch <id> <harness> <model|-> <effort|-> herdr [traceparent [omnigent-mode [omnigent-server omnigent-host]]]
+#   fm-remote-secondmate-control.sh relaunch <id> <harness> <model|default|-> <effort|default|-> [omnigent-mode [omnigent-server omnigent-host]]
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [fire-and-forget]
@@ -22,6 +22,9 @@
 # fm-spawn/fm-send/fm-teardown keep owning the local endpoint mechanics.
 # The home's own workers keep their ordinary backend selection.
 # bin/fm-remote-doctor.sh owns that host's readiness for Herdr.
+# An Omnigent server and host id ride only with omnigent-mode on; this host's
+# wrapped launches then go through that server as that registered host, and
+# bin/fm-omnigent.sh validates and verifies the pair.
 # docs/remote-secondmates.md owns why.
 #
 # With <parent-commit>, sync follows the PARENT PRIMARY's default-branch commit,
@@ -124,6 +127,9 @@ remote_endpoint_load() {
       return 1
       ;;
   esac
+  FM_OMNIGENT_SERVER=$(fm_meta_get "$REMOTE_ENDPOINT_META" omnigent_remote_server)
+  FM_OMNIGENT_HOST=$(fm_meta_get "$REMOTE_ENDPOINT_META" omnigent_remote_host)
+  export FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
 }
 
 remote_endpoint_require() {
@@ -172,12 +178,21 @@ cmd_route() {
   print_route "$id"
 }
 
+# A parent's Omnigent binding is meaningful only for a wrapped launch.
+validate_omnigent_binding() { # <mode> <server> <host>
+  [ -n "$2$3" ] || return 0
+  [ "$1" = on ] || die 'an Omnigent server binding requires Omnigent launch mode on'
+  [ -n "$2" ] && [ -n "$3" ] || die 'an Omnigent server binding needs both a server and a host id'
+}
+
 cmd_launch() {
   local id=$1 harness=$2 model=$3 effort=$4 selected_backend=$5 traceparent=${6:-} omnigent_mode=${7:-}
+  local omnigent_server=${8:-} omnigent_host=${9:-}
   local current meta out herdr_session
 
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
+  validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor) ;;
@@ -238,6 +253,7 @@ cmd_launch() {
     FM_STATE_OVERRIDE="$CONTROL_STATE" FM_DATA_OVERRIDE="$CONTROL_DATA" \
     FM_CONFIG_OVERRIDE="$TARGET_HOME/config" FM_SKIP_SECONDMATE_INHERIT=1 \
     FM_SKIP_SECONDMATE_SYNC=1 FM_OMNIGENT="$omnigent_mode" \
+    FM_OMNIGENT_SERVER="$omnigent_server" FM_OMNIGENT_HOST="$omnigent_host" \
     "$SCRIPT_DIR/fm-spawn.sh" "${ARGS[@]}" 2>&1); then
     [ -z "$out" ] || printf '%s\n' "$out" >&2
     die "remote host-local secondmate launch failed"
@@ -263,11 +279,12 @@ cmd_launch() {
 # re-resolve it here would silently drift the mate onto another runtime. `default`
 # explicitly clears an absent parent pin; `-` remains its compatibility spelling.
 cmd_relaunch() {
-  local id=$1 harness=$2 model=$3 effort=$4 omnigent_mode=${5:-}
+  local id=$1 harness=$2 model=$3 effort=$4 omnigent_mode=${5:-} omnigent_server=${6:-} omnigent_host=${7:-}
   local -a control_args
 
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
+  validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor) ;;
@@ -279,6 +296,8 @@ cmd_relaunch() {
     "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$harness" "$model" "$effort" || return 1
   fi
   remote_endpoint_require "$id"
+  omnigent_server=${omnigent_server:-$FM_OMNIGENT_SERVER}
+  omnigent_host=${omnigent_host:-$FM_OMNIGENT_HOST}
   [ "$model" != - ] || model=default
   [ "$effort" != - ] || effort=default
   control_args=("$id" relaunch --harness "$harness" --model "$model" --effort "$effort")
@@ -290,6 +309,7 @@ cmd_relaunch() {
     FM_STATE_OVERRIDE="$CONTROL_STATE" FM_DATA_OVERRIDE="$CONTROL_DATA" \
     FM_CONFIG_OVERRIDE="$TARGET_HOME/config" FM_SKIP_SECONDMATE_INHERIT=1 \
     FM_SKIP_SECONDMATE_SYNC=1 FM_OMNIGENT="$omnigent_mode" \
+    FM_OMNIGENT_SERVER="$omnigent_server" FM_OMNIGENT_HOST="$omnigent_host" \
     "$SCRIPT_DIR/fm-control.sh" "${control_args[@]}"
   # A parent tracking this route needs the identity the relaunch actually
   # produced, not the one it asked for, so it can republish its own record the
@@ -482,8 +502,8 @@ cmd_retire() {
 }
 
 case "${1:-}" in
-  launch) shift; [ "$#" -ge 5 ] && [ "$#" -le 7 ] || usage; cmd_launch "$@" ;;
-  relaunch) shift; [ "$#" -ge 4 ] && [ "$#" -le 5 ] || usage; cmd_relaunch "$@" ;;
+  launch) shift; [ "$#" -ge 5 ] && [ "$#" -le 9 ] && [ "$#" -ne 8 ] || usage; cmd_launch "$@" ;;
+  relaunch) shift; [ "$#" -ge 4 ] && [ "$#" -le 7 ] && [ "$#" -ne 6 ] || usage; cmd_relaunch "$@" ;;
   state) shift; [ "$#" -eq 1 ] || usage; validate_id "$1"; validate_home "$1"; state_value "$1" ;;
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_send "$@" ;;

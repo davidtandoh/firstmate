@@ -729,7 +729,7 @@ See [`trace-context.md`](trace-context.md) for carrier semantics, supported rout
 
 ## Omnigent launch mode (config/omnigent / FM_OMNIGENT)
 
-Omnigent mode wraps Firstmate's resolved native harness in the host's Personal Agent Kit observation service.
+Omnigent mode wraps Firstmate's resolved native harness in Omnigent.
 The underlying harness still determines model, effort, quota, hooks, and control commands.
 The integration currently admits Claude, Codex, Kiro, and Antigravity workers, and Claude or Codex secondmates.
 Live acceptance remains incomplete; consult the [verification record](verification/omnigent.md) before using this mode for supervised work.
@@ -738,7 +738,8 @@ The `t3code` backend refuses both spawn and relaunch when Omnigent mode is on, b
 
 ### Start a primary
 
-The Personal Agent Kit service must already be running on each participating host.
+For local and unbound launches, the Personal Agent Kit service must already be running on the launch host.
+A bound remote host can use the [parent's server](remote-secondmates.md#omnigent-through-the-parents-server) without its own Kit service.
 The installed Kit must support schema-version `1` readiness reports; a running status alone is insufficient.
 Firstmate does not start or repair that service.
 From the Firstmate checkout, run:
@@ -790,6 +791,7 @@ Remote launch and relaunch requests carry the resolved mode; the remote host res
 Relaunching or restarting a previously native remote secondmate from a wrapped parent enables wrapping for the replacement.
 A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
 An already-running native remote secondmate must exit before an Omnigent launch can replace it.
+A remote route can register a binding to launch through this home's Omnigent server instead of a Kit on its host; see [remote host launches](omnigent.md#remote-host-launches).
 
 Omnigent's native environment interface is additive.
 Firstmate refuses wrapped launches when `config/launch-env-allowlist` is enabled or when a Claude launch has `config/claude-account`, because those contracts require removal of inherited credentials or variables.
