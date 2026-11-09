@@ -180,8 +180,11 @@ record_session() { # <absolute task meta> <spawn generation>
     pending="$dir/.${base%.meta}.omnigent.$gen.meta"
     tmp="$pending.${BASHPID:-$$}"
     if [ "$locked" != 1 ]; then
-      if printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
-        "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" > "$tmp"; then
+      if {
+        printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+          "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" &&
+        printf 'omnigent_remote_server=%s\n' "${FM_OMNIGENT_SERVER:-}"
+      } > "$tmp"; then
         fm_backlog_atomic_transition publish "$tmp" "$pending" 'session handoff' "$dir" \
           || title_fail "session handoff update failed: $meta"
       else

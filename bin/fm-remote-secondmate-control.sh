@@ -127,6 +127,9 @@ remote_endpoint_load() {
       return 1
       ;;
   esac
+  FM_OMNIGENT_SERVER=$(fm_meta_get "$REMOTE_ENDPOINT_META" omnigent_remote_server)
+  FM_OMNIGENT_HOST=$(fm_meta_get "$REMOTE_ENDPOINT_META" omnigent_remote_host)
+  export FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
 }
 
 remote_endpoint_require() {
@@ -293,6 +296,8 @@ cmd_relaunch() {
     "$SCRIPT_DIR/fm-harness.sh" validate-native-effort "$harness" "$model" "$effort" || return 1
   fi
   remote_endpoint_require "$id"
+  omnigent_server=${omnigent_server:-$FM_OMNIGENT_SERVER}
+  omnigent_host=${omnigent_host:-$FM_OMNIGENT_HOST}
   [ "$model" != - ] || model=default
   [ "$effort" != - ] || effort=default
   control_args=("$id" relaunch --harness "$harness" --model "$model" --effort "$effort")
