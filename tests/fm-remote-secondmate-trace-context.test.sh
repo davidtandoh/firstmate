@@ -391,4 +391,92 @@ grep -q remote_serve_missing "$TMP_ROOT/omni-output" || fail 'remote service ref
 if remote_staged_launch >/dev/null; then fail 'remote refusal still delivered a launch command'; fi
 pass 'remote service unavailability refuses without falling back to a native launch'
 
+# A route registered with an Omnigent binding launches through the parent's
+# server as the remote host's registered identity. The remote Kit above is
+# stopped, so these launches also prove no Kit is consulted.
+REMOTE_OMNI_SERVER=https://omnigent.example.ts.net
+REMOTE_OMNI_HOST=d5f2b09bd5744ef39fe34b4e58a35f5f
+mkdir -p "$TMP_ROOT/remote-serve/config"
+ln -s "$TMP_ROOT/remote-serve/runtime/bin/omnigent" "$REMOTE_ROOT/bin/omnigent"
+remote_host_identity() { printf '{"host":{"host_id":"%s","name":"k8"}}\n' "$1" > "$TMP_ROOT/remote-serve/config/config.yaml"; }
+python3 - "$PARENT/data/secondmates.md" "$REMOTE_OMNI_SERVER" "$REMOTE_OMNI_HOST" <<'PY'
+import pathlib, sys
+path, server, host = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+lines = path.read_text().splitlines(keepends=True)
+lines = [line.replace('; scope:', f'; omnigent-server: {server}; omnigent-host: {host}; scope:', 1)
+         if line.startswith('- ios ') else line for line in lines]
+path.write_text(''.join(lines))
+PY
+. "$ROOT/bin/fm-secondmate-registry-lib.sh"
+[ "$(secondmate_registry_field "$PARENT/data/secondmates.md" ios omnigent-host)" = "$REMOTE_OMNI_HOST" ] \
+  || fail 'registry did not parse the route Omnigent binding'
+[ "$(secondmate_registry_field "$PARENT/data/secondmates.md" ios scope)" = 'iOS implementation and Xcode validation' ] \
+  || fail 'route Omnigent binding displaced the registered scope'
+remote_pane_launch() {
+  remote_staged_launch > "$TMP_ROOT/remote-launch.sh" || fail "$1 delivered no launch"
+  rm -f "$TMP_ROOT/remote-serve/result.json"
+  env -i HOME="$TMP_ROOT/pane-home" PATH="$REMOTE_ROOT/bin:$PATH" OMNI_SESSION_HOST="$REMOTE_OMNI_HOST" \
+    /bin/sh "$TMP_ROOT/remote-launch.sh" || fail "$1 pane launch failed"
+  jq -e --arg server "$REMOTE_OMNI_SERVER" --arg host "$REMOTE_OMNI_HOST" --arg home "$REMOTE_HOME" '
+    .argv[(.argv | index("--server")) + 1] == $server and .environment.FM_HOME == $home and
+    .environment.FM_OMNIGENT == "on" and .environment.FM_OMNIGENT_SERVER == $server and
+    .environment.FM_OMNIGENT_HOST == $host' "$TMP_ROOT/remote-serve/result.json" >/dev/null \
+    || fail "$1 did not launch through the parent server as the registered host"
+}
+
+remote_host_identity 1504544106274a81b7bd2e2dac00ccdf
+reset_remote_herdr_fixture "$HERDR_STATE"
+: > "$HERDR_LOG"
+if FM_OMNIGENT=on remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1; then
+  fail 'remote host with another Omnigent identity launched'
+fi
+grep -q "is not the registered host $REMOTE_OMNI_HOST" "$TMP_ROOT/omni-output" \
+  || fail "wrong remote host identity refusal did not reach the parent: $(cat "$TMP_ROOT/omni-output")"
+if remote_staged_launch >/dev/null; then fail 'wrong remote host identity still delivered a launch'; fi
+pass 'a remote host that is not the registered Omnigent host refuses with an actionable error'
+
+remote_host_identity "$REMOTE_OMNI_HOST"
+reset_remote_herdr_fixture "$HERDR_STATE"
+: > "$HERDR_LOG"
+FM_OMNIGENT=on remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "wrapped remote-server spawn failed: $(cat "$TMP_ROOT/omni-output")"
+remote_pane_launch 'wrapped remote-server spawn'
+grep -qx "omnigent_remote_server=$REMOTE_OMNI_SERVER" "$REMOTE_HOME/state/parent-route/ios.meta" \
+  || fail 'remote endpoint record lost its Omnigent server binding'
+grep -qx "omnigent_remote_host=$REMOTE_OMNI_HOST" "$REMOTE_HOME/state/parent-route/ios.meta" \
+  || fail 'remote endpoint record lost its Omnigent host binding'
+grep -qx "omnigent_server=$REMOTE_OMNI_SERVER" "$REMOTE_HOME/state/parent-route/ios.meta" \
+  || fail 'remote endpoint did not record its session on the parent server'
+grep -qx 'omnigent=on' "$PARENT/state/ios.meta" || fail 'parent did not record the wrapped remote-server route'
+jq -se --arg url "$REMOTE_OMNI_SERVER/v1/hosts/$REMOTE_OMNI_HOST" 'any(.[]; .url == $url)' \
+  "$TMP_ROOT/remote-serve/requests.jsonl" >/dev/null || fail 'remote launch did not confirm the registered host'
+pass 'a wrapped parent launches a remote secondmate through its server on the registered host'
+
+jq '.typed={} | .working={}' "$HERDR_STATE" > "$HERDR_STATE.tmp"
+mv "$HERDR_STATE.tmp" "$HERDR_STATE"
+: > "$HERDR_LOG"
+remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh relaunch ios codex - - > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "remote-server recovery failed: $(cat "$TMP_ROOT/omni-output")"
+remote_pane_launch 'request-less remote-server recovery'
+pass 'remote recovery without a request keeps the recorded Omnigent binding'
+
+jq '.typed={} | .working={}' "$HERDR_STATE" > "$HERDR_STATE.tmp"
+mv "$HERDR_STATE.tmp" "$HERDR_STATE"
+grep -v '^omnigent_remote_' "$REMOTE_HOME/state/parent-route/ios.meta" > "$TMP_ROOT/unbound.meta"
+cat "$TMP_ROOT/unbound.meta" > "$REMOTE_HOME/state/parent-route/ios.meta"
+: > "$HERDR_LOG"
+OMNIGENT=1 remote_env "$ROOT/bin/fm-remote-secondmate-relaunch.sh" ios codex - - > "$TMP_ROOT/omni-output" 2>&1 \
+  || fail "wrapped parent remote-server relaunch failed: $(cat "$TMP_ROOT/omni-output")"
+remote_pane_launch 'wrapped parent relaunch'
+grep -qx "omnigent_remote_host=$REMOTE_OMNI_HOST" "$REMOTE_HOME/state/parent-route/ios.meta" \
+  || fail 'parent relaunch did not send the route Omnigent binding'
+pass 'a wrapped parent relaunch sends the route Omnigent binding'
+
+if remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh relaunch ios codex - - off \
+  "$REMOTE_OMNI_SERVER" "$REMOTE_OMNI_HOST" > "$TMP_ROOT/omni-output" 2>&1; then
+  fail 'remote control accepted an Omnigent binding for a native launch'
+fi
+grep -q 'requires Omnigent launch mode on' "$TMP_ROOT/omni-output" || fail 'native binding refusal was not actionable'
+pass 'remote control accepts an Omnigent binding only for a wrapped launch'
+
 echo "ALL TESTS PASSED"

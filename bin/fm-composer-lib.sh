@@ -194,8 +194,12 @@ fm_composer_strip_ansi() {
   LC_ALL=C sed "s/${esc}\\[[0-9;:?]*[[:alpha:]]//g"
 }
 
+# A remote second mate's home also recognizes its parent's server, exactly as
+# FM_OMNIGENT_SERVER names it (docs/omnigent.md#remote-host-launches).
 fm_composer_strip_omnigent_banner() {
-  printf '%s\n' "$1" | LC_ALL=C awk '
+  local remote=${FM_OMNIGENT_SERVER:-}
+  [[ "$remote" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$ ]] || remote=
+  printf '%s\n' "$1" | LC_ALL=C awk -v remote="Omnigent: ${remote%/}/c/" '
     {
       rows[NR] = $0
       plain = $0
@@ -205,7 +209,9 @@ fm_composer_strip_omnigent_banner() {
     }
     END {
       limit = NR
-      if (banner ~ /^Omnigent: http:\/\/127\.0\.0\.1:[0-9]+\/c\/[a-f0-9]+$/) {
+      if (banner ~ /^Omnigent: http:\/\/127\.0\.0\.1:[0-9]+\/c\/[a-f0-9]+$/ ||
+          (remote != "Omnigent: /c/" && index(banner, remote) == 1 &&
+           substr(banner, length(remote) + 1) ~ /^[a-f0-9]+$/)) {
         id = banner
         sub(/^.*\/c\//, "", id)
         if (length(id) == 32) limit = last - 1

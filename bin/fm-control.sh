@@ -1105,6 +1105,15 @@ resolve_relaunch_profile() {
         "$account_model" "$(type -P claude)" "$TARGET_CLAUDE_FLOOR") || return 1
     fi
     if [ "$account_mode" = on ]; then
+      # A remote second mate's host checks the parent server it will launch
+      # through; recovery without a request reuses the task's recorded binding.
+      local omnigent_binding
+      omnigent_binding=$("$SCRIPT_DIR/fm-omnigent.sh" binding "$META") || return 1
+      if [ -n "$omnigent_binding" ]; then
+        FM_OMNIGENT_SERVER=$(printf '%s\n' "$omnigent_binding" | sed -n 's/^server=//p')
+        FM_OMNIGENT_HOST=$(printf '%s\n' "$omnigent_binding" | sed -n 's/^host=//p')
+        export FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
+      fi
       CLAUDE_CONFIG_DIR="$account_root" "$SCRIPT_DIR/fm-omnigent.sh" check claude || return 1
       OMNIGENT_CHECKED_ROOT=$account_root
       OMNIGENT_CHECKED=1

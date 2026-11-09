@@ -10,6 +10,7 @@ flowchart LR
     service --> worker[Native harness with Firstmate hooks]
     spawn --> remote[Remote secondmate launch request]
     remote --> launcher
+    launcher -.-> parentserver[Parent's server, for a bound remote route]
 ```
 
 Firstmate selects and supervises the native harness; Omnigent owns the traced native session.
@@ -134,7 +135,7 @@ Git configuration passed through `GIT_CONFIG_COUNT` is forwarded as the complete
 The launcher does not copy arbitrary ambient credentials.
 
 Remote launch and recovery retain the existing SSH control boundary.
-The parent sends its resolved mode for launch and relaunch, including secondmate restarts, and the destination resolves its own Kit service.
+The parent sends its resolved mode for launch and relaunch, including secondmate restarts, and the destination resolves its own Kit service unless the route registers an [Omnigent binding](#remote-host-launches).
 The remote endpoint reports its actual mode to the parent, alongside its native profile.
 A recorded wrapped task remains wrapped through recovery.
 
@@ -152,10 +153,50 @@ The native harness remains the identity used by steering, interrupt, and exit.
 A live wrapper alone does not prove that a model turn completed or that MLflow received its trace.
 [Verification](verification/omnigent.md) separates those claims.
 
+## Remote host launches
+
+A remote second mate's host, such as a Linux worker, may run no Kit service of its own.
+Its Omnigent host daemon instead connects to the parent's Omnigent server, which lists it under `/v1/hosts`.
+A route opts in by registering that binding: the server's HTTPS origin as the remote host reaches it, and the host's registered id.
+[Remote second mates](remote-secondmates.md#omnigent-through-the-parents-server) owns the registry fields and setup steps.
+
+```mermaid
+flowchart LR
+    parent[Wrapped parent: fm-spawn] -->|SSH launch request: mode, server, host id| control[Remote control]
+    control --> spawn[Remote fm-spawn]
+    spawn --> pane[Herdr pane on the remote host]
+    pane --> launcher[fm-omnigent: remote-server preflight]
+    launcher -->|HTTPS| server[Parent's Omnigent server]
+    launcher --> cli[Host's own omnigent CLI]
+    cli -->|session bound to this host| server
+    spawn -. same binding .-> workers[The secondmate's own workers]
+```
+
+Takeaway: the same two layers as a local launch, Herdr then Omnigent, run on the remote host; only the server they bind to is the parent's.
+
+1. A wrapped parent sends the route's server and host id on the launch or relaunch request; a native parent sends neither.
+2. The remote control accepts the binding only with Omnigent mode on and passes it to the host-local spawn as `FM_OMNIGENT_SERVER` and `FM_OMNIGENT_HOST`.
+3. The spawn records the binding in the task record, so a recovery that arrives without a request keeps it.
+4. Preflight uses the `omnigent` on the host's `PATH`, resolved to its real path, and the runtime Python beside it.
+   That Python must report this host's Omnigent identity as exactly the registered id; a host name is never matched.
+5. Preflight then checks the server's `/health` and requires `/v1/hosts/<id>` to report the host online.
+6. Inside the remote host's Herdr pane, the launcher runs `omnigent <harness> --server <server>`, which starts a local runner bound to the parent's server.
+   The session-title check also requires the new session to report that host id.
+   An HTTPS server is accepted only when it is exactly the server this binding names; every other server must still be loopback.
+7. The native terminal receives the binding, so the secondmate's own workers launch through the same server and host.
+
+An unregistered, offline, or differently identified host, a missing executable, or a partial or malformed binding refuses the launch with the exact cause.
+None of these refusals falls back to a native launch or to a local Kit.
+The binding carries no credential.
+With no Kit status to attest fork provenance, Claude account enforcement relies on the executable's own capability entry.
+Routes without a binding, local launches, and native launches keep their existing behavior.
+`bin/fm-omnigent.sh`'s header owns the exact variables, record fields, and `binding` lookup.
+
 ## Conversation banner and draft protection
 
 Shared composer classification and selected-content extraction remove one trailing `Omnigent: http://127.0.0.1:<port>/c/<32 lowercase hex digits>` line and any blank rows after it before reading the native composer.
 The port must contain only decimal digits.
+A home launched through a [parent's server](#remote-host-launches) also removes that exact server's banner, `Omnigent: <server>/c/<id>`, as named by `FM_OMNIGENT_SERVER`.
 ANSI styling and trailing terminal padding do not change the match; other hosts, malformed URLs, and nonfinal banner rows remain content.
 A final exact-match line is treated as wrapper output even without separate wrapper identity.
 This prevents the banner from making an empty composer appear to hold a draft.

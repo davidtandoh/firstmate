@@ -790,6 +790,7 @@ Remote launch and relaunch requests carry the resolved mode; the remote host res
 Relaunching or restarting a previously native remote secondmate from a wrapped parent enables wrapping for the replacement.
 A task records `omnigent=on` when wrapped, so recovery keeps tracing even without the original process marker.
 An already-running native remote secondmate must exit before an Omnigent launch can replace it.
+A remote route can register a binding to launch through this home's Omnigent server instead of a Kit on its host; see [remote host launches](omnigent.md#remote-host-launches).
 
 Omnigent's native environment interface is additive.
 Firstmate refuses wrapped launches when `config/launch-env-allowlist` is enabled or when a Claude launch has `config/claude-account`, because those contracts require removal of inherited credentials or variables.

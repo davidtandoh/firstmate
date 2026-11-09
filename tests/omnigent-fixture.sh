@@ -42,6 +42,17 @@ with (service / 'requests.jsonl').open('a') as output:
 if url.endswith('/health'):
     print('{"status":"ok"}')
     sys.exit(0)
+# Registered hosts for remote-server launches: OMNI_HOST_STATE selects
+# online (default), offline, or missing; OMNI_HOST_REPORTED overrides the id.
+if '/v1/hosts/' in url:
+    host = url.rsplit('/', 1)[-1]
+    state = os.environ.get('OMNI_HOST_STATE', 'online')
+    code = 404 if state == 'missing' else 200
+    response = json.dumps({'host_id': os.environ.get('OMNI_HOST_REPORTED', host), 'name': 'fixture-host',
+                           'status': state} if code == 200 else {'error': 'not found'})
+    pathlib.Path(args[args.index('--output') + 1]).write_text(response)
+    sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
+    sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
 if mode == 'http-error':
     sys.exit(22)
@@ -60,6 +71,8 @@ labels = {'claude': 'claude-code-native-ui', 'codex': 'codex-native-ui',
 session = {'id': url.rsplit('/', 1)[-1], 'labels': {'omnigent.wrapper': labels[harness]},
            'created_at': time.time(), 'title': None, 'status': 'idle',
            'runner_online': True, 'archived': False}
+if os.environ.get('OMNI_SESSION_HOST'):
+    session['host_id'] = os.environ['OMNI_SESSION_HOST']
 # Session reads for supervision: OMNI_SESSION_STATE selects the record shape;
 # --output and --write-out keep the body and HTTP status separate like curl.
 session['pending_elicitations'] = json.loads(os.environ.get('OMNI_PENDING', '[]'))
@@ -120,7 +133,10 @@ Capabilities:
 esac
 python3 - "$0" "$@" <<'PY'
 import json, os, pathlib, subprocess, sys, time
-service = pathlib.Path(os.environ['OMNIGENT_CONFIG_HOME']).parent
+# A remote-server launch has no Kit client environment; find the service from
+# this double's own location instead.
+config_home = os.environ.get('OMNIGENT_CONFIG_HOME')
+service = pathlib.Path(config_home).parent if config_home else pathlib.Path(sys.argv[1]).resolve().parents[2]
 args = sys.argv[2:]
 (service / 'title.json').unlink(missing_ok=True)
 environment = {}
@@ -137,7 +153,9 @@ with (service / 'requests.jsonl').open('a') as output:
     output.write(json.dumps({'event': 'launch'}) + '\n')
 mode = os.environ.get('OMNI_RECORD_MODE', '')
 if mode != 'missing':
-    record = ('Web UI: http://127.0.0.1:6767/c/' + 'a' * 32 + '\n').encode()
+    # Like the real CLI, the record names the server this launch was given.
+    server = args[args.index('--server') + 1].rstrip('/') if '--server' in args else 'http://127.0.0.1:6767'
+    record = ('Web UI: ' + server + '/c/' + 'a' * 32 + '\n').encode()
     if mode == 'wrong-server':
         record = record.replace(b':6767', b':6768')
     if mode == 'malformed':
@@ -169,9 +187,21 @@ SHIM
   # The runtime interpreter runs the launcher's account lookup against a
   # stand-in of Omnigent's account API. YAML is a JSON superset, so fixtures
   # spell config.yaml as JSON; a missing file is an empty config, as in Omnigent.
-  mkdir -p "$service/runtime/fake-site/omnigent/onboarding"
+  mkdir -p "$service/runtime/fake-site/omnigent/onboarding" "$service/runtime/fake-site/omnigent/host"
   : > "$service/runtime/fake-site/omnigent/__init__.py"
   : > "$service/runtime/fake-site/omnigent/onboarding/__init__.py"
+  : > "$service/runtime/fake-site/omnigent/host/__init__.py"
+  # Omnigent keeps a host's identity in the config's host section. Without
+  # OMNIGENT_CONFIG_HOME this double reads its own service's config, never ~.
+  cat > "$service/runtime/fake-site/omnigent/host/identity.py" <<'PY'
+import collections, json, os, pathlib
+HostIdentity = collections.namedtuple('HostIdentity', 'host_id name')
+def load_host_identity_if_present(path=None):
+    home = os.environ.get('OMNIGENT_CONFIG_HOME') or pathlib.Path(__file__).resolve().parents[4] / 'config'
+    path = pathlib.Path(path or pathlib.Path(home) / 'config.yaml')
+    host = (json.loads(path.read_text()) if path.exists() else {}).get('host') or {}
+    return HostIdentity(host['host_id'], host.get('name', '')) if host.get('host_id') else None
+PY
   cat > "$service/runtime/fake-site/omnigent/config.py" <<'PY'
 import json, os, pathlib
 def load_global_config():

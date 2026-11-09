@@ -215,7 +215,45 @@ test_fleet_snapshot_reads_opted_in_route() {
   pass "fleet snapshot: an opted-in route stays a well-formed remote route"
 }
 
+test_registry_omnigent_binding() {
+  local w reg out bad binding='omnigent-server: https://omnigent.example.ts.net; omnigent-host: d5f2b09bd5744ef39fe34b4e58a35f5f; '
+  w=$(make_world binding "availability: when-online; $binding")
+  reg="$w/home/data/secondmates.md"
+  # shellcheck disable=SC2016 # positional params expand in the child shell.
+  out=$(bash -c '. "$0/bin/fm-secondmate-registry-lib.sh"
+    for f in availability omnigent-server omnigent-host scope projects remote; do
+      printf "%s=%s\n" "$f" "$(secondmate_registry_field "$1" lap "$f")"
+    done' "$ROOT" "$reg")
+  [ "$out" = "availability=when-online
+omnigent-server=https://omnigent.example.ts.net
+omnigent-host=d5f2b09bd5744ef39fe34b4e58a35f5f
+scope=laptop-only work
+projects=alpha
+remote=1" ] || fail "a route with an Omnigent binding should parse every field, got: $out"
+  : > "$w/home/data/backlog.md"
+  mkdir -p "$w/home/projects"
+  out=$(FM_HOME="$w/home" FM_SSH_BIN=/usr/bin/false FM_SNAPSHOT_BUDGET=1 \
+    "$ROOT/bin/fm-fleet-snapshot.sh" --json 2>/dev/null \
+    | jq -c '[.. | objects | select(.id? == "lap" and has("registry_error")) | {host,remote,registry_error}] | first')
+  [ "$out" = '{"host":"lab-host","remote":true,"registry_error":null}' ] \
+    || fail "the fleet snapshot should read a bound route as remote, got: $out"
+  for bad in \
+    'omnigent-server: http://omnigent.example.ts.net; omnigent-host: d5f2b09bd5744ef39fe34b4e58a35f5f; ' \
+    'omnigent-server: https://omnigent.example.ts.net/api; omnigent-host: d5f2b09bd5744ef39fe34b4e58a35f5f; ' \
+    'omnigent-server: https://omnigent.example.ts.net; omnigent-host: david-k8-plus; ' \
+    'omnigent-server: https://omnigent.example.ts.net; omnigent-host: ; ' \
+    'omnigent-host: d5f2b09bd5744ef39fe34b4e58a35f5f; omnigent-server: https://omnigent.example.ts.net; '; do
+    printf -- '- box - Bad (host: box; root: /r/root; home: /r/home; %sscope: box work; projects: alpha; added 2026-10-12)\n' "$bad" > "$reg"
+    # shellcheck disable=SC2016
+    if bash -c '. "$0/bin/fm-secondmate-registry-lib.sh"; secondmate_registry_line_for_id "$1" box' "$ROOT" "$reg"; then
+      fail "a malformed Omnigent binding must not parse: $bad"
+    fi
+  done
+  pass "registry: a remote route's Omnigent binding is an https origin and a host id, or the entry is invalid"
+}
+
 test_registry_field
+test_registry_omnigent_binding
 test_always_on_route_is_not_probed
 test_when_online_alive_routes
 test_when_online_unavailable_falls_back
