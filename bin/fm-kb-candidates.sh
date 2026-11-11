@@ -38,7 +38,8 @@
 # `verify` is read-only and is what bin/fm-teardown.sh calls without --force.
 # It exits 0 when every listed candidate has a matching record, or 1, naming
 # each unaccounted candidate and the commands that resolve it.
-# `list` prints each candidate's number, outcome or `unrecorded`, and first line.
+# `list` prints each candidate's number, outcome, and first line; changed text
+# is labeled `changed (needing a fresh outcome)`, and absent outcomes `unrecorded`.
 #
 # Exit codes: 0 success; 1 refusal or verification failure; 2 invalid usage.
 set -euo pipefail
@@ -139,7 +140,20 @@ candidate_count() {
 }
 
 outcome_of() {  # <n>
-  meta_value "kb_candidate_$1" | cut -d' ' -f2-
+  local stored outcome hash
+  stored=$(meta_value "kb_candidate_$1")
+  outcome=${stored#* }
+  case "$outcome" in
+    filed\ ?*|declined\ ?*)
+      hash=$(candidate_hash "$1") || return 1
+      if [ "${stored%% *}" = "$hash" ]; then
+        printf '%s\n' "$outcome"
+      else
+        printf 'changed (needing a fresh outcome)\n'
+      fi
+      ;;
+    *) printf 'unrecorded\n' ;;
+  esac
 }
 
 candidate_hash() {
@@ -156,27 +170,23 @@ command_list() {
   fi
   while IFS= read -r text; do
     n=$((n + 1))
-    outcome=$(outcome_of "$n")
-    printf '%s\t%s\t%s\n' "$n" "${outcome:-unrecorded}" "$text"
+    outcome=$(outcome_of "$n") || fail "could not read outcome for candidate $n"
+    printf '%s\t%s\t%s\n' "$n" "$outcome" "$text"
   done <<EOF
 $extracted
 EOF
 }
 
 command_verify() {
-  local id=$1 total n stored hash missing='' changed=''
+  local id=$1 total n outcome missing='' changed=''
   require_task "$id"
   total=$(candidate_count)
   n=1
   while [ "$n" -le "$total" ]; do
-    case "$(outcome_of "$n")" in
-      filed\ ?*|declined\ ?*)
-        stored=$(meta_value "kb_candidate_$n")
-        hash=$(candidate_hash "$n") || fail "could not hash candidate $n"
-        if [ "${stored%% *}" != "$hash" ]; then
-          changed="${changed}${changed:+ }$n"
-        fi
-        ;;
+    outcome=$(outcome_of "$n") || fail "could not read outcome for candidate $n"
+    case "$outcome" in
+      filed\ ?*|declined\ ?*) ;;
+      'changed (needing a fresh outcome)') changed="${changed}${changed:+ }$n" ;;
       *) missing="${missing}${missing:+ }$n" ;;
     esac
     n=$((n + 1))

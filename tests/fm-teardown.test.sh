@@ -2149,7 +2149,7 @@ test_kb_candidates_indented_items_counted_separately() {
 }
 
 test_kb_candidates_changed_text_needs_fresh_outcome() {
-  local case_dir rc prefix
+  local case_dir rc prefix output
   case_dir=$(kb_scout_case kb-changed)
   write_kb_report "$case_dir" $'- Original lesson\n  Original continuation'
   run_kb_candidates "$case_dir" filed task-x1 1 kb-proposal-42 > "$case_dir/record.out" \
@@ -2158,11 +2158,17 @@ test_kb_candidates_changed_text_needs_fresh_outcome() {
   rc=0
   run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "kb-changed: whitespace and list formatting must not change identity"
+  output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-changed: list failed"
+  [ "$output" = $'1\tfiled kb-proposal-42\tOriginal   lesson' ] \
+    || fail "kb-changed: unchanged candidate lost its filed outcome: $output"
   for prefix in 'Replacement lesson' "$(printf '%0170d' 0)"; do
     write_kb_report "$case_dir" "- $prefix"
     run_kb_candidates "$case_dir" declined task-x1 1 'Already documented' > "$case_dir/record.out" \
       || fail "kb-changed: recording candidate failed"
     write_kb_report "$case_dir" "- $prefix revised"
+    output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-changed: list failed"
+    [ "$output" = "$(printf '1\tchanged (needing a fresh outcome)\t%.160s' "$prefix revised")" ] \
+      || fail "kb-changed: list displayed a stale declined outcome: $output"
     rc=0
     run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     expect_code 1 "$rc" "kb-changed: replacement candidate must block cleanup"
@@ -2173,11 +2179,17 @@ test_kb_candidates_changed_text_needs_fresh_outcome() {
   run_kb_candidates "$case_dir" filed task-x1 1 kb-proposal-43 > "$case_dir/record.out" \
     || fail "kb-changed: recording revised continuation failed"
   write_kb_report "$case_dir" $'- Original lesson\n  Another continuation'
+  output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-changed: list failed"
+  [ "$output" = $'1\tchanged (needing a fresh outcome)\tOriginal lesson' ] \
+    || fail "kb-changed: list displayed a stale filed outcome: $output"
   rc=0
   run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 1 "$rc" "kb-changed: changing only continuation must block verification"
   run_kb_candidates "$case_dir" declined task-x1 1 'Already documented' > "$case_dir/record.out" \
     || fail "kb-changed: recording fresh outcome failed"
+  output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-changed: list failed"
+  [ "$output" = $'1\tdeclined Already documented\tOriginal lesson' ] \
+    || fail "kb-changed: list did not display the fresh outcome: $output"
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "kb-changed: fresh outcome must allow cleanup"
