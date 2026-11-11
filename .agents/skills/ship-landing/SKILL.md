@@ -21,9 +21,10 @@ A captain instruction to merge is explicit authority; `yolo` is the only standin
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
-Before cleaning up any ship or scout task, apply `AGENTS.md` section 6's rule that firstmate captures on a worker's behalf: read the `## Knowledge-base candidates` section of `data/<id>/report.md` and, whenever the `kb-capture` skill is available to this home, file each candidate as a proposal through that skill's proposal-first flow, never applying it.
+Before cleaning up any ship or scout task, apply `AGENTS.md` section 6's rule that firstmate captures on a worker's behalf: list the report's numbered knowledge-base candidates with `bin/fm-kb-candidates.sh list <id>` and, whenever the `kb-capture` skill is available to this home, file each candidate as a proposal through that skill's proposal-first flow, never applying it.
 Only when `kb-capture` is unavailable, route each candidate according to `AGENTS.md` section 6, for example fleet-local operational facts to `data/learnings.md`.
-Record the resulting proposal ids on the task note; file nothing when the section says `none` or the report has no such section.
+Record every outcome with `bin/fm-kb-candidates.sh`: `filed` with the proposal id or the file it was routed to, `declined` with a short reason when it is not worth capturing, or, in a home whose capture flow cannot reach the main knowledge base, `forwarded` with the draft that carries it to the main home; its header owns the record and the note line it writes.
+Cleanup refuses while any listed candidate has no recorded outcome; a section that says `none`, or a report with no such section, needs nothing.
 
 Tear down a ship task only after landing is confirmed.
 A teardown refusal for uncommitted or unlanded work is a stop-and-investigate result, never an obstacle to bypass.

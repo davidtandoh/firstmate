@@ -63,6 +63,13 @@
 #   (z3d) forced secondmate + child return leaves residue    -> warning, retirement completes, exit 4
 #   (z3e) return removes the copy                            -> cannot-verify warning, exit 4
 #   (z4) scout + ignored file                                -> ignored file survives
+#
+# Knowledge-base candidates listed in the task report (bin/fm-kb-candidates.sh):
+#   (kb1) report says none, or no report                      -> ALLOW
+#   (kb2) scout or ship with unrecorded candidates            -> REFUSE, names remedy
+#   (kb3) candidates filed or declined                        -> ALLOW, note lines recorded
+#   (kb4) candidate forwarded to main with an existing draft  -> ALLOW
+#   (kb5) unrecorded candidates + --force                     -> ALLOW (discard path)
 set -u
 
 # shellcheck source=tests/lib.sh disable=SC1091
@@ -2063,6 +2070,125 @@ test_scout_ignored_files_survive_scratch_clean() {
   [ -z "$(git -C "$wt" status --porcelain --untracked-files=all)" ] \
     || fail "scout-ignored: untracked entries remain: $(git -C "$wt" status --porcelain --untracked-files=all)"
   pass "ignored files survive the scratch clean and plain scratch does not"
+}
+
+# Knowledge-base candidates: a report listing them blocks cleanup until each
+# has a recorded outcome (bin/fm-kb-candidates.sh).
+write_kb_report() {  # <case-dir> <section-body>
+  mkdir -p "$1/data/task-x1"
+  printf '# Report\n\nFindings.\n\n## Knowledge-base candidates\n\n%s\n' "$2" \
+    > "$1/data/task-x1/report.md"
+}
+
+run_kb_candidates() {  # <case-dir> <args...>
+  local case_dir=$1; shift
+  FM_ROOT_OVERRIDE="$ROOT" \
+  FM_STATE_OVERRIDE="$case_dir/state" \
+  FM_DATA_OVERRIDE="$case_dir/data" \
+  FM_CONFIG_OVERRIDE="$case_dir/config" \
+    "$ROOT/bin/fm-kb-candidates.sh" "$@"
+}
+
+kb_scout_case() {  # <name>; a scout ready for cleanup apart from its candidates
+  local case_dir
+  case_dir=$(make_case "$1")
+  write_meta "$case_dir" no-mistakes scout
+  prepare_scout_teardown "$case_dir"
+  add_treehouse_clean_fd "$case_dir"
+  printf '%s\n' "$case_dir"
+}
+
+test_kb_candidates_none_or_absent_section_passes() {
+  local case_dir rc
+  case_dir=$(kb_scout_case kb-none)
+  write_kb_report "$case_dir" 'None - nothing reusable came out of this task.'
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-none: a report saying none should not block cleanup"
+  assert_absent "$case_dir/state/task-x1.meta" "kb-none: task record was not removed"
+
+  case_dir=$(make_case kb-no-report)
+  write_meta "$case_dir" no-mistakes ship
+  rc=0
+  run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-no-report: a task without a report should have nothing to account for"
+  pass "a report saying none, or no report at all, passes the knowledge-base candidate check"
+}
+
+test_kb_candidates_unrecorded_refuses_cleanup() {
+  local case_dir rc
+  case_dir=$(kb_scout_case kb-refuse-scout)
+  write_kb_report "$case_dir" $'- Lesson one, with evidence\n  more detail\n- Lesson two'
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" "kb-refuse-scout: unrecorded candidates should refuse cleanup"
+  assert_grep "knowledge-base candidates with no recorded outcome" "$case_dir/stderr" \
+    "kb-refuse-scout: refusal did not name the unrecorded candidates"
+  assert_grep "fm-kb-candidates.sh list task-x1" "$case_dir/stderr" \
+    "kb-refuse-scout: refusal did not name the remedy command"
+  assert_grep ": 1 2 of 2" "$case_dir/stderr" \
+    "kb-refuse-scout: refusal did not count both candidates"
+  assert_present "$case_dir/state/task-x1.meta" "kb-refuse-scout: refusal removed the task record"
+
+  case_dir=$(make_case kb-refuse-ship)
+  write_meta "$case_dir" no-mistakes ship
+  write_kb_report "$case_dir" '1. A ship lesson'
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" "kb-refuse-ship: an unrecorded candidate should refuse ship cleanup"
+  assert_grep "knowledge-base candidates with no recorded outcome" "$case_dir/stderr" \
+    "kb-refuse-ship: refusal did not name the unrecorded candidate"
+  pass "cleanup refuses while a report's knowledge-base candidates have no recorded outcome"
+}
+
+test_kb_candidates_filed_and_declined_allow_cleanup() {
+  local case_dir rc
+  case_dir=$(kb_scout_case kb-filed-declined)
+  seed_backlog_in_flight "$case_dir" scout
+  write_kb_report "$case_dir" $'- Lesson one\n- Lesson two'
+  run_kb_candidates "$case_dir" filed task-x1 1 kb-proposal-42 > "$case_dir/record.out" \
+    || fail "kb-filed-declined: filing candidate 1 failed"
+  run_kb_candidates "$case_dir" declined task-x1 2 "already covered by the project docs" >> "$case_dir/record.out" \
+    || fail "kb-filed-declined: declining candidate 2 failed"
+  assert_grep "Knowledge-base candidate 1: filed as kb-proposal-42" "$case_dir/data/backlog.md" \
+    "kb-filed-declined: the filed outcome did not reach the task note"
+  assert_grep "Knowledge-base candidate 2: declined - already covered by the project docs" \
+    "$case_dir/data/backlog.md" "kb-filed-declined: the declined outcome did not reach the task note"
+  rc=0
+  run_kb_candidates "$case_dir" declined task-x1 3 "no such candidate" > /dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" "kb-filed-declined: recording a candidate the report does not list should fail"
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-filed-declined: recorded candidates should allow cleanup"
+  assert_absent "$case_dir/state/task-x1.meta" "kb-filed-declined: task record was not removed"
+  pass "candidates filed as proposals or declined with a reason allow cleanup and land on the task note"
+}
+
+test_kb_candidates_forwarded_allows_cleanup() {
+  local case_dir rc
+  case_dir=$(kb_scout_case kb-forwarded)
+  write_kb_report "$case_dir" '- A lesson the main knowledge base should hold'
+  rc=0
+  run_kb_candidates "$case_dir" forwarded task-x1 1 "$case_dir/data/missing-draft.md" > /dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" "kb-forwarded: forwarding a missing draft should fail"
+  printf '%s\n' 'Draft for the main home.' > "$case_dir/data/task-x1/kb-draft.md"
+  run_kb_candidates "$case_dir" forwarded task-x1 1 "$case_dir/data/task-x1/kb-draft.md" > "$case_dir/record.out" \
+    || fail "kb-forwarded: forwarding an existing draft failed"
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-forwarded: a candidate forwarded to main should allow cleanup"
+  pass "a candidate forwarded to the main home with its draft allows cleanup"
+}
+
+test_kb_candidates_force_still_discards() {
+  local case_dir rc
+  case_dir=$(kb_scout_case kb-force)
+  write_kb_report "$case_dir" '- An unrecorded lesson'
+  rc=0
+  run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-force: an authorised discard should not be blocked by the candidate check"
+  assert_absent "$case_dir/state/task-x1.meta" "kb-force: task record was not removed"
+  pass "--force cleanup is not blocked by unrecorded knowledge-base candidates"
 }
 
 test_gh_error_and_content_absent_refuses() {
@@ -6087,6 +6213,15 @@ test_forced_secondmate_archives_descendant_omnigent_sessions() {
   pass "forced secondmate retirement archives descendant Omnigent sessions, best-effort"
 }
 
+if [ "${1:-}" = --kb-candidates ]; then
+  test_kb_candidates_none_or_absent_section_passes
+  test_kb_candidates_unrecorded_refuses_cleanup
+  test_kb_candidates_filed_and_declined_allow_cleanup
+  test_kb_candidates_forwarded_allows_cleanup
+  test_kb_candidates_force_still_discards
+  exit 0
+fi
+
 if [ "${1:-}" = --omnigent ]; then
   test_teardown_archives_the_recorded_omnigent_session
   test_teardown_captures_before_killing_observer
@@ -6183,6 +6318,11 @@ test_forced_secondmate_child_scout_nested_clone_returns_clean
 test_forced_secondmate_dirty_child_return_warns_and_completes
 test_return_that_removes_copy_warns_cannot_verify
 test_scout_ignored_files_survive_scratch_clean
+test_kb_candidates_none_or_absent_section_passes
+test_kb_candidates_unrecorded_refuses_cleanup
+test_kb_candidates_filed_and_declined_allow_cleanup
+test_kb_candidates_forwarded_allows_cleanup
+test_kb_candidates_force_still_discards
 test_gh_error_and_content_absent_refuses
 test_legacy_record_without_the_flag_refuses
 test_windowless_legacy_record_with_gone_worktree_tears_down
