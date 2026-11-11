@@ -2126,7 +2126,9 @@ test_kb_candidates_indented_items_counted_separately() {
   local case_dir rc body output
   case_dir=$(kb_scout_case kb-indented)
   for body in $' - Lesson A\n   continuation of A\n   - Supporting detail\n - Lesson B' \
-    $' 1. Lesson A\n    continuation of A\n 2. Lesson B'; do
+    $' 1. Lesson A\n    continuation of A\n 2. Lesson B' \
+    $' - Lesson A\n- Lesson B' \
+    $'- Lesson A\n - Lesson B'; do
     write_kb_report "$case_dir" "$body"
     output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-indented: list failed"
     [ "$output" = $'1\tunrecorded\tLesson A\n2\tunrecorded\tLesson B' ] \
@@ -2144,6 +2146,42 @@ test_kb_candidates_indented_items_counted_separately() {
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "kb-indented: both recorded candidates should allow cleanup"
   pass "indented list entries count separately while continuation lines stay within an entry"
+}
+
+test_kb_candidates_changed_text_needs_fresh_outcome() {
+  local case_dir rc prefix
+  case_dir=$(kb_scout_case kb-changed)
+  write_kb_report "$case_dir" $'- Original lesson\n  Original continuation'
+  run_kb_candidates "$case_dir" filed task-x1 1 kb-proposal-42 > "$case_dir/record.out" \
+    || fail "kb-changed: recording original candidate failed"
+  write_kb_report "$case_dir" $' 1. Original   lesson\n    Original continuation'
+  rc=0
+  run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-changed: whitespace and list formatting must not change identity"
+  for prefix in 'Replacement lesson' "$(printf '%0170d' 0)"; do
+    write_kb_report "$case_dir" "- $prefix"
+    run_kb_candidates "$case_dir" declined task-x1 1 'Already documented' > "$case_dir/record.out" \
+      || fail "kb-changed: recording candidate failed"
+    write_kb_report "$case_dir" "- $prefix revised"
+    rc=0
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" "kb-changed: replacement candidate must block cleanup"
+    assert_grep 'changed knowledge-base candidates for task-x1: 1 of 1; record a fresh outcome' \
+      "$case_dir/stderr" "kb-changed: refusal did not explain stale outcome"
+  done
+  write_kb_report "$case_dir" $'- Original lesson\n  Revised continuation'
+  run_kb_candidates "$case_dir" filed task-x1 1 kb-proposal-43 > "$case_dir/record.out" \
+    || fail "kb-changed: recording revised continuation failed"
+  write_kb_report "$case_dir" $'- Original lesson\n  Another continuation'
+  rc=0
+  run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" "kb-changed: changing only continuation must block verification"
+  run_kb_candidates "$case_dir" declined task-x1 1 'Already documented' > "$case_dir/record.out" \
+    || fail "kb-changed: recording fresh outcome failed"
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-changed: fresh outcome must allow cleanup"
+  pass "outcomes bind to full normalized candidate text and require renewal after replacement"
 }
 
 test_kb_candidates_unrecorded_refuses_cleanup() {
@@ -6254,6 +6292,7 @@ test_forced_secondmate_archives_descendant_omnigent_sessions() {
 if [ "${1:-}" = --kb-candidates ]; then
   test_kb_candidates_none_or_absent_section_passes
   test_kb_candidates_indented_items_counted_separately
+  test_kb_candidates_changed_text_needs_fresh_outcome
   test_kb_candidates_unrecorded_refuses_cleanup
   test_kb_candidates_filed_and_declined_allow_cleanup
   test_kb_candidates_declined_with_destination_allows_cleanup
@@ -6359,6 +6398,7 @@ test_return_that_removes_copy_warns_cannot_verify
 test_scout_ignored_files_survive_scratch_clean
 test_kb_candidates_none_or_absent_section_passes
 test_kb_candidates_indented_items_counted_separately
+test_kb_candidates_changed_text_needs_fresh_outcome
 test_kb_candidates_unrecorded_refuses_cleanup
 test_kb_candidates_filed_and_declined_allow_cleanup
 test_kb_candidates_declined_with_destination_allows_cleanup

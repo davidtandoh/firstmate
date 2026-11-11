@@ -16,8 +16,9 @@
 #   fm-kb-candidates.sh verify <task-id>
 #
 # Candidates are numbered from 1 in report order. Each top-level list item
-# (`-`, `*`, `+`, or `1.`/`1)`, at the shallowest list indentation) is one candidate;
-# a non-empty section with no such item is one candidate. A section that is
+# (`-`, `*`, `+`, or `1.`/`1)`) is one candidate; continuation lines and
+# nested items belong to that candidate, including when list indentation varies.
+# A non-empty section with no such item is one candidate. A section that is
 # empty, or whose only text starts with the word `none`, lists no candidates,
 # and a task with no report or no such section has nothing to account for.
 #
@@ -27,12 +28,15 @@
 # candidate was handed to another home.
 # A later record for the same candidate replaces the earlier one.
 # Each record is written to the task's metadata (state/<id>.meta, the gate's
-# source) and, when this home's backlog transitions apply, appended as one
+# source) as kb_candidate_<n>=<sha256> <outcome> <value>, where sha256 hashes
+# the full candidate text with list markers removed and whitespace collapsed.
+# A changed candidate needs a fresh outcome.
+# When this home's backlog transitions apply, each outcome is appended as one
 # line to the backlog task note; a manually edited backlog prints that line
 # for the operator to add by hand.
 #
 # `verify` is read-only and is what bin/fm-teardown.sh calls without --force.
-# It exits 0 when every listed candidate has a record and 1 otherwise, naming
+# It exits 0 when every listed candidate has a matching record, or 1, naming
 # each unaccounted candidate and the commands that resolve it.
 # `list` prints each candidate's number, outcome or `unrecorded`, and first line.
 #
@@ -64,20 +68,26 @@ fail() {
   exit 1
 }
 
-# Print each candidate's first line, one per line, in report order.
-candidates() {  # <report>
+candidates() {
   [ -f "$1" ] || return 0
-  awk '
+  awk -v full="${2:-0}" '
+    function normalized(text) {
+      gsub(/[[:space:]]+/, " ", text)
+      sub(/^ /, "", text)
+      sub(/ $/, "", text)
+      return text
+    }
     function flush() {
       if (!in_section) return
       if (count == 0 && first_text != "") {
         probe = tolower(first_text)
         sub(/^[*_`[:space:]]+/, "", probe)
         if (probe ~ /^none([^a-z0-9]|$)/ && lines == 1) return
-        print first_text
+        print (full ? normalized(section_text) : substr(first_text, 1, 160))
         return
       }
-      for (i = 1; i <= count; i++) print items[i]
+      for (i = 1; i <= count; i++)
+        print (full ? normalized(items[i]) : substr(heads[i], 1, 160))
     }
     /^##?[[:space:]]/ {
       if (in_section) { flush(); in_section = 0; done = 1 }
@@ -88,22 +98,24 @@ candidates() {  # <report>
       if ($0 ~ /^[[:space:]]*$/) next
       lines++
       if (first_text == "") first_text = $0
-      if ($0 ~ /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/) {
-        text = $0
+      section_text = section_text " " $0
+      text = $0
+      if (text ~ /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/) {
         match(text, /^[[:space:]]*/)
         indent = RLENGTH
-        if (count == 0 || indent < list_indent) {
-          count = 0
-          list_indent = indent
-        }
-        if (indent == list_indent) {
-          sub(/^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/, "", text)
-          items[++count] = text
+        if (count == 0 || indent < content_indent) {
+          match(text, /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/)
+          content_indent = RLENGTH
+          text = substr(text, content_indent + 1)
+          heads[++count] = text
+          items[count] = text
+          next
         }
       }
+      if (count > 0) items[count] = items[count] " " text
     }
     END { flush() }
-  ' "$1" | cut -c1-160
+  ' "$1"
 }
 
 require_task() {  # <task-id>
@@ -111,6 +123,7 @@ require_task() {  # <task-id>
   META="$STATE/$1.meta"
   REPORT="$DATA/$1/report.md"
   [ -f "$META" ] || fail "task record is absent: $META"
+  CANDIDATE_TEXT=$(candidates "$REPORT" 1)
 }
 
 meta_value() {  # <key>; the last value recorded in the task metadata
@@ -118,11 +131,19 @@ meta_value() {  # <key>; the last value recorded in the task metadata
 }
 
 candidate_count() {
-  candidates "$REPORT" | awk 'END { print NR }'
+  if [ -z "$CANDIDATE_TEXT" ]; then
+    printf '0\n'
+  else
+    printf '%s\n' "$CANDIDATE_TEXT" | awk 'END { print NR }'
+  fi
 }
 
 outcome_of() {  # <n>
-  meta_value "kb_candidate_$1"
+  meta_value "kb_candidate_$1" | cut -d' ' -f2-
+}
+
+candidate_hash() {
+  printf '%s\n' "$CANDIDATE_TEXT" | sed -n "${1}p" | fm_pr_sha256 /dev/stdin
 }
 
 command_list() {
@@ -143,19 +164,30 @@ EOF
 }
 
 command_verify() {
-  local id=$1 total n missing=''
+  local id=$1 total n stored hash missing='' changed=''
   require_task "$id"
   total=$(candidate_count)
   n=1
   while [ "$n" -le "$total" ]; do
     case "$(outcome_of "$n")" in
-      filed\ ?*|declined\ ?*) ;;
+      filed\ ?*|declined\ ?*)
+        stored=$(meta_value "kb_candidate_$n")
+        hash=$(candidate_hash "$n") || fail "could not hash candidate $n"
+        if [ "${stored%% *}" != "$hash" ]; then
+          changed="${changed}${changed:+ }$n"
+        fi
+        ;;
       *) missing="${missing}${missing:+ }$n" ;;
     esac
     n=$((n + 1))
   done
-  if [ -n "$missing" ]; then
-    printf 'unrecorded knowledge-base candidates for %s: %s of %s\n' "$id" "$missing" "$total" >&2
+  if [ -n "$missing$changed" ]; then
+    if [ -n "$missing" ]; then
+      printf 'unrecorded knowledge-base candidates for %s: %s of %s\n' "$id" "$missing" "$total" >&2
+    fi
+    if [ -n "$changed" ]; then
+      printf 'changed knowledge-base candidates for %s: %s of %s; record a fresh outcome\n' "$id" "$changed" "$total" >&2
+    fi
     printf 'See them with bin/fm-kb-candidates.sh list %s, file each as a proposal and record it with bin/fm-kb-candidates.sh filed %s <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined %s <n> "<reason>".\n' \
       "$id" "$id" "$id" >&2
     exit 1
@@ -164,7 +196,7 @@ command_verify() {
 }
 
 command_record() {  # <outcome> <task-id> <n> <value>
-  local outcome=$1 id=$2 n=$3 value=$4 total kind line record lock rc
+  local outcome=$1 id=$2 n=$3 value=$4 total kind line record lock rc hash
   require_task "$id"
   case "$n" in ''|0*|*[!0-9]*) fail "candidate number must be a positive integer: $n" ;; esac
   case "$value" in
@@ -182,7 +214,8 @@ command_record() {  # <outcome> <task-id> <n> <value>
       line="Knowledge-base candidate $n: declined - $value"
       ;;
   esac
-  record="$outcome $value"
+  hash=$(candidate_hash "$n") || fail "could not hash candidate $n"
+  record="$hash $outcome $value"
 
   kind=$(meta_value kind)
   [ -n "$kind" ] || kind=ship
