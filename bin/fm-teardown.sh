@@ -81,6 +81,8 @@
 # declared scratch and the report at data/<task-id>/report.md is the work
 # product. Teardown proceeds only once the report exists and the shared
 # unresolved-decision completion gate verifies its captain-held inventory.
+# Ship and scout tasks whose report lists knowledge-base candidates proceed
+# only once bin/fm-kb-candidates.sh verify finds an outcome recorded for each.
 # A scratch copy (kind=scout) and a --force run discard untracked content.
 # Treehouse's return resets with `git clean -fd`, which never deletes a nested
 # git repository, so the pool slot stays dirty and later checkouts skip it.
@@ -204,8 +206,9 @@
 # leased home and state in place instead of hiding a still-held lease.
 # Usage: fm-teardown.sh <task-id> [--force] [--legacy-record]
 #   --force skips ordinary-task dirty and landed-work checks, skips scout report
-#   checks, and discards secondmate child work for kind=secondmate. Only use it
-#   when the captain has explicitly said to discard the work.
+#   and knowledge-base candidate checks, and discards secondmate child work
+#   for kind=secondmate. Only use it when the captain has explicitly said to
+#   discard the work.
 #   --legacy-record accepts a task record that predates the spawn_gen field:
 #   teardown then proceeds only when the recorded endpoint is confirmed dead or
 #   agent-less (bin/fm-backend.sh's recovery-grade classifier), and without
@@ -3685,6 +3688,18 @@ fi
 
 if [ "$KIND" = secondmate ] && [ "$FORCE" = "--force" ]; then
   cleanup_firstmate_home_children "$HOME_PATH" || exit $?
+fi
+
+# A worker report's knowledge-base candidates are filed by firstmate, never the
+# worker, so cleanup must not retire the task before each has a recorded outcome
+# (bin/fm-kb-candidates.sh owns the record and the check).
+if { [ "$KIND" = ship ] || [ "$KIND" = scout ]; } && [ "$FORCE" != "--force" ]; then
+  if ! KB_CANDIDATE_REFUSAL=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
+      FM_CONFIG_OVERRIDE="$CONFIG" "$SCRIPT_DIR/fm-kb-candidates.sh" verify "$ID" 2>&1 >/dev/null); then
+    echo "REFUSED: task $ID's report lists knowledge-base candidates with no recorded outcome." >&2
+    printf '%s\n' "$KB_CANDIDATE_REFUSAL" >&2
+    exit 1
+  fi
 fi
 
 if [ "$KIND" = scout ] && [ "$FORCE" != "--force" ]; then
