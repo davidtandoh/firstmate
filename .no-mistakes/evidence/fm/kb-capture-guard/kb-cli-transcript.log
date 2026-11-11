@@ -1,0 +1,88 @@
+$ bin/fm-kb-candidates.sh list task-live
+1	unrecorded	Lesson A
+2	unrecorded	Lesson B
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+unrecorded knowledge-base candidates for task-live: 1 2 of 2
+See them with bin/fm-kb-candidates.sh list task-live, file each as a proposal and record it with bin/fm-kb-candidates.sh filed task-live <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined task-live <n> "<reason>".
+exit=1
+$ bin/fm-kb-candidates.sh filed task-live 1 kb-proposal-live-1
+note: the backlog is not updated automatically here (config/backlog-backend selects manual editing); add this line to the task note: Knowledge-base candidate 1: filed as kb-proposal-live-1
+recorded: Knowledge-base candidate 1: filed as kb-proposal-live-1
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+unrecorded knowledge-base candidates for task-live: 2 of 2
+See them with bin/fm-kb-candidates.sh list task-live, file each as a proposal and record it with bin/fm-kb-candidates.sh filed task-live <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined task-live <n> "<reason>".
+exit=1
+$ bin/fm-kb-candidates.sh declined task-live 2 Handed to main home as data/task-live/kb-draft.md
+note: the backlog is not updated automatically here (config/backlog-backend selects manual editing); add this line to the task note: Knowledge-base candidate 2: declined - Handed to main home as data/task-live/kb-draft.md
+recorded: Knowledge-base candidate 2: declined - Handed to main home as data/task-live/kb-draft.md
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (2)
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+1	filed kb-proposal-live-1	Lesson A
+2	declined Handed to main home as data/task-live/kb-draft.md	Lesson B
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+1	changed (needing a fresh outcome)	Lesson A
+2	declined Handed to main home as data/task-live/kb-draft.md	Lesson B
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+changed knowledge-base candidates for task-live: 1 of 2; record a fresh outcome
+See them with bin/fm-kb-candidates.sh list task-live, file each as a proposal and record it with bin/fm-kb-candidates.sh filed task-live <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined task-live <n> "<reason>".
+exit=1
+$ bin/fm-kb-candidates.sh declined task-live 1 Already documented in project docs
+note: the backlog is not updated automatically here (config/backlog-backend selects manual editing); add this line to the task note: Knowledge-base candidate 1: declined - Already documented in project docs
+recorded: Knowledge-base candidate 1: declined - Already documented in project docs
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (2)
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+1	changed (needing a fresh outcome)	Replacement lesson
+2	declined Handed to main home as data/task-live/kb-draft.md	Lesson B
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+changed knowledge-base candidates for task-live: 1 of 2; record a fresh outcome
+See them with bin/fm-kb-candidates.sh list task-live, file each as a proposal and record it with bin/fm-kb-candidates.sh filed task-live <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined task-live <n> "<reason>".
+exit=1
+$ bin/fm-kb-candidates.sh forwarded task-live 1 draft.md
+Usage:
+  fm-kb-candidates.sh list <task-id>
+  fm-kb-candidates.sh filed <task-id> <n> <proposal-id-or-file>
+  fm-kb-candidates.sh declined <task-id> <n> <reason>
+  fm-kb-candidates.sh verify <task-id>
+exit=2
+$ bin/fm-kb-candidates.sh declined task-live 1 
+error: the declined value is empty
+exit=1
+$ bin/fm-kb-candidates.sh declined task-live 3 No such candidate
+error: report for task-live lists 2 knowledge-base candidate(s); there is no candidate 3
+exit=1
+$ bin/fm-kb-candidates.sh list task-live
+no knowledge-base candidates listed for task-live
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (0)
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+no knowledge-base candidates listed for task-live
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (0)
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+no knowledge-base candidates listed for task-live
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (0)
+exit=0
+$ bin/fm-kb-candidates.sh list task-live
+no knowledge-base candidates listed for task-live
+exit=0
+$ bin/fm-kb-candidates.sh verify task-live
+verified: task-live knowledge-base candidates accounted for (0)
+exit=0
+PASS: direct CLI scenarios completed without stubs; manual backlog mode; no remote proposal service invoked.
