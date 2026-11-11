@@ -13,21 +13,18 @@
 #   fm-kb-candidates.sh list <task-id>
 #   fm-kb-candidates.sh filed <task-id> <n> <proposal-id-or-file>
 #   fm-kb-candidates.sh declined <task-id> <n> <reason>
-#   fm-kb-candidates.sh forwarded <task-id> <n> <draft-path>
 #   fm-kb-candidates.sh verify <task-id>
 #
 # Candidates are numbered from 1 in report order. Each top-level list item
-# (`-`, `*`, `+`, or `1.`/`1)` at column 0) in the section is one candidate;
+# (`-`, `*`, `+`, or `1.`/`1)`, at the shallowest list indentation) is one candidate;
 # a non-empty section with no such item is one candidate. A section that is
 # empty, or whose only text starts with the word `none`, lists no candidates,
 # and a task with no report or no such section has nothing to account for.
 #
 # `filed` records the proposal id the home's capture flow returned, or the
 # one-word file a home without that flow routed the candidate to.
-# `declined` records a one-line reason the candidate is not worth capturing.
-# `forwarded` is for a home whose capture flow cannot reach the main knowledge
-# base, such as a remote secondmate: it records an existing draft file that
-# carries the candidate to the main home, which files it from there.
+# `declined` records a one-line reason, including the destination when the
+# candidate was handed to another home.
 # A later record for the same candidate replaces the earlier one.
 # Each record is written to the task's metadata (state/<id>.meta, the gate's
 # source) and, when this home's backlog transitions apply, appended as one
@@ -40,7 +37,7 @@
 # `list` prints each candidate's number, outcome or `unrecorded`, and first line.
 #
 # Exit codes: 0 success; 1 refusal or verification failure; 2 invalid usage.
-set -eu
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -59,7 +56,7 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 
 usage() {
-  sed -n '12,17p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '12,16p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 fail() {
@@ -91,10 +88,18 @@ candidates() {  # <report>
       if ($0 ~ /^[[:space:]]*$/) next
       lines++
       if (first_text == "") first_text = $0
-      if ($0 ~ /^([-*+]|[0-9]+[.)])[[:space:]]+/) {
+      if ($0 ~ /^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/) {
         text = $0
-        sub(/^([-*+]|[0-9]+[.)])[[:space:]]+/, "", text)
-        items[++count] = text
+        match(text, /^[[:space:]]*/)
+        indent = RLENGTH
+        if (count == 0 || indent < list_indent) {
+          count = 0
+          list_indent = indent
+        }
+        if (indent == list_indent) {
+          sub(/^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+/, "", text)
+          items[++count] = text
+        }
       }
     }
     END { flush() }
@@ -121,16 +126,20 @@ outcome_of() {  # <n>
 }
 
 command_list() {
-  local id=$1 n=0 text outcome
+  local id=$1 n=0 text outcome extracted
   require_task "$id"
+  extracted=$(candidates "$REPORT")
+  if [ -z "$extracted" ]; then
+    printf 'no knowledge-base candidates listed for %s\n' "$id"
+    return 0
+  fi
   while IFS= read -r text; do
     n=$((n + 1))
     outcome=$(outcome_of "$n")
     printf '%s\t%s\t%s\n' "$n" "${outcome:-unrecorded}" "$text"
   done <<EOF
-$(candidates "$REPORT")
+$extracted
 EOF
-  [ "$n" -gt 0 ] || printf 'no knowledge-base candidates listed for %s\n' "$id"
 }
 
 command_verify() {
@@ -139,13 +148,16 @@ command_verify() {
   total=$(candidate_count)
   n=1
   while [ "$n" -le "$total" ]; do
-    [ -n "$(outcome_of "$n")" ] || missing="${missing}${missing:+ }$n"
+    case "$(outcome_of "$n")" in
+      filed\ ?*|declined\ ?*) ;;
+      *) missing="${missing}${missing:+ }$n" ;;
+    esac
     n=$((n + 1))
   done
   if [ -n "$missing" ]; then
     printf 'unrecorded knowledge-base candidates for %s: %s of %s\n' "$id" "$missing" "$total" >&2
-    printf 'See them with bin/fm-kb-candidates.sh list %s, file each as a proposal and record it with bin/fm-kb-candidates.sh filed %s <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined %s <n> "<reason>" (forwarded %s <n> <draft-path> where the main knowledge base is out of reach).\n' \
-      "$id" "$id" "$id" "$id" >&2
+    printf 'See them with bin/fm-kb-candidates.sh list %s, file each as a proposal and record it with bin/fm-kb-candidates.sh filed %s <n> <proposal-id-or-file>, or record bin/fm-kb-candidates.sh declined %s <n> "<reason>".\n' \
+      "$id" "$id" "$id" >&2
     exit 1
   fi
   printf 'verified: %s knowledge-base candidates accounted for (%s)\n' "$id" "$total"
@@ -168,11 +180,6 @@ command_record() {  # <outcome> <task-id> <n> <value>
       ;;
     declined)
       line="Knowledge-base candidate $n: declined - $value"
-      ;;
-    forwarded)
-      case "$value" in /*) ;; *) fail "draft path must be absolute: $value" ;; esac
-      [ -f "$value" ] || fail "draft file does not exist: $value"
-      line="Knowledge-base candidate $n: forwarded to main as draft $value"
       ;;
   esac
   record="$outcome $value"
@@ -212,7 +219,7 @@ case "$1" in
     [ "$#" -eq 2 ] || { usage >&2; exit 2; }
     "command_$1" "$2"
     ;;
-  filed|declined|forwarded)
+  filed|declined)
     [ "$#" -eq 4 ] || { usage >&2; exit 2; }
     command_record "$1" "$2" "$3" "$4"
     ;;

@@ -68,7 +68,7 @@
 #   (kb1) report says none, or no report                      -> ALLOW
 #   (kb2) scout or ship with unrecorded candidates            -> REFUSE, names remedy
 #   (kb3) candidates filed or declined                        -> ALLOW, note lines recorded
-#   (kb4) candidate forwarded to main with an existing draft  -> ALLOW
+#   (kb4) candidate declined with a destination              -> ALLOW
 #   (kb5) unrecorded candidates + --force                     -> ALLOW (discard path)
 set -u
 
@@ -2099,20 +2099,51 @@ kb_scout_case() {  # <name>; a scout ready for cleanup apart from its candidates
 }
 
 test_kb_candidates_none_or_absent_section_passes() {
-  local case_dir rc
+  local case_dir rc body output
   case_dir=$(kb_scout_case kb-none)
+  for body in 'None - nothing reusable came out of this task.' '' absent-section missing-report; do
+    write_kb_report "$case_dir" "$body"
+    case "$body" in
+      absent-section) printf '# Report\n\nFindings.\n' > "$case_dir/data/task-x1/report.md" ;;
+      missing-report) rm "$case_dir/data/task-x1/report.md" ;;
+    esac
+    output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-none: list failed for $body"
+    [ "$output" = 'no knowledge-base candidates listed for task-x1' ] \
+      || fail "kb-none: unexpected list output for $body: $output"
+    rc=0
+    run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 0 "$rc" "kb-none: verify failed for $body"
+  done
   write_kb_report "$case_dir" 'None - nothing reusable came out of this task.'
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "kb-none: a report saying none should not block cleanup"
   assert_absent "$case_dir/state/task-x1.meta" "kb-none: task record was not removed"
+  pass "empty or absent candidate sections list nothing and pass verification"
+}
 
-  case_dir=$(make_case kb-no-report)
-  write_meta "$case_dir" no-mistakes ship
+test_kb_candidates_indented_items_counted_separately() {
+  local case_dir rc body output
+  case_dir=$(kb_scout_case kb-indented)
+  for body in $' - Lesson A\n   continuation of A\n   - Supporting detail\n - Lesson B' \
+    $' 1. Lesson A\n    continuation of A\n 2. Lesson B'; do
+    write_kb_report "$case_dir" "$body"
+    output=$(run_kb_candidates "$case_dir" list task-x1) || fail "kb-indented: list failed"
+    [ "$output" = $'1\tunrecorded\tLesson A\n2\tunrecorded\tLesson B' ] \
+      || fail "kb-indented: expected two candidates, got: $output"
+  done
+  run_kb_candidates "$case_dir" declined task-x1 1 'Already documented' > "$case_dir/record.out" \
+    || fail "kb-indented: recording candidate 1 failed"
   rc=0
-  run_kb_candidates "$case_dir" verify task-x1 > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  expect_code 0 "$rc" "kb-no-report: a task without a report should have nothing to account for"
-  pass "a report saying none, or no report at all, passes the knowledge-base candidate check"
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" "kb-indented: unresolved candidate 2 must block cleanup"
+  assert_grep ': 2 of 2' "$case_dir/stderr" "kb-indented: candidate 2 was not counted"
+  run_kb_candidates "$case_dir" declined task-x1 2 'Already documented' >> "$case_dir/record.out" \
+    || fail "kb-indented: recording candidate 2 failed"
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-indented: both recorded candidates should allow cleanup"
+  pass "indented list entries count separately while continuation lines stay within an entry"
 }
 
 test_kb_candidates_unrecorded_refuses_cleanup() {
@@ -2164,20 +2195,27 @@ test_kb_candidates_filed_and_declined_allow_cleanup() {
   pass "candidates filed as proposals or declined with a reason allow cleanup and land on the task note"
 }
 
-test_kb_candidates_forwarded_allows_cleanup() {
+test_kb_candidates_declined_with_destination_allows_cleanup() {
   local case_dir rc
-  case_dir=$(kb_scout_case kb-forwarded)
+  case_dir=$(kb_scout_case kb-destination)
+  seed_backlog_in_flight "$case_dir" scout
   write_kb_report "$case_dir" '- A lesson the main knowledge base should hold'
-  rc=0
-  run_kb_candidates "$case_dir" forwarded task-x1 1 "$case_dir/data/missing-draft.md" > /dev/null 2>&1 || rc=$?
-  expect_code 1 "$rc" "kb-forwarded: forwarding a missing draft should fail"
   printf '%s\n' 'Draft for the main home.' > "$case_dir/data/task-x1/kb-draft.md"
-  run_kb_candidates "$case_dir" forwarded task-x1 1 "$case_dir/data/task-x1/kb-draft.md" > "$case_dir/record.out" \
-    || fail "kb-forwarded: forwarding an existing draft failed"
+  rc=0
+  run_kb_candidates "$case_dir" forwarded task-x1 1 "$case_dir/data/task-x1/kb-draft.md" > /dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "kb-destination: forwarded must not be an accepted command"
+  printf 'kb_candidate_1=forwarded %s\n' "$case_dir/data/task-x1/kb-draft.md" >> "$case_dir/state/task-x1.meta"
   rc=0
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  expect_code 0 "$rc" "kb-forwarded: a candidate forwarded to main should allow cleanup"
-  pass "a candidate forwarded to the main home with its draft allows cleanup"
+  expect_code 1 "$rc" "kb-destination: a forwarded record must not allow cleanup"
+  run_kb_candidates "$case_dir" declined task-x1 1 'Handed to main home as data/task-x1/kb-draft.md' \
+    > "$case_dir/record.out" || fail "kb-destination: declining with a destination failed"
+  assert_grep 'Knowledge-base candidate 1: declined - Handed to main home as data/task-x1/kb-draft.md' \
+    "$case_dir/data/backlog.md" "kb-destination: destination did not reach the task note"
+  rc=0
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "kb-destination: declining with a destination should allow cleanup"
+  pass "a handoff requires a decline reason naming its destination before cleanup"
 }
 
 test_kb_candidates_force_still_discards() {
@@ -6215,9 +6253,10 @@ test_forced_secondmate_archives_descendant_omnigent_sessions() {
 
 if [ "${1:-}" = --kb-candidates ]; then
   test_kb_candidates_none_or_absent_section_passes
+  test_kb_candidates_indented_items_counted_separately
   test_kb_candidates_unrecorded_refuses_cleanup
   test_kb_candidates_filed_and_declined_allow_cleanup
-  test_kb_candidates_forwarded_allows_cleanup
+  test_kb_candidates_declined_with_destination_allows_cleanup
   test_kb_candidates_force_still_discards
   exit 0
 fi
@@ -6319,9 +6358,10 @@ test_forced_secondmate_dirty_child_return_warns_and_completes
 test_return_that_removes_copy_warns_cannot_verify
 test_scout_ignored_files_survive_scratch_clean
 test_kb_candidates_none_or_absent_section_passes
+test_kb_candidates_indented_items_counted_separately
 test_kb_candidates_unrecorded_refuses_cleanup
 test_kb_candidates_filed_and_declined_allow_cleanup
-test_kb_candidates_forwarded_allows_cleanup
+test_kb_candidates_declined_with_destination_allows_cleanup
 test_kb_candidates_force_still_discards
 test_gh_error_and_content_absent_refuses
 test_legacy_record_without_the_flag_refuses
