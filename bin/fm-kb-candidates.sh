@@ -19,7 +19,7 @@
 # (`-`, `*`, `+`, or `1.`/`1)`) is one candidate; continuation lines and
 # nested items belong to that candidate, including when list indentation varies.
 # A non-empty section with no such item is one candidate. A section that is
-# empty, or whose only text starts with the word `none`, lists no candidates,
+# empty, or whose only non-empty line starts with the word `none`, lists no candidates,
 # and a task with no report or no such section has nothing to account for.
 #
 # `filed` records the proposal id the home's capture flow returned, or the
@@ -29,7 +29,7 @@
 # A later record for the same candidate replaces the earlier one.
 # Each record is written to the task's metadata (state/<id>.meta, the gate's
 # source) as kb_candidate_<n>=<sha256> <outcome> <value>, where sha256 hashes
-# the full candidate text with list markers removed and whitespace collapsed.
+# the full candidate text with its outer list marker removed and whitespace collapsed.
 # A changed candidate needs a fresh outcome.
 # When this home's backlog transitions apply, each outcome is appended as one
 # line to the backlog task note; a manually edited backlog prints that line
