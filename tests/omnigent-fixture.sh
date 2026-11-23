@@ -54,6 +54,16 @@ if '/v1/hosts/' in url:
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
+# A loaded server: only the first session request is slow (beyond the old
+# 5-second limit) or fails; later requests answer normally.
+if mode in ('slow-first', 'fail-first'):
+    marker = service / 'first-request.done'
+    if not marker.exists():
+        marker.write_text('')
+        if mode == 'fail-first':
+            sys.exit(28)
+        time.sleep(7)
+    mode = ''
 if mode == 'http-error':
     sys.exit(22)
 if mode == 'slow':

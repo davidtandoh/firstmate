@@ -35,7 +35,7 @@ The managed service's session list had 24 sessions and none titled `home · wrap
 ## Launch-title verification
 
 The deterministic launch-title regression runs with `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh`.
-Its isolated CLI and API fixtures verify role titles, Unicode, exact-session targeting, launch/GET/PATCH ordering, rejected identities, bounded failures, stderr bytes, foreground exec identity, signals, and native exit status.
+Its isolated CLI and API fixtures verify role titles, Unicode, exact-session targeting, launch/GET/PATCH ordering, rejected identities, bounded failures, retry after a slow or failed first response, the unnamed-session status event and cleanup fallback, stderr bytes, foreground exec identity, signals, and native exit status.
 Remote launch and recovery propagation run with `bash bin/fm-test-run.sh tests/fm-remote-secondmate-trace-context.test.sh`.
 These are fixture results, not empirical proof of the vendor's rendered session record.
 

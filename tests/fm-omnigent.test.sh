@@ -280,7 +280,7 @@ wait_title() {
   done
   fail 'launch did not PATCH its session title'
 }
-reset_title() { rm -f "$TMP_ROOT/serve/title.json" "$TMP_ROOT/serve/requests.jsonl"; }
+reset_title() { rm -f "$TMP_ROOT/serve/title.json" "$TMP_ROOT/serve/requests.jsonl" "$TMP_ROOT/serve/first-request.done"; }
 if [ "${1:-}" != --claude-accounts ]; then
 for harness in claude codex; do
   reset_title
@@ -324,7 +324,8 @@ pass 'main, every wrapped worker, and secondmate primary receive exact role titl
 for title_mode in http-error wrong-id wrong-harness old-session wrong-title invalid-json oversized slow; do
   reset_title
   rc=0
-  OMNI_TITLE_MODE=$title_mode OMNI_EXIT=37 "$OMNI" start codex 2> "$TMP_ROOT/title-error" || rc=$?
+  FM_TEST_OMNIGENT_NAMING_BUDGET=6 OMNI_TITLE_MODE=$title_mode OMNI_EXIT=37 \
+    "$OMNI" start codex 2> "$TMP_ROOT/title-error" || rc=$?
   [ "$rc" = 37 ] || fail 'naming changed native exit status'
   for _ in $(seq 1 160); do
     if grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error"; then break; fi
@@ -348,6 +349,19 @@ for record_mode in missing wrong-server malformed; do
     "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail "$record_mode issued a session API request without launch identity"
 done
 pass 'naming fails visibly within bounds and preserves the native launch exit status'
+
+# A loaded server delays or drops the first request; naming still completes.
+for title_mode in slow-first fail-first; do
+  reset_title
+  OMNI_TITLE_MODE=$title_mode "$OMNI" start codex 2> "$TMP_ROOT/title-error"
+  for _ in $(seq 1 300); do [ ! -f "$TMP_ROOT/serve/title.json" ] || break; sleep 0.1; done
+  jq -e '.title == "firstmate"' "$TMP_ROOT/serve/title.json" >/dev/null 2>&1 \
+    || fail "$title_mode server left the session unnamed: $(cat "$TMP_ROOT/title-error")"
+  ! grep -q 'error: Omnigent session title:' "$TMP_ROOT/title-error" || fail "$title_mode reported a naming failure"
+done
+jq -se '[.[] | select(.method == "GET" and (.url | contains("/v1/sessions/")))] | length == 2' \
+  "$TMP_ROOT/serve/requests.jsonl" >/dev/null || fail 'failed first naming GET was not retried exactly once'
+pass 'naming outlasts a slow first response and retries a failed one'
 
 reset_title
 OMNI_RECORD_MODE=fragmented OMNI_STDOUT_RECORD=1 "$OMNI" start codex > "$TMP_ROOT/native-stdout" 2> "$TMP_ROOT/title-error"
@@ -549,6 +563,55 @@ rm -f "$TMP_ROOT/serve/requests.jsonl"
 if "$OMNI" archive "$binding_home/forged.meta" > "$TMP_ROOT/out" 2>&1; then fail 'malformed recorded session was archived'; fi
 [ ! -e "$TMP_ROOT/serve/requests.jsonl" ] || fail 'malformed recorded session reached the service'
 pass 'archive PATCHes only the recorded session and reports failure without blocking'
+
+# A spawn-bound launch whose identity GET never answers keeps its own Web UI
+# session for cleanup and reports the unnamed session in the task status log.
+unnamed_launch() { # <task> <title mode>
+  printf 'harness=codex\nomnigent=on\nspawn_gen=s3.3.3\n' > "$binding_home/$1.meta"
+  rm -f "$binding_home/$1.status"
+  reset_title
+  FM_TEST_OMNIGENT_NAMING_BUDGET=6 OMNI_TITLE_MODE=$2 FM_OMNIGENT_RECORD_META="$binding_home/$1.meta" \
+    FM_OMNIGENT_RECORD_GEN=s3.3.3 FM_OMNIGENT_HOME_ID="$home_hash" FM_OMNIGENT_TASK="$1" \
+    FM_HOME="$TMP_ROOT/worker-home" FM_TASK_ID="$1" "$OMNI" run codex 'unnamed' 2> "$TMP_ROOT/title-error"
+  for _ in $(seq 1 100); do [ ! -s "$binding_home/$1.status" ] || break; sleep 0.1; done
+  grep -Eq '^omnigent-unnamed \[at=[0-9]+\]: Omnigent session a{32} is unnamed: ' "$binding_home/$1.status" \
+    || fail "$2 naming failure was not reported in the task status log"
+}
+unnamed_launch unnamed http-error
+grep -qx "omnigent_unnamed=$(printf 'a%.0s' $(seq 1 32)) http://127.0.0.1:6767 codex-native-ui [0-9]* -" "$binding_home/unnamed.meta" \
+  || fail 'unanswered identity GET did not keep the launch session for cleanup'
+[ -z "$(sed -n 's/^omnigent_session=//p' "$binding_home/unnamed.meta")" ] || fail 'unverified session became the recorded binding'
+grep -q 'cleanup verifies and archives it' "$binding_home/unnamed.status" || fail 'status omitted the cleanup fallback'
+unnamed_launch refuted wrong-harness
+! grep -q '^omnigent_unnamed=' "$binding_home/refuted.meta" || fail 'refuted session was kept for cleanup'
+cp "$binding_home/unnamed.meta" "$binding_home/unnamed.kept"
+
+"$OMNI" archive --dry-run "$binding_home/unnamed.meta" > "$TMP_ROOT/out"
+grep -qx "would verify and archive unnamed Omnigent session http://127.0.0.1:6767/v1/sessions/$(printf 'a%.0s' $(seq 1 32))" "$TMP_ROOT/out" \
+  || fail 'unnamed archive preview omitted its target'
+rm -f "$TMP_ROOT/serve/archived.jsonl" "$TMP_ROOT/serve/requests.jsonl"
+rc=0
+FM_TEST_OMNIGENT_UNNAMED_POLL=0 "$OMNI" archive "$binding_home/unnamed.meta" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error" || rc=$?
+{ [ "$rc" = 1 ] && grep -q 'not proven to be this stopped launch' "$TMP_ROOT/error"; } || fail 'unnamed session with an online runner was not refused'
+[ ! -e "$TMP_ROOT/serve/archived.jsonl" ] || fail 'unnamed session with an online runner was archived'
+jq -se 'length == 6 and all(.[]; .method == "GET")' "$TMP_ROOT/serve/requests.jsonl" >/dev/null \
+  || fail 'online-runner wait was not bounded to six reads'
+cp "$binding_home/unnamed.kept" "$binding_home/unnamed.meta"
+rm -f "$TMP_ROOT/serve/archived.jsonl"
+OMNI_SESSION_STATE=runner-gone "$OMNI" archive "$binding_home/unnamed.meta" > "$TMP_ROOT/out"
+jq -se --arg id "$(printf 'a%.0s' $(seq 1 32))" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
+  "$TMP_ROOT/serve/archived.jsonl" >/dev/null || fail 'verified stopped unnamed session was not archived'
+cp "$binding_home/unnamed.kept" "$binding_home/unnamed.meta"
+cp "$OMNI_RESULT" "$TMP_ROOT/result.kept"
+printf '{"argv":["claude"]}\n' > "$OMNI_RESULT"
+rm -f "$TMP_ROOT/serve/archived.jsonl"
+rc=0
+OMNI_SESSION_STATE=runner-gone "$OMNI" archive "$binding_home/unnamed.meta" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error" || rc=$?
+{ [ "$rc" = 1 ] && [ ! -e "$TMP_ROOT/serve/archived.jsonl" ]; } || fail 'unnamed session from another wrapper was archived'
+mv "$TMP_ROOT/result.kept" "$OMNI_RESULT"
+sed 's/ codex-native-ui / codex-native-ui extra /' "$binding_home/unnamed.kept" > "$binding_home/unnamed.meta"
+if "$OMNI" archive "$binding_home/unnamed.meta" > "$TMP_ROOT/out" 2>&1; then fail 'malformed unnamed session was accepted'; fi
+pass 'an unanswered naming call keeps its own session, and cleanup archives it only once proven stopped'
 
 if OMNI_HEALTH=down "$OMNI" check codex > "$TMP_ROOT/error" 2>&1; then fail 'unreachable server accepted'; fi
 printf '{"status":"stopped","reason":"not_started"}\n' > "$OMNI_STATUS"

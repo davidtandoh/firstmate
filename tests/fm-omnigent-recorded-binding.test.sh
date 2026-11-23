@@ -93,7 +93,7 @@ for server in https://omnigent.example.ts.net http://127.0.0.1:6767; do
   observer=$!
   pending="$FM_HOME/state/parent-route/.mate.omnigent.s.binding.1.meta"
   for ((attempt=0; attempt<100; attempt++)); do
-    [ ! -f "$pending" ] || break
+    [ -z "$(fm_meta_get "$pending" omnigent_session)" ] || break
     sleep 0.05
   done
   [ -f "$pending" ] || fail 'observer did not publish a session handoff'
@@ -108,3 +108,47 @@ for server in https://omnigent.example.ts.net http://127.0.0.1:6767; do
   observer=
 done
 pass 'locked capture consumes remote and local observer handoffs without a request binding'
+
+for mode in slow wrong-harness; do
+  printf 'spawn_gen=s.binding.2\nomnigent=on\n' > "$meta"
+  lock=$(fm_meta_lock_path "$meta")
+  fm_lock_acquire_wait "$lock"
+  OMNI_TITLE_MODE=$mode FM_TEST_OMNIGENT_NAMING_BUDGET=6 \
+    FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=s.binding.2 \
+    bash "$ROOT/bin/fm-omnigent.sh" _title-session http://127.0.0.1:6767 \
+      aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa claude title 1 > "$TMP_ROOT/title-out" 2> "$TMP_ROOT/title-error" &
+  observer=$!
+  pending="$FM_HOME/state/parent-route/.mate.omnigent.s.binding.2.meta"
+  for ((attempt=0; attempt<100; attempt++)); do
+    [ ! -f "$pending" ] || break
+    sleep 0.01
+  done
+  [ -f "$pending" ] || fail 'observer did not publish before the identity GET'
+  bash "$ROOT/bin/fm-omnigent.sh" capture --record-locked "$meta"
+  [ -n "$(fm_meta_get "$meta" omnigent_unnamed)" ] || fail 'capture lost the unverified launch'
+  [ -z "$(fm_meta_get "$meta" omnigent_session)" ] || fail 'capture promoted an unverified identity'
+  [ "$(bash "$ROOT/bin/fm-omnigent.sh" probe "$meta")" = unknown ] || fail 'probe used an unverified identity'
+  if [ "$mode" = slow ]; then
+    OMNI_SESSION_STATE=runner-gone bash "$ROOT/bin/fm-omnigent.sh" archive --record-locked "$meta" > "$TMP_ROOT/archive-out"
+    jq -se 'length == 1 and .[0].body == {archived:true}' "$TMP_ROOT/service/archived.jsonl" >/dev/null \
+      || fail 'early retirement leaked the Claude session'
+  fi
+  fm_lock_release "$lock"
+  if wait "$observer"; then fail 'failed naming unexpectedly succeeded'; fi
+  observer=
+  if [ "$mode" = wrong-harness ]; then
+    [ -z "$(fm_meta_get "$meta" omnigent_unnamed)" ] || fail 'refuted identity remained in the task record'
+    [ ! -e "$pending" ] || fail 'refuted identity remained in the handoff'
+  fi
+done
+pass 'early retirement verifies the Claude fallback and refutation removes captured identities'
+for wrapper in claude-code codex kiro antigravity unsupported claude; do
+  printf 'omnigent_unnamed=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa http://127.0.0.1:6767 %s-native-ui 1 -\n' "$wrapper" > "$meta"
+  rc=0
+  bash "$ROOT/bin/fm-omnigent.sh" archive --dry-run "$meta" > "$TMP_ROOT/out" 2> "$TMP_ROOT/error" || rc=$?
+  case "$wrapper" in
+    unsupported|claude) [ "$rc" = 1 ] || fail "unsupported wrapper accepted: $wrapper" ;;
+    *) [ "$rc" = 0 ] || fail "supported wrapper rejected: $wrapper" ;;
+  esac
+done
+pass 'fallback accepts exactly the four supported native wrappers'
