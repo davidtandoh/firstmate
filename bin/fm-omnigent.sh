@@ -48,9 +48,23 @@
 # the server. A failed preflight or launch never falls back to the native CLI.
 # --dry-run prints the resolved executable and service paths without launch.
 # Session title roles and safety boundaries: docs/omnigent.md#session-titles.
-# Record wait: 180 seconds; each HTTP request: 5 seconds within a 6-second
-# process bound; naming and archive responses are limited to 128 KiB of JSON.
-# No naming retry or session backfill.
+# Record wait: 180 seconds. Naming shares one 170-second budget: the identity
+# GET retries until a third of it has passed and the PATCH until it ends, each
+# attempt allowed up to 15 seconds (16-second process bound) with 1, 2, 4, then
+# 8-second backoff; the record lock wait (at most 150 seconds) leaves a sixth
+# of the budget for the PATCH. Other HTTP requests allow 5 seconds within a
+# 6-second process bound and are not retried. Naming and archive responses are
+# limited to 128 KiB of JSON. FM_TEST_OMNIGENT_NAMING_BUDGET (6-170, only with
+# FM_TEST_SEAM=1) shortens the budget for tests.
+# A spawn-bound naming failure appends one omnigent-unnamed: event to the task's
+# status log. When the identity GET never answered, the launch's own Web UI
+# session is kept as omnigent_unnamed=<session> <server> <wrapper> <launch
+# epoch> <host or -> in the task record, under the record lock and generation
+# check; archive then GETs that session and archives it only when it reports the
+# same id, wrapper, host, a creation time at or after the launch and an offline
+# runner, polling up to six GETs 3 seconds apart (FM_TEST_OMNIGENT_UNNAMED_POLL,
+# 0-3 with FM_TEST_SEAM=1) for the runner to stop after the endpoint closed.
+# A session whose identity was refuted is never kept.
 # Full preflight shares a 50-second external-command budget (status 20s, readiness
 # and capability whatever remains, health 5s, Claude account lookup 10s).
 # Remote-server mode replaces status/readiness with host identity (10s) and
@@ -70,7 +84,8 @@
 # itself, using the same recorded-server check as the task record.
 # archive PATCHes {"archived":true} for the recorded session only, never
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
-# without a recorded session. Callers archive only a proven-stopped worker.
+# without a recorded or verified unnamed session. Callers archive only a
+# proven-stopped worker.
 # probe prints alive, dead or unknown for the recorded session from one bounded
 # GET of /health and one of /v1/sessions/<id>.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
@@ -111,12 +126,12 @@ fail() {
 title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
 
 session_request() { # <GET|PATCH> [JSON body]; sets REQUEST_RESULT or REQUEST_ERROR
-  local rc=0
+  local rc=0 limit=${REQUEST_LIMIT:-5}
   local LC_ALL=C
-  local args=(--silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http,https' --request "$1")
+  local args=(--silent --show-error --fail --max-time "$limit" --noproxy '*' --proto '=http,https' --request "$1")
   [ "$#" -lt 2 ] || args+=(--header 'Content-Type: application/json' --data "$2")
   REQUEST_ERROR=
-  REQUEST_RESULT=$(fm_run_timed 6 curl "${args[@]}" \
+  REQUEST_RESULT=$(fm_run_timed "$((limit + 1))" curl "${args[@]}" \
     "${SERVER%/}/v1/sessions/$SESSION_ID" | head -c 131073) || rc=$?
   if [ "$rc" != 0 ]; then REQUEST_ERROR="session $SESSION_ID: $1 failed (exit $rc)"; return 1; fi
   if [ "${#REQUEST_RESULT}" -gt 131072 ]; then REQUEST_ERROR="session $SESSION_ID: oversized $1 response"; return 1; fi
@@ -124,10 +139,109 @@ session_request() { # <GET|PATCH> [JSON body]; sets REQUEST_RESULT or REQUEST_ER
     || { REQUEST_ERROR="session $SESSION_ID: invalid $1 response"; return 1; }
 }
 
+# Does REQUEST_RESULT describe this launch's session: same id and wrapper, created
+# at or after the launch, and (for a remote-server launch) on the registered host?
+session_is_launch() { # <wrapper> <launch epoch> <host id or empty> [extra jq condition]
+  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$1" --argjson started "$2" \
+    --arg host "$3" '
+    .id == $id and .labels["omnigent.wrapper"] == $wrapper and
+    (.created_at | type == "number" and . >= $started) and
+    ($host == "" or (.host_id | type == "string" and (ascii_downcase | gsub("-"; "")) == $host)) and
+    '"${4:-true}" >/dev/null 2>&1
+}
+
+# Naming request retried with backoff until <deadline> (a SECONDS value). Each
+# attempt gets up to 15 seconds, never past the deadline. The title and label
+# PATCH is idempotent, so a retry after a lost response is harmless.
+naming_request() { # <deadline> <GET|PATCH> [JSON body]
+  local deadline=$1 delay=1 REQUEST_LIMIT
+  shift
+  while :; do
+    REQUEST_LIMIT=$((deadline - SECONDS))
+    [ "$REQUEST_LIMIT" -le 15 ] || REQUEST_LIMIT=15
+    if [ "$REQUEST_LIMIT" -lt 1 ]; then
+      REQUEST_ERROR="${REQUEST_ERROR:-session $SESSION_ID: $1 not attempted}; naming budget spent"
+      return 1
+    fi
+    session_request "$@" && return 0
+    [ $((SECONDS + delay)) -lt "$deadline" ] || { REQUEST_ERROR="$REQUEST_ERROR; naming budget spent"; return 1; }
+    sleep "$delay"
+    [ "$delay" -ge 8 ] || delay=$((delay * 2))
+  done
+}
+
+# Report a spawn-bound naming failure to the task's status log, and keep this
+# launch's own session for cleanup when its identity was never refuted.
+# Always exits 1 like title_fail.
+naming_failed() { # <keep-session: 0|1> <message>
+  local keep=$1 message=$2 meta=${FM_OMNIGENT_RECORD_META:-} status
+  printf 'error: Omnigent session title: %s\n' "$message" >&2
+  [ -n "$meta" ] || exit 1
+  [[ "$meta" == /*.meta ]] || exit 1
+  if [ "$keep" = 1 ]; then
+    record_unnamed "$meta" "${FM_OMNIGENT_RECORD_GEN:-}" || keep=0
+  fi
+  status="${meta%.meta}.status"
+  if [ "$keep" = 1 ]; then
+    message="$message; cleanup verifies and archives it"
+  fi
+  printf 'omnigent-unnamed [at=%s]: Omnigent session %s is unnamed: %s\n' \
+    "$(date +%s)" "$SESSION_ID" "$message" >> "$status" 2>/dev/null || true
+  exit 1
+}
+
+# Keep this launch's unverified session in its task record, under the record
+# lock and only while the record names this generation and has no binding.
+record_unnamed() { # <absolute task meta> <spawn generation>
+  local meta=$1 gen=$2 wait=$((NAMING_FINAL - SECONDS)) dir base
+  [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || return 1
+  [ "$wait" -ge 1 ] || wait=1
+  fm_dirname_to dir "$meta"
+  fm_basename_to base "$meta"
+  local -x FM_STATE_OVERRIDE="$dir"
+  (
+    local lock tmp status=0
+    # shellcheck source=bin/fm-wake-lib.sh
+    . "$SCRIPT_DIR/fm-wake-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+    lock=$(fm_meta_lock_path "$meta") || exit 1
+    fm_lock_acquire_wait_bounded "$lock" "$wait" || exit 1
+    tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
+    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
+       [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ] ||
+       [ -n "$(fm_meta_get "$meta" omnigent_session)" ]; then
+      status=1
+    elif ! {
+      printf 'omnigent_unnamed=%s %s %s %s %s\n' "$SESSION_ID" "${SERVER%/}" "$NAMING_WRAPPER" \
+        "$NAMING_STARTED" "${FM_OMNIGENT_HOST:--}" &&
+      awk -F= '$1 != "omnigent_unnamed"' "$meta"
+    } > "$tmp" || ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir"; then
+      rm -f "$tmp"
+      status=1
+    fi
+    fm_lock_release "$lock"
+    exit "$status"
+  )
+}
+
+naming_budget() {
+  local value=${FM_TEST_OMNIGENT_NAMING_BUDGET:-}
+  if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "$value" ]; then
+    [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -ge 6 ] && [ "$value" -le 170 ] || title_fail 'invalid test naming budget'
+    printf '%s' "$value"
+  else
+    printf 170
+  fi
+}
+
 title_session() { # <server> <session-id> <harness> <title> <launch epoch>
   [ "$#" -eq 5 ] || title_fail 'invalid private naming request'
   SERVER=$1 SESSION_ID=$2
-  local wrapper title=$4 started=$5 payload
+  local wrapper title=$4 started=$5 payload budget get_deadline
+  budget=$(naming_budget) || exit 1
+  NAMING_FINAL=$((SECONDS + budget))
+  get_deadline=$((SECONDS + budget / 3))
   server_valid "$SERVER" "${FM_OMNIGENT_SERVER:-}" || title_fail 'invalid server'
   [[ "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || title_fail 'invalid session id'
   # A remote-server launch must have created its session on the registered host.
@@ -140,15 +254,15 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
     agy) wrapper=antigravity-native-ui ;;
     *) title_fail 'invalid harness' ;;
   esac
-  session_request GET || title_fail "$REQUEST_ERROR"
-  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg wrapper "$wrapper" --argjson started "$started" \
-    --arg host "${FM_OMNIGENT_HOST:-}" '
-    .id == $id and .labels["omnigent.wrapper"] == $wrapper and
-    (.created_at | type == "number" and . >= $started) and
-    ($host == "" or (.host_id | type == "string" and (ascii_downcase | gsub("-"; "")) == $host))
-  ' >/dev/null 2>&1 || title_fail "session $SESSION_ID: launch identity verification failed"
+  NAMING_WRAPPER=$wrapper NAMING_STARTED=$started
+  naming_request "$get_deadline" GET || naming_failed 1 "$REQUEST_ERROR"
+  session_is_launch "$wrapper" "$started" "${FM_OMNIGENT_HOST:-}" || naming_failed 0 "session $SESSION_ID: launch identity verification failed"
   # Record before naming: retirement depends on the recorded identity, while a
-  # rejected title or label PATCH only affects presentation.
+  # rejected title or label PATCH only affects presentation. The lock wait
+  # leaves a sixth of the naming budget for the PATCH.
+  NAMING_LOCK_WAIT=$((NAMING_FINAL - SECONDS - budget / 6))
+  [ "$NAMING_LOCK_WAIT" -le 150 ] || NAMING_LOCK_WAIT=150
+  [ "$NAMING_LOCK_WAIT" -ge 1 ] || NAMING_LOCK_WAIT=1
   [ -z "${FM_OMNIGENT_RECORD_META:-}" ] || record_session "$FM_OMNIGENT_RECORD_META" "${FM_OMNIGENT_RECORD_GEN:-}" || return 0
   # Omnigent merges PATCH labels into the existing set, so the wrapper's own
   # labels survive. Only a spawn-supplied identity adds Firstmate labels.
@@ -161,12 +275,12 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
   fi
   payload=$(jq -cn --arg title "$title" --argjson labels "$labels" \
     'if $labels == {} then {title:$title} else {title:$title,labels:$labels} end')
-  session_request PATCH "$payload" || title_fail "$REQUEST_ERROR"
+  naming_request "$NAMING_FINAL" PATCH "$payload" || naming_failed 0 "$REQUEST_ERROR"
   printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" --arg title "$title" '.id == $id and .title == $title' >/dev/null 2>&1 \
-    || title_fail "session $SESSION_ID: PATCH did not confirm the requested title"
+    || naming_failed 0 "session $SESSION_ID: PATCH did not confirm the requested title"
   printf '%s' "$REQUEST_RESULT" | jq -e --argjson labels "$labels" \
     '(.labels // {}) as $have | all($labels | to_entries[]; $have[.key] == .value)' >/dev/null 2>&1 \
-    || title_fail "session $SESSION_ID: PATCH did not confirm the Firstmate labels"
+    || naming_failed 0 "session $SESSION_ID: PATCH did not confirm the Firstmate labels"
 }
 # Bind this launch's verified session into its task record, under the record
 # lock and only while the record still names the launching spawn generation, so
@@ -198,7 +312,7 @@ record_session() { # <absolute task meta> <spawn generation>
     fi
     lock=$(fm_meta_lock_path "$meta") || title_fail 'invalid task record path'
     if [ "$locked" != 1 ]; then
-      fm_lock_acquire_wait_bounded "$lock" 150 || title_fail "task record lock unavailable: $meta"
+      fm_lock_acquire_wait_bounded "$lock" "${NAMING_LOCK_WAIT:-150}" || title_fail "task record lock unavailable: $meta"
     fi
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     status=0
@@ -322,12 +436,54 @@ archive_session() { # [--dry-run] <task meta>
   fi
   BINDING_ERROR=
   read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
-  [ -n "$SESSION_ID" ] || return 0
+  if [ -z "$SESSION_ID" ]; then
+    archive_unnamed_session "$dry" "$1"
+    return
+  fi
   if [ "$dry" = 1 ]; then
     printf 'would archive Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
     return 0
   fi
   archive_bound_session
+}
+
+# Archive the session a failed naming call kept as omnigent_unnamed=, only after
+# one GET proves it is this launch's session and its runner is offline.
+archive_unnamed_session() { # <dry: 0|1> <task meta>
+  local dry=$1 meta=$2 line parent wrapper started host extra attempt poll
+  line=$(awk -F= '$1 == "omnigent_unnamed" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
+  [ -n "$line" ] || return 0
+  read -r SESSION_ID SERVER wrapper started host extra <<< "$line"
+  parent=$(awk -F= '$1 == "omnigent_remote_server" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
+  if [ -n "$extra" ] || [[ ! "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || [ "$SERVER" != "${SERVER%/}" ] ||
+     ! server_valid "$SERVER" "$parent" || [[ ! "$wrapper" =~ ^[a-z]+-native-ui$ ]] ||
+     [[ ! "$started" =~ ^[0-9]+$ ]] || { [ "$host" != - ] && [[ ! "$host" =~ $HOST_ID_RE ]]; }; then
+    printf 'warning: Omnigent archive: invalid unnamed Omnigent session in %s\n' "$meta" >&2
+    return 1
+  fi
+  if [ "$dry" = 1 ]; then
+    printf 'would verify and archive unnamed Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
+    return 0
+  fi
+  [ "$host" != - ] || host=
+  poll=3
+  [ "${FM_TEST_SEAM:-}" != 1 ] || [[ ! "${FM_TEST_OMNIGENT_UNNAMED_POLL:-}" =~ ^[0-3]$ ]] || poll=$FM_TEST_OMNIGENT_UNNAMED_POLL
+  # Cleanup closes the endpoint just before archiving; the runner notices
+  # within a few probes, so allow a short bounded wait for it to go offline.
+  for attempt in 1 2 3 4 5 6; do
+    if ! session_request GET; then
+      printf 'warning: Omnigent archive: %s\n' "$REQUEST_ERROR" >&2
+      return 1
+    fi
+    if printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$SESSION_ID" '.id == $id and .archived == true' >/dev/null 2>&1; then
+      return 0
+    fi
+    session_is_launch "$wrapper" "$started" "$host" || break
+    session_is_launch "$wrapper" "$started" "$host" '.runner_online == false' && { archive_bound_session; return; }
+    [ "$attempt" = 6 ] || sleep "$poll"
+  done
+  printf 'warning: Omnigent archive: unnamed session %s is not proven to be this stopped launch; not archived\n' "$SESSION_ID" >&2
+  return 1
 }
 
 archive_bound_session() {

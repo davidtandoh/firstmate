@@ -53,7 +53,9 @@ The native wrapper remains the foreground process and owns terminal attach, stdi
 The observer never reads the terminal display or chooses a session from a shared list.
 `fm-omnigent.sh` reads the exact session through the supported API, verifies its ID, wrapper label, and creation time against this launch, then sends `PATCH /v1/sessions/<id>` with the requested title.
 Record waiting, response size, and API requests are bounded; the launcher header owns the exact mechanics.
+A loaded server can answer slowly, so the naming requests retry with backoff inside one bounded naming budget.
 Naming errors appear on stderr without interrupting the native terminal or changing its exit status.
+For a spawned worker, a naming failure also appends one `omnigent-unnamed:` event to the task's status log, so supervision sees the unnamed session at launch.
 The observer handles the initial launch's title and worker session binding; it does not rename resumed sessions or later conversations created inside the native harness.
 [Verification](verification/omnigent.md#launch-title-verification) distinguishes deterministic coverage from real-wrapper proof.
 
@@ -83,6 +85,10 @@ A relaunch drops the previous binding from the replacement record.
 Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
 Forced secondmate cleanup does the same for each local descendant before removing its record, and automatic local secondmate recovery captures the handoff before closing the old endpoint.
 Archive is a `PATCH` of `{"archived": true}` for the recorded session only.
+If the identity read never answered, the launcher keeps this launch's own `Web UI` session as `omnigent_unnamed` in the task record instead of a binding.
+Archive then reads that session and archives it only when the server reports the same session id, wrapper, and host, a creation time at or after the launch, and an offline runner.
+A session whose identity read refuted the launch is never kept, and an unnamed session is never used for supervision probes.
+The launch's own stderr record is the fallback source rather than a search of the server's session list, because an unnamed session has no Firstmate labels that could prove its home.
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
 Archiving stops the session's runner, so it never runs against a live worker.
 An archive failure warns and never blocks cleanup or relaunch.
