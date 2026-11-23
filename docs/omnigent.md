@@ -63,28 +63,33 @@ The observer handles the initial launch's title and worker session binding; it d
 
 ```mermaid
 flowchart LR
-    launch[Spawn or relaunch] --> record[Task record: omnigent_session, omnigent_server]
+    launch[Spawn or relaunch] --> handoff[Generation-specific launch handoff]
+    handoff -->|Identity verified| record[Task record: verified session binding]
+    handoff -->|Identity not yet verified| fallback[Cleanup-only fallback]
     record --> watch[Supervision probe]
     record --> retire[Cleanup or relaunch]
+    fallback --> retire
     retire --> archive[Archive exactly that session]
 ```
 
-Takeaway: every wrapped worker's Omnigent session is recorded at launch, watched while it runs, and archived when the worker is retired.
+Takeaway: supervision uses verified bindings; retirement can also verify an unnamed launch before archiving it.
 
 A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
-After the session identity check, the launcher publishes a generation-specific session handoff before waiting for the task record lock.
+Before the session identity read, the launcher publishes this launch's own `Web UI` session as an unverified fallback in a generation-specific handoff.
+After the identity check succeeds, the launcher replaces that handoff with a verified binding before waiting for the task record lock.
 For a bound remote launch, the handoff carries the recorded parent-server binding so retirement can validate the HTTPS session without an inherited environment.
 The launcher then records `omnigent_session` and `omnigent_server` in that task record under the record lock.
-Retirement reads the verified handoff under that lock before stopping the attach client or closing the endpoint.
+Retirement reads either handoff under that lock before stopping the attach client or closing the endpoint.
+An unverified handoff becomes `omnigent_unnamed` in the task record, so retirement need not wait for naming retries to finish.
 A missing handoff produces a bounded warning and does not block cleanup.
 It records only while the record still names the launching spawn generation and that generation has not retired.
 Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
 The same naming request sets `firstmate.home` to the full home-identity hash and `firstmate.task` to the task id; Omnigent merges labels rather than replacing them.
-A relaunch drops the previous binding from the replacement record.
+A relaunch drops the previous binding and unnamed fallback from the replacement record.
 
 Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
 Forced secondmate cleanup does the same for each local descendant before removing its record, and automatic local secondmate recovery captures the handoff before closing the old endpoint.
-Archive is a `PATCH` of `{"archived": true}` for the recorded session only.
+Archive is a `PATCH` of `{"archived": true}` for the exact session identified by the binding or verified fallback.
 If the identity read never answered, the launcher keeps this launch's own `Web UI` session as `omnigent_unnamed` in the task record instead of a binding.
 Archive then reads that session and archives it only when the server reports the same session id, wrapper, and host, a creation time at or after the launch, and an offline runner.
 A session whose identity read refuted the launch is never kept, and an unnamed session is never used for supervision probes.

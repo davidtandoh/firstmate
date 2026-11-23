@@ -289,9 +289,10 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
     '(.labels // {}) as $have | all($labels | to_entries[]; $have[.key] == .value)' >/dev/null 2>&1 \
     || naming_failed 0 "session $SESSION_ID: PATCH did not confirm the Firstmate labels"
 }
-# Bind this launch's verified session into its task record, under the record
-# lock and only while the record still names the launching spawn generation, so
-# a superseded or rolled-back launch can never overwrite a newer binding.
+# Publish this generation's handoff before waiting for the record lock.
+# Only verified identities become bindings; an unverified handoff lets cleanup
+# capture the fallback while the identity GET is still pending.
+# A superseded or rolled-back launch can never overwrite a newer binding.
 record_session() { # <absolute task meta> <spawn generation>
   local meta=$1 gen=$2 dir base locked=${3:-0} verified=${4:-1} pending
   [[ "$meta" == /*.meta ]] && [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task record binding'
@@ -463,8 +464,7 @@ archive_session() { # [--dry-run] <task meta>
   archive_bound_session
 }
 
-# Archive the session a failed naming call kept as omnigent_unnamed=, only after
-# one GET proves it is this launch's session and its runner is offline.
+# Read the cleanup-only fallback from a task record or generation handoff.
 read_unnamed_session() {
   local meta=$1 line parent
   [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
