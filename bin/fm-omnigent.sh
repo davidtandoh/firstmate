@@ -180,6 +180,8 @@ naming_failed() { # <keep-session: 0|1> <message>
   [[ "$meta" == /*.meta ]] || exit 1
   if [ "$keep" = 1 ]; then
     record_unnamed "$meta" "${FM_OMNIGENT_RECORD_GEN:-}" || keep=0
+  else
+    record_unnamed "$meta" "${FM_OMNIGENT_RECORD_GEN:-}" 0 remove || true
   fi
   status="${meta%.meta}.status"
   if [ "$keep" = 1 ]; then
@@ -193,7 +195,7 @@ naming_failed() { # <keep-session: 0|1> <message>
 # Keep this launch's unverified session in its task record, under the record
 # lock and only while the record names this generation and has no binding.
 record_unnamed() { # <absolute task meta> <spawn generation>
-  local meta=$1 gen=$2 wait=$((NAMING_FINAL - SECONDS)) dir base
+  local meta=$1 gen=$2 wait=$((${NAMING_FINAL:-SECONDS+10} - SECONDS)) dir base locked=${3:-0} action=${4:-keep}
   [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || return 1
   [ "$wait" -ge 1 ] || wait=1
   fm_dirname_to dir "$meta"
@@ -206,12 +208,15 @@ record_unnamed() { # <absolute task meta> <spawn generation>
     # shellcheck source=bin/fm-backlog-transition-lib.sh
     . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
     lock=$(fm_meta_lock_path "$meta") || exit 1
-    fm_lock_acquire_wait_bounded "$lock" "$wait" || exit 1
+    [ "$locked" = 1 ] || fm_lock_acquire_wait_bounded "$lock" "$wait" || exit 1
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
-       [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ] ||
+       { [ "$action" != remove ] && [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ]; } ||
        [ -n "$(fm_meta_get "$meta" omnigent_session)" ]; then
       status=1
+    elif [ "$action" = remove ]; then
+      awk -F= '$1 != "omnigent_unnamed"' "$meta" > "$tmp" &&
+        fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir" || status=1
     elif ! {
       printf 'omnigent_unnamed=%s %s %s %s %s\n' "$SESSION_ID" "${SERVER%/}" "$NAMING_WRAPPER" \
         "$NAMING_STARTED" "${FM_OMNIGENT_HOST:--}" &&
@@ -220,7 +225,8 @@ record_unnamed() { # <absolute task meta> <spawn generation>
       rm -f "$tmp"
       status=1
     fi
-    fm_lock_release "$lock"
+    [ "$action" != remove ] || rm -f "$dir/.${base%.meta}.omnigent.$gen.meta"
+    [ "$locked" = 1 ] || fm_lock_release "$lock"
     exit "$status"
   )
 }
@@ -255,6 +261,7 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
     *) title_fail 'invalid harness' ;;
   esac
   NAMING_WRAPPER=$wrapper NAMING_STARTED=$started
+  [ -z "${FM_OMNIGENT_RECORD_META:-}" ] || record_session "$FM_OMNIGENT_RECORD_META" "${FM_OMNIGENT_RECORD_GEN:-}" 0 0
   naming_request "$get_deadline" GET || naming_failed 1 "$REQUEST_ERROR"
   session_is_launch "$wrapper" "$started" "${FM_OMNIGENT_HOST:-}" || naming_failed 0 "session $SESSION_ID: launch identity verification failed"
   # Record before naming: retirement depends on the recorded identity, while a
@@ -286,7 +293,7 @@ title_session() { # <server> <session-id> <harness> <title> <launch epoch>
 # lock and only while the record still names the launching spawn generation, so
 # a superseded or rolled-back launch can never overwrite a newer binding.
 record_session() { # <absolute task meta> <spawn generation>
-  local meta=$1 gen=$2 dir base locked=${3:-0} pending
+  local meta=$1 gen=$2 dir base locked=${3:-0} verified=${4:-1} pending
   [[ "$meta" == /*.meta ]] && [[ "$gen" =~ ^[A-Za-z0-9._-]+$ ]] || title_fail 'invalid task record binding'
   fm_dirname_to dir "$meta"
   fm_basename_to base "$meta"
@@ -300,8 +307,13 @@ record_session() { # <absolute task meta> <spawn generation>
     tmp="$pending.${BASHPID:-$$}"
     if [ "$locked" != 1 ]; then
       if {
-        printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
-          "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" &&
+        if [ "$verified" = 1 ]; then
+          printf 'spawn_gen=%s\nomnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+            "$gen" "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}"
+        else
+          printf 'spawn_gen=%s\nomnigent_unnamed=%s %s %s %s %s\n' \
+            "$gen" "$SESSION_ID" "${SERVER%/}" "$NAMING_WRAPPER" "$NAMING_STARTED" "${FM_OMNIGENT_HOST:--}"
+        fi &&
         printf 'omnigent_remote_server=%s\n' "${FM_OMNIGENT_SERVER:-}"
       } > "$tmp"; then
         fm_backlog_atomic_transition publish "$tmp" "$pending" 'session handoff' "$dir" \
@@ -310,6 +322,7 @@ record_session() { # <absolute task meta> <spawn generation>
         title_fail "session handoff update failed: $meta"
       fi
     fi
+    [ "$verified" = 1 ] || exit 0
     lock=$(fm_meta_lock_path "$meta") || title_fail 'invalid task record path'
     if [ "$locked" != 1 ]; then
       fm_lock_acquire_wait_bounded "$lock" "${NAMING_LOCK_WAIT:-150}" || title_fail "task record lock unavailable: $meta"
@@ -324,7 +337,7 @@ record_session() { # <absolute task meta> <spawn generation>
     elif ! {
       printf 'omnigent_session=%s\nomnigent_server=%s\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
         "$SESSION_ID" "${SERVER%/}" "${FM_OMNIGENT_ATTACH_PID:-}" "${FM_OMNIGENT_ATTACH_START:-}" &&
-      awk -F= '$1 != "omnigent_session" && $1 != "omnigent_server" && $1 != "omnigent_attach_pid" && $1 != "omnigent_attach_start"' "$meta"
+      awk -F= '$1 != "omnigent_unnamed" && $1 != "omnigent_session" && $1 != "omnigent_server" && $1 != "omnigent_attach_pid" && $1 != "omnigent_attach_start"' "$meta"
     } > "$tmp" ||
       ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$dir"; then
       rm -f "$tmp"
@@ -338,7 +351,7 @@ record_session() { # <absolute task meta> <spawn generation>
 }
 
 capture_session() {
-  local locked=0 meta capture_dir base gen pending lock status=0 attempt
+  local locked=0 meta capture_dir base gen pending lock status=0 attempt wrapper started host extra
   if [ "${1:-}" = --record-locked ]; then locked=1; shift; fi
   [ "$#" -eq 1 ] || fail 'capture requires one task record'
   meta=$1
@@ -369,6 +382,9 @@ capture_session() {
       FM_OMNIGENT_ATTACH_PID=$(fm_meta_get "$pending" omnigent_attach_pid) \
         FM_OMNIGENT_ATTACH_START=$(fm_meta_get "$pending" omnigent_attach_start) \
         record_session "$meta" "$gen" 1 || status=1
+    elif [ "$(fm_meta_get "$pending" spawn_gen)" = "$gen" ] && read_unnamed_session "$pending" && [ -n "$SESSION_ID" ]; then
+      NAMING_WRAPPER=$wrapper NAMING_STARTED=$started FM_OMNIGENT_HOST=$host \
+        record_unnamed "$meta" "$gen" 1 || status=1
     else
       status=1
     fi
@@ -449,18 +465,25 @@ archive_session() { # [--dry-run] <task meta>
 
 # Archive the session a failed naming call kept as omnigent_unnamed=, only after
 # one GET proves it is this launch's session and its runner is offline.
-archive_unnamed_session() { # <dry: 0|1> <task meta>
-  local dry=$1 meta=$2 line parent wrapper started host extra attempt poll
+read_unnamed_session() {
+  local meta=$1 line parent
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
   line=$(awk -F= '$1 == "omnigent_unnamed" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
-  [ -n "$line" ] || return 0
+  [ -n "$line" ] || { SESSION_ID=; return 0; }
   read -r SESSION_ID SERVER wrapper started host extra <<< "$line"
   parent=$(awk -F= '$1 == "omnigent_remote_server" { sub(/^[^=]*=/, ""); v = $0 } END { print v }' "$meta") || return 1
   if [ -n "$extra" ] || [[ ! "$SESSION_ID" =~ ^[a-f0-9]{32}$ ]] || [ "$SERVER" != "${SERVER%/}" ] ||
-     ! server_valid "$SERVER" "$parent" || [[ ! "$wrapper" =~ ^[a-z]+-native-ui$ ]] ||
+     ! server_valid "$SERVER" "$parent" || [[ ! "$wrapper" =~ ^(claude-code|codex|kiro|antigravity)-native-ui$ ]] ||
      [[ ! "$started" =~ ^[0-9]+$ ]] || { [ "$host" != - ] && [[ ! "$host" =~ $HOST_ID_RE ]]; }; then
     printf 'warning: Omnigent archive: invalid unnamed Omnigent session in %s\n' "$meta" >&2
     return 1
   fi
+}
+
+archive_unnamed_session() { # <dry: 0|1> <task meta>
+  local dry=$1 meta=$2 wrapper started host extra attempt poll
+  read_unnamed_session "$meta" || return 1
+  [ -n "$SESSION_ID" ] || return 0
   if [ "$dry" = 1 ]; then
     printf 'would verify and archive unnamed Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
     return 0
