@@ -15,6 +15,12 @@
 # Callers hold fm_remote_inherit_transaction_lock_path through generation
 # allocation and this whole push. Only a fully successful push may adopt the
 # largest receiver-confirmed generation into that same parent counter.
+# The caller holds the sender transaction lock. Before sending, read the
+# receiver's committed high-water mark and durably advance a lost or restored
+# sender counter beyond it. For older receivers, a query usage refusal (exit 2)
+# uses floor zero and leaves write-time generation checks intact; counter
+# recovery requires a receiver that supports the query. Other query failures
+# and malformed replies fail closed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -106,6 +112,21 @@ done <<EOF
 $ITEMS
 EOF
 
+# Query only after local validation, before any payload can change the receiver.
+query_rc=0
+REMOTE_GENERATION=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-inherit.sh generation) || query_rc=$?
+case "$query_rc" in
+  0) ;;
+  2) REMOTE_GENERATION=0 ;;
+  *) exit "$query_rc" ;;
+esac
+case "$REMOTE_GENERATION" in ''|*[!0-9]*) die "receiver inheritance generation is malformed" ;; esac
+[ "${#REMOTE_GENERATION}" -le 18 ] || die "receiver inheritance generation is outside the supported range"
+if [ "$REMOTE_GENERATION" -ge "$GENERATION" ]; then
+  GENERATION=$(fm_remote_inherit_generation_next "$STATE" "$ID" "$REMOTE_GENERATION") \
+    || die "cannot recover sender inheritance generation"
+fi
+
 # Phase 2 sends each item as its own remote command, up to JOBS at a time. Every
 # item is a separate file with its own generation record on the receiver, and
 # the remote job worker still runs one home's commands one after another, so
@@ -188,7 +209,7 @@ while [ "$i" -le "$launched" ]; do
       "unchanged: $rel generation="*)
         confirmed=${result#"unchanged: $rel generation="}
         case "$confirmed" in ''|*[!0-9]*) die "invalid confirmed inheritance generation" ;; esac
-        [ "${#confirmed}" -le 17 ] || die "confirmed inheritance generation exceeds the parent counter range"
+        [ "${#confirmed}" -le 18 ] || die "confirmed inheritance generation exceeds the parent counter range"
         if [ "$confirmed" -gt "$CONFIRMED_FLOOR" ]; then CONFIRMED_FLOOR=$confirmed; fi
         ;;
     esac

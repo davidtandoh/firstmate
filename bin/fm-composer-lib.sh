@@ -65,7 +65,8 @@
 #                older claude). The bottom border may carry a TITLE (grok
 #                writes its model name there). A title embedded in the family's
 #                rule is tolerated at the aligned width, including Grok 1.0.44's
-#                rounded typed model/effort title with ` · always-approve`; Grok 1.0.5's
+#                rounded typed model/effort title with ` · always-approve`
+#                (Grok 1.0.77's `<version> Fast` model name too); Grok 1.0.5's
 #                typed title also permits its proven three-column overhang.
 #   bare       - an agent prompt glyph row with no border at all (claude `❯`,
 #                codex `›`, muse `⟩`, cursor `→`). The agent glyph is itself the container
@@ -119,7 +120,9 @@
 # (_fm_composer_row_is_composer_furniture): one unclaimed activity row
 # (`Working on request...`) makes the whole run activity and the envelope above
 # it stale, and a row leading with the SAME glyph the envelope was proven by
-# (`❯ my typed draft`) is a live composer that keeps winning. Where a shape
+# (`❯ my typed draft`) is a live composer that keeps winning. The one exception
+# is the selected row of Claude 2.1.291's slash-command popup, which carries
+# that glyph too (_fm_composer_bare_is_popup_selection). Where a shape
 # cannot demonstrate which it is, the refusal is the answer. The zone is
 # bounded further by a blank row, and an envelope that closed over no glyph row
 # (codex's `permissions: YOLO mode` startup banner) proves nothing and demotes
@@ -274,6 +277,17 @@ fm_composer_normalize_trim_var() {  # <varname>
   printf -v "$__fmnt_name" '%s' "$__fmnt_text"
 }
 
+# fm_composer_kiro_scope: 0 when the caller has named the pane's harness as kiro
+# through FM_COMPOSER_HARNESS, the one input that turns on the kiro-only hinted
+# idle row (FM_COMPOSER_HINTED_IDLE_RE_DEFAULT); the near-gray ghost ceiling in
+# fm_composer_strip_ghost is fleet-wide and needs no harness. A caller that knows its target's
+# recorded harness sets it for its reads (bin/fm-send.sh, bin/fm-control.sh, the
+# watcher's and process-event re-rings); an unset or other value leaves every
+# read exactly as it was before kiro existed.
+fm_composer_kiro_scope() {
+  [ "${FM_COMPOSER_HARNESS:-}" = kiro ]
+}
+
 # fm_composer_strip_ghost: the ONE fleet-wide ANSI-aware extractor of "real typed
 # content" from a captured, styled composer row. Reads the styled line on stdin
 # (from `tmux capture-pane -e`, `herdr pane read --format ansi`, or
@@ -338,6 +352,7 @@ fm_composer_normalize_trim_var() {  # <varname>
 # ceiling to reach it would over-strip other harnesses, so only a screen that the
 # backend's identity probe attributes to Command Code is read with a fixed
 # ceiling of 160 in its place (fm_composer_classify_screen).
+
 # The dim/faint and dark-foreground states are tracked together as "de-emphasis";
 # codes are processed left to right within a sequence, so "ESC[0;2m" reads as dim.
 # LC_ALL=C makes awk walk bytes, so multibyte glyphs (e.g. ❯) and de-emphasised
@@ -476,6 +491,7 @@ fm_composer_strip_ghost() {
 # devin: "esc twice to interrupt" and its "❭ Guide Devin while it works" working composer;
 # cortex: "(esc to interrupt)" on its spinner row and "Type to queue message..." in its working composer;
 # commandcode: "esc to interrupt" beside a bullet-framed elapsed cell.
+# kiro: "Kiro is working".
 # Claude's current spinner has a rotating glyph and word, but every active-turn
 # line has an ellipsis followed by a parenthesized elapsed duration. Keep this
 # signature separate from the shared default because that shape is not generic
@@ -614,6 +630,7 @@ fm_busy_lines_match() {  # [harness]
       claude) regex=$FM_DELIVERY_CLAUDE_BUSY_REGEX_DEFAULT ;;
       devin) regex=$FM_DELIVERY_DEVIN_BUSY_REGEX_DEFAULT ;;
       cortex) regex=$FM_DELIVERY_CORTEX_BUSY_REGEX_DEFAULT ;;
+      hermes) regex='^[[:space:]]*─.*·[[:space:]]*[0-9]+([.][0-9]+)?s[[:space:]]*│|^[[:space:]]*([a-z0-9][a-z0-9_-]*[[:space:]]+)?❯[[:space:]]+Ctrl[+]C to interrupt…' ;;
       commandcode) regex=$FM_DELIVERY_COMMANDCODE_BUSY_REGEX_DEFAULT ;;
       codex) regex=$FM_DELIVERY_CODEX_BUSY_REGEX_DEFAULT ;;
       opencode) regex=$FM_DELIVERY_OPENCODE_BUSY_REGEX_DEFAULT ;;
@@ -661,9 +678,20 @@ FM_COMPOSER_SHELL_PROMPT_GLYPHS=$(printf '%s\n' '>' '$' '%' '#')
 # Command Code renders the anchored `Ask your question...`
 # after its `❯` glyph (verified live, Command Code 1.74.1); its truecolor is too
 # bright for the default ghost ceiling, so fm_composer_classify_screen reads its
-# screen with a raised one. FM_COMPOSER_IDLE_RE overrides for an unverified harness;
+# screen with a raised one. kiro's bare `›` composer needs no entry here: see
+# FM_COMPOSER_HINTED_IDLE_RE_DEFAULT below. FM_COMPOSER_IDLE_RE overrides for an unverified harness;
 # matching is case-insensitive.
 FM_COMPOSER_IDLE_RE_DEFAULT='^Type a message\.\.\.$|^Ask anything(\.\.\.|…)|^Plan, search, build anything$|^Add a follow-up$|^Ask Devin to build features, fix bugs, or work on your code$|^Ask your question\.\.\.$|^Type your message\.\.\.$|^Type to queue message\.\.\.$'
+
+# KIRO ONLY (fm_composer_kiro_scope): idle placeholders that carry a submit hint
+# typed input never renders, so the whole anchored row proves an empty composer
+# whatever its colour. Every other harness ignores this set. kiro-cli
+# 2.21.x draws `ask a question or describe a task ↵` in near-gray, which the
+# ghost strip removes; 2.28.0 draws the same row in the default foreground,
+# which no stripper can remove. Typed text, even the placeholder words, renders
+# with no `↵` (verified live, kiro-cli 2.28.0), so this match reads `empty` even
+# on a styled capture where an FM_COMPOSER_IDLE_RE collision reads `pending`.
+FM_COMPOSER_HINTED_IDLE_RE_DEFAULT='^ask a question or describe a task ↵$'
 
 # Opencode draws a mode/model footer line INSIDE its left-bar composer
 # ("Build · GPT-5.5 Fast OpenAI · high"). It is composer furniture, not typed
@@ -905,6 +933,10 @@ fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [
   fi
   fm_composer_normalize_trim_var content
   [ -n "$content" ] || { printf 'empty'; return 0; }
+  if [ -n "$idle_re" ] && fm_composer_kiro_scope \
+     && fm_composer_idle_matches "$content" "$FM_COMPOSER_HINTED_IDLE_RE_DEFAULT" sensitive; then
+    printf 'empty'; return 0
+  fi
   fm_composer_idle_matches "$content" "$idle_re" "$idle_case" && idle_collision=1
   # Ghost stripping can leave a REMNANT of an idle placeholder rather than
   # emptying it, because a terminal draws the cell under its cursor in reverse
@@ -1318,9 +1350,11 @@ EOF
   fi
 }
 
-# 0 when <title> is exactly the typed Grok model/effort title shape.
-_fm_composer_grok_typed_title_ok() {  # <title>
-  local title=$1 effort model
+# 0 when <title> is exactly the typed Grok model/effort title shape. With
+# <fast>=1 the model may also carry Grok 1.0.77's single ` Fast` word, the
+# title it draws for grok-4.7-build-fast (`Grok 4.7 Fast (medium)`).
+_fm_composer_grok_typed_title_ok() {  # <title> [fast]
+  local title=$1 fast=${2:-0} effort model
   case "$title" in
     'Grok '*\ \(low\)) effort=low ;;
     'Grok '*\ \(medium\)) effort=medium ;;
@@ -1330,6 +1364,7 @@ _fm_composer_grok_typed_title_ok() {  # <title>
   esac
   model=${title#Grok }
   model=${model%" ($effort)"}
+  [ "$fast" != 1 ] || model=${model%' Fast'}
   [ -n "$model" ] || return 1
   case "$model" in *[!A-Za-z0-9._-]*) return 1 ;; esac
   return 0
@@ -1378,11 +1413,12 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
   # mid-dot. Only that exact suffix on a typed Grok title is known; the single
   # mid-dot column is swapped for an ASCII one so it cannot survive as residue
   # in the geometry comparison, while any other mid-dot stays non-space.
+  # Grok 1.0.77's ` Fast` model word was observed only with this suffix.
   case "$title" in
     *' · always-approve')
       # Only the rounded family was observed for this approval-title shape.
       [ "$family" = rounded ] || return 1
-      _fm_composer_grok_typed_title_ok "${title%' · always-approve'}" || return 1
+      _fm_composer_grok_typed_title_ok "${title%' · always-approve'}" 1 || return 1
       inner=${inner/' · always-approve'/' . always-approve'}
       ;;
   esac
@@ -1958,6 +1994,45 @@ _fm_composer_locate_footer_zone() {  # <plain>
     && [ "$FM_COMPOSER_SCAN_BARE_ROW" -le "$FM_COMPOSER_FOOTER_LAST" ]
 }
 
+# _fm_composer_bare_is_popup_selection: 0 when bare agent-glyph <row> is the
+# selected row of a slash-command suggestion popup, not a composer of its own.
+# Claude Code 2.1.291 marks the selected suggestion with the same `❯` its
+# composer uses (`  ❯ /exit    Exit the CLI`, where 2.1.289 drew it unmarked),
+# so that row became the bottom-most bare candidate and the whole popup was
+# read as the typed text. It runs after _fm_composer_locate_footer_zone, whose
+# FM_COMPOSER_FOOTER_AFTER and FM_COMPOSER_FOOTER_GLYPH name the envelope the
+# popup sits under. Every condition must hold, so that the demotion can only
+# swap one non-empty read for another and never move a verdict toward `empty`:
+#   - the row lies below the closing row of a glyph-proven envelope;
+#   - that envelope's own glyph row leads with its agent glyph on <plain-screen>,
+#     the borderless row the caller falls back to;
+#   - that glyph row holds typed text opening with `/`, the only input that
+#     opens the popup, so the envelope it falls back to is non-empty. It is read
+#     from <screen> through _fm_composer_row_content, the same ghost-stripped
+#     view the verdict and the extractor read;
+#   - the row opens `/` (or `…`, a name truncated to its column) and carries a
+#     gap of two or more spaces before its description. A numbered-choice
+#     dialog row (`❯ 1. Yes`) has neither, and stays a bare candidate.
+_fm_composer_bare_is_popup_selection() {  # <plain-screen> <screen> <styled> <row>
+  local plain=$1 screen=$2 styled=$3 row=$4 trimmed glyph='' rest
+  [ "$row" -ge 0 ] && [ "$FM_COMPOSER_FOOTER_GLYPH" -ge 0 ] \
+    && [ "$row" -gt "$FM_COMPOSER_FOOTER_AFTER" ] || return 1
+  trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$plain")
+  fm_composer_normalize_trim_var trimmed
+  fm_composer_leading_agent_glyph_var glyph "$trimmed" || return 1
+  rest=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$screen")
+  rest=$(_fm_composer_row_content "$rest" "$styled")
+  rest=${rest#"$glyph"}
+  fm_composer_normalize_trim_var rest
+  case "$rest" in /*) ;; *) return 1 ;; esac
+  trimmed=$(_fm_composer_screen_row "$row" "$plain")
+  fm_composer_normalize_trim_var trimmed
+  fm_composer_leading_agent_glyph_var glyph "$trimmed" || return 1
+  rest=${trimmed#*"$glyph"}
+  fm_composer_normalize_trim_var rest
+  [[ $rest =~ ^(/|…)[^[:space:]].*[[:space:]]{2,}[^[:space:]] ]]
+}
+
 # _fm_composer_bare_rule_sandwich: 0 when bare agent-glyph <row> sits in its
 # own titled composer: a titled rule directly above it and the screen's only
 # unmatched separator directly below it, which is that composer's closing rule.
@@ -1980,8 +2055,8 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
   _fm_composer_titled_rule_row "$above" "${below//─/ }"
 }
 
-_fm_composer_select_cursorless() {
-  local plain=$1 generic=-1 next boundary raw trimmed glyph bare bare_boundary footer=0
+_fm_composer_select_cursorless() {  # <plain-screen> <screen> <styled>
+  local plain=$1 screen=$2 styled=$3 generic=-1 next boundary raw trimmed glyph bare bare_boundary footer=0
   FM_COMPOSER_SELECTED_KIND=
   FM_COMPOSER_SELECTED_FIRST=-1
   FM_COMPOSER_SELECTED_LAST=-1
@@ -1998,9 +2073,10 @@ _fm_composer_select_cursorless() {
   # harness's own furniture, never a composer. The envelope it sits under is
   # what the screen actually shows, so when that envelope's proving glyph row
   # is itself borderless, the bare candidate moves UP to it; otherwise the
-  # envelope (box, left bar) stays selected on its own.
+  # envelope (box, left bar) stays selected on its own. The selected row of the
+  # slash-command popup under that envelope is demoted the same way.
   bare=$FM_COMPOSER_SCAN_BARE_ROW
-  if [ "$footer" = 1 ]; then
+  if [ "$footer" = 1 ] || _fm_composer_bare_is_popup_selection "$plain" "$screen" "$styled" "$bare"; then
     trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$plain")
     fm_composer_normalize_trim_var trimmed
     if fm_composer_leading_agent_glyph_var glyph "$trimmed"; then
@@ -2057,7 +2133,19 @@ _fm_composer_select_cursorless() {
   fi
   if [ "$FM_COMPOSER_SELECTED_KIND" = bare ]; then
     next=$((FM_COMPOSER_SELECTED_LAST + 1))
-    while :; do
+    # In the kiro scope a hinted idle placeholder is the whole composer, so the
+    # row below it (kiro's `/copy to clipboard` footer) is never wrapped input.
+    if fm_composer_kiro_scope; then
+      trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_SELECTED_FIRST" "$plain")
+      fm_composer_normalize_trim_var trimmed
+      if fm_composer_leading_agent_glyph_var glyph "$trimmed"; then
+        trimmed=${trimmed#*"$glyph"}
+        fm_composer_normalize_trim_var trimmed
+        fm_composer_idle_matches "$trimmed" "$FM_COMPOSER_HINTED_IDLE_RE_DEFAULT" sensitive \
+          && next=-1
+      fi
+    fi
+    while [ "$next" -ge 0 ]; do
       raw=$(_fm_composer_screen_row "$next" "$plain")
       trimmed=$raw
       fm_composer_normalize_trim_var trimmed
@@ -2113,7 +2201,7 @@ EOF
   screen=$(fm_composer_strip_omnigent_banner "$screen")
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
-  _fm_composer_select_cursorless "$plain" || return 1
+  _fm_composer_select_cursorless "$plain" "$screen" "$styled" || return 1
   row=$FM_COMPOSER_SELECTED_FIRST
   cwd_start=-1
   if [ "$FM_COMPOSER_SELECTED_KIND" = leftbar ]; then
@@ -2257,6 +2345,32 @@ fm_composer_dialog_sink_release() {
   fi
 }
 
+# Hermes TUI 0.21.7: profile-prefixed ❯ prompt immediately below the status
+# rule; placeholder text is dim, while typed drafts are bright. Identity is
+# required, and dialogs, wrapped drafts, non-ready status and unstyled reads
+# remain unproven. The hook record, never this row, owns semantic busy state.
+_fm_composer_hermes_state() {  # <screen> <styled>
+  local screen=$1 styled=$2 stripped
+  [ "$styled" = 1 ] || { printf 'unknown'; return; }
+  # The busy hint uses xterm orange 178, above the shared dim threshold.
+  # Strip only the captured native synthetic cursor chip plus that exact hint;
+  # the same words typed in the normal bright input color remain a draft.
+  local esc=$'\033' hint
+  hint="${esc}[38;5;231m${esc}[48;5;178mC${esc}[38;5;178m${esc}[49mtrl+C to interrupt…${esc}[39m"
+  screen=${screen//"$hint"/}
+  stripped=$(printf '%s\n' "$screen" | fm_composer_strip_ghost | fm_composer_strip_ansi)
+  printf '%s\n' "$stripped" | awk '
+    { rows[NR]=$0 }
+    END {
+      last=NR; while (last>0 && rows[last] ~ /^[[:space:]]*$/) last--
+      # Never interpret a palette or arbitrary output as the composer.
+      if (last<2 || rows[last] !~ /^[[:space:]]*([a-z0-9][a-z0-9_-]*[[:space:]]+)?❯/) { print "unknown"; exit }
+      if (rows[last-1] !~ /^[[:space:]]*─[[:space:]]+.*│.*│/) { print "unknown"; exit }
+      text=rows[last]; sub(/^[[:space:]]*([a-z0-9][a-z0-9_-]*[[:space:]]+)?❯[[:space:]]*/, "", text)
+      if (text ~ /^[[:space:]]*$/) print "empty"; else print "pending"
+    }'
+}
+
 fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
   local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
   local styled=0 cursor=0 has_identity=0 cortex_proven=0 cortex_ask=0 kv plain
@@ -2288,6 +2402,10 @@ EOF
   [ "$cursor" = 1 ] || cy=''
   if [ -n "$cy" ]; then
     case "$cy" in *[!0-9]*) printf 'unknown'; return 0 ;; esac
+  fi
+  if [ "$has_identity" = 1 ] && [ "${identity%%$'\t'*}" = hermes ]; then
+    _fm_composer_hermes_state "$screen" "$styled"
+    return
   fi
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" "$cy" '' "$cortex_proven"
@@ -2357,7 +2475,7 @@ EOF
   # No cursor: the bottom-most shape wins, with the pi-separator staleness
   # rules layered on (a live pi composer pair below the generic candidate
   # proves that candidate stale).
-  if ! _fm_composer_select_cursorless "$plain"; then
+  if ! _fm_composer_select_cursorless "$plain" "$screen" "$styled"; then
     printf 'unknown'
     return 0
   fi

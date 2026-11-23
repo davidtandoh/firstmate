@@ -31,10 +31,11 @@
 # crewmate's status stream, so a captain-relevant line becomes a parent wake.
 #
 # Line syntax and retry equivalence are owned by fm-classify-lib.sh.
-# With an optional open-decision key, append/report instead deduplicate against
-# the destination's current decision fold: blocked appends only when closed,
-# resolved only when open, and other verbs are rejected.
-# This permits a new episode after resolution even with identical report text.
+# With an optional decision key, append/report instead deduplicate per key:
+# blocked appends only when the destination's decision fold has that key
+# closed and resolved only when it is open, which permits a new episode after
+# resolution even with identical report text; any other keyed verb is a state
+# update suppressed only when it repeats that key's latest line.
 # Without a key, callers retain event-based retry deduplication.
 # An existing destination must be a regular, non-symlinked file; a missing one
 # is created with its directory.
@@ -147,22 +148,33 @@ fm_parent_channel_clean_note() {  # <text>
 }
 
 # Append <line> using the retry mode documented above.
-# The caller declaring a new event is the one that stamps it.
-fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
-  local path=$1 line=$2 key=${3-} open=0
+# The caller declaring a new event is the one that stamps it. With <key>, a
+# `blocked` line is appended only while that key is not an open decision and a
+# `resolved` line only while it is; any other keyed line is a state update
+# compared only against that key's latest line, not the whole history.
+fm_parent_channel_append_once() {  # <path> <line> [key]
+  local path=$1 line=$2 key=${3-} open=0 latest wanted
   if [ -e "$path" ] || [ -L "$path" ]; then
     [ -f "$path" ] && [ ! -L "$path" ] || return 1
   else
     mkdir -p "$(dirname "$path")" || return 1
   fi
   if [ -n "$key" ]; then
-    case $'\n'"$(status_open_decisions "$path")" in
-      *$'\n'"$key"$'\t'*) open=1 ;;
-    esac
     case "$(status_line_verb "$line")" in
-      blocked) [ "$open" = 0 ] || return 0 ;;
-      resolved) [ "$open" = 1 ] || return 0 ;;
-      *) return 1 ;;
+      blocked|resolved)
+        case $'\n'"$(status_open_decisions "$path")" in
+          *$'\n'"$key"$'\t'*) open=1 ;;
+        esac
+        case "$(status_line_verb "$line")" in
+          blocked) [ "$open" = 0 ] || return 0 ;;
+          resolved) [ "$open" = 1 ] || return 0 ;;
+        esac
+        ;;
+      *)
+        _fm_parent_channel_latest_for_key "$path" "$key" latest
+        _fm_status_untimed "$line" wanted
+        [ "$latest" != "$wanted" ] || return 0
+        ;;
     esac
   elif status_event_recorded "$path" "$line"; then
     return 0
@@ -170,8 +182,25 @@ fm_parent_channel_append_once() {  # <path> <line> [open-decision-key]
   printf '%s\n' "$line" >> "$path"
 }
 
+# The untimed last line of <path> that states decision key <key>, into
+# <out-var>; empty when none does. The fold reads a key's latest line as its
+# state, so this is the line a keyed append compares against.
+_fm_parent_channel_latest_for_key() {  # <path> <key> <out-var>
+  local __fm_pc_line __fm_pc_last=''
+  if [ -f "$1" ]; then
+    while IFS= read -r __fm_pc_line || [ -n "$__fm_pc_line" ]; do
+      [ "$(_fm_decision_key "$__fm_pc_line" '')" = "$2" ] || continue
+      _fm_status_untimed "$__fm_pc_line" __fm_pc_last
+    done < <(grep -F "[key=$2]" "$1" || true)
+  fi
+  printf -v "$3" '%s' "$__fm_pc_last"
+}
+
 # Publish one parent-facing line from <home>. See the return codes above.
-fm_parent_channel_report() {  # <home> <state> <line> [open-decision-key]
+# With <key>, fm_parent_channel_append_once owns which repeats are suppressed;
+# a keyed state that returns to an earlier value (a hold re-dated A -> B -> A)
+# is still delivered.
+fm_parent_channel_report() {  # <home> <state> <line> [key]
   local home=$1 state=$2 line=$3 key=${4-} destination rc=0
   destination=$(fm_parent_channel_destination "$home" "$state") || rc=$?
   [ "$rc" -eq 0 ] || return "$rc"

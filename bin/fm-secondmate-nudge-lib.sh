@@ -29,24 +29,31 @@ fm_remote_inherit_transaction_lock_path() { # <state-dir> <id>
   printf '%s/.remote-inherit-%s.lock\n' "$state" "$id"
 }
 
-fm_remote_inherit_generation_next() { # <state-dir> <id> [confirmed-floor]
-  # The transaction owner may adopt a receiver floor only after the entire
-  # inherited-material push succeeded. An older unmatched payload never does.
-  local state=$1 id=$2 floor=${3:-0} path current next tmp
+fm_remote_inherit_generation_next() { # <state-dir> <id> [floor]
+  # The caller holds fm_remote_inherit_transaction_lock_path across allocation
+  # and transport. A floor is the receiver's committed high-water mark read
+  # before sending, or, only after the entire push succeeded, the largest
+  # receiver-confirmed generation; an older unmatched payload never supplies one.
+  local state=$1 id=$2 floor=${3:-0} path current next tmp extra
   case "$id" in *[!/A-Za-z0-9._-]*|''|*/*) return 1 ;; esac
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
   path="$state/.remote-inherit-$id.generation"
   current=0
   if [ -e "$path" ] || [ -L "$path" ]; then
     [ -f "$path" ] && [ ! -L "$path" ] || return 1
-    IFS= read -r current < "$path" || return 1
+    {
+      IFS= read -r current && { ! IFS= read -r extra && [ -z "$extra" ]; }
+    } < "$path" || return 1
     case "$current" in ''|*[!0-9]*) return 1 ;; esac
-    [ "${#current}" -le 17 ] || return 1
+    [ "${#current}" -le 18 ] || return 1
   fi
   case "$floor" in ''|*[!0-9]*) return 1 ;; esac
-  [ "${#floor}" -le 17 ] || return 1
-  if [ "$floor" -gt "$current" ]; then current=$floor; fi
-  next=$((10#$current + 1))
+  [ "${#floor}" -le 18 ] || return 1
+  current=$((10#$current))
+  floor=$((10#$floor))
+  [ "$floor" -le "$current" ] || current=$floor
+  [ "$current" -lt 999999999999999999 ] || return 1
+  next=$((current + 1))
   tmp=$(umask 077; mktemp "$state/.remote-inherit-generation.XXXXXX") || return 1
   printf '%s\n' "$next" > "$tmp" || { rm -f -- "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
