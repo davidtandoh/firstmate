@@ -1,0 +1,6 @@
+{
+  "command": "python3 /Users/davidtandoh/.no-mistakes/evidence/01M8559S3M2GMHAM5JYGXT5GX6/live_probe.py",
+  "exit": 0,
+  "gate_skip": false,
+  "scope": "Real scratch Omnigent server, API-created sessions, HTTP fault injection; no native harness launch"
+}

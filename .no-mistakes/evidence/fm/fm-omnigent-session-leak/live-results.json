@@ -1,0 +1,436 @@
+{
+  "results": [
+    {
+      "command": [
+        "_title-session",
+        "http://127.0.0.1:60215",
+        "2897a88fbf3e4edbbd80e5b44f89d049",
+        "claude",
+        "live slow",
+        "1795470206"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "scenario": "naming slow",
+      "elapsed": 6.277682667132467,
+      "session": {
+        "id": "2897a88fbf3e4edbbd80e5b44f89d049",
+        "agent_id": "58a1bc5bf0bba6d31ceeb7661f8d751c",
+        "agent_name": "claude-native-ui",
+        "status": "idle",
+        "background_task_count": null,
+        "background_tasks": null,
+        "created_at": 1795470206,
+        "updated_at": 1795470212,
+        "title": "live slow",
+        "labels": {
+          "omnigent.client_surface": "web",
+          "omnigent.ui": "terminal",
+          "omnigent.wrapper": "claude-code-native-ui"
+        },
+        "runner_id": null,
+        "host_id": null,
+        "side_chat_settings_supported": false,
+        "runner_online": true,
+        "host_online": null,
+        "host_resumable": false,
+        "reasoning_effort": null,
+        "items": [],
+        "permission_level": 4,
+        "sub_agent_name": null,
+        "kind": "default",
+        "parent_session_id": null,
+        "root_conversation_id": "2897a88fbf3e4edbbd80e5b44f89d049",
+        "llm_model": null,
+        "harness": "claude-native",
+        "model_override": null,
+        "cost_control_mode_override": null,
+        "subagent_routing_override": null,
+        "share_workspace_files": false,
+        "account": null,
+        "context_window": null,
+        "last_total_tokens": null,
+        "total_cost_usd": null,
+        "usage_by_model": null,
+        "usage_included": true,
+        "native_usage_baseline": null,
+        "last_task_error": null,
+        "external_session_id": null,
+        "terminal_launch_args": null,
+        "pending_elicitations": [],
+        "pending_inputs": [],
+        "workspace": null,
+        "git_branch": null,
+        "archived": false,
+        "todos": [],
+        "model_options": [],
+        "inference_configured": false,
+        "inference_error": null,
+        "terminal_pending": false,
+        "sandbox_profile": null,
+        "sandbox_status": null,
+        "mcp_startup": null,
+        "active_response_id": null,
+        "project_id": null
+      }
+    },
+    {
+      "command": [
+        "_title-session",
+        "http://127.0.0.1:60215",
+        "1105f0bffd1d434ab563dba0e6ab7cae",
+        "claude",
+        "live retry",
+        "1795470212"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "curl: (22) The requested URL returned error: 503\ncurl: (22) The requested URL returned error: 503\n"
+    },
+    {
+      "scenario": "naming retry",
+      "elapsed": 2.31687729107216,
+      "session": {
+        "id": "1105f0bffd1d434ab563dba0e6ab7cae",
+        "agent_id": "58a1bc5bf0bba6d31ceeb7661f8d751c",
+        "agent_name": "claude-native-ui",
+        "status": "idle",
+        "background_task_count": null,
+        "background_tasks": null,
+        "created_at": 1795470212,
+        "updated_at": 1795470214,
+        "title": "live retry",
+        "labels": {
+          "omnigent.client_surface": "web",
+          "omnigent.ui": "terminal",
+          "omnigent.wrapper": "claude-code-native-ui"
+        },
+        "runner_id": null,
+        "host_id": null,
+        "side_chat_settings_supported": false,
+        "runner_online": true,
+        "host_online": null,
+        "host_resumable": false,
+        "reasoning_effort": null,
+        "items": [],
+        "permission_level": 4,
+        "sub_agent_name": null,
+        "kind": "default",
+        "parent_session_id": null,
+        "root_conversation_id": "1105f0bffd1d434ab563dba0e6ab7cae",
+        "llm_model": null,
+        "harness": "claude-native",
+        "model_override": null,
+        "cost_control_mode_override": null,
+        "subagent_routing_override": null,
+        "share_workspace_files": false,
+        "account": null,
+        "context_window": null,
+        "last_total_tokens": null,
+        "total_cost_usd": null,
+        "usage_by_model": null,
+        "usage_included": true,
+        "native_usage_baseline": null,
+        "last_task_error": null,
+        "external_session_id": null,
+        "terminal_launch_args": null,
+        "pending_elicitations": [],
+        "pending_inputs": [],
+        "workspace": null,
+        "git_branch": null,
+        "archived": false,
+        "todos": [],
+        "model_options": [],
+        "inference_configured": false,
+        "inference_error": null,
+        "terminal_pending": false,
+        "sandbox_profile": null,
+        "sandbox_status": null,
+        "mcp_startup": null,
+        "active_response_id": null,
+        "project_id": null
+      }
+    },
+    {
+      "command": [
+        "capture",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8559S3M2GMHAM5JYGXT5GX6/.tmp-live-omnigent/home/state/early.meta"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "probe",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8559S3M2GMHAM5JYGXT5GX6/.tmp-live-omnigent/home/state/early.meta"
+      ],
+      "exit": 0,
+      "stdout": "unknown\n",
+      "stderr": ""
+    },
+    {
+      "scenario": "early capture and visible failure",
+      "meta": "omnigent_unnamed=72f527080bd4437587d0db585b5d74a5 http://127.0.0.1:60215 claude-code-native-ui 1795470214 -\nspawn_gen=live.1\nomnigent=on\n",
+      "status": "omnigent-unnamed [at=1795470146]: Omnigent session bc137ca9e5c848f994cd74a290b9d5b4 is unnamed: session bc137ca9e5c848f994cd74a290b9d5b4: GET failed (exit 22); naming budget spent; cleanup verifies and archives it\nomnigent-unnamed [at=1795470168]: Omnigent session 23e63918b3924e819885458310571843 is unnamed: session 23e63918b3924e819885458310571843: GET failed (exit 22); naming budget spent; cleanup verifies and archives it\nomnigent-unnamed [at=1795470189]: Omnigent session a2d31a49c75c43b28ef16f0bb24d85bc is unnamed: session a2d31a49c75c43b28ef16f0bb24d85bc: GET failed (exit 22); naming budget spent; cleanup verifies and archives it\nomnigent-unnamed [at=1795470216]: Omnigent session 72f527080bd4437587d0db585b5d74a5 is unnamed: session 72f527080bd4437587d0db585b5d74a5: GET failed (exit 22); naming budget spent; cleanup verifies and archives it\n",
+      "naming_stderr": "curl: (22) The requested URL returned error: 503\ncurl: (22) The requested URL returned error: 503\nerror: Omnigent session title: session 72f527080bd4437587d0db585b5d74a5: GET failed (exit 22); naming budget spent\n"
+    },
+    {
+      "command": [
+        "archive",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8559S3M2GMHAM5JYGXT5GX6/.tmp-live-omnigent/home/state/early.meta"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "warning: Omnigent archive: unnamed session 72f527080bd4437587d0db585b5d74a5 is not proven to be this stopped launch; not archived\n"
+    },
+    {
+      "scenario": "online runner fallback refused",
+      "session": {
+        "id": "72f527080bd4437587d0db585b5d74a5",
+        "agent_id": "58a1bc5bf0bba6d31ceeb7661f8d751c",
+        "agent_name": "claude-native-ui",
+        "status": "idle",
+        "background_task_count": null,
+        "background_tasks": null,
+        "created_at": 1795470214,
+        "updated_at": 1795470214,
+        "title": null,
+        "labels": {
+          "omnigent.client_surface": "web",
+          "omnigent.ui": "terminal",
+          "omnigent.wrapper": "claude-code-native-ui"
+        },
+        "runner_id": null,
+        "host_id": null,
+        "side_chat_settings_supported": false,
+        "runner_online": true,
+        "host_online": null,
+        "host_resumable": false,
+        "reasoning_effort": null,
+        "items": [],
+        "permission_level": 4,
+        "sub_agent_name": null,
+        "kind": "default",
+        "parent_session_id": null,
+        "root_conversation_id": "72f527080bd4437587d0db585b5d74a5",
+        "llm_model": null,
+        "harness": "claude-native",
+        "model_override": null,
+        "cost_control_mode_override": null,
+        "subagent_routing_override": null,
+        "share_workspace_files": false,
+        "account": null,
+        "context_window": null,
+        "last_total_tokens": null,
+        "total_cost_usd": null,
+        "usage_by_model": null,
+        "usage_included": true,
+        "native_usage_baseline": null,
+        "last_task_error": null,
+        "external_session_id": null,
+        "terminal_launch_args": null,
+        "pending_elicitations": [],
+        "pending_inputs": [],
+        "workspace": null,
+        "git_branch": null,
+        "archived": false,
+        "todos": [],
+        "model_options": [],
+        "inference_configured": false,
+        "inference_error": null,
+        "terminal_pending": false,
+        "sandbox_profile": null,
+        "sandbox_status": null,
+        "mcp_startup": null,
+        "active_response_id": null,
+        "project_id": null
+      }
+    },
+    {
+      "command": [
+        "archive",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8559S3M2GMHAM5JYGXT5GX6/.tmp-live-omnigent/home/state/bound.meta"
+      ],
+      "exit": 0,
+      "stdout": "archived Omnigent session 72f527080bd4437587d0db585b5d74a5\n",
+      "stderr": ""
+    },
+    {
+      "scenario": "recorded session archive PATCH",
+      "session": {
+        "id": "72f527080bd4437587d0db585b5d74a5",
+        "agent_id": "58a1bc5bf0bba6d31ceeb7661f8d751c",
+        "agent_name": "claude-native-ui",
+        "status": "idle",
+        "background_task_count": null,
+        "background_tasks": null,
+        "created_at": 1795470214,
+        "updated_at": 1795470216,
+        "title": null,
+        "labels": {
+          "omnigent.archived_at": "1795470216",
+          "omnigent.client_surface": "web",
+          "omnigent.ui": "terminal",
+          "omnigent.wrapper": "claude-code-native-ui"
+        },
+        "runner_id": null,
+        "host_id": null,
+        "side_chat_settings_supported": false,
+        "runner_online": true,
+        "host_online": null,
+        "host_resumable": false,
+        "reasoning_effort": null,
+        "items": [],
+        "permission_level": 4,
+        "sub_agent_name": null,
+        "kind": "default",
+        "parent_session_id": null,
+        "root_conversation_id": "72f527080bd4437587d0db585b5d74a5",
+        "llm_model": null,
+        "harness": "claude-native",
+        "model_override": null,
+        "cost_control_mode_override": null,
+        "subagent_routing_override": null,
+        "share_workspace_files": false,
+        "account": null,
+        "context_window": null,
+        "last_total_tokens": null,
+        "total_cost_usd": null,
+        "usage_by_model": null,
+        "usage_included": true,
+        "native_usage_baseline": null,
+        "last_task_error": null,
+        "external_session_id": null,
+        "terminal_launch_args": null,
+        "pending_elicitations": [],
+        "pending_inputs": [],
+        "workspace": null,
+        "git_branch": null,
+        "archived": true,
+        "todos": [],
+        "model_options": [],
+        "inference_configured": false,
+        "inference_error": null,
+        "terminal_pending": false,
+        "sandbox_profile": null,
+        "sandbox_status": null,
+        "mcp_startup": null,
+        "active_response_id": null,
+        "project_id": null
+      }
+    },
+    {
+      "command": [
+        "_title-session",
+        "http://127.0.0.1:60215",
+        "1d5afdbd59c548ec9631a098354c7f98",
+        "codex",
+        "wrong wrapper",
+        "1795470216"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "error: Omnigent session title: session 1d5afdbd59c548ec9631a098354c7f98: launch identity verification failed\n"
+    },
+    {
+      "scenario": "refuted identity removed",
+      "meta": "spawn_gen=live.1\nomnigent=on\n"
+    }
+  ],
+  "http_requests": [
+    {
+      "method": "GET",
+      "path": "/v1/sessions/2897a88fbf3e4edbbd80e5b44f89d049",
+      "fault": "slow",
+      "at": 1795470206.075158
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/sessions/2897a88fbf3e4edbbd80e5b44f89d049",
+      "fault": "slow",
+      "at": 1795470212.2999969
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/1105f0bffd1d434ab563dba0e6ab7cae",
+      "fault": "retry",
+      "at": 1795470212.3621361
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/1105f0bffd1d434ab563dba0e6ab7cae",
+      "fault": "retry",
+      "at": 1795470213.5153139
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/sessions/1105f0bffd1d434ab563dba0e6ab7cae",
+      "fault": "retry",
+      "at": 1795470213.5524428
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/sessions/1105f0bffd1d434ab563dba0e6ab7cae",
+      "fault": "retry",
+      "at": 1795470214.6182778
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "down",
+      "at": 1795470214.8783019
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "down",
+      "at": 1795470215.95418
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.478944
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.515002
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.561929
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.60353
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.6388638
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/72f527080bd4437587d0db585b5d74a5",
+      "fault": "normal",
+      "at": 1795470216.676109
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/1d5afdbd59c548ec9631a098354c7f98",
+      "fault": "normal",
+      "at": 1795470216.976347
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+FM_TEST_BEGIN 2026-11-23T21:39:32Z tests/fm-omnigent-recorded-binding.test.sh family=unclassified expected_gate_skip=none
+notice: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-recorded-binding.eHRHF0/home/state/parent-route/mate.inbox/002.msg
+ok - cleared-environment send and lifecycle requests recover the recorded binding
+ok - locked capture consumes remote and local observer handoffs without a request binding
+ok - early retirement verifies the Claude fallback and refutation removes captured identities
+ok - fallback accepts exactly the four supported native wrappers
+FM_TEST_END 2026-11-23T21:39:41Z tests/fm-omnigent-recorded-binding.test.sh exit=0 duration_ms=9356 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=9460
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=9356 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-omnigent-recorded-binding.test.sh duration_ms=9356
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M8559S3M2GMHAM5JYGXT5GX6/binding-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=9460

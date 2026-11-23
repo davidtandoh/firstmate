@@ -1,0 +1,1 @@
+PASS: real-server delayed GET, GET/PATCH retries, early capture, unknown probe, visible status, online refusal, recorded-session archive, and refuted identity removal. Offline fallback requires a real stopped runner and was not exercised live.

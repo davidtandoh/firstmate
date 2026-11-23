@@ -1,0 +1,2372 @@
+{
+  "AutomaticSessionRenameRequest": {
+    "properties": {
+      "title": {
+        "type": "string",
+        "maxLength": 100,
+        "minLength": 2,
+        "title": "Title"
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+      "title"
+    ],
+    "title": "AutomaticSessionRenameRequest",
+    "description": "Proposed title for a framework or agent-initiated rename."
+  },
+  "AutomaticSessionRenameResponse": {
+    "properties": {
+      "renamed": {
+        "type": "boolean",
+        "title": "Renamed"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "reason": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "not_top_level",
+              "no_seed",
+              "title_changed",
+              "generation_failed"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Reason"
+      }
+    },
+    "type": "object",
+    "required": [
+      "renamed"
+    ],
+    "title": "AutomaticSessionRenameResponse",
+    "description": "Result of a conditional automatic session rename."
+  },
+  "ChildSessionList": {
+    "properties": {
+      "object": {
+        "type": "string",
+        "const": "list",
+        "title": "Object",
+        "default": "list"
+      },
+      "data": {
+        "items": {
+          "$ref": "#/components/schemas/ChildSessionSummary"
+        },
+        "type": "array",
+        "title": "Data"
+      },
+      "first_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "First Id"
+      },
+      "last_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Id"
+      },
+      "has_more": {
+        "type": "boolean",
+        "title": "Has More",
+        "default": false
+      }
+    },
+    "type": "object",
+    "title": "ChildSessionList",
+    "description": "Paginated list of child sessions; ``data`` is a page of ``ChildSessionSummary``."
+  },
+  "ChildSessionSummary": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "object": {
+        "type": "string",
+        "title": "Object",
+        "default": "child_session"
+      },
+      "parent_session_id": {
+        "type": "string",
+        "title": "Parent Session Id"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "task_summary": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Task Summary"
+      },
+      "tool": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Tool"
+      },
+      "session_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Session Name"
+      },
+      "kind": {
+        "type": "string",
+        "title": "Kind",
+        "default": "sub_agent"
+      },
+      "created_at": {
+        "type": "integer",
+        "title": "Created At"
+      },
+      "updated_at": {
+        "type": "integer",
+        "title": "Updated At"
+      },
+      "agent_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Id"
+      },
+      "agent_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Name"
+      },
+      "current_task_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Current Task Id"
+      },
+      "current_task_status": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Current Task Status"
+      },
+      "busy": {
+        "type": "boolean",
+        "title": "Busy",
+        "default": false
+      },
+      "labels": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object",
+        "title": "Labels"
+      },
+      "last_task_error": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Task Error"
+      },
+      "last_message_preview": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Message Preview"
+      },
+      "pending_elicitations_count": {
+        "type": "integer",
+        "title": "Pending Elicitations Count",
+        "default": 0
+      },
+      "routed_model": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Routed Model"
+      },
+      "routing_decision_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Routing Decision Id"
+      }
+    },
+    "type": "object",
+    "required": [
+      "id",
+      "parent_session_id",
+      "created_at",
+      "updated_at"
+    ],
+    "title": "ChildSessionSummary",
+    "description": "Summary of a sub-agent (child) session under a parent session.\n\nPowers ``GET /v1/sessions/{id}/child_sessions``. Lets the web /\nREPL debug surface enumerate sub-agent calls spawned from a\nparent session without parsing parent ``function_call_output``\nJSON handles (the legacy TUI Ctrl+O path). The endpoint is the\ncanonical \"historical truth\" source; the existing transient\n``session.created`` SSE event handles live incremental updates.\n\nFields are derived from the child :class:`Conversation` plus its\nlatest :class:`Task` (newest by ``created_at``).\n\n:param id: Child conversation/session identifier,\n    e.g. ``\"conv_child123\"``.\n:param object: Fixed resource type, always\n    ``\"child_session\"``.\n:param parent_session_id: Parent conversation id (echo of the\n    route's ``session_id`` path parameter), e.g.\n    ``\"conv_parent987\"``. Stable join key for clients that\n    cache child rows across multiple parents.\n:param title: Sub-agent title, ``\"{agent_type}:{session_name}\"``\n    as written by :func:`omnigent.tools.builtins.spawn._spawn_one`,\n    e.g. ``\"researcher:auth\"``. ``None`` only for legacy /\n    malformed rows; the spawn path always sets it.\n:param tool: UI-facing sub-agent label. For Omnigent-spawned\n    children this is derived from the prefix of ``title`` before\n    the first ``\":\"``, e.g. ``\"researcher\"``. For Codex-native\n    children this is the Codex-assigned ``agent_nickname`` when\n    available, then ``agent_role``, then ``\"Codex\"``. Falls back\n    to the raw title for legacy / malformed rows; ``None`` only\n    when ``title`` itself is ``None`` or empty.\n:param session_name: Sub-agent instance name, the suffix of\n    ``title`` after the first ``\":\"``, e.g. ``\"auth\"``. ``None``\n    if ``title`` is ``None`` or missing a colon.\n:param kind: Conversation kind discriminator, always\n    ``\"sub_agent\"`` for rows surfaced by this endpoint.\n:param created_at: Unix epoch timestamp of child creation.\n:param updated_at: Unix epoch timestamp of the child's most\n    recent update.\n:param agent_id: Agent id recorded on the latest task,\n    e.g. ``\"ag_abc123\"``. ``None`` if the child has no tasks\n    yet (rare \u2014 ``_spawn_one`` creates a task atomically with\n    the conversation).\n:param agent_name: Agent type recorded on the latest task,\n    e.g. ``\"researcher\"``. Mirrors the ``tool`` prefix in\n    ``title`` and is provided alongside it because the title\n    is a denormalized string while ``agent_name`` is the\n    durable per-task value.\n:param current_task_id: Latest task id for the child\n    (newest by ``created_at``), e.g. ``\"task_abc123\"``.\n    ``None`` if no tasks exist.\n:param current_task_status: Status of the latest task,\n    e.g. ``\"completed\"``, ``\"in_progress\"``, ``\"failed\"``.\n    ``None`` if no tasks exist.\n:param busy: ``True`` when the child's session loop is live.\n    Mirrors the algorithm used by ``GET /v1/sessions/{id}`` to\n    compute ``status``: read the live in-memory cache first\n    (``\"running\"``/``\"waiting\"`` \u2192 busy), and fall back to the\n    latest task's status on cache miss (``\"queued\"`` /\n    ``\"in_progress\"`` \u2192 busy). For NO_DBOS sessions the tasks\n    table is not populated during active runs, so the cache\n    consult is what keeps the rail's \"Working\" badge correct.\n:param labels: Session-scoped guardrails labels on the child\n    conversation (mirrors :class:`ConversationObject.labels`).\n:param last_task_error: Error details from the child's most recent\n    failed run, e.g.\n    ``{\"code\": \"required_terminal_exited\", \"message\": \"...\"}``.\n    ``None`` when the child has no durable failure detail. This is\n    the typed projection of runner-owned failure labels; clients\n    should not parse those labels directly.\n:param last_message_preview: Single-line preview of the most\n    recent message item in the child's conversation, truncated\n    to ~150 chars with a trailing ellipsis when longer. ``None``\n    when the child has no message items yet (rare \u2014 the spawn\n    tool immediately commits a user message). Lets the UI\n    render a real-time \"what's the sub-agent saying right now\"\n    line without fetching the child's full item history.\n:param pending_elicitations_count: Number of approval / input\n    prompts the child is currently blocked on, read from the\n    server's :mod:`omnigent.runtime.pending_elicitations`\n    index. ``> 0`` means the sub-agent is parked awaiting user\n    input \u2014 the Agents rail renders an \"awaiting input\" badge so\n    a fanned-out sub-agent that needs attention is visible\n    without opening its chat. Mirrors\n    :attr:`SessionListItem.pending_elicitations_count`.\n:param routed_model: Model this sub-agent runs on when one was pinned\n    for it, e.g. ``\"databricks-claude-opus-4-8\"``. Read from the\n    child's ``model_override`` \u2014 the field intelligent routing writes\n    when it picks a model for a spawned child. ``None`` when the child\n    inherits the parent/spec model.\n:param routing_decision_id: Identifier of the routing decision that\n    produced :attr:`routed_model`, mirroring\n    ``RoutingDecisionData.decision_id``. Read from the child's\n    ``omnigent.routing.decision_id`` label, stamped when routing pins\n    the model. ``None`` when the child was not routed."
+  },
+  "CreateSessionPolicyRequest": {
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "type": {
+        "type": "string",
+        "title": "Type"
+      },
+      "handler": {
+        "type": "string",
+        "title": "Handler"
+      },
+      "factory_params": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Factory Params"
+      }
+    },
+    "type": "object",
+    "required": [
+      "name",
+      "type",
+      "handler"
+    ],
+    "title": "CreateSessionPolicyRequest",
+    "description": "Request body for ``POST /v1/sessions/{session_id}/policies``.\n\n:param name: Human-readable policy name. Must be unique\n    within the session, e.g.\n    ``\"block_non_feature_branch_push\"``.\n:param type: Handler discriminator: ``\"python\"`` or\n    ``\"url\"``.\n:param handler: Dotted import path (python) or HTTPS URL\n    (url), e.g.\n    ``\"github_mcp_policy.block_non_misc_push\"``\n    or ``\"https://example.com/policies/eval\"``.\n:param factory_params: Optional dict of kwargs passed to the\n    handler when it is a factory function. Only valid for\n    ``type=\"python\"``, e.g. ``{\"limit\": 10}``."
+  },
+  "ImportSessionRequest": {
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "codex",
+          "kimi",
+          "kiro",
+          "opencode",
+          "pi",
+          "qwen"
+        ],
+        "title": "Source"
+      },
+      "external_session_id": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "title": "External Session Id"
+      },
+      "workspace": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 2048
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Workspace"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "force": {
+        "type": "boolean",
+        "title": "Force",
+        "default": false
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Project Id"
+      },
+      "host_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Id"
+      },
+      "archived": {
+        "type": "boolean",
+        "title": "Archived",
+        "default": false
+      },
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/ImportItemInput"
+        },
+        "type": "array",
+        "maxItems": 100000,
+        "minItems": 1,
+        "title": "Items"
+      }
+    },
+    "type": "object",
+    "required": [
+      "source",
+      "external_session_id",
+      "items"
+    ],
+    "title": "ImportSessionRequest",
+    "description": "Request body for importing one local harness session.\n\n``project_id`` files the imported session into a first-class project the\ncaller owns, with the same ownership, default-fill, and mismatch-warning\nsemantics as ``POST /v1/sessions``."
+  },
+  "ImportSessionResponse": {
+    "properties": {
+      "session_id": {
+        "type": "string",
+        "title": "Session Id"
+      },
+      "status": {
+        "type": "string",
+        "const": "imported",
+        "title": "Status"
+      },
+      "item_count": {
+        "type": "integer",
+        "title": "Item Count"
+      }
+    },
+    "type": "object",
+    "required": [
+      "session_id",
+      "status",
+      "item_count"
+    ],
+    "title": "ImportSessionResponse",
+    "description": "Result of importing or locating one source session."
+  },
+  "ImportedSessionRef": {
+    "properties": {
+      "session_id": {
+        "type": "string",
+        "title": "Session Id"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      }
+    },
+    "type": "object",
+    "required": [
+      "session_id"
+    ],
+    "title": "ImportedSessionRef",
+    "description": "One freshly imported session: its new id plus display title.\n\n``title`` is ``None`` when the session has no native title and no first user\nmessage to synthesize from; the UI falls back to a placeholder. Also the\nshape of each ``{\"event\": \"session\", ...}`` line the\n``/imports/local/stream`` endpoint emits."
+  },
+  "ResetSessionModelOverrideRequest": {
+    "properties": {
+      "expected_model_override": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Expected Model Override"
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+      "expected_model_override"
+    ],
+    "title": "ResetSessionModelOverrideRequest",
+    "description": "Reset a launch-time model selection only while that selection is current."
+  },
+  "ResetSessionModelOverrideResponse": {
+    "properties": {
+      "reset": {
+        "type": "boolean",
+        "title": "Reset"
+      }
+    },
+    "type": "object",
+    "required": [
+      "reset"
+    ],
+    "title": "ResetSessionModelOverrideResponse",
+    "description": "Whether the launch-time selection was still current and was cleared."
+  },
+  "SessionForkRequest": {
+    "properties": {
+      "sandbox_profile_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Sandbox Profile Id"
+      },
+      "sandbox_profile_revision": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Sandbox Profile Revision"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "agent_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Id"
+      },
+      "up_to_response_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Up To Response Id"
+      },
+      "model_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Model Override"
+      },
+      "reasoning_effort": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Reasoning Effort"
+      },
+      "terminal_launch_args": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Terminal Launch Args"
+      },
+      "codex_bypass_sandbox": {
+        "type": "boolean",
+        "title": "Codex Bypass Sandbox",
+        "default": false
+      },
+      "host_type": {
+        "type": "string",
+        "enum": [
+          "external",
+          "managed"
+        ],
+        "title": "Host Type",
+        "default": "external"
+      },
+      "sandbox_provider": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Sandbox Provider"
+      },
+      "host_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Id"
+      },
+      "workspace": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Workspace"
+      },
+      "workspaces": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Workspaces"
+      },
+      "side_chat": {
+        "type": "boolean",
+        "title": "Side Chat",
+        "default": false
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "SessionForkRequest",
+    "description": "Request body for ``POST /v1/sessions/{source_id}/fork``.\n\nCreates a deep copy of an existing session's items into a new\nsession. All fields are optional.\n\n:param title: Title for the forked session. When ``None``, the\n    server derives ``\"Fork of <source_title>\"``.\n:param agent_id: Built-in agent to bind the fork to, switching it\n    away from the source's agent/harness (e.g. fork a Claude session\n    into a Codex one, or a Claude-SDK session into Claude Code). When\n    ``None``, the fork keeps the source's agent. Must be a built-in\n    agent (one listed by ``GET /v1/agents``).\n:param up_to_response_id: Truncation point for the copied history,\n    e.g. ``\"resp_abc123\"``. When set, only items up to and including\n    the last item of that response are copied \u2014 items after it are\n    dropped from the fork. When ``None`` (default), the full history\n    is copied.\n:param model_override: Per-session LLM model override to apply to the\n    fork, e.g. ``\"claude-opus-4-7\"``. **Omitting** the field inherits\n    the source's model (same as today, within the same provider\n    family); an explicit value overrides it, and a clear alias\n    (``\"default\"``, ``\"off\"``, ``\"reset\"``) resets the fork to the\n    bound agent's default. Validated against a conservative model-id\n    charset. Set by the web fork dialog's model picker.\n:param reasoning_effort: Per-session reasoning-effort override to apply\n    to the fork, e.g. ``\"high\"``. **Omitting** the field inherits the\n    source's effort; an explicit value overrides it, and a clear alias\n    (``\"default\"``, ``\"off\"``, ``\"reset\"``) resets it. Validated\n    against the shared effort vocabulary; provider support is enforced\n    at launch. Set by the web fork dialog's effort picker.\n:param terminal_launch_args: Per-session native harness launch args to\n    apply to the fork, e.g. ``[\"--permission-mode\", \"auto\"]``\n    (the fork dialog's permission-/approval-mode selector).\n    **Omitting** the field keeps today's behavior \u2014 the source's args\n    are carried on a same-agent fork and dropped on an agent switch. A\n    list (including ``[]``, which clears them) replaces them wholesale.\n    Bounds (count / length) are validated server-side.\n:param codex_bypass_sandbox: Opt-in for the DANGEROUS codex-native\n    full-bypass (``--dangerously-bypass-approvals-and-sandbox``) on the\n    fork. The source's bypass label is ALWAYS dropped on a fork (a\n    bypass-armed source can never silently re-arm its clone), so this is\n    the only way a fork enables it \u2014 an explicit, banner-gated opt-in\n    from the dialog, mirroring the new-session approval selector. ``True``\n    stamps ``omnigent.codex_native.bypass_sandbox`` on the fork; ``False``\n    / omitted leaves the fork in Codex's normal approval/sandbox stance.\n    Only meaningful for a codex-native target; ignored otherwise.\n:param host_type: How the fork's host is obtained \u2014 ``\"external\"``\n    (the default: the caller binds one afterwards, via\n    ``POST /v1/hosts/{host_id}/runners`` from the web dialog or\n    ``PATCH /v1/sessions/{id}`` from the REPL) or ``\"managed\"`` (the\n    server provisions a sandbox host for the fork, the same\n    background launch a ``host_type: \"managed\"`` create schedules).\n:param sandbox_provider: Which configured sandbox provider to\n    provision on ``host_type: \"managed\"`` (one of the server's\n    ``sandbox_providers``); ``None`` takes the server's first. Only\n    valid with ``host_type: \"managed\"``.\n:param host_id: Id for the fork's new sandbox host, with the same shape,\n    capability gate, label and ``409`` as a managed create's ``host_id``.\n    ``None`` lets the server mint one. Only valid with\n    ``host_type: \"managed\"``.\n:param workspace: Git repository URL (optionally ``#<branch>``) the\n    server clones into the fork's sandbox as its working directory,\n    e.g. ``\"https://github.com/org/repo#release-1.2\"``. **Omitting**\n    both workspace fields inherits all repositories the source session\n    recorded, so cloning a sandbox session preserves its checkouts; an\n    explicit value overrides it and an explicit ``null`` gives the\n    fork an empty sandbox. Only valid with ``host_type: \"managed\"`` \u2014\n    an external fork's directory is chosen when it binds a host.\n:param workspaces: Repository URLs (each optionally ``#<branch>``) to\n    clone into the fork's sandbox, replacing the source's repositories.\n    Send only when ``GET /v1/info`` reports ``session_fork_workspaces``.\n    Several repositories require a provider with ``multi_repo`` support.\n    Mutually exclusive with ``workspace``; explicitly sending ``[]`` or\n    ``null`` gives the fork an empty sandbox. Only valid with\n    ``host_type: \"managed\"``."
+  },
+  "SessionGitOptions": {
+    "properties": {
+      "branch_name": {
+        "type": "string",
+        "title": "Branch Name"
+      },
+      "base_branch": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Base Branch"
+      },
+      "existing_worktree": {
+        "type": "boolean",
+        "title": "Existing Worktree",
+        "default": false
+      },
+      "existing_branch": {
+        "type": "boolean",
+        "title": "Existing Branch",
+        "default": false
+      }
+    },
+    "type": "object",
+    "required": [
+      "branch_name"
+    ],
+    "title": "SessionGitOptions",
+    "description": "Git worktree options for ``POST /v1/sessions``.\n\nRequires ``host_id`` to be set (and therefore ``workspace``, which\nis interpreted as the source repository directory). Two modes,\nselected by ``existing_worktree``:\n\n- **create** (default): the server creates a git worktree on the\n  host for a new branch and starts the runner in that worktree\n  instead of the picked directory.\n- **bind** (``existing_worktree=True``): ``workspace`` already IS a\n  pre-existing worktree; no worktree is created. ``branch_name`` is\n  recorded as the session's ``git_branch`` for display and opt-in\n  cleanup, and ``base_branch`` must not be set.\n\nSee designs/SESSION_GIT_WORKTREE.md.\n\n:param branch_name: In create mode, the new branch to create and\n    check out, e.g. ``\"feature/login\"``. In bind mode, the branch\n    already checked out in the existing worktree. Validated against\n    git ref-format rules; invalid names fail with ``invalid_input``.\n:param base_branch: Optional base ref to branch from, e.g.\n    ``\"main\"`` or ``\"origin/main\"``. ``None`` branches from the\n    source repository's current ``HEAD``. Create mode only \u2014\n    invalid with ``existing_worktree``.\n:param existing_worktree: When ``True``, bind to the pre-existing\n    worktree at ``workspace`` instead of creating one (see above).\n:param existing_branch: When ``True``, ``branch_name`` already\n    exists and the host checks it out into a fresh worktree (the\n    deleted-worktree recreate path) instead of creating a new\n    branch. Create mode only; invalid with ``existing_worktree``\n    and with ``base_branch`` (an existing branch has no base to\n    fork)."
+  },
+  "SessionLabelsResponse": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "labels": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object",
+        "title": "Labels"
+      }
+    },
+    "type": "object",
+    "required": [
+      "id"
+    ],
+    "title": "SessionLabelsResponse",
+    "description": "Lightweight response body for ``GET /v1/sessions/{id}/labels``.\n\n:param id: Session identifier, e.g. ``\"conv_abc123\"``.\n:param labels: Session-scoped guardrails labels. Empty dict when\n    no labels have been written."
+  },
+  "SessionList": {
+    "properties": {
+      "object": {
+        "type": "string",
+        "const": "list",
+        "title": "Object",
+        "default": "list"
+      },
+      "data": {
+        "items": {
+          "$ref": "#/components/schemas/SessionListItem"
+        },
+        "type": "array",
+        "title": "Data"
+      },
+      "first_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "First Id"
+      },
+      "last_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Id"
+      },
+      "has_more": {
+        "type": "boolean",
+        "title": "Has More",
+        "default": false
+      }
+    },
+    "type": "object",
+    "title": "SessionList",
+    "description": "Paginated list of sessions; ``data`` is a page of ``SessionListItem``."
+  },
+  "SessionListItem": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "agent_id": {
+        "type": "string",
+        "title": "Agent Id"
+      },
+      "agent_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Name"
+      },
+      "harness": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Harness"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "running",
+          "waiting",
+          "failed"
+        ],
+        "title": "Status"
+      },
+      "created_at": {
+        "type": "integer",
+        "title": "Created At"
+      },
+      "updated_at": {
+        "type": "integer",
+        "title": "Updated At"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "labels": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object",
+        "title": "Labels"
+      },
+      "runner_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runner Id"
+      },
+      "host_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Id"
+      },
+      "runner_online": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runner Online"
+      },
+      "host_online": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Online"
+      },
+      "reasoning_effort": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Reasoning Effort"
+      },
+      "permission_level": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Permission Level"
+      },
+      "owner": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Owner"
+      },
+      "external_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "External Session Id"
+      },
+      "pending_elicitations_count": {
+        "type": "integer",
+        "title": "Pending Elicitations Count",
+        "default": 0
+      },
+      "workspace": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Workspace"
+      },
+      "git_branch": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Git Branch"
+      },
+      "archived": {
+        "type": "boolean",
+        "title": "Archived",
+        "default": false
+      },
+      "comments_count": {
+        "type": "integer",
+        "title": "Comments Count",
+        "default": 0
+      },
+      "comments_updated_at": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Comments Updated At"
+      },
+      "viewer_last_seen": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Viewer Last Seen"
+      },
+      "viewer_unread": {
+        "type": "boolean",
+        "title": "Viewer Unread",
+        "default": false
+      },
+      "search_snippet": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Search Snippet"
+      },
+      "parent_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Session Id"
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Project Id"
+      },
+      "pull_request": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionPullRequestSummary"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pull_requests_synced": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Pull Requests Synced"
+      }
+    },
+    "type": "object",
+    "required": [
+      "id",
+      "agent_id",
+      "status",
+      "created_at",
+      "updated_at"
+    ],
+    "title": "SessionListItem",
+    "description": "Lightweight session summary for ``GET /v1/sessions`` list responses.\n\nSame shape as :class:`SessionResponse` minus ``items``.\n\n:param id: Session/conversation identifier,\n    e.g. ``\"conv_abc123\"``.\n:param agent_id: Durable identifier of the bound agent.\n:param agent_name: Human-readable name of the bound agent,\n    e.g. ``\"research-agent\"``. ``None`` when the agent row\n    cannot be found.\n:param harness: Canonical effective harness, including per-session overrides.\n:param status: Derived session lifecycle status.\n:param created_at: Unix epoch seconds of creation.\n:param updated_at: Unix epoch seconds of last update.\n:param title: Optional human-readable title.\n:param labels: Session-scoped guardrails labels.\n:param runner_id: Runner currently bound to the session.\n:param host_id: Host that launched the runner for this session.\n:param runner_online: Strict runner liveness \u2014 ``True`` iff a\n    runner tunnel is currently registered for this session.\n    Matches ``GET /health``'s ``runner_online`` value. Strict:\n    a dead runner on a live host reads ``False`` here (no\n    host-relaunch optimism folded in), unlike the legacy\n    conflated value. ``None`` when the server has no runner\n    liveness lookup wired.\n:param host_online: Whether the session's host tunnel is live\n    (status online and fresh within the host liveness TTL).\n    ``None`` when the session has no ``host_id`` (CLI/local).\n    Distinguishes \"runner down but host can relaunch\" from\n    \"host offline\" for the open-session view; not used by the\n    sidebar.\n:param reasoning_effort: Per-session reasoning-effort hint.\n:param permission_level: The requesting user's numeric\n    permission level on this session: ``1`` = read, ``2`` =\n    edit, ``3`` = manage. ``None`` when permissions are\n    disabled.\n:param owner: The user_id of the session owner, or ``None``\n    when permissions are disabled. Included so the sidebar\n    can display the owner without a separate API call.\n:param external_session_id: Runtime-native session id this\n    conversation wraps, e.g. a Claude Code session uuid for\n    ``omnigent claude`` sessions. ``None`` for regular\n    AP-only conversations. Lets the sidebar / picker render\n    a runtime badge without a follow-up GET.\n:param pending_elicitations_count: Number of approval prompts\n    currently waiting on this session. Powers the sidebar's\n    \"needs attention\" badge so a user with several sessions\n    running can tell which ones are blocked on them without\n    opening each chat. Sourced from the Omnigent server's in-memory\n    :mod:`omnigent.runtime.pending_elicitations` index,\n    which mirrors every ``response.elicitation_request`` event\n    passing through ``session_stream`` and decrements when a\n    verdict is dispatched. ``0`` when the session has no\n    outstanding elicitations.\n:param workspace: Absolute path on disk where the runner cd's,\n    e.g. ``\"/Users/corey/universe/src/foo\"``. ``None`` for\n    sessions that haven't been bound to a host workspace.\n:param git_branch: Git branch checked out in the session's\n    worktree, e.g. ``\"feature/login\"``. Set only when the\n    session was created with a server-created git worktree;\n    ``None`` otherwise. The Web UI uses a non-``None`` value to\n    offer the \"delete local branch\" cleanup checkbox on session\n    delete. See designs/SESSION_GIT_WORKTREE.md.\n:param archived: Whether the session is archived. Archived\n    sessions are returned by ``GET /v1/sessions`` only when the\n    request passes ``include_archived=true``; the sidebar groups\n    them into a dedicated \"Archived\" section. ``False`` for\n    normal sessions.\n:param comments_count: Total number of review comments (any\n    status) on this session. Together with\n    ``comments_updated_at`` it forms a change fingerprint: an\n    add or edit bumps the timestamp, a delete changes the count,\n    so the web client can invalidate its cached comment list\n    when either field changes in a ``WS /v1/sessions/updates``\n    frame. ``0`` when the session has no comments or the server\n    has no comment store wired.\n:param comments_updated_at: Unix epoch **microseconds** of the\n    most recently mutated comment on this session (max\n    ``updated_at`` across its comments). Microsecond precision\n    keeps back-to-back mutations within one second\n    distinguishable while staying an exact integer in JavaScript;\n    clients only compare it for change. ``None`` when the session\n    has no comments or the server has no comment store wired.\n:param viewer_last_seen: The *requesting user's* \"last seen\"\n    wall-clock baseline in seconds for this session, or ``None``\n    when they have never seen it. Per-viewer (built from the\n    server's in-memory per-user read-state, written by\n    ``PUT /v1/sessions/{id}/read-state``); the unread dot shows\n    when ``updated_at > viewer_last_seen`` and the session is\n    finished. In-memory only \u2014 resets on a server restart.\n:param viewer_unread: Whether the *requesting user* explicitly\n    marked this session unread. Per-viewer; lifts the active-row\n    dot suppression on the client. ``False`` by default.\n:param search_snippet: Excerpt of the chat content that matched the\n    request's ``search_query``, centered on the match with ``\u2026``\n    marking elided ends, so the search UI can show *where* a session\n    matched in its body. Present whenever the query hit an item body\n    (even if the title also matched); ``None`` on non-search reads and\n    when only the title matched.\n:param pull_request: The session's first linked pull request, or\n    ``None`` when it has none.\n:param pull_requests_synced: Whether the server has imported the session's\n    PRs from its host, so a missing ``pull_request`` means \"none\" rather than\n    \"not known yet\". ``None`` on servers without PR storage."
+  },
+  "SessionProjectSummary": {
+    "properties": {
+      "id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Id"
+      },
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "icon": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Icon"
+      }
+    },
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "title": "SessionProjectSummary",
+    "description": "One entry of ``GET /v1/sessions/projects`` \u2014 a sidebar project folder.\n\nDual-read union of first-class projects and legacy ``omni_project``\nlabel-projects, keyed by name.\n\n:param id: First-class project id when one exists, or ``None`` for a\n    label-only project not yet promoted to the ``projects`` table.\n:param name: Project name (the folder's display name and union key).\n:param icon: The project's chosen emoji icon (a unicode grapheme), read\n    from its ``config``; ``None`` when unset or for a label-only folder,\n    so the sidebar falls back to the default folder glyph."
+  },
+  "SessionPullRequest": {
+    "properties": {
+      "url": {
+        "type": "string",
+        "title": "Url"
+      },
+      "provider": {
+        "type": "string",
+        "title": "Provider"
+      },
+      "provider_display": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Provider Display"
+      },
+      "repository": {
+        "type": "string",
+        "title": "Repository"
+      },
+      "number": {
+        "type": "integer",
+        "title": "Number"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "State"
+      },
+      "is_draft": {
+        "type": "boolean",
+        "title": "Is Draft",
+        "default": false
+      },
+      "state_checked_at": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "State Checked At"
+      },
+      "host": {
+        "type": "string",
+        "title": "Host"
+      },
+      "relationship": {
+        "type": "string",
+        "enum": [
+          "created",
+          "worked_on",
+          "attached",
+          "inferred"
+        ],
+        "title": "Relationship"
+      },
+      "first_seen_at": {
+        "type": "number",
+        "title": "First Seen At"
+      },
+      "last_seen_at": {
+        "type": "number",
+        "title": "Last Seen At"
+      }
+    },
+    "type": "object",
+    "required": [
+      "url",
+      "provider",
+      "repository",
+      "number",
+      "host",
+      "relationship",
+      "first_seen_at",
+      "last_seen_at"
+    ],
+    "title": "SessionPullRequest",
+    "description": "A pull request linked to a session, as ``GET /v1/sessions/{id}/pull-requests`` lists it.\n\n:param host: Forge host, e.g. ``\"github.com\"``.\n:param relationship: How the PR joined the session: ``\"created\"``,\n    ``\"worked_on\"``, ``\"attached\"``, or ``\"inferred\"`` from the branch.\n:param first_seen_at: Epoch seconds the session first saw the PR.\n:param last_seen_at: Epoch seconds of the PR's latest activity in the session."
+  },
+  "SessionPullRequestList": {
+    "properties": {
+      "object": {
+        "type": "string",
+        "const": "list",
+        "title": "Object",
+        "default": "list"
+      },
+      "data": {
+        "items": {
+          "$ref": "#/components/schemas/SessionPullRequest"
+        },
+        "type": "array",
+        "title": "Data"
+      },
+      "first_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "First Id"
+      },
+      "last_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Id"
+      },
+      "has_more": {
+        "type": "boolean",
+        "title": "Has More",
+        "default": false
+      },
+      "synced": {
+        "type": "boolean",
+        "title": "Synced",
+        "default": false
+      }
+    },
+    "type": "object",
+    "title": "SessionPullRequestList",
+    "description": "A page of a session's linked pull requests in display order, keyed by URL.\n\n:param synced: Whether the server has imported the session's PRs from its\n    host. Until then an empty list means \"not known yet\", not \"none\"."
+  },
+  "SessionPullRequestSummary": {
+    "properties": {
+      "url": {
+        "type": "string",
+        "title": "Url"
+      },
+      "provider": {
+        "type": "string",
+        "title": "Provider"
+      },
+      "provider_display": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Provider Display"
+      },
+      "repository": {
+        "type": "string",
+        "title": "Repository"
+      },
+      "number": {
+        "type": "integer",
+        "title": "Number"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "State"
+      },
+      "is_draft": {
+        "type": "boolean",
+        "title": "Is Draft",
+        "default": false
+      },
+      "state_checked_at": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "State Checked At"
+      }
+    },
+    "type": "object",
+    "required": [
+      "url",
+      "provider",
+      "repository",
+      "number"
+    ],
+    "title": "SessionPullRequestSummary",
+    "description": "The first pull request linked to a session, for list surfaces.\n\nStored on the server from what the session's host last reported, so it\nis available while the host is offline.\n\n:param url: The PR's URL.\n:param provider: Git provider id, e.g. ``\"github\"``.\n:param provider_display: The provider's labels (``display_name``,\n    ``request_name``, ``number_prefix``), or ``None`` for an unknown provider.\n:param repository: Base repository, e.g. ``\"owner/repo\"``.\n:param number: The PR number.\n:param title: The last title the host looked up, or ``None``.\n:param state: ``\"OPEN\"``, ``\"MERGED\"`` or ``\"CLOSED\"`` as last fetched, or\n    ``None`` before the host fetched the PR.\n:param is_draft: Whether the PR was a draft when last fetched.\n:param state_checked_at: Epoch seconds of the request that last fetched the\n    PR's state, or ``None`` before one did. Open PRs older than five minutes\n    are refreshed when their host is online; clients show older ones as stale."
+  },
+  "SessionRepositoryBranch": {
+    "properties": {
+      "url": {
+        "type": "string",
+        "title": "Url"
+      },
+      "branch": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Branch"
+      },
+      "pushed": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Pushed"
+      }
+    },
+    "type": "object",
+    "required": [
+      "url"
+    ],
+    "title": "SessionRepositoryBranch",
+    "description": "Current branch and remote availability for one managed repository.\n\n``pushed`` is true when the branch exists at the original clone URL,\nfalse when confirmed absent, and null when availability is unknown.\nIt does not indicate whether local commits or working-tree changes are pushed."
+  },
+  "SessionRepositoryBranchList": {
+    "properties": {
+      "repositories": {
+        "items": {
+          "$ref": "#/components/schemas/SessionRepositoryBranch"
+        },
+        "type": "array",
+        "title": "Repositories"
+      }
+    },
+    "type": "object",
+    "required": [
+      "repositories"
+    ],
+    "title": "SessionRepositoryBranchList",
+    "description": "Managed repositories in their original launch order."
+  },
+  "SessionResourceObject": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "object": {
+        "type": "string",
+        "const": "session.resource",
+        "title": "Object"
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "environment",
+          "terminal",
+          "file"
+        ],
+        "title": "Type"
+      },
+      "session_id": {
+        "type": "string",
+        "title": "Session Id"
+      },
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "metadata": {
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Metadata"
+      },
+      "environment": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Environment"
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+      "id",
+      "object",
+      "type",
+      "session_id",
+      "name"
+    ],
+    "title": "SessionResourceObject",
+    "description": "API representation of a session-scoped resource handle.\n\n:param id: Opaque resource identifier, e.g. ``\"default\"`` or\n    ``\"terminal_bash_s1\"``.\n:param object: Fixed resource type, always ``\"session.resource\"``.\n:param type: Resource kind, initially ``\"environment\"``,\n    ``\"terminal\"``, or ``\"file\"``.\n:param session_id: Owning session/conversation id.\n:param name: Human-readable display name. Not required to be\n    globally unique.\n:param metadata: Resource-type-specific metadata.\n:param environment: For terminal resources, the environment id the\n    terminal actually runs in. Omitted for non-terminal resources."
+  },
+  "SessionResourcePaginatedList": {
+    "properties": {
+      "object": {
+        "type": "string",
+        "const": "list",
+        "title": "Object",
+        "default": "list"
+      },
+      "data": {
+        "items": {
+          "$ref": "#/components/schemas/SessionResourceObject"
+        },
+        "type": "array",
+        "title": "Data"
+      },
+      "first_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "First Id"
+      },
+      "last_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Id"
+      },
+      "has_more": {
+        "type": "boolean",
+        "title": "Has More",
+        "default": false
+      }
+    },
+    "type": "object",
+    "title": "SessionResourcePaginatedList",
+    "description": "Public paginated list of session resources."
+  },
+  "SessionResponse": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "agent_id": {
+        "type": "string",
+        "title": "Agent Id"
+      },
+      "agent_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Name"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "running",
+          "waiting",
+          "failed"
+        ],
+        "title": "Status"
+      },
+      "background_task_count": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Background Task Count"
+      },
+      "background_tasks": {
+        "anyOf": [
+          {
+            "items": {
+              "$ref": "#/components/schemas/BackgroundTaskInfo"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Background Tasks"
+      },
+      "created_at": {
+        "type": "integer",
+        "title": "Created At"
+      },
+      "updated_at": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Updated At"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "labels": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object",
+        "title": "Labels"
+      },
+      "runner_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runner Id"
+      },
+      "host_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Id"
+      },
+      "side_chat_settings_supported": {
+        "type": "boolean",
+        "title": "Side Chat Settings Supported",
+        "default": false
+      },
+      "runner_online": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runner Online"
+      },
+      "host_online": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Host Online"
+      },
+      "host_resumable": {
+        "type": "boolean",
+        "title": "Host Resumable",
+        "default": false
+      },
+      "reasoning_effort": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Reasoning Effort"
+      },
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/ConversationItem"
+        },
+        "type": "array",
+        "title": "Items"
+      },
+      "permission_level": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Permission Level"
+      },
+      "sub_agent_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Sub Agent Name"
+      },
+      "kind": {
+        "type": "string",
+        "title": "Kind",
+        "default": "default"
+      },
+      "parent_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Session Id"
+      },
+      "root_conversation_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Root Conversation Id"
+      },
+      "llm_model": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Llm Model"
+      },
+      "harness": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Harness"
+      },
+      "model_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Model Override"
+      },
+      "cost_control_mode_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Cost Control Mode Override"
+      },
+      "subagent_routing_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Subagent Routing Override"
+      },
+      "share_workspace_files": {
+        "type": "boolean",
+        "title": "Share Workspace Files",
+        "default": false
+      },
+      "account": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Account"
+      },
+      "context_window": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Context Window"
+      },
+      "last_total_tokens": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Total Tokens"
+      },
+      "total_cost_usd": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Total Cost Usd"
+      },
+      "usage_by_model": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ModelUsage"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Usage By Model"
+      },
+      "usage_included": {
+        "type": "boolean",
+        "title": "Usage Included",
+        "default": true
+      },
+      "native_usage_baseline": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/NativeUsageBaseline"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_task_error": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Last Task Error"
+      },
+      "external_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "External Session Id"
+      },
+      "terminal_launch_args": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Terminal Launch Args"
+      },
+      "pending_elicitations": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array",
+        "title": "Pending Elicitations"
+      },
+      "pending_inputs": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array",
+        "title": "Pending Inputs"
+      },
+      "workspace": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Workspace"
+      },
+      "git_branch": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Git Branch"
+      },
+      "archived": {
+        "type": "boolean",
+        "title": "Archived",
+        "default": false
+      },
+      "todos": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array",
+        "title": "Todos"
+      },
+      "model_options": {
+        "items": {
+          "$ref": "#/components/schemas/NativeModelOption"
+        },
+        "type": "array",
+        "title": "Model Options"
+      },
+      "inference_configured": {
+        "type": "boolean",
+        "title": "Inference Configured",
+        "default": false
+      },
+      "inference_error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Inference Error"
+      },
+      "terminal_pending": {
+        "type": "boolean",
+        "title": "Terminal Pending",
+        "default": false
+      },
+      "sandbox_profile": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SandboxProfileSummary"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sandbox_status": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SandboxStatus"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "mcp_startup": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/McpServerStartup"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Mcp Startup"
+      },
+      "active_response_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Active Response Id"
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Project Id"
+      }
+    },
+    "type": "object",
+    "required": [
+      "id",
+      "agent_id",
+      "status",
+      "created_at"
+    ],
+    "title": "SessionResponse",
+    "description": "API representation of a session.\n\nReturned by ``POST /v1/sessions``, ``GET /v1/sessions/{id}``,\nand ``PATCH /v1/sessions/{id}``.\n\n:param id: Unique session identifier (also the underlying\n    conversation ID), e.g. ``\"conv_abc123\"``.\n:param agent_id: Durable identifier of the bound agent,\n    e.g. ``\"ag_abc123\"``. Stable across renames of the\n    agent.\n:param agent_name: Human-readable name of the bound agent,\n    e.g. ``\"research-agent\"``. Loaded from the agent row at\n    snapshot-build time. ``None`` when the agent row cannot\n    be found (deleted or orphaned session).\n:param status: Session lifecycle status. One of\n    ``\"idle\"`` (no loop running), ``\"running\"`` (loop\n    executing), ``\"waiting\"`` (loop parked on background\n    work / sub-agents), or ``\"failed\"`` (terminal failure).\n    Current read paths collapse ``\"waiting\"`` -> ``\"running\"``\n    before building this snapshot; the literal stays a superset\n    of what the runtime can produce so a server that forwards\n    the raw status never 500s on serialization.\n:param background_task_count: Background shells (claude-native) still\n    running as of the last status edge, so a reload re-shows \"N shells\n    still running\" even though the session has settled to ``\"idle\"``.\n    ``None`` (the default / omitted) when no shells are tracked.\n:param background_tasks: Per-shell detail for the running tally above,\n    so a reload can restore each shell's description/command. ``None`` when\n    none are tracked (or when an older runner reported only the count).\n:param created_at: Unix epoch seconds of creation.\n:param title: Optional human-readable title, e.g.\n    ``\"debugging auth flow\"``. ``None`` when unset.\n:param labels: Session-scoped guardrails labels. Empty dict\n    when no labels have been written.\n:param runner_id: Runner currently bound to this session, e.g.\n    ``\"runner_abc123\"``. ``None`` until a client binds one via\n    ``PATCH /v1/sessions/{id}``.\n:param host_id: Host that launched (or should launch) the\n    runner for this session, e.g. ``\"host_a1b2c3d4...\"``.\n    ``None`` for CLI-initiated sessions.\n:param runner_online: Strict runner liveness \u2014 ``True`` iff a\n    runner tunnel is currently registered for this session.\n    This is the sole reachability signal: ``True`` means the\n    client can chat normally. It does **not** fold in\n    host-relaunch optimism (a dead runner on a live host reads\n    ``False`` here, not ``True``) \u2014 the open-session view pairs\n    it with ``host_online`` to decide what to show. ``None``\n    when the server has no runner liveness lookup wired.\n:param host_online: Whether the session's host tunnel is live\n    (status online and fresh within the host liveness TTL).\n    ``None`` when the session has no ``host_id`` (CLI/local).\n    Used only to choose what the open view shows when\n    ``runner_online`` is ``False`` \u2014 host alive \u21d2 \"send a\n    message to wake the runner\"; host dead \u21d2 \"reconnect /\n    fork\". Never participates in the reachability decision.\n:param host_resumable: Whether this session is bound to a dormant\n    managed host the server can wake in place (its provider sets\n    :attr:`SandboxLauncher.can_resume`). The open view reads it only\n    when ``host_online`` is ``False``, to split a confirmed host-down\n    into a recoverable \"asleep\" state (send a message \u2014 the relaunch\n    path resumes the sandbox) versus the terminal ``host_offline``\n    dead-end (reconnect from your machine / fork). ``False`` for\n    non-managed or non-resumable hosts.\n:param reasoning_effort: Per-session reasoning-effort hint.\n    Accepted metadata values are ``\"none\"``, ``\"minimal\"``,\n    ``\"low\"``, ``\"medium\"``, ``\"high\"``, ``\"xhigh\"``, and\n    ``\"max\"``. Provider-specific support is validated when a\n    turn executes. ``None`` means use the agent default.\n:param items: Committed conversation items in chronological\n    order. Empty for a freshly created session.\n:param sub_agent_name: For sub-agent sessions, the sub-agent\n    type name within the parent's spec tree, e.g.\n    ``\"summarizer\"``. ``None`` for top-level sessions.\n:param parent_session_id: For sub-agent sessions, the parent\n    conversation's id, e.g. ``\"conv_parent987\"``. ``None`` for\n    top-level sessions. Lets clients identify a session as a\n    child and link back to its parent without an extra\n    round-trip \u2014 the same conversation row exposes this via\n    ``parent_conversation_id`` internally.\n:param root_conversation_id: The id of this session's spawn-tree\n    root, e.g. ``\"conv_root1\"``. Equals ``id`` for top-level\n    sessions; for sub-agents it points at the top-level ancestor.\n    Lets orchestration tools (e.g. ``sys_session_close``) confirm\n    a target shares the caller's spawn tree over the REST path.\n    ``None`` only when the underlying row predates the\n    ``root_conversation_id`` column (not expected post-migration).\n:param permission_level: The requesting user's numeric\n    permission level on this session: ``1`` = read, ``2`` =\n    edit, ``3`` = manage. ``None`` when permissions are\n    disabled (single-user mode without a permission store).\n:param llm_model: The model this session is actually on. When the\n    harness has reported one (``reported_model``, written by\n    ``external_model_change``), that verbatim value serves here\n    and is the only model value clients display; otherwise the\n    bound agent spec's model, e.g.\n    ``\"anthropic/claude-sonnet-4-6\"``. ``None`` when neither\n    exists.\n:param harness: The bound agent's canonical harness, e.g.\n    ``\"claude-sdk\"`` or ``\"openai-agents\"``. Lets the client\n    render the active credential for the correct provider\n    family instead of inferring it from the model string (which\n    is wrong when the agent declares no model). ``None`` when\n    the agent cannot be looked up.\n:param model_override: Per-session LLM model override,\n    e.g. ``\"claude-opus-4-7\"``. ``None`` means no override is\n    active (the agent's ``llm_model`` applies). Set via\n    ``PATCH /v1/sessions/{id}`` or the REPL's ``/model``\n    command; both write the same column so the web UI and\n    the TUI stay in sync.\n:param cost_control_mode_override: Per-session cost-control\n    switch: ``\"on\"`` activates the spec's configured cost-control\n    mode, ``\"off\"`` disables cost control for this session.\n    ``None`` means no override is active (the spec default\n    applies). Set at create time or via\n    ``PATCH /v1/sessions/{id}`` (the web \"Cost Optimized\"\n    toggle); read by the cost-control advisor pipeline.\n:param subagent_routing_override: Per-session subagent-routing\n    switch, two-state: ``\"on\"`` routes subagent spawns, and ``\"off\"``\n    or ``None`` (unset) both leave them unrouted \u2014 the in-session\n    \"Subagent routing\" row renders either as \"Default\". ``None`` on\n    a row created before this became explicit inherits nothing.\n    Stamped ``\"on\"`` at create for Smart Routing sessions; also set\n    via ``PATCH /v1/sessions/{id}``.\n:param share_workspace_files: Whether the owner opted into letting\n    view-level collaborators browse the workspace (Files/Changes/GitHub\n    surfaces). ``False`` by default \u2014 read grants share the conversation\n    only. The web share dialog reads this to render the toggle, and the\n    rail reads it to decide whether to mount the file surfaces for a\n    view-only viewer.\n:param account: The extra Claude account the session runs on, e.g.\n    ``\"work\"``. Shown only to viewers who can manage the session, since\n    users may name accounts after an email; ``None`` otherwise and for\n    the default login.\n:param context_window: The model's context window size in tokens\n    as looked up server-side from litellm's registry (or from the\n    ``AP_CONTEXT_WINDOW_OVERRIDE`` env var), e.g. ``200_000``.\n    ``None`` when the model is not in litellm's registry and no\n    override is set.\n:param last_total_tokens: Total token count (input + output) from\n    the most recently completed task's ``usage``, e.g. ``45231``.\n    ``None`` when no task has completed yet. Lets clients seed\n    their context-ring on conversation resume without waiting for\n    the next ``response.completed`` SSE event.\n:param total_cost_usd: Cumulative LLM spend for this session in\n    USD, e.g. ``0.42``. ``None`` when the session is **unpriced**\n    \u2014 no turn has been priced yet (the model is absent from the\n    pricing catalog, or no usage has been recorded) \u2014 so clients\n    render \"\u2014\" rather than a misleading ``$0.00``. Server-computed\n    (cache-aware for relay/codex, exact billing for claude-native),\n    the same total the cost-budget policy gates on. Lets clients\n    seed their cost indicator on resume without waiting for the\n    next ``session.usage`` SSE event.\n    Also ``None`` when ``usage_included`` is ``False``.\n:param usage_by_model: Per-model breakdown of the same subtree usage,\n    keyed by the raw harness model id, e.g.\n    ``{\"claude-sonnet-4-6\": ModelUsage(input_tokens=12000, ...)}``.\n    ``None`` when no per-model usage has been recorded (older sessions\n    recorded before this field existed, or before the first turn). Lets\n    the UI show which models a session spent its tokens / budget on.\n    Also ``None`` when ``usage_included`` is ``False``.\n:param usage_included: ``False`` when the caller skipped usage aggregation\n    with ``include_usage=false``. Both usage fields are then unknown,\n    not zero or this session's own-only spend. Display clients can load\n    them with a separate ``GET /v1/sessions/{id}`` using\n    ``include_usage=true``, ``include_items=false``,\n    ``include_liveness=false``, and ``refresh_state=false``.\n:param native_usage_baseline: Pi's own cumulative token baseline, excluding\n    descendants. Available even when display usage aggregation is skipped;\n    ``None`` for other harnesses or older servers.\n:param last_task_error: Error details from the most recently\n    failed task. Only present when ``status == \"failed\"`` and\n    the task stored an error. Lets clients display the failure\n    reason on historical load without relying on the transient\n    ``response.error`` SSE event (which may have been emitted\n    before the web client subscribed). Format mirrors the\n    ``RetryErrorDetail`` SSE shape:\n    ``{\"code\": \"executor_error\", \"message\": \"...\"}``. A\n    ``runner_rejected_event`` failure also carries ``item_id``, the\n    persisted item the runner refused, so a web client whose POST\n    answer was lost can match the refusal to its own send.\n    ``None`` in all other cases.\n:param external_session_id: Runtime-native session id this\n    conversation wraps, e.g. a Claude Code session uuid for\n    ``omnigent claude`` sessions. ``None`` for regular\n    AP-only conversations. Populated by the wrapper bridge.\n:param terminal_launch_args: Native harness launch CLI args used for\n    the session (claude / codex), e.g.\n    ``[\"--dangerously-skip-permissions\"]``. ``None`` for\n    non-native sessions or a native session launched with none.\n    Lets the launcher reproduce the command on resume.\n:param pending_elicitations: Outstanding approval prompts on\n    this session at the moment the snapshot was built \u2014 the\n    original ``response.elicitation_request`` event dicts.\n    Lets the UI render the ApprovalCard on cold load, since\n    the live SSE stream has no replay and a prompt emitted\n    before the user opened the chat would otherwise vanish.\n    Empty list when no prompts are outstanding. Sourced from\n    the Omnigent server's in-memory\n    :mod:`omnigent.runtime.pending_elicitations` index.\n:param pending_inputs: Accepted messages awaiting consumption, each\n    ``{\"pending_id\", \"content\"}``. Includes durable managed-startup\n    inputs and native messages awaiting a transcript receipt. Clients\n    restore their pending bubbles from this list after reconnecting.\n    Ordinary native sends use the in-memory\n    :mod:`omnigent.runtime.pending_inputs` index; startup inputs also\n    survive server restart in the conversation store.\n:param workspace: Absolute path on disk where the runner cd's,\n    e.g. ``\"/Users/corey/universe/src/foo\"``. Set when the\n    session was bound to a host workspace at create-time, or\n    when the CLI captured ``os.getcwd()`` at session-create.\n    Always ``None`` when not yet validated against a host. When a\n    git worktree was created for the session, this is the\n    worktree directory path.\n:param git_branch: Git branch checked out in the session's\n    worktree, e.g. ``\"feature/login\"``. Set only when the\n    session was created with a server-created git worktree;\n    ``None`` otherwise. The Web UI uses a non-``None`` value to\n    offer the \"delete local branch\" cleanup checkbox on session\n    delete. See designs/SESSION_GIT_WORKTREE.md.\n:param archived: Whether the session is archived. Archived\n    sessions are hidden from the default sidebar listing and\n    surface only behind the \"Show archived\" toggle. ``False``\n    for normal sessions. Toggled via ``PATCH /v1/sessions/{id}``.\n:param todos: Current native Plan items reported by a harness. Each has\n    ``content``, ``status``, and ``activeForm``. Persisted in conversation\n    metadata; empty before the first report or after an explicit clear.\n:param model_options: Runner-owned model-picker options for native\n    sessions. Claude supplies launch-time gateway aliases; Codex includes\n    each model's supported reasoning efforts. Empty while unavailable.\n:param terminal_pending: ``True`` while the runner is auto-creating\n    a terminal-first session's terminal (claude-native /\n    codex-native), so the Web UI shows a spinner on the Terminal\n    pill instead of a silent greyed-out button. Cleared to\n    ``False`` once the terminal lands or auto-create fails; from\n    then on the client relies purely on whether a terminal resource\n    exists. Sourced from the Omnigent server's in-memory\n    ``_session_terminal_pending_cache`` at snapshot build time, so a\n    client connecting mid-spin-up still sees the spinner.\n:param sandbox_status: Managed-sandbox launch progress while the\n    session's background sandbox launch is in flight or has\n    failed \u2014 see :class:`SandboxStatus`. ``None`` for sessions\n    without a managed launch and once the launch succeeds.\n    Sourced from the Omnigent server's in-memory\n    ``_session_sandbox_status_cache`` at snapshot build time, so\n    a client opening the session mid-launch sees the current\n    stage.\n:param active_response_id: Response id of the turn currently in\n    flight, or ``None`` when the session is idle. Sourced from the\n    server's ``_session_active_response_cache`` at snapshot build\n    time so a client connecting mid-turn can reopen a streaming\n    ``activeResponse`` \u2014 the SSE stream is snapshot + live tail with\n    no replay, so the turn-start ``running`` edge that carried this\n    id is not re-sent on reconnect. Today only native-terminal\n    forwarders (claude-native) stamp a turn id on their status\n    edges; other harnesses leave this ``None``.\n:param updated_at: Unix epoch timestamp of the last persisted session\n    activity. Advances when conversation items are appended and on session\n    metadata edits (rename, agent switch, archive); a mid-stall rename\n    therefore resets the clock, so an orchestrator treating this as a pure\n    item-append heartbeat should account for that. Can be compared across\n    snapshots independently of lifecycle status."
+  },
+  "SessionUsage": {
+    "properties": {
+      "id": {
+        "type": "string",
+        "title": "Id"
+      },
+      "created_at": {
+        "type": "integer",
+        "title": "Created At"
+      },
+      "updated_at": {
+        "type": "integer",
+        "title": "Updated At"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "cost_usd": {
+        "type": "number",
+        "title": "Cost Usd",
+        "default": 0.0
+      },
+      "models": {
+        "additionalProperties": {
+          "type": "number"
+        },
+        "type": "object",
+        "title": "Models"
+      },
+      "harness": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Harness"
+      },
+      "other_harnesses": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Other Harnesses"
+      },
+      "llm_model": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Llm Model"
+      },
+      "agent_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Agent Name"
+      },
+      "account": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Account"
+      },
+      "account_visible": {
+        "type": "boolean",
+        "title": "Account Visible",
+        "default": false
+      }
+    },
+    "type": "object",
+    "required": [
+      "id",
+      "created_at",
+      "updated_at"
+    ],
+    "title": "SessionUsage",
+    "description": "One session's rolled-up LLM spend for the ``GET /v1/usage`` report.\n\n``cost_usd`` is the subtree total \u2014 the session plus every sub-agent it\nspawned \u2014 read from ``session_usage`` via\n:func:`omnigent.runtime.policies.builder.load_session_usage`. It is the\nauthoritative session figure (the same value the web session sidebar\nshows as \"Session cost\" and the daily rollup records).\n\n``models`` is the per-model cost breakdown, mirroring the web session\nsidebar's per-model list. Deliberately **not guaranteed to sum to\n``cost_usd``**: native harnesses report a single cumulative session\ntotal and the server attributes it to the currently-active model, so on\na session that switched models mid-run each model's bucket is a snapshot\nof the running total rather than that model's own spend. The header\n``cost_usd`` stays authoritative; the per-model values are shown\nfaithfully as recorded (same convention as the web UI).\n\n:param id: Session/conversation identifier, e.g. ``\"conv_abc123\"``.\n:param created_at: Unix epoch seconds of creation.\n:param updated_at: Unix epoch seconds of last activity.\n:param title: Optional human-readable title.\n:param cost_usd: Authoritative cumulative USD spend for this session's\n    subtree.\n:param models: Per-model recorded cost, keyed by the raw harness model\n    id (e.g. ``{\"claude-opus-4-8\": 14.03}``). Empty when no per-model\n    cost was recorded. May not sum to ``cost_usd`` (see above)."
+  },
+  "UpdateSessionPolicyRequest": {
+    "properties": {
+      "name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Name"
+      },
+      "handler": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Handler"
+      },
+      "enabled": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Enabled"
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "UpdateSessionPolicyRequest",
+    "description": "Request body for ``PATCH /v1/sessions/{session_id}/policies/{policy_id}``.\n\nAll fields are optional; ``None`` fields are left unchanged.\nUnknown fields (including ``type``, which is immutable) are\nrejected with ``422``.\n\n:param name: New policy name. ``None`` leaves it unchanged.\n:param handler: New handler path or URL. ``None`` leaves it\n    unchanged.\n:param enabled: New enabled flag. ``None`` leaves it\n    unchanged."
+  },
+  "UpdateSessionRequest": {
+    "properties": {
+      "runner_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runner Id"
+      },
+      "title": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Title"
+      },
+      "labels": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Labels"
+      },
+      "reasoning_effort": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Reasoning Effort"
+      },
+      "model_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Model Override"
+      },
+      "collaboration_mode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Collaboration Mode"
+      },
+      "permission_mode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Permission Mode"
+      },
+      "approval_mode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Approval Mode"
+      },
+      "cost_control_mode_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Cost Control Mode Override"
+      },
+      "subagent_routing_override": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Subagent Routing Override"
+      },
+      "share_workspace_files": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Share Workspace Files"
+      },
+      "external_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "External Session Id"
+      },
+      "terminal_launch_args": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Terminal Launch Args"
+      },
+      "archived": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Archived"
+      },
+      "delete_worktree": {
+        "type": "boolean",
+        "title": "Delete Worktree",
+        "default": false
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Project Id"
+      },
+      "silent": {
+        "type": "boolean",
+        "title": "Silent",
+        "default": false
+      }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "title": "UpdateSessionRequest",
+    "description": "Request body for ``PATCH /v1/sessions/{id}``.\n\nThe Alpha runner-state pivot makes this endpoint the mutable\nsession affinity primitive when ``runner_id`` is provided. The\nserver validates that the runner is online, then replaces\n``conversations.runner_id``. Existing session metadata updates\nremain supported for clients that update title, labels, or\nreasoning effort through the sessions API.\n\n:param runner_id: Identifier of a registered runner, e.g.\n    ``\"runner_abc123\"``. ``None`` leaves runner binding\n    unchanged.\n:param title: New title, e.g. ``\"debugging auth flow\"``.\n    ``None`` leaves unchanged.\n:param labels: Guardrails labels to upsert. Merges with existing\n    labels; keys not present are left untouched.\n:param reasoning_effort: Per-session reasoning-effort hint.\n    Accepted metadata values are ``\"none\"``, ``\"minimal\"``,\n    ``\"low\"``, ``\"medium\"``, ``\"high\"``, ``\"xhigh\"``, and\n    ``\"max\"``. Provider-specific support is validated when a\n    turn executes. Clear aliases such as ``\"default\"`` remove\n    the session override. ``None`` leaves unchanged.\n:param model_override: Per-session LLM model override, e.g.\n    ``\"claude-opus-4-7\"``. The value is forwarded as-is to the\n    executor at turn start; the server does not enumerate valid\n    models. Clear aliases such as ``\"default\"``, ``\"off\"``, or\n    ``\"reset\"`` remove the override (matching the REPL's\n    ``/model`` semantics). ``None`` leaves unchanged.\n:param collaboration_mode: Codex-native collaboration-mode string.\n    ``\"plan\"`` enters Plan mode and ``\"default\"`` returns to Default\n    mode for subsequent Codex turns. Only valid for sessions stamped\n    with the codex-native wrapper label. Omitted leaves unchanged.\n:param permission_mode: Owner-only Claude-native permission mode to switch a\n    running session to, e.g. ``\"auto\"``. Only the modes Claude Code's\n    shift+tab cycle can reach are accepted (``default``,\n    ``acceptEdits``, ``plan``, ``auto``) \u2014 ``dontAsk`` and\n    ``bypassPermissions`` are launch-only. Only valid for sessions\n    stamped with the claude-native wrapper label. Unlike the other\n    fields here the switch is applied by the live TUI, so a failure\n    to reach the mode is surfaced as an error rather than persisted.\n    Omitted leaves unchanged.\n:param approval_mode: Codex-native approval mode to switch a running\n    session to, one of ``\"ask-for-approval\"``, ``\"approve-for-me\"``,\n    ``\"full-access\"``, ``\"read-only\"`` \u2014 Codex's own ``/permissions``\n    presets (the set is codex-version-dependent, so an older build may not\n    offer every one). Only valid for sessions stamped with the codex-native\n    wrapper label. The runner applies it by driving Codex's ``/permissions``\n    popup and confirms the switch echoed before returning, so a failure to\n    reach the mode surfaces as an error. The confirmed mode is stored on the\n    read-back label only (Codex owns the durable approval state), so it is\n    not written to ``terminal_launch_args``. Omitted leaves unchanged.\n:param cost_control_mode_override: Per-session cost-control\n    switch: ``\"on\"`` activates the spec's configured cost-control\n    mode, ``\"off\"`` disables cost control for this session.\n    Explicit JSON ``null`` clears the override back to the spec\n    default; omitting the field leaves it unchanged (``\"off\"`` is\n    a real value here, so the field's *presence* \u2014 not a clear\n    alias \u2014 is the clear signal, unlike ``model_override``).\n:param subagent_routing_override: Per-session subagent-routing\n    switch: ``\"on\"`` routes subagent spawns, ``\"off\"`` leaves them\n    unrouted. Explicit JSON ``null`` clears the override, which lands\n    the session on Default (the same behavior as ``\"off\"`` \u2014 nothing\n    is inherited); omitting the field leaves it unchanged (same\n    presence-is-the-clear-signal rule as\n    ``cost_control_mode_override``). Effective on the next spawn, so\n    it can be changed at any point in a session.\n:param share_workspace_files: Opt-in that lets people with *view*\n    (read-only) access browse the session's workspace files. ``True``\n    turns sharing on, ``False`` turns it off (back to edit-only, the\n    default), ``None`` leaves it unchanged. Manage-gated \u2014 it sits with\n    the grant/revoke and public-access controls that decide who can see\n    the session. Never widens absolute-path browsing, which stays\n    owner-only.\n:param external_session_id: Runtime-native session id captured\n    by a wrapper bridge (e.g. Claude Code's session uuid for\n    ``omnigent claude`` sessions). Idempotent on same-value\n    writes; the server rejects attempts to overwrite an\n    already-set different value with ``invalid_input`` to\n    surface programmer errors. ``None`` leaves unchanged.\n:param terminal_launch_args: Per-session native-terminal\n    pass-through args, e.g. ``[\"--dangerously-skip-permissions\"]``.\n    Updating this field requires session ownership.\n    A list (including ``[]``) replaces the stored value wholesale\n    \u2014 resume is last-write-wins, never an append. Bounds (count /\n    length) are validated server-side. ``None`` leaves unchanged.\n:param silent: When ``True``, persist metadata changes but skip\n    the runner-side side effects \u2014 specifically the\n    native ``/effort`` / ``/model`` / Codex collaboration-mode\n    forwards into the live runtime. Used by automatic bind-time\n    handoffs (web's sticky-pref apply on session switch, the\n    REPL's pre-create ``/model`` snapshot) where injecting a\n    visible slash command into a freshly-spawned pane would\n    render as an unexpected \"Command model X\" item before the\n    user has sent anything. Default ``False`` preserves the\n    user-driven picker / ``/model`` behaviour where the live\n    forward IS the desired feedback.\n:param archived: New archived state. ``True`` archives (hides the\n    session from the default sidebar listing), ``False`` unarchives,\n    ``None`` leaves unchanged. Owner-only (unlike ``title``, which\n    needs only edit access).\n:param delete_worktree: With ``archived=True``, also remove the\n    session's server-created git worktree directory once the archive\n    teardown runs (after the Undo grace). The branch is kept. Ignored\n    for sessions with no worktree; rejected (400) without\n    ``archived=True``.\n:param project_id: File this session into a first-class project (see\n    ``designs/PROJECTS_PRD.md``). A non-empty id moves the session into\n    that project; the empty string ``\"\"`` unfiles it. **Omitting** the\n    field leaves membership unchanged; an explicit ``null`` is rejected\n    (400) so it can't silently unfile. Owner-only: because projects are\n    owner-private, only the session owner may file it, and only into a\n    project they own \u2014 the server verifies both. Independent of the\n    legacy ``omni_project`` label, which is set via ``labels``."
+  }
+}
