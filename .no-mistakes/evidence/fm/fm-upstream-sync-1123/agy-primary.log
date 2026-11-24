@@ -1,0 +1,26 @@
+FM_TEST_BEGIN 2026-11-24T02:14:07Z tests/fm-agy-primary.test.sh family=watcher-wake-lock expected_gate_skip=none
+1..14
+ok - .agents/hooks.json: valid JSON and hook commands resolve from both .agents/ and repo root
+warning: re-init: ignored --initial-branch=main
+ok - fm-sessionstart-agy: runs in primary and seeded secondmate homes, stands down with {} in crewmate worktree
+ok - fm-turnend-guard-agy: actionable arm close returns continue decision and resets turnend-blocks
+ok - fm-turnend-guard-agy: an opted-in home parks on the supervision host with the agy pin
+ok - fm-turnend-guard-agy: park timeout stops the arm and returns continue with [supervision-park]
+ok - fm-turnend-guard-agy: returns {} when the fleet is empty or a healthy watcher owns the home
+ok - fm-turnend-guard-agy: non-normal terminationReason values pass through with {}
+ok - fm-turnend-guard-agy: the loop ceiling notifies once while supervision is needed, then passes through
+ok - fm-turnend-guard-agy: superseded park owner returns {}
+ok - fm-turnend-guard --agy & fm-turnend-guard-agy: bounded repair nag blocks 3 times then fails open with {}
+ok - fm-arm-pretool-check --agy: denies through the shared policy and allows ordinary commands
+warning: re-init: ignored --initial-branch=main
+ok - fm-cd-pretool-check --agy: denies persistent cd in primary, allows subshell cd, inert in worktree
+warning: re-init: ignored --initial-branch=main
+ok - fm-subagent-pretool-check --agy: denies invoke_subagent, allows observe-only tools, inert in worktree
+ok - session-lock & supervision model: agy ancestry, autoarm model, and supervision instructions verified
+FM_TEST_COMPLETE
+FM_TEST_END 2026-11-24T02:14:44Z tests/fm-agy-primary.test.sh exit=0 duration_ms=36969 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=37021
+FM_TEST_SUMMARY_FAMILY family=watcher-wake-lock count=1 duration_ms=36969 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-agy-primary.test.sh duration_ms=36969
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M85MHBWRV14QE4TCJY3ABZR3/agy-primary-timing.json
+FM_TEST_BUDGET max_wall_ms=210000 duration_ms=37021
