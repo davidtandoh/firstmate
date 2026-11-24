@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Pre-register Antigravity CLI's workspace trust for the isolated task worktree
-# a ship/scout spawn is about to launch an agy crewmate into, so the worker
-# reaches its brief in the worktree instead of parking on the folder-trust
+# Pre-register Antigravity CLI's workspace trust for an isolated task worktree
+# or seeded secondmate home before spawn, so the worker
+# reaches its brief in the target directory instead of parking on the folder-trust
 # dialog and running its turn in agy's own scratch directory.
 #
 # Usage: fm-agy-trust.sh <worktree> <project>
@@ -28,13 +28,17 @@
 # that was neither pre-registered here nor answered there.
 #
 # THE SCOPE TEST IS THE SAFETY PROPERTY and mirrors bin/fm-claude-trust.sh:
-# <worktree> must be a LINKED git worktree - its own git dir, sharing
-# <project>'s common dir - whose top level is exactly the resolved argument. A
-# primary checkout, a worktree of an unrelated repo, a subdirectory of a
-# worktree, a plain directory, and a home directory are each refused with a
-# non-zero exit, never a warning and never a silent skip. Only the launching
-# user's own store is written, it must be a regular file this uid owns, every
-# unrelated key and entry is preserved, and the replacement is atomic.
+# worktree mode requires a LINKED git worktree - its own git dir, sharing
+# <project>'s common dir - whose top level is exactly the resolved argument.
+# A primary checkout, an unrelated worktree, a subdirectory, a plain directory,
+# and the user's home directory are refused in that mode. Secondmate-home mode
+# instead requires a user-owned regular .fm-secondmate-home marker matching
+# <id>, AGENTS.md and bin/, and any existing data/state/config/projects
+# directories to resolve inside the seeded home. Broken symlinks are refused.
+# Neither mode accepts the user's home directory. A scope failure exits non-zero.
+# Only the launching user's own store is written, it must be a regular file
+# this uid owns, every unrelated key and entry is preserved, and the
+# replacement is atomic.
 set -u
 unset CDPATH \
   GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_INDEX_FILE \

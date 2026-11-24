@@ -905,11 +905,12 @@ test_agy_pre_trusted_path_that_never_turns_busy_fails_the_spawn() {
 }
 
 test_agy_missing_binary_refuses_before_pane_creation() {
-  local id rec out rc
+  local id rec out rc BASE_PATH=$BASE_PATH
   id="agy-missing-z5-$$"
   rec=$(make_agy_spawn_case missing "$id")
   read_agy_spawn_record "$rec"
   rm "$FAKEBIN_DIR/agy"
+  BASE_PATH=$(fm_test_base_path_sans "$BASE_PATH" agy) || fail "could not isolate PATH without agy"
   rc=0
   out=$(run_agy_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id") || rc=$?
   [ "$rc" -ne 0 ] || fail "a missing agy executable should refuse the spawn"

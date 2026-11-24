@@ -3250,8 +3250,9 @@ launch_template() {
   # reason cursor clears them: agy publishes no marker of its own and does not
   # clear an inherited CLAUDECODE (verified in the /proc environ of a live 1.2.0
   # TUI), so bin/fm-harness.sh must not read an agy worker as its launcher.
-  # agy exposes no hook surface, so busy state is a rendered-tail fallback
-  # (bin/fm-busy-lib.sh) and nothing is armed below.
+  # No per-task agy busy hook is installed, so worker busy state uses the
+  # rendered-tail fallback (bin/fm-busy-lib.sh) or native backend state.
+  # Primary and secondmate lifecycle hooks live in .agents/hooks.json.
   agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS __AGYBIN__ --prompt-interactive "$(__OPINPUT__ encode launch-brief < __BRIEF__)" __MODELFLAG____EFFORTFLAG__--dangerously-skip-permissions' ;;
   # kiro (Kiro CLI): a positional prompt starts the supervised
   # interactive session and auto-submits the brief (verified on V2: a positional
