@@ -406,6 +406,7 @@ fm_brief_task_content_valid() {  # <file>
     [ "$has_intent" -eq 1 ] && [ "$has_spec" -eq 1 ] || return 1
     intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
     spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
+    spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
     [ -n "$(printf '%s' "$intent" | tr -d '[:space:]')" ] || return 1
     [ -n "$(printf '%s' "$spec" | tr -d '[:space:]')" ] || return 1
     return 0

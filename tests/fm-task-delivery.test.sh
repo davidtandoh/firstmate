@@ -805,7 +805,7 @@ STUB
 # public brief/spawn/promote path. Filling both subsections lets the spawn
 # delivery checks proceed (the fake tmux still fails later).
 test_spawn_and_promote_require_filled_task_subsections() {
-  local rec home proj fakebin out status id brief meta intent_body spec_body authorized content
+  local rec home proj fakebin out status id brief meta intent_body spec_body authorized content skills n=0
   rec=$(make_home subsections)
   IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -1023,6 +1023,40 @@ EOF
   assert_contains "$out" "must contain nonempty ## Captain's intent and ## Firstmate spec" \
     "empty Task subsections were not rejected semantically"
   assert_absent "$home/state/$id.meta" "empty-subsection spawn wrote task metadata"
+
+  for skills in none '' '{SKILLS}'; do
+    n=$((n + 1))
+    id=delivery-skills-without-spec-$n
+    FM_HOME="$home" "$BRIEF" "$id" proj --mode direct-PR >/dev/null 2>&1 \
+      || fail "skills-without-spec ship brief should scaffold"
+    brief="$home/data/$id/brief.md"
+    fill_brief_subsections "$brief" "Exercise the skills line." ""
+    content=$(cat "$brief")
+    printf '%s\n' "${content//'{SKILLS}'/$skills}" > "$brief"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+    status=$?
+    [ "$status" -ne 0 ] || fail "skills-only spec ($skills) should refuse spawn"
+    assert_contains "$out" "must contain nonempty" "skills-only spec ($skills) bypassed spawn content validation"
+    assert_absent "$home/state/$id.meta" "skills-only spec ($skills) spawn wrote task metadata"
+
+    id=promote-skills-without-spec-$n
+    meta="$home/state/$id.meta"
+    printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+    FM_HOME="$home" "$BRIEF" "$id" proj --scout >/dev/null 2>&1 \
+      || fail "skills-without-spec scout brief should scaffold"
+    brief="$home/data/$id/brief.md"
+    fill_brief_subsections "$brief" "Exercise the skills line." ""
+    content=$(cat "$brief")
+    content=${content//'{SKILLS}'/$skills}
+    printf '%s\n' "$content" > "$brief"
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1)
+    status=$?
+    [ "$status" -ne 0 ] || fail "skills-only spec ($skills) should refuse promotion"
+    assert_contains "$out" "must contain nonempty" "skills-only spec ($skills) bypassed promotion content validation"
+    assert_grep 'kind=scout' "$meta" "skills-only spec ($skills) promotion changed the task record"
+    assert_absent "$home/data/$id/ship-instructions.md" "skills-only spec ($skills) promotion fabricated ship instructions"
+    [ "$(cat "$brief")" = "$content" ] || fail "skills-only spec ($skills) promotion changed the scout brief"
+  done
 
   id=promote-unfilled-e1
   meta="$home/state/$id.meta"
