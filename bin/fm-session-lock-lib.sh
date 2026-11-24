@@ -594,7 +594,7 @@ fm_harness_ancestry_pids() {  # [start-pid]
       comm=$FM_PROC_COMM args=$FM_PROC_ARGS next=$FM_PROC_PPID
     else
       comm=$(fm_ps_comm "$pid") || comm=
-      args= args_readable=0
+      args='' args_readable=0
       next=$(fm_ps_ppid "$pid") || next=
     fi
     if [ -z "$comm" ]; then

@@ -382,7 +382,6 @@ family_for_basename() {
     fm-launch-prompt-signals-live-e2e.test.sh|fm-backend-t3code-live-e2e.test.sh|\
     fm-backend-t3code-pr-tools-live-e2e.test.sh|\
     fm-pi-seeded-home-trust-live-e2e.test.sh|\
-    fm-kiro-signals-live-e2e.test.sh|\
     fm-herdr-version-floor-live-e2e.test.sh|fm-herdr-agent-liveness-live-e2e.test.sh|fm-omnigent-live-e2e.test.sh|\
     fm-herdr-projected-cd-live-e2e.test.sh|\
     fm-herdr-pi-stale-registration-live-e2e.test.sh|\
