@@ -395,8 +395,10 @@ EOF
   printf '%s\n' "$1"
 }
 
-# Accept the current two-subsection contract only when both bodies have content;
-# briefs predating that contract remain valid when their # Task body has content.
+# Accept the current two-subsection contract only when both bodies have content.
+# Exclude `Skills to use:` lines from spec content, whether filled or not:
+# naming skills cannot substitute for build instructions.
+# Briefs predating that contract remain valid when their # Task body has content.
 fm_brief_task_content_valid() {  # <file>
   local file=$1 intent spec task has_intent=0 has_spec=0
   [ -f "$file" ] && [ -r "$file" ] || return 1

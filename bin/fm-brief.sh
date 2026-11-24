@@ -10,8 +10,9 @@
 # under `## Firstmate spec` (build instructions, which are never the captain's
 # intent). That subsection also ends with a `Skills to use: {SKILLS}` line
 # Firstmate fills with the skills whose triggers fit the task, or `none`
-# (AGENTS.md section 11). bin/fm-dod-lib.sh owns the no-mistakes `--intent` contract those
-# subsections feed; bin/fm-spawn.sh refuses leftover placeholders and a
+# (AGENTS.md section 11). bin/fm-dod-lib.sh owns the no-mistakes `--intent`
+# contract those subsections feed; bin/fm-spawn.sh refuses leftover `{TASK}` /
+# `{FIRSTMATE_SPEC}` placeholders and a
 # `## Captain's intent` line opening with a Captain label or address. Secondmate
 # charters still use a single `{TASK}` charter fill. Firstmate may adjust other
 # sections when the task genuinely deviates (e.g. working an existing external
