@@ -336,6 +336,8 @@ fm_brief_task_placeholders_present() {  # <file>
   intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
   spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
   [ "$(printf '%s' "$intent" | tr -d '[:space:]')" = '{TASK}' ] && return 0
+  # The scaffold's `Skills to use:` line, filled or not, is not a filled spec.
+  spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
   [ "$(printf '%s' "$spec" | tr -d '[:space:]')" = '{FIRSTMATE_SPEC}' ] && return 0
   return 1
 }

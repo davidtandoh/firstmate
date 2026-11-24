@@ -805,7 +805,7 @@ STUB
 # public brief/spawn/promote path. Filling both subsections lets the spawn
 # delivery checks proceed (the fake tmux still fails later).
 test_spawn_and_promote_require_filled_task_subsections() {
-  local rec home proj fakebin out status id brief meta intent_body spec_body authorized
+  local rec home proj fakebin out status id brief meta intent_body spec_body authorized content
   rec=$(make_home subsections)
   IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -822,6 +822,21 @@ EOF
   assert_contains "$out" "## Captain's intent" \
     "unfilled ship spawn did not name the intent subsection to fill"
   assert_absent "$home/state/$id.meta" "unfilled ship spawn wrote task metadata"
+
+  # Filling only the skills line leaves the spec placeholder, so spawn still refuses.
+  id=delivery-skills-only-ship
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "skills-only ship brief should scaffold"
+  brief="$home/data/$id/brief.md"
+  fill_brief_subsections "$brief" "Exercise the skills line." '{FIRSTMATE_SPEC}'
+  content=$(cat "$brief")
+  printf '%s\n' "${content//'{SKILLS}'/diagnosing-bugs}" > "$brief"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn of a brief with only the skills line filled should exit non-zero"
+  assert_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
+    "a filled skills line hid the unfilled Firstmate spec"
+  assert_absent "$home/state/$id.meta" "skills-only ship spawn wrote task metadata"
 
   id=delivery-herdr-lifecycle-unguarded
   mkdir -p "$home/data/$id"
