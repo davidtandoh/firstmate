@@ -2302,6 +2302,8 @@ pass "shared-quota keeps preferred_provider narrowing: the preferred family wins
 write_response "$RESPONSE" rule_4 0.9
 
 # --- shared_quota false: byte-for-byte the quota-ranked path ------------------
+# The Claude account cases above replace the quota fixture; rank against the base one.
+cp "$QUOTA.base" "$QUOTA"
 jq '.shared_quota = false' "$BASE_RULES" > "$RULES"
 reset_log
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF" --project pager

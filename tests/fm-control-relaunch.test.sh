@@ -407,7 +407,8 @@ SH
   expect_code 0 "$rc" "explicit null must validate and launch personal despite signed-out GuideX: $out"
   [ "$(cat "$dir/user-home/auth-checks")" = $'unset\nunset' ] || fail 'preflight and replacement validated different accounts'
   [ "$(meta_field "$dir" "$id" claude_floor)" = '[]' ] || fail 'explicit null did not clear the recorded floor'
-  launch=$(tail -1 "$dir/fake/literal")
+  # The worker-status disarm line follows the launch; select the launch itself.
+  launch=$(grep -v '/fm-osc7501.sh' "$dir/fake/literal" | tail -1)
   [ -n "$launch" ] || fail 'replacement launch command missing'
   HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR="$dir/user-home/.claude_b" bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'replacement command did not execute'
   [ "$(cat "$dir/user-home/launch-selector")" = unset ] || fail 'actual replacement command selected the signed-out account'
@@ -422,7 +423,8 @@ SH
   expect_code 0 "$rc" "scoped floors must validate and launch GuideX: $out"
   [ "$(cat "$dir/user-home/auth-checks")" = "$(printf '%s\n%s' "$dir/user-home/.claude_b" "$dir/user-home/.claude_b")" ] || fail 'scoped-floor preflight and spawn selected different accounts'
   jq -en --argjson actual "$(meta_field "$dir" "$id" claude_floor)" --argjson expected "$floors" '$actual == $expected' >/dev/null || fail 'spawn did not persist the complete floor list'
-  launch=$(tail -1 "$dir/fake/literal")
+  # The worker-status disarm line follows the launch; select the launch itself.
+  launch=$(grep -v '/fm-osc7501.sh' "$dir/fake/literal" | tail -1)
   HOME="$dir/user-home" FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" CLAUDE_CONFIG_DIR='' bash -c "$launch" > "$dir/launch-output" 2>&1 || fail 'scoped-floor launch command did not execute'
   [ "$(cat "$dir/user-home/launch-selector")" = "$dir/user-home/.claude_b" ] || fail 'scoped-floor launch used a different account'
   : > "$dir/user-home/auth-checks"

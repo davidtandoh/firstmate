@@ -2,9 +2,9 @@
 # fm-send typed-plane submit confirmation for an explicit tmux kiro target
 # that has no task meta in this home.
 #
-# A recorded kiro task names harness=kiro, which scopes the kiro-only
-# composer rules (near-gray idle placeholder and hinted idle row) so a
-# finished kiro composer reads empty. An explicit session:window send has
+# A recorded kiro task names harness=kiro, which scopes the kiro-only hinted
+# idle row; the near-gray placeholder strips as ghost text on every harness
+# (bin/fm-composer-lib.sh), so a finished kiro composer reads empty. An explicit session:window send has
 # no meta, so TARGET_HARNESS used to stay empty: the same idle placeholder
 # read pending, extra Enters were pressed, and fm-send exited 3 even though
 # kiro had accepted the message. fm-send now detects kiro from the live
@@ -13,7 +13,8 @@
 #
 # These cases are hermetic (stubbed tmux + ps + sleep, no real agent):
 #   1. No meta, foreground comm is kiro-cli, kiro idle placeholder: exit 0.
-#   2. No meta, foreground comm is bash, same placeholder: exit 3 pending.
+#   2. No meta, foreground comm is bash, same placeholder: exit 0, because the
+#      near-gray ghost ceiling does not depend on the detected harness.
 #   3. No meta, foreground comm is bash, bordered empty composer: exit 0.
 set -u
 
@@ -136,15 +137,16 @@ grep -q 'unconfirmed' "$case_dir/err" && \
   fail "explicit kiro send: expected one Enter after a confirmed idle composer, got $(enter_count "$case_dir")"$'\n'"$(cat "$case_dir/tmux.log")"
 pass "fm-send: a meta-less explicit kiro target confirms its idle placeholder"
 
-# Same placeholder without a kiro process: shared rules still read pending.
+# Same placeholder without a kiro process: the fleet-wide near-gray ghost
+# ceiling still reads it as an empty composer, so one Enter confirms.
 case_dir=$(run_send bash kiro-idle)
-expect_code 3 "$(cat "$case_dir/rc")" \
-  "explicit non-kiro target with the kiro idle placeholder should stay unconfirmed"
-grep -q 'verdict=pending' "$case_dir/err" || \
-  fail "explicit non-kiro send: expected verdict=pending"$'\n'"$(cat "$case_dir/err")"
-[ "$(enter_count "$case_dir")" = 3 ] || \
-  fail "explicit non-kiro send: expected three Enter retries on pending, got $(enter_count "$case_dir")"$'\n'"$(cat "$case_dir/tmux.log")"
-pass "fm-send: a meta-less non-kiro explicit target keeps the shared pending verdict"
+expect_code 0 "$(cat "$case_dir/rc")" \
+  "explicit non-kiro target with a near-gray idle placeholder should confirm"
+grep -q 'unconfirmed' "$case_dir/err" && \
+  fail "explicit non-kiro send: unconfirmed text present despite confirmed submit"$'\n'"$(cat "$case_dir/err")"
+[ "$(enter_count "$case_dir")" = 1 ] || \
+  fail "explicit non-kiro send: expected one Enter after a confirmed idle composer, got $(enter_count "$case_dir")"$'\n'"$(cat "$case_dir/tmux.log")"
+pass "fm-send: a meta-less non-kiro explicit target confirms a near-gray placeholder"
 
 # Default empty composer on a non-kiro explicit target: unchanged fast confirm.
 case_dir=$(run_send bash empty-border)

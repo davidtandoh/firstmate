@@ -25,7 +25,7 @@ export HARNESS_CLAUDE_NATIVE_REQUEST_SESSION_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 # Only the explicit timeout case needs a short claim deadline.
 export FM_TEST_FRESH_WAIT=15 OMNIGENT=1
 mkdir -p "$FM_HOME/bin" "$FM_HOME/state" "$HOME" "$TMP_ROOT/tools"
-for script in fm-cursor-lib.sh fm-hook-host-lib.sh fm-fresh-session.sh fm-lock.sh fm-session-lock-lib.sh fm-wake-lib.sh fm-path-lib.sh fm-timeout-lib.sh; do
+for script in fm-cursor-lib.sh fm-hook-host-lib.sh fm-fresh-session.sh fm-lock.sh fm-session-lock-lib.sh fm-omp-process-lib.sh fm-wake-lib.sh fm-path-lib.sh fm-timeout-lib.sh; do
   cp "$ROOT/bin/$script" "$FM_HOME/bin/$script"
 done
 cat > "$TMP_ROOT/tools/ps" <<'SH'
