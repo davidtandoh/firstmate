@@ -67,7 +67,7 @@ The parent-owned escalation above addresses the unacknowledged steering requests
 
 The recommended operational follow-up is to enable `config/supervision-host` for Codex secondmates, using the [supported engine and opt-out rules](configuration.md#supervision-host-configsupervision-host).
 The host manages successor watcher cycles during wake handling, so that re-arm no longer waits for the model's next checkpoint.
-The host's [Codex park boundary](supervision-host.md#codex-checkpoint-bound) still applies.
+The host's [Codex park boundary](supervision-host.md#codex-native-park-and-checkpoint-bound) still applies.
 This recommendation requires the captain's decision; this change does not enable the host or alter any home's configuration.
 Codex's inability to reason during a foreground tool call remains an upstream checkpoint-design constraint, outside this change.
 
