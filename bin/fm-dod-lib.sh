@@ -336,6 +336,8 @@ fm_brief_task_placeholders_present() {  # <file>
   intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
   spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
   [ "$(printf '%s' "$intent" | tr -d '[:space:]')" = '{TASK}' ] && return 0
+  # The scaffold's `Skills to use:` line, filled or not, is not a filled spec.
+  spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
   [ "$(printf '%s' "$spec" | tr -d '[:space:]')" = '{FIRSTMATE_SPEC}' ] && return 0
   return 1
 }
@@ -393,8 +395,10 @@ EOF
   printf '%s\n' "$1"
 }
 
-# Accept the current two-subsection contract only when both bodies have content;
-# briefs predating that contract remain valid when their # Task body has content.
+# Accept the current two-subsection contract only when both bodies have content.
+# Exclude `Skills to use:` lines from spec content, whether filled or not:
+# naming skills cannot substitute for build instructions.
+# Briefs predating that contract remain valid when their # Task body has content.
 fm_brief_task_content_valid() {  # <file>
   local file=$1 intent spec task has_intent=0 has_spec=0
   [ -f "$file" ] && [ -r "$file" ] || return 1
@@ -404,6 +408,7 @@ fm_brief_task_content_valid() {  # <file>
     [ "$has_intent" -eq 1 ] && [ "$has_spec" -eq 1 ] || return 1
     intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
     spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
+    spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
     [ -n "$(printf '%s' "$intent" | tr -d '[:space:]')" ] || return 1
     [ -n "$(printf '%s' "$spec" | tr -d '[:space:]')" ] || return 1
     return 0
