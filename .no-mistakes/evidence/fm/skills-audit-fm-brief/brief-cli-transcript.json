@@ -1,0 +1,235 @@
+[
+  {
+    "command": [
+      "bin/fm-lab-home.sh",
+      "create",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m"
+    ],
+    "exit": 0,
+    "output": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m\n"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-cli-no-mistakes",
+      "sample-project",
+      "--mode",
+      "no-mistakes"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-cli-no-mistakes/brief.md (ship, mode=no-mistakes; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "scaffold no-mistakes",
+    "brief": "/Users/davidtandoh/.no-mistakes/evidence/01M86QBV9AENVRH39J9ZHAJT5P/generated-no-mistakes.md"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-cli-direct-pr",
+      "sample-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-cli-direct-pr/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "scaffold direct-PR",
+    "brief": "/Users/davidtandoh/.no-mistakes/evidence/01M86QBV9AENVRH39J9ZHAJT5P/generated-direct-PR.md"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-cli-local-only",
+      "sample-project",
+      "--mode",
+      "local-only"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-cli-local-only/brief.md (ship, mode=local-only; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "scaffold local-only",
+    "brief": "/Users/davidtandoh/.no-mistakes/evidence/01M86QBV9AENVRH39J9ZHAJT5P/generated-local-only.md"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-cli-scout",
+      "sample-project",
+      "--scout"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-cli-scout/brief.md (scout; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "scaffold scout",
+    "brief": "/Users/davidtandoh/.no-mistakes/evidence/01M86QBV9AENVRH39J9ZHAJT5P/generated-scout.md"
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "init",
+      "-q"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "git",
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.com",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-C",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Initialize test project"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-refuse-0",
+      "sample-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-0/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-spawn.sh",
+      "skills-refuse-0",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "claude",
+      "--mode",
+      "direct-PR",
+      "--yolo",
+      "off",
+      "--backend",
+      "tmux"
+    ],
+    "exit": 1,
+    "output": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m\nerror: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-0/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "real spawn refuses spec='{FIRSTMATE_SPEC}' skills='diagnosing-bugs'",
+    "task_metadata_created": false
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-refuse-1",
+      "sample-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-1/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-spawn.sh",
+      "skills-refuse-1",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "claude",
+      "--mode",
+      "direct-PR",
+      "--yolo",
+      "off",
+      "--backend",
+      "tmux"
+    ],
+    "exit": 1,
+    "output": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m\nerror: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-1/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "real spawn refuses spec='' skills='none'",
+    "task_metadata_created": false
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-refuse-2",
+      "sample-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-2/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-spawn.sh",
+      "skills-refuse-2",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "claude",
+      "--mode",
+      "direct-PR",
+      "--yolo",
+      "off",
+      "--backend",
+      "tmux"
+    ],
+    "exit": 1,
+    "output": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m\nerror: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-2/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "real spawn refuses spec='' skills=''",
+    "task_metadata_created": false
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "skills-refuse-3",
+      "sample-project",
+      "--mode",
+      "direct-PR"
+    ],
+    "exit": 0,
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-3/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-spawn.sh",
+      "skills-refuse-3",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/projects/sample-project",
+      "claude",
+      "--mode",
+      "direct-PR",
+      "--yolo",
+      "off",
+      "--backend",
+      "tmux"
+    ],
+    "exit": 1,
+    "output": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m\nerror: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M86QBV9AENVRH39J9ZHAJT5P/.test-brief-live-sef5v68m/data/skills-refuse-3/brief.md must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn\n"
+  },
+  {
+    "result": "PASS",
+    "scenario": "real spawn refuses spec='' skills='{SKILLS}'",
+    "task_metadata_created": false
+  }
+]
