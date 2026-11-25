@@ -104,6 +104,10 @@ matrix_case B24 deny 'command builtin cd projects/foo'
 matrix_case B25 deny 'builtin command cd projects/foo'
 matrix_case B26 deny 'command -p cd projects/foo'
 matrix_case B27 deny 'command -- cd projects/foo'
+matrix_case B28 deny 'if true; then cd projects/foo; fi'
+matrix_case B29 deny 'if cd projects/foo; then pwd; fi'
+matrix_case B30 deny 'if false; then echo skipped; elif true; then command cd projects/foo; fi'
+matrix_case B31 deny 'if false; then echo skipped; else cd projects/foo; fi'
 
 # ALLOW: not a persistent top-level cwd change (scoped, data, or non-cd).
 matrix_case A01 allow 'git -C projects/foo status'
@@ -142,6 +146,10 @@ matrix_case A33 allow 'command -v cd'
 matrix_case A34 allow 'command -V cd'
 matrix_case A35 allow 'command -pv cd'
 matrix_case A36 allow 'command -vp cd'
+matrix_case A37 allow "if true; then printf '%s' 'cd projects/foo'; fi"
+matrix_case A38 allow 'if true; then (cd projects/foo && pwd); fi'
+matrix_case A39 allow 'if true; then command -v cd; fi'
+matrix_case A40 allow "'then' cd projects/foo"
 
 # HOME: the one allowed cd target is a single literal absolute path that
 # resolves, symlinks included, to the primary checkout itself; a child, sibling,

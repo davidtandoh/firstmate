@@ -545,6 +545,8 @@ function consumeWrapperOptions(name, words, index) {
 export function commandPosition(tokens) {
   const words = wordsInNode(tokens);
   let index = 0;
+  while (words[index]?.literal && !words[index].quoted &&
+    ["if", "then", "elif", "else"].includes(words[index].value)) index += 1;
   while (index < words.length && isAssignment(words[index].value)) index += 1;
   const prefixAssignments = index;
   const wrappers = [];

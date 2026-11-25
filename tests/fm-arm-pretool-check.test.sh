@@ -234,6 +234,8 @@ test_direct_policy_contract() {
   assert_policy direct-leading-redirection $'deny\twatcher-redirection' '>/tmp/out bin/fm-watch-arm.sh'
   assert_policy direct-unclassifiable $'deny\tunclassifiable-protected-command' "bin/fm-watch-arm.sh 'unterminated"
   assert_policy direct-unsupported $'deny\tunclassifiable-protected-command' 'if true; then bin/fm-watch-arm.sh; fi'
+  assert_policy direct-conditional-example $'deny\tunclassifiable-protected-command' "if true; then printf '%s' 'bin/fm-watch-arm.sh'; fi"
+  assert_policy direct-conditional-wrapper $'deny\tunclassifiable-protected-command' 'if true; then exec bin/fm-watch-arm.sh; fi'
   assert_policy direct-constructed-payload $'deny\twatcher-nested' "WATCHER='bin/fm-watch-arm.sh &'; bash -lc \"\$WATCHER\""
   assert_policy direct-parameter-export allow 'export FM_HOME=${HOME}; bin/fm-watch-checkpoint.sh --seconds 180'
   assert_policy direct-expanded-arm-blessed allow '$FM_HOME/bin/fm-watch-arm.sh'
@@ -480,6 +482,7 @@ test_merge_bypass_guard() {
     'gh pr merge 362 --repo fixture/guidex_meta --squash' \
     'gh pr merge 4 --admin --squash' \
     'gh-axi pr merge 43 --squash' \
+    'if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi' \
     'gh api -X PUT repos/fixture/repo/pulls/43/merge' \
     'gh-axi api repos/fixture/repo/pulls/43/merge -X PUT'; do
     for entry in claude codex grok pi cursor agy; do
@@ -507,6 +510,11 @@ test_merge_bypass_guard() {
   done
   for cmd in \
     '(gh pr merge 43)' \
+    'if gh pr merge 43; then echo done; fi' \
+    'if false; then echo skipped; elif gh pr merge 43; then echo done; fi' \
+    'if false; then echo skipped; else gh-axi pr merge 43; fi' \
+    'if true; then if true; then command gh pr merge 43; fi; fi' \
+    'if true; then GH_REPO=fixture/repo gh pr merge 43; fi' \
     'echo before; gh-axi pr merge 43' \
     'env -u GH_TOKEN /usr/local/bin/gh pr merge 43' \
     'command gh -R fixture/repo pr merge 43' \
@@ -530,6 +538,11 @@ test_merge_bypass_guard() {
   done
   for cmd in \
     'gh pr merge --help' \
+    'if true; then gh pr merge --help; else gh-axi pr merge --help; fi' \
+    "if true; then printf '%s' 'gh-axi pr merge 43'; fi" \
+    "if false; then echo skipped; elif printf '%s' 'gh pr merge 43'; then echo done; fi" \
+    "'if' gh pr merge 43" \
+    "'then' gh-axi pr merge 43" \
     'gh-axi pr merge --help' \
     'gh -R fixture/repo pr merge --help' \
     "bash -lc 'gh-axi pr merge --help'" \
