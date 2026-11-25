@@ -1,0 +1,89 @@
+{
+  "cases": [
+    {
+      "command": "if ! command cd projects/foo; then echo failed; fi",
+      "exit": 0,
+      "expected": "deny",
+      "pass": false,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "if true; then cd projects/foo; fi",
+      "exit": 0,
+      "expected": "deny",
+      "pass": false,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "! printf '%s' 'cd projects/foo'",
+      "exit": 0,
+      "expected": "silent allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "\\! cd projects/foo",
+      "exit": 0,
+      "expected": "silent allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "! (cd projects/foo && pwd)",
+      "exit": 0,
+      "expected": "silent allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "initial_setup_correction": "Initial denial expectations were invalid: the cd transport intentionally remains inert in linked worktrees, even with a secondmate marker. All observed silent allows match its existing scope. The actual executable cd policy is driven below to verify shared-parser behavior.",
+  "policy_cli_cases": [
+    {
+      "command": "if ! command cd projects/foo; then echo failed; fi",
+      "exit": 0,
+      "expected": "deny",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\tpersistent-cd\ta persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\n"
+    },
+    {
+      "command": "if true; then cd projects/foo; fi",
+      "exit": 0,
+      "expected": "deny",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\tpersistent-cd\ta persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\n"
+    },
+    {
+      "command": "! printf '%s' 'cd projects/foo'",
+      "exit": 0,
+      "expected": "allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "\\! cd projects/foo",
+      "exit": 0,
+      "expected": "allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "! (cd projects/foo && pwd)",
+      "exit": 0,
+      "expected": "allow",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    }
+  ],
+  "result": "pass",
+  "surface": "Actual cd hook in the isolated run worktree with temporary secondmate configuration, restored afterward. Submitted shell text is never executed."
+}

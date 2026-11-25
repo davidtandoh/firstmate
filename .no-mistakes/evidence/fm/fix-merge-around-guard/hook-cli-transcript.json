@@ -1,0 +1,652 @@
+{
+  "cases": [
+    {
+      "command": "gh pr merge 362 --repo fixture/guidex_meta --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "historical-guidex",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge 362 --repo fixture/guidex_meta --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "historical-guidex",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 362 --repo fixture/guidex_meta --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "historical-guidex",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 362 --repo fixture/guidex_meta --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "historical-guidex",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 4 --admin --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "historical-cygnal",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge 4 --admin --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "historical-cygnal",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 4 --admin --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "historical-cygnal",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 4 --admin --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "historical-cygnal",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh-axi pr merge 43 --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "historical-omnigent",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "gh-axi pr merge 43 --squash",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "historical-omnigent",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh-axi pr merge 43 --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "historical-omnigent",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh-axi pr merge 43 --squash",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "historical-omnigent",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "conditional",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "conditional",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "conditional",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "conditional",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "negated-conditional",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "negated-conditional",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "negated-conditional",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "negated-conditional",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "negated-wrapper",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "negated-wrapper",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "negated-wrapper",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "negated-wrapper",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh api -X PUT repos/fixture/repo/pulls/43/merge",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "api-mutation",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "gh api -X PUT repos/fixture/repo/pulls/43/merge",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "api-mutation",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh api -X PUT repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "api-mutation",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh api -X PUT repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "api-mutation",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 43 --subject --help",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "help-option-value",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge 43 --subject --help",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "help-option-value",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 43 --subject --help",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "help-option-value",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge 43 --subject --help",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "help-option-value",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[raw-pr-merge] raw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\"}\n"
+    },
+    {
+      "command": "gh pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "merge-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "merge-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "merge-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "merge-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh-axi pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "axi-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh-axi pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "axi-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh-axi pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "axi-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh-axi pr merge --help",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "axi-help",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "if true; then printf '%s' 'gh-axi pr merge 43'; fi",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "quoted-example",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "if true; then printf '%s' 'gh-axi pr merge 43'; fi",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "quoted-example",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "if true; then printf '%s' 'gh-axi pr merge 43'; fi",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "quoted-example",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "if true; then printf '%s' 'gh-axi pr merge 43'; fi",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "quoted-example",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "\\! gh pr merge 43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "escaped-negation",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "\\! gh pr merge 43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "escaped-negation",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "\\! gh pr merge 43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "escaped-negation",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "\\! gh pr merge 43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "escaped-negation",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh api repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "api-read",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh api repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "api-read",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh api repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "api-read",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "gh api repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "api-read",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "guarded-path",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "guarded-path",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "guarded-path",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "guarded-path",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "! bin/fm-watch-arm.sh",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "watcher-negated",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[watcher-nested] a protected watcher command must not run through a wrapper, substitution, or compound command\"}\n",
+      "stdout": ""
+    },
+    {
+      "command": "! bin/fm-watch-arm.sh",
+      "exit": 2,
+      "expected": "deny",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "watcher-negated",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[watcher-nested] a protected watcher command must not run through a wrapper, substitution, or compound command\"}\n",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[watcher-nested] a protected watcher command must not run through a wrapper, substitution, or compound command\"}\n"
+    },
+    {
+      "command": "! bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "watcher-negated",
+      "stderr": "",
+      "stdout": "{\"permission\":\"deny\",\"user_message\":\"[watcher-nested] a protected watcher command must not run through a wrapper, substitution, or compound command\"}\n"
+    },
+    {
+      "command": "! bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "deny",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "watcher-negated",
+      "stderr": "",
+      "stdout": "{\"decision\":\"deny\",\"reason\":\"[watcher-nested] a protected watcher command must not run through a wrapper, substitution, or compound command\"}\n"
+    },
+    {
+      "command": "exec bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "claude",
+      "pass": true,
+      "scenario": "watcher-blessed",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "exec bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "grok",
+      "pass": true,
+      "scenario": "watcher-blessed",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "exec bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "cursor",
+      "pass": true,
+      "scenario": "watcher-blessed",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": "exec bin/fm-watch-arm.sh",
+      "exit": 0,
+      "expected": "silent allow",
+      "mode": "agy",
+      "pass": true,
+      "scenario": "watcher-blessed",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "exit": 0,
+      "pass": true,
+      "scenario": "restored-worker-exemption",
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "surface": "Unmodified real hook executable in the gate worktree, temporarily configured with a valid secondmate marker; restored afterward. No fake dependencies, harness CLI, or remote merge executed."
+}

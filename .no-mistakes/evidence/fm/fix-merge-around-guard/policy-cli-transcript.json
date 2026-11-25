@@ -1,0 +1,158 @@
+{
+  "cases": [
+    {
+      "command": "gh pr merge 362 --repo fixture/guidex_meta --squash",
+      "exit": 0,
+      "expected": "deny",
+      "name": "historical-guidex",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh pr merge 4 --admin --squash",
+      "exit": 0,
+      "expected": "deny",
+      "name": "historical-cygnal",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh-axi pr merge 43 --squash",
+      "exit": 0,
+      "expected": "deny",
+      "name": "historical-omnigent",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi",
+      "exit": 0,
+      "expected": "deny",
+      "name": "conditional",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi",
+      "exit": 0,
+      "expected": "deny",
+      "name": "negated-wrapper",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "bash -lc 'if ! command gh-axi pr merge 43; then echo failed; fi'",
+      "exit": 0,
+      "expected": "deny",
+      "name": "negated-nested",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh api -X PUT repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "deny",
+      "name": "api-put",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh-axi api repos/fixture/repo/pulls/43/merge -f merge_method=squash",
+      "exit": 0,
+      "expected": "deny",
+      "name": "api-body",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh pr merge 43 --subject --help",
+      "exit": 0,
+      "expected": "deny",
+      "name": "help-value",
+      "pass": true,
+      "stderr": "",
+      "stdout": "deny\traw-pr-merge\traw GitHub PR merges bypass Firstmate's merge checks and task metadata; use bin/fm-pr-merge.sh instead.\n"
+    },
+    {
+      "command": "gh pr merge --help",
+      "exit": 0,
+      "expected": "allow",
+      "name": "help",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "gh-axi pr merge --help",
+      "exit": 0,
+      "expected": "allow",
+      "name": "axi-help",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "if ! gh-axi pr merge --help; then echo failed; fi",
+      "exit": 0,
+      "expected": "allow",
+      "name": "conditional-help",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "if true; then printf '%s' 'gh-axi pr merge 43'; fi",
+      "exit": 0,
+      "expected": "allow",
+      "name": "quoted-example",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "\\! gh-axi pr merge 43",
+      "exit": 0,
+      "expected": "allow",
+      "name": "escaped-negation",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "gh api -X GET repos/fixture/repo/pulls/43/merge",
+      "exit": 0,
+      "expected": "allow",
+      "name": "status-read",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43",
+      "exit": 0,
+      "expected": "allow",
+      "name": "guarded-path",
+      "pass": true,
+      "stderr": "",
+      "stdout": "allow\n"
+    },
+    {
+      "command": "bin/fm-arm-pretool-check.sh --claude < tool_input.command=gh-axi pr merge 43 --squash",
+      "exit": 0,
+      "expected": "silent allow",
+      "name": "actual-worker-exemption",
+      "pass": true,
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "surface": "Actual executable policy CLI and current linked-worktree hook. Submitted merge strings are classified, never executed. Native harness dispatch and remote merges are not exercised."
+}
