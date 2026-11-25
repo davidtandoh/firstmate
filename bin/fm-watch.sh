@@ -298,7 +298,6 @@ WATCH_HOME_EXISTED=0
 # check wake per closed job (bin/fm-upgrade-window-lib.sh owns all three).
 # shellcheck source=bin/fm-upgrade-window-lib.sh
 . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
-UPGRADE_WINDOW_STATE=absent
 # The away-posture record (state/.afk-contract) is the posture in both the
 # attended and the afk session; bin/fm-afk-contract.sh owns its schema and its
 # away-or-quiet reading, which is all this watcher reads (away_record_present
@@ -629,17 +628,14 @@ inbox_steer_busy() {  # <window> <backend> <task> <tail40>
 # being healthy, while an unacknowledged instruction can still be a stuck steer.
 inbox_steer_check() {  # <window> <task>
   local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state
+  if [ "$(fm_meta_get "$STATE/$task.meta" omnigent)" = on ]; then
+    fm_upgrade_window_gate "the doorbell for $task" "$STATE" \
+      "$(fm_meta_get "$STATE/$task.meta" omnigent_remote_server)" >/dev/null 2>&1 || return 0
+  fi
   action=$(fm_task_inbox_due_action "$STATE" "$task") || return 0
   verb=${action%% *}
   [ "$verb" != quiet ] || return 0
   if [ "$verb" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$task.status")" ]; then
-    return 0
-  fi
-  # An active Omnigent upgrade window holds every doorbell and escalation to a
-  # local Omnigent-wrapped task; the ladder continues once it closes.
-  if [ "$UPGRADE_WINDOW_STATE" = active ] && [ "$(fm_meta_get "$STATE/$task.meta" omnigent)" = on ] &&
-    [ -z "$(fm_meta_get "$STATE/$task.meta" omnigent_remote_server)" ]; then
-    fm_upgrade_window_note_deferred "$STATE"
     return 0
   fi
   rec=${action#* }
@@ -684,6 +680,7 @@ inbox_steer_check() {  # <window> <task>
       ring_rc=0
       FM_COMPOSER_HARNESS=$(window_harness "$w") \
         watcher_waited fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      [ "$ring_rc" -ne 75 ] || return 0
       if [ "$ring_rc" -eq 3 ]; then
         inbox_steer_escalate_unavailable "$w" "$task" "$rec"
         return 0
@@ -705,6 +702,7 @@ inbox_steer_check() {  # <window> <task>
       ring_rc=0
       FM_COMPOSER_HARNESS=$(window_harness "$w") \
         watcher_waited fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      [ "$ring_rc" -ne 75 ] || return 0
       if ! fm_task_inbox_clear_retry "$STATE" "$task" "$rec" && [ -f "$rec" ]; then
         reason="stale: $w (steering-inbox retry mark unremovable: ${rec%/*}/.retry-ring cannot be removed, so $rec would ring on every poll - inspect the inbox directory)"
         fm_wake_append stale "$w" "$reason" || exit 1
@@ -4249,7 +4247,6 @@ while :; do
   # deferred dispatch resumes. The durable wake lands before the job is marked
   # surfaced, so a failure between them can only repeat the wake.
   fm_upgrade_window_supervise "$STATE"
-  UPGRADE_WINDOW_STATE=$FM_UPGRADE_WINDOW_STATE
   if [ -n "$FM_UPGRADE_WINDOW_REASON" ]; then
     fm_wake_append check omnigent-upgrade "$FM_UPGRADE_WINDOW_REASON" || exit 1
     fm_upgrade_window_commit "$STATE"

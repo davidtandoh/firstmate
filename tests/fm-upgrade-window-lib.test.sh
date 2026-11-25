@@ -132,7 +132,7 @@ test_shared_ring_preserves_pending_record() (
   rec=$(fm_task_inbox_write "$state" w1 'durable feedback') || fail 'enqueue failed'
   write_window job-ring switching 600
   fm_task_inbox_ring tmux nonexistent "$rec" fm-w1 2>"$TMP_ROOT/ring.err" || rc=$?
-  [ "$rc" = 1 ] || fail "shared ring did not hold delivery: $rc"
+  [ "$rc" = 75 ] || fail "shared ring did not hold delivery: $rc"
   [ -f "$rec" ] || fail 'held feedback lost its durable record'
   [ "$(cat "$state/.upgrade-window-deferred")" = job-ring ] || fail 'shared ring did not remember deferral'
   pass 'shared ring holds durable feedback before touching the endpoint'
@@ -189,6 +189,9 @@ test_close_names_unlisted_stopped_runner() (
   fm_test_omnigent_service "$TMP_ROOT/probe-service" "$TMP_ROOT/probe-tools"
   export PATH="$TMP_ROOT/probe-tools:$PATH" OMNI_SESSION_STATE=runner-gone
   printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' > "$state/stopped.meta"
+  printf 'omnigent=on\n' > "$state/unbound.meta"
+  printf 'omnigent=on\nremote_host=worker\n' > "$state/remote.meta"
+  printf 'omnigent=on\nremote_host=worker\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$state/remote-bound.meta"
   write_window job-stopped resumed 600 upgraded
   fm_upgrade_window_supervise "$state"
   case "$FM_UPGRADE_WINDOW_REASON" in *'relaunch: stopped') ;; *) fail "unlisted stopped runner omitted: $FM_UPGRADE_WINDOW_REASON" ;; esac
@@ -227,6 +230,44 @@ SH
   pass 'shared launch rechecks a window published during preflight'
 )
 
+test_remote_recovery_checks_destination_before_attempt() (
+  local state rc status
+  state=$(new_state destination-recovery)
+  export FM_STATE_OVERRIDE="$state" FM_HOME="${state%/state}" DESTINATION_CODE_ROOT="$ROOT"
+  . "$ROOT/bin/fm-secondmate-liveness-lib.sh"
+  FM_SM_LIVE_LIB_DIR="$TMP_ROOT/recovery-transport"
+  mkdir -p "$FM_SM_LIVE_LIB_DIR" "$TMP_ROOT/destination/serve"
+  ln -s "$ROOT/bin/fm-upgrade-window-lib.sh" "$FM_SM_LIVE_LIB_DIR/fm-upgrade-window-lib.sh"
+  ln -s "$ROOT/bin/fm-timeout-lib.sh" "$FM_SM_LIVE_LIB_DIR/fm-timeout-lib.sh"
+  cat > "$FM_SM_LIVE_LIB_DIR/fm-on.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "$*" = 'mate fm-omnigent.sh upgrade-gate' ] || exit 2
+[ "${DESTINATION_UNAVAILABLE:-0}" = 0 ] || exit 255
+AGENT_KIT_OBSERVATION_DIR="$DESTINATION_OBSERVATION" exec bash "$DESTINATION_CODE_ROOT/bin/fm-omnigent.sh" upgrade-gate
+SH
+  chmod +x "$FM_SM_LIVE_LIB_DIR/fm-on.sh"
+  printf 'kind=secondmate\nomnigent=on\nremote_host=worker\nwindow=gone\n' > "$state/mate.meta"
+  write_window job-destination pausing 600
+  cp "$WINDOW" "$TMP_ROOT/destination/serve/upgrade-window.json"
+  rm "$WINDOW"
+  export DESTINATION_OBSERVATION="$TMP_ROOT/destination"
+  STATE=$state FM_SM_LIVE_STATE=dead FM_SM_LIVE_KILL=1 FM_SM_LIVE_RESUME=0
+  for status in paused unavailable; do
+    rc=0
+    [ "$status" != unavailable ] || export DESTINATION_UNAVAILABLE=1
+    fm_secondmate_liveness_relaunch "$state/mate.meta" mate 1 || rc=$?
+    if [ "$status" = paused ]; then
+      [ "$rc" = 75 ] || fail "paused destination returned $rc instead of deferring"
+    else
+      [ "$rc" = 255 ] || fail "unavailable destination returned $rc instead of preserving transport failure"
+    fi
+    [ ! -e "$state/.secondmate-relaunch-mate" ] || fail "$status destination consumed an attempt"
+    [ ! -e "$state/.secondmate-relaunch.lock" ] || fail "$status destination changed recovery locks"
+  done
+  pass 'remote destination pause or unavailable transport consumes no recovery budget'
+)
+
 fm_test_run \
   test_absent_window_defers_nothing \
   test_paused_window_defers_and_records \
@@ -239,4 +280,5 @@ fm_test_run \
   test_secondmate_pause_preserves_recovery_budget \
   test_remote_window_uses_server_owner \
   test_close_names_unlisted_stopped_runner \
-  test_launch_rechecks_after_preflight
+  test_launch_rechecks_after_preflight \
+  test_remote_recovery_checks_destination_before_attempt

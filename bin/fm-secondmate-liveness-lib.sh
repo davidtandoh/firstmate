@@ -318,6 +318,15 @@ fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
   if [ "$(fm_meta_get "$meta" omnigent)" = on ]; then
     # shellcheck source=bin/fm-upgrade-window-lib.sh
     . "$FM_SM_LIVE_LIB_DIR/fm-upgrade-window-lib.sh"
+    if [ -n "$(fm_meta_get "$meta" remote_host)" ] && [ -z "$(fm_meta_get "$meta" omnigent_remote_server)" ]; then
+      FM_SM_LIVE_OUT=$(fm_run_timed 15 "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-omnigent.sh upgrade-gate < /dev/null 2>&1) || rc=$?
+      if [ "$rc" -ne 0 ]; then
+        FM_SM_LIVE_STATUS=skipped
+        FM_SM_LIVE_REASON='remote upgrade window check deferred recovery or was unavailable; no attempt consumed'
+        FM_SM_LIVE_RC=$rc
+        return "$rc"
+      fi
+    fi
     if ! fm_upgrade_window_gate "secondmate $id recovery" "$STATE" "$(fm_meta_get "$meta" omnigent_remote_server)"; then
       FM_SM_LIVE_STATUS=skipped
       FM_SM_LIVE_REASON='Omnigent upgrade holds recovery; no attempt consumed'

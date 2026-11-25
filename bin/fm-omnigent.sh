@@ -5,6 +5,7 @@
 #        fm-omnigent.sh run [--dry-run] <harness> <Firstmate native arguments...>
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
+#        fm-omnigent.sh upgrade-gate
 #        fm-omnigent.sh probe <task-meta>
 #        fm-omnigent.sh approvals <task-meta>
 #        fm-omnigent.sh binding [<task-meta>]
@@ -1056,6 +1057,13 @@ case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
   capture) capture_session "$@"; exit ;;
+  upgrade-gate)
+    [ "$#" -eq 0 ] || fail 'upgrade-gate takes no arguments'
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate 'remote secondmate recovery' "${FM_STATE_OVERRIDE:-${FM_HOME:-${SCRIPT_DIR%/bin}}/state}" ''
+    exit
+    ;;
   probe) probe_session "$@"; exit ;;
   approvals) approvals_session "$@"; exit ;;
   binding) binding_op "$@"; exit ;;

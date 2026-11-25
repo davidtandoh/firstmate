@@ -1243,6 +1243,10 @@ else
     # because the watcher owns loss detection from here, either through its
     # bounded re-ring ladder or direct unavailable-endpoint recovery.
     if fm_send_upgrade_window_holds "$TARGET_META" "the doorbell for $INBOX_TASK_ID"; then
+      if [ -n "$FIRE_AND_FORGET_ID" ] && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
+        fm_task_inbox_mark_retry "$STATE" "$INBOX_TASK_ID" "$INBOX_RECORD" ||
+          echo "warning: the held steer's retry ring could not be recorded at $INBOX_RECORD" >&2
+      fi
       echo "fm-send: the steer is durably recorded at $INBOX_RECORD; the watcher rings it once the Omnigent upgrade window closes" >&2
       exit 0
     fi
@@ -1252,7 +1256,7 @@ else
     if [ -n "$FIRE_AND_FORGET_ID" ] \
       && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
       case "$ring_rc" in
-      1|2)
+      1|2|75)
         if fm_task_inbox_mark_retry "$STATE" "$INBOX_TASK_ID" "$INBOX_RECORD"; then
           ring_retry="the watcher will ring it once more"
         else

@@ -124,9 +124,9 @@ fm_upgrade_window_tasks() {
     [ -f "$meta" ] || continue
     session=$(sed -n 's/^omnigent_session=//p' "$meta" | tail -n 1)
     [ "$(sed -n 's/^omnigent=//p' "$meta" | tail -n 1)" = on ] || continue
-    if [ -n "$session" ] && printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
-      basename "$meta" .meta
-    elif [ -z "$session" ]; then
+    [ -n "$session" ] || continue
+    [ -z "$(sed -n 's/^remote_host=//p' "$meta" | tail -n 1)" ] || continue
+    if printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
       basename "$meta" .meta
     else
       verdict=$("${BASH_SOURCE[0]%/*}/fm-omnigent.sh" probe "$meta") || verdict=unknown

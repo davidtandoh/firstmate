@@ -402,7 +402,7 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
     # shellcheck source=bin/fm-upgrade-window-lib.sh
     . "$_FM_TASK_INBOX_LIB_DIR/fm-upgrade-window-lib.sh"
     fm_upgrade_window_gate "the doorbell for ${task%.inbox}" "$state" \
-      "$(fm_meta_get "$meta" omnigent_remote_server)" || return 1
+      "$(fm_meta_get "$meta" omnigent_remote_server)" || return 75
   fi
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;

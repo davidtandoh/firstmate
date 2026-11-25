@@ -529,6 +529,26 @@ test_upgrade_window_holds_omnigent_prompts() {
   pass "fm-send inbox: an active Omnigent upgrade window holds new prompts until it closes"
 }
 
+test_upgrade_window_retains_fire_and_forget_retry() {
+  local dir obs err
+  dir=$(setup_case upgrade-fire-and-forget)
+  obs="$dir/observation"
+  mkdir -p "$obs/serve" "$dir/home/config"
+  : > "$dir/home/config/wait-no-turns"
+  rm "$dir/home/state/t1.meta"
+  fm_write_secondmate_meta "$dir/home/state/domain.meta" "$dir/home" 'sess:fm-t1' alpha claude
+  printf 'omnigent=on\n' >> "$dir/home/state/domain.meta"
+  jq -n --argjson exp "$(( $(date +%s) + 600 ))" \
+    '{schema_version:"1",job:"faf",phase:"pausing",outcome:null,expires_at:$exp,interrupted_sessions:[]}' > "$obs/serve/upgrade-window.json"
+  err="$dir/send.err"
+  run_send "$dir" "$err" AGENT_KIT_OBSERVATION_DIR="$obs" -- \
+    fm-domain --fire-and-forget 0123456789abcdef 'drain queued work' || fail "held send failed: $(cat "$err")"
+  [ -f "$dir/home/state/domain.inbox/001.msg" ] || fail 'held fire-and-forget record lost'
+  [ "$(cat "$dir/home/state/domain.inbox/.retry-ring" 2>/dev/null)" = 001.msg ] || fail 'held fire-and-forget steer lost its owed retry'
+  [ ! -s "$dir/send.log" ] || fail 'held fire-and-forget steer rang during pause'
+  pass 'fm-send inbox: held fire-and-forget steer retains its owed retry'
+}
+
 test_empty_message_refused() {
   local dir err rc
   # The lived defect: an empty marked secondmate steer used to deliver a
@@ -574,6 +594,12 @@ test_empty_message_refused() {
   pass "fm-send: an empty or whitespace-only text steer refuses before marking, recording, or typing"
 }
 
+if [ "${1:-}" = --upgrade-window ]; then
+  test_upgrade_window_holds_omnigent_prompts
+  test_upgrade_window_retains_fire_and_forget_retry
+  exit 0
+fi
+
 test_text_steer_rides_inbox
 test_deep_home_doorbell_stays_short
 test_multiline_steer_is_legal
@@ -591,4 +617,5 @@ test_meta_lock_contention_fails_bounded
 test_delivery_lock_serializes_enqueue
 test_unwritable_inbox_fails_loudly
 test_upgrade_window_holds_omnigent_prompts
+test_upgrade_window_retains_fire_and_forget_retry
 test_empty_message_refused
