@@ -3,7 +3,7 @@
 This document is the authoritative human-readable contract for the guard that stops a firstmate primary from delegating work outside the fleet.
 
 The shipped mechanism is `bin/fm-subagent-pretool-check.sh`, a PreToolUse guard that denies a delegation-SHAPED tool name in a genuine primary home.
-Claude primaries should also use an untracked per-home local `permissions.deny` list as hardening for known Claude delegation tools, because it removes them from the model's schema entirely.
+Claude primaries should also use the [recommended local deny list](#recommended-local-claude-deny-list) to remove other known Claude delegation tools from the model's schema while retaining the guarded web-fetch path.
 That deny list must not ship in tracked `.claude/settings.json` because it is Claude-only rather than harness-agnostic, and because tracked project settings propagate into linked worktrees where they disarm legitimate crewmates.
 
 ## Why this exists
@@ -47,7 +47,7 @@ agent  subagent  task  workflow  cron  schedul  worktree
 delegate  spawn  dispatch  handoff  remote  sendmessage  monitor
 ```
 
-Three exclusions keep the shape test from producing false positives.
+Four exclusions keep the shape test from producing false positives.
 
 - A name beginning `mcp__` is never classified.
   An MCP server chooses its own tool names, a task or agent noun there is common, and it has no bearing on fleet dispatch.
@@ -61,10 +61,21 @@ Three exclusions keep the shape test from producing false positives.
   So it is not the "work, agent, schedule, or isolated workspace that firstmate would not know about" the guard exists to stop, and the stem match on `task` is a false positive rather than a policy.
   The cost of the false positive was concrete: the primary could not track its own plan, and the deny text told it to run `bin/fm-brief.sh` and `bin/fm-spawn.sh` to create a todo entry.
 
+- `READ_ONLY_SUBAGENT`: a Claude `Agent` or `Task` call whose `tool_input.subagent_type` is exactly `web-fetch` is allowed.
+  Claude Code's built-in web-fetch agent only reads a public page and returns its report into the same turn, and it is the only way a primary session without its own fetch tool can read the web.
+  It starts no fleet work and nothing that outlives the turn, so denying it blocked reading rather than delegation.
+  The match is exact and case-sensitive, so `Web-Fetch`, `web-fetcher`, `plugin:web-fetch`, and every other subagent type stay denied, as does the same type on any other tool name, a bare `--tool` name, and the `--agy` transport.
+  The exemption is withdrawn whenever an agent definition named `web-fetch`, by its parsed top-level `name` in the leading YAML frontmatter block, exists in the home's, `CLAUDE_PROJECT_DIR`'s, or the payload `cwd`'s `.claude/agents`, in the user's `agents` directory under `~/.claude` or `CLAUDE_CONFIG_DIR`, because such a definition would replace the built-in agent and borrow its exemption.
+  Plugin agent directories are excluded because plugin agents use namespaced types such as `plugin-name:web-fetch`, which the exact type check already denies.
+  The filename does not determine agent identity.
+  The hook uses Mike Farah’s `yq` to parse extracted YAML frontmatter, including quoted keys, quoted values, and trailing comments.
+  An unavailable parser, invalid frontmatter identity, or a location that cannot be searched or read completely also withdraws the exemption.
+  An agent supplied only through Claude Code's `--agents` launch flag is not visible to a hook, so a primary must not be launched with a custom `web-fetch` agent that way.
+
 Both exclusion lists match the whole normalized name, never a substring, so neither can widen by accident: `TaskCreateAgent` and `RemoteTaskCreate` stay denied.
 Folding the two lists together would be the drift risk, because the observe-or-stop rationale is not true of a tool that writes.
 
-The shipped guard fires on every delegation-shaped name that reaches it, including future names that no deny list knows about yet.
+Apart from the exclusions above, the shipped guard fires on every delegation-shaped name that reaches it, including future names that no deny list knows about yet.
 That future-name behavior is the reason the tracked matcher must match all tools and let the script filter.
 
 ## Recommended Local Claude Deny List
@@ -75,8 +86,6 @@ Claude primaries should add this deny list in untracked per-home local settings,
 {
   "permissions": {
     "deny": [
-      "Task",
-      "Agent",
       "Workflow",
       "RemoteTrigger",
       "Monitor",
@@ -101,6 +110,9 @@ The model is never offered the tool, so there is no call to intercept, no matche
 This is removal, not interception, and it is strictly stronger than any hook.
 
 This list is recommended local hardening because it closes the known Claude surface before the hook is needed.
+It leaves `Agent` and `Task` available so the hook can apply the web-fetch exclusion described above and deny other subagent calls.
+If an existing local list denies either name, remove both entries before launching a primary that needs web-fetch.
+An operator who deliberately disables all subagents may retain both entries, but the hook cannot restore web-fetch through a tool removed from the schema.
 It is not tracked for two reasons.
 
 - It is Claude-only, so it can never be the harness-agnostic shipped fix.
@@ -128,8 +140,8 @@ That is not what this machine shows.
 A five-way A/B with a control, each run in its own directory to rule out settings caching, found that `Task` and `Agent` each independently remove the tool, and that a nonsense name leaves it present.
 The full evidence is in the validation record below.
 
-Pinning both names in the recommended local deny list is correct regardless of which build is running.
-It costs one line and removes the failure mode where a rename or a rollback silently reopens the surface.
+For an operator who deliberately disables all subagents, pinning both names covers either tool name across builds.
+The recommended list above instead leaves both names available for the guarded web-fetch path.
 
 ## Scope
 
@@ -181,7 +193,7 @@ Applicability turns on one question: does the harness expose built-in delegation
 
 | Harness | Delegation surface | Status |
 | --- | --- | --- |
-| Claude | 16 known tools, listed above | Scoped guard wired and live-verified; untracked local deny list verified and recommended. |
+| Claude | Known tools listed above, plus `Agent` and `Task` | Scoped guard wired and live-verified; local denial mechanics verified below; current exclusions covered by the automated validation matrix. |
 | Antigravity | present (`invoke_subagent`, `define_subagent`) | Scoped guard wired and live-verified via `.agents/hooks.json` PreToolUse hook (`bin/fm-subagent-pretool-check.sh --agy`). |
 | Codex | none | Not applicable, verified empirically below. Codex 0.144.1 exposes no subagent, sub-task, or delegated-agent tool, so there is nothing to remove or intercept. `.codex/hooks.json` is unchanged. |
 | Grok | present, exact tokens unconfirmed | Not wired pending live verification. See below. |
@@ -363,7 +375,7 @@ The live consequence is confirmed by the shipped-guard result above: Claude hono
 ## Automated validation
 
 `tests/fm-subagent-pretool-check.test.sh` owns the acceptance matrix and is registered in the `pure-contract-unit` family in `bin/fm-test-run.sh`.
-It covers the tracked Claude settings boundary that forbids a `permissions` key; the match-all Claude hook registration; denial of every work-creating delegation tool by shape; denial of twelve hypothetical future tool names that appear on no list; the observe-or-stop, plan-only, and MCP exclusions; the exactness of the plan-only exclusion against six near-miss names a substring or shorter-stem widening would release; the scout-present and scout-absent message variants; the escape hatch including its fail-closed values; inertness in a linked task worktree and in a non-firstmate repo; in-scope enforcement for a marked secondmate home; both stdin transports; the empty-stdout requirement; fail-open transport behavior; and the preserved `Bash` seatbelts and `Stop` guard.
+It covers the tracked Claude settings boundary that forbids a `permissions` key; the match-all Claude hook registration; denial of every work-creating delegation tool by shape; denial of twelve hypothetical future tool names that appear on no list; the observe-or-stop, plan-only, and MCP exclusions; the exactness of the plan-only exclusion against six near-miss names a substring or shorter-stem widening would release; the exact web-fetch subagent exemption, its near misses, and its withdrawal by a project, user, or unreadable agent definition; the scout-present and scout-absent message variants; the escape hatch including its fail-closed values; inertness in a linked task worktree and in a non-firstmate repo; in-scope enforcement for a marked secondmate home; both stdin transports; the empty-stdout requirement; fail-open transport behavior; and the preserved `Bash` seatbelts and `Stop` guard.
 
 Run:
 

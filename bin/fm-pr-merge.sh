@@ -15,7 +15,7 @@
 # Usage:
 #   fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch]
 #     [--expected-head <full-sha>]
-#     [--allow-red <check>] [--allow-missing <check>] [--allow-no-pipeline]
+#     [--allow-red <check>]... [--allow-missing <check>] [--allow-no-pipeline]
 #     [-- <forge merge flags>]
 #   fm-pr-merge.sh -h | --help
 #
@@ -65,15 +65,17 @@
 # does not replace it with a newly read head. Omitting the flag keeps the
 # previous behavior: the live head read at verification is the matched value.
 # Reading that state needs gh and jq, and either one absent stops the merge before any
-# state is recorded. An attended --allow-red <check-name> may be passed once,
-# with the name as a separate argument; it waives only checks with that exact
-# name, still requires every other check green, and still binds the head. Its
-# twin, an attended --allow-missing <check-name>, follows the same rules for one
-# required check that has not reported: it waives only that exact name, still
-# requires every other required check to have reported and every check to be
-# green unless separately waived by --allow-red. It matches the required
-# context name even for an app-bound requirement, and never waives an unreadable
-# required source or producer read. Both are
+# state is recorded. An attended --allow-red <check-name> takes the name as a
+# separate argument and may repeat, once per distinct exact name the captain
+# waived; each waives only checks with that exact name, every unnamed check
+# must still be green, and the head stays bound. Its twin, an attended
+# --allow-missing <check-name>, may be passed once for one required check that
+# has not reported: it waives only that exact name, still requires every other
+# required check to have reported and every check to be green unless separately
+# waived by --allow-red. It matches the required context name even for an
+# app-bound requirement, and never waives an unreadable required source or
+# producer read. A repeated --allow-red name or an --allow-red name containing
+# a line break is refused. Both are
 # refused while the away-posture record exists, and neither
 # applies on GitLab, where a merge already requires the head pipeline to have
 # succeeded, or on Forgejo, where a merge already requires the head's combined
@@ -221,7 +223,7 @@
 # explicit captain instruction and never skips the live green check, the
 # away-record read, or a captain hold.
 #
-# Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch] [--expected-head <full-sha>] [--allow-red <check-name>] [--allow-missing <check-name>] [--allow-no-pipeline] [-- <extra forge merge args>]
+# Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch] [--expected-head <full-sha>] [--allow-red <check-name>]... [--allow-missing <check-name>] [--allow-no-pipeline] [-- <extra forge merge args>]
 #
 # On GitLab, this script confirms the MR is actually merged before reporting it;
 # an auto-merge-queued or unconfirmed request leaves the poll armed and records
@@ -304,6 +306,25 @@ ALLOW_NO_PIPELINE=false
 ALLOW_RED=()
 ALLOW_MISSING=()
 EXPECTED_HEAD=
+
+waiver_name_valid() {  # <flag> <check-name>
+  case "$2" in
+    *$'\n'*|*$'\r'*)
+      echo "error: $1 check name must not contain a line break" >&2
+      return 1
+      ;;
+  esac
+}
+
+allow_red_covers() {  # <check-name>
+  local check
+  [ "${#ALLOW_RED[@]}" -gt 0 ] || return 1
+  for check in "${ALLOW_RED[@]}"; do
+    [ "$check" != "$1" ] || return 0
+  done
+  return 1
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --attended-override)
@@ -324,7 +345,8 @@ while [ "$#" -gt 0 ]; do
       ;;
     --allow-red)
       [ -n "${2:-}" ] || { echo "error: --allow-red requires a check name" >&2; exit 2; }
-      [ "${#ALLOW_RED[@]}" -eq 0 ] || { echo "error: --allow-red may be specified only once" >&2; exit 2; }
+      waiver_name_valid --allow-red "$2" || exit 2
+      ! allow_red_covers "$2" || { echo "error: --allow-red names check '$2' more than once" >&2; exit 2; }
       ALLOW_RED+=("$2")
       shift 2
       ;;
@@ -1137,7 +1159,7 @@ github_checks_not_green() {
 # the usual 1, when mergeable=UNKNOWN is the only failing condition, so the
 # caller can retry a still-computing mergeability read instead of refusing.
 github_verify_mergeable() {
-  local json fields line red failed name covered missing unreported producers pending
+  local json fields line red failed name missing unreported producers pending
   local total=0 named=0 refusals='' mergeable_refusal=''
   local state='' draft='' mergeable='' merge_state='' live_head='' base=''
   FM_PR_GITHUB_BEHIND=false
@@ -1202,7 +1224,7 @@ FIELDS
   fi
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    [ "${#ALLOW_RED[@]}" -eq 0 ] || [ "${ALLOW_RED[0]}" != "$name" ] || continue
+    ! allow_red_covers "$name" || continue
     FM_PR_GITHUB_CHECKS_FAILED=true
   done <<EOF
 $failed
@@ -1240,13 +1262,7 @@ EOF
   uncovered=''
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    covered=0
-    if [ "${#ALLOW_RED[@]}" -gt 0 ]; then
-      for check in "${ALLOW_RED[@]}"; do
-        [ "$check" = "$name" ] && covered=1
-      done
-    fi
-    [ "$covered" -eq 1 ] || {
+    allow_red_covers "$name" || {
       refusals="$refusals  - check '$name' is not green
 "
       uncovered="${uncovered:+$uncovered, }$name"

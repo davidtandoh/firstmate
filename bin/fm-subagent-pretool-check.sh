@@ -24,10 +24,15 @@
 # This script is therefore the single owner of classification.
 # It matches a delegation-SHAPED tool name rather than a fixed list, so a future
 # tool that ships before anyone updates a local deny list is still refused.
+# Its one argument-aware exclusion is Claude Code's built-in read-only web-fetch
+# agent: a Claude Agent or Task payload whose subagent_type is exactly
+# web-fetch is allowed unless a project or user agent definition of
+# that frontmatter name exists (READ_ONLY_SUBAGENT below).
 #
-# The guard is narrow by design. It classifies ONE thing: the shape of the tool
-# name. It makes no judgment about whether the work should be delegated at all,
-# which is a reasoning boundary no tool-shape hook can enforce.
+# The guard is narrow by design. It classifies the shape of the tool name,
+# with the read-only exclusion above. It makes no judgment about whether the
+# work should be delegated at all, which is a reasoning boundary no tool-shape
+# hook can enforce.
 # See docs/subagent-guard.md for the complete contract and validation record.
 #
 # Usage:
@@ -78,6 +83,16 @@ OBSERVE_ONLY_TOOLS='taskoutput taskstop taskget tasklist cronlist bashoutput kil
 # widen by accident.
 PLAN_ONLY_TOOLS='taskcreate taskupdate'
 
+# Claude Code's built-in web-fetch agent only reads a public page and reports
+# what it says; it is the only way a primary session without its own fetch tool
+# can read the web. It edits nothing, starts no fleet work, and returns its
+# report into this turn, so it is not the untracked work this guard stops.
+# The exemption is exact: only a Claude Agent or Task call (stdin transport)
+# whose tool_input.subagent_type is exactly "web-fetch", and only while no
+# project or user agent definition with that frontmatter name exists, because such a
+# definition would replace the built-in agent and borrow its exemption.
+READ_ONLY_SUBAGENT='web-fetch'
+
 TOOL=""
 TOOL_SET=0
 CLAUDE_MODE=0
@@ -90,6 +105,9 @@ Usage: fm-subagent-pretool-check.sh [--tool <tool-name>] [--claude|--agy]
 With no --tool, reads a PreToolUse-style JSON payload on stdin (Claude/Codex
 tool_name, Grok toolName, or Antigravity toolCall.name).
 Denies a delegation-SHAPED tool name in a genuine primary home.
+Allows a Claude Agent or Task payload whose subagent_type is exactly web-fetch,
+unless a project or user agent has the parsed frontmatter name web-fetch.
+Unreadable definitions or unavailable YAML parsing also withdraw the exemption.
 Claude primaries may also add an untracked per-home permissions.deny list that
 removes known delegation tools from the model schema before this hook is needed.
 Do not ship that Claude-only list in tracked project settings, because linked
@@ -191,6 +209,59 @@ STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
 # shellcheck source=bin/fm-primary-scope-lib.sh
 . "$SCRIPT_DIR/fm-primary-scope-lib.sh"
 fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
+
+# Whether any agent definition named $READ_ONLY_SUBAGENT exists in a standard
+# Claude Code location: the project's .claude/agents, the user's agents
+# directory. A definition matches by its parsed top-level name in its leading
+# frontmatter block. A location that cannot be
+# searched or read completely counts as a match, so an unreadable definition
+# never grants the exemption.
+custom_read_only_agent_defined() {
+  local dir files file status matched frontmatter parsed
+  local -a dirs=()
+  dirs+=("$FM_ROOT/.claude/agents")
+  [ -z "${CLAUDE_PROJECT_DIR:-}" ] || dirs+=("$CLAUDE_PROJECT_DIR/.claude/agents")
+  [ -z "$PAYLOAD_CWD" ] || dirs+=("$PAYLOAD_CWD/.claude/agents")
+  [ -z "${CLAUDE_CONFIG_DIR:-}" ] || dirs+=("$CLAUDE_CONFIG_DIR/agents")
+  [ -z "${HOME:-}" ] || dirs+=("$HOME/.claude/agents")
+  for dir in "${dirs[@]}"; do
+    [ -e "$dir" ] || [ -L "$dir" ] || continue
+    status=0
+    files=$(find -L "$dir" -type f -name '*.md' 2>/dev/null) || status=$?
+    [ "$status" -eq 0 ] || return 0
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      frontmatter=$(awk '
+        NR == 1 { in_frontmatter = ($0 ~ /^---[[:space:]]*$/); if (in_frontmatter) print; next }
+        in_frontmatter && /^---[[:space:]]*$/ { in_frontmatter = 0; exit }
+        in_frontmatter { print }
+        END { if (in_frontmatter) exit 1 }
+      ' "$file" 2>/dev/null) || return 0
+      [ -n "$frontmatter" ] || continue
+      parsed=$(printf '%s\n' "$frontmatter" | yq -p yaml -o json '.' 2>/dev/null) || return 0
+      matched=$(printf '%s\n' "$parsed" | jq -r --arg name "$READ_ONLY_SUBAGENT" '
+        if type == "object" and (.name | type) == "string" then .name == $name
+        else error("agent frontmatter requires a name") end
+      ' 2>/dev/null) || return 0
+      [ "$matched" = false ] || return 0
+    done <<EOF
+$files
+EOF
+  done
+  return 1
+}
+
+if [ "$TOOL_SET" -eq 0 ] && [ "$AGY_MODE" -eq 0 ]; then
+  case "$NORMALIZED" in
+    agent|task)
+      SUBAGENT_TYPE=$(printf '%s' "$PAYLOAD" | jq -r '(.tool_input.subagent_type // empty) | strings' 2>/dev/null) || SUBAGENT_TYPE=''
+      PAYLOAD_CWD=$(printf '%s' "$PAYLOAD" | jq -r '(.cwd // empty) | strings' 2>/dev/null) || PAYLOAD_CWD=''
+      if [ "$SUBAGENT_TYPE" = "$READ_ONLY_SUBAGENT" ] && ! custom_read_only_agent_defined; then
+        exit 0
+      fi
+      ;;
+  esac
+fi
 
 # Name the dedicated scout entry point only when this home carries it; degrade
 # to the two-step brief-then-spawn path when it does not, rather than naming a

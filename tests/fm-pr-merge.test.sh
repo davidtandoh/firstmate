@@ -4477,13 +4477,87 @@ test_allow_red_requires_one_separate_name() {
   write_github_red_json "$case_dir" "$head" lint
   set +e
   run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/88 \
-    --allow-red lint --allow-red unit > "$case_dir/stdout" 2> "$case_dir/stderr"
+    --allow-red lint --allow-red lint > "$case_dir/stdout" 2> "$case_dir/stderr"
   rc=$?
   set -e
-  expect_code 2 "$rc" "github-allow-red-duplicate: duplicate waiver must be refused"
+  expect_code 2 "$rc" "github-allow-red-duplicate: a repeated name must be refused"
+  assert_grep "--allow-red names check 'lint' more than once" "$case_dir/stderr" \
+    "github-allow-red-duplicate: the refusal did not name the repeated check"
   assert_no_grep 'pr merge' "$case_dir/gh.log" \
-    "github-allow-red-duplicate: gh pr merge ran for duplicate waivers"
-  pass "fm-pr-merge accepts exactly one separately named red-check waiver"
+    "github-allow-red-duplicate: gh pr merge ran for a repeated waiver"
+
+  case_dir=$(make_case github-allow-red-line-break)
+  mkdir -p "$case_dir/wt"
+  add_gh_mocks "$case_dir" "$head"
+  write_github_red_json "$case_dir" "$head" lint
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/88 \
+    --allow-red $'lint\nunit' > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 2 "$rc" "github-allow-red-line-break: a name with a line break must be refused"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" \
+    "github-allow-red-line-break: gh pr merge ran for a multi-line name"
+  pass "fm-pr-merge takes each red-check waiver as one separate, distinct name"
+}
+
+# The captain may name several failing checks to waive; each --allow-red covers
+# only its own exact name, and an unnamed red check still refuses.
+test_allow_red_repeats_once_per_named_check() {
+  local case_dir rc head url
+  head=a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7
+  url=https://github.com/example/repo/pull/89
+
+  case_dir=$(make_case github-allow-red-two-named)
+  add_gh_mocks "$case_dir" "$head"
+  write_github_rollup_json "$case_dir" "$head" \
+    "$(check_run 'E2E UI Tests (shard 8/10)' COMPLETED FAILURE)" \
+    "$(check_run 'E2E UI result' COMPLETED FAILURE)" \
+    "$(check_run 'unit' COMPLETED SUCCESS)"
+  run_pr_merge "$case_dir" task-x1 "$url" \
+    --allow-red 'E2E UI Tests (shard 8/10)' --allow-red 'E2E UI result' \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" \
+    || fail "github-allow-red-two-named: both named waivers should merge: $(cat "$case_dir/stderr")"
+  assert_logged_gh_merge "$case_dir" 89 example/repo --squash
+
+  case_dir=$(make_case github-allow-red-two-named-third-red)
+  add_gh_mocks "$case_dir" "$head"
+  write_github_rollup_json "$case_dir" "$head" \
+    "$(check_run 'E2E UI Tests (shard 8/10)' COMPLETED FAILURE)" \
+    "$(check_run 'E2E UI result' COMPLETED FAILURE)" \
+    "$(check_run 'E2E UI Tests (shard 9/10)' COMPLETED FAILURE)"
+  set +e
+  run_pr_merge "$case_dir" task-x1 "$url" \
+    --allow-red 'E2E UI Tests (shard 8/10)' --allow-red 'E2E UI result' \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "github-allow-red-two-named-third-red: an unnamed red check must still refuse"
+  assert_grep "check 'E2E UI Tests (shard 9/10)' is not green" "$case_dir/stderr" \
+    "github-allow-red-two-named-third-red: the unnamed red check was not named"
+  assert_no_grep "check 'E2E UI result' is not green" "$case_dir/stderr" \
+    "github-allow-red-two-named-third-red: a waived check was still reported"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" \
+    "github-allow-red-two-named-third-red: gh pr merge ran with an unwaived red check"
+
+  case_dir=$(make_case github-allow-red-two-named-away)
+  add_gh_mocks "$case_dir" "$head"
+  write_github_rollup_json "$case_dir" "$head" \
+    "$(check_run 'E2E UI Tests (shard 8/10)' COMPLETED FAILURE)" \
+    "$(check_run 'E2E UI result' COMPLETED FAILURE)"
+  write_away_record "$case_dir" --words 'merge task-x1 when green'
+  set +e
+  run_pr_merge "$case_dir" task-x1 "$url" \
+    --allow-red 'E2E UI Tests (shard 8/10)' --allow-red 'E2E UI result' \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 2 "$rc" "github-allow-red-two-named-away: repeated waivers must be refused while away"
+  assert_grep '--allow-red is attended-only' "$case_dir/stderr" \
+    "github-allow-red-two-named-away: refusal did not name attended-only"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" \
+    "github-allow-red-two-named-away: gh pr merge ran despite away waivers"
+  pass "fm-pr-merge waives each separately named red check and refuses any other"
 }
 
 test_away_record_permits_any_green_merge_under_away_authority() {
@@ -5525,6 +5599,7 @@ test_allow_red_still_waives_only_the_current_failure
 test_allow_red_is_refused_while_away
 test_quiet_record_keeps_merges_attended
 test_allow_red_requires_one_separate_name
+test_allow_red_repeats_once_per_named_check
 test_away_record_permits_any_green_merge_under_away_authority
 test_away_branch_actor_merges_green_under_the_record
 test_away_branch_refuses_when_record_archived_during_preflight
