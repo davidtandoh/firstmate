@@ -47,7 +47,7 @@ if [ "$(status_line_verb "$line")" = "done" ]; then
             if [ -n "$url" ] && [ "$url" = "$recorded" ] && FM_CONFIG_OVERRIDE="$config" fm_pr_url_parse "$url"; then valid=1; fi
           fi
           [ "$valid" -eq 1 ] || {
-            echo "error: $mode ship done requires its recorded PR/review URL; run the delivery pipeline and have firstmate register the review before reporting done" >&2
+            echo "error: $mode ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done" >&2
             exit 1
           }
           ;;

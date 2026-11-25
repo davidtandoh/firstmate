@@ -114,19 +114,65 @@ test_status_requires_the_registered_external_review() {
     fail "external completion accepted pr= without review registration"
   fi
   assert_absent "$status" "unregistered external completion wrote a status event"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
+    "blocked [key=review-registration] [at=1795628587]: register review $URL" \
+    || fail "external review could not request registration"
+  assert_grep "register review $URL" "$status" "external registration request lost the URL"
   run_check t1 "$URL"
   expect_code 0 "$RC" "external review registration failed: $OUT"
   if "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
     'done: review https://review.example.test/r/999 uploaded for review' > "$TMP_ROOT/status.out" 2>&1; then
     fail "external completion accepted an unrelated review URL"
   fi
-  assert_absent "$status" "unrelated external completion wrote a status event"
+  assert_no_grep 'done:' "$status" "unrelated external completion wrote a status event"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
+    'resolved [key=review-registration] [at=1795628588]: review registered' \
+    || fail "external registration request could not be resolved"
   "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" "$note" \
     || fail "external completion refused its registered review"
-  [ "$(cat "$status")" = "$note" ] || fail "registered external completion lost its status event"
+  [ "$(tail -n 1 "$status")" = "$note" ] || fail "registered external completion lost its status event"
   pass "fm-status: external completion requires this task's registered review"
 }
 
+test_direct_pr_registration_before_done() {
+  local status url note
+  fixture status-pr
+  status="$HOME_DIR/state/t1.status"
+  url=https://github.com/example/project/pull/123
+  note="done: PR $url"
+  if "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" "$note" > "$TMP_ROOT/status.out" 2>&1; then
+    fail "direct-PR completion accepted an unregistered PR"
+  fi
+  assert_absent "$status" "unregistered direct-PR completion wrote a status event"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
+    "blocked [key=review-registration] [at=1795628587]: register review $url" \
+    || fail "direct-PR could not request registration"
+  mkdir -p "$HOME_DIR/fakebin" "$HOME_DIR/root/bin"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$HOME_DIR/root/bin/fm-guard.sh"
+  cat > "$HOME_DIR/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *isDraft*) printf '{"isDraft":false}\n' ;;
+  *headRefOid*) printf '%s\n' "$FM_TEST_REVIEW_HEAD" ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$HOME_DIR/fakebin/gh" "$HOME_DIR/root/bin/fm-guard.sh"
+  git -C "$WT" update-ref refs/remotes/origin/fm/t1 "$(git -C "$WT" rev-parse HEAD)"
+  FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$HOME_DIR/root" \
+    FM_TEST_REVIEW_HEAD="$(git -C "$WT" rev-parse HEAD)" PATH="$HOME_DIR/fakebin:$PATH" \
+    "$ROOT/bin/fm-pr-check.sh" t1 "$url" > "$TMP_ROOT/pr-register.out" 2>&1 \
+    || fail "direct-PR registration failed: $(cat "$TMP_ROOT/pr-register.out")"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
+    'resolved [key=review-registration] [at=1795628588]: review registered' \
+    || fail "direct-PR registration request could not be resolved"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" "$note" \
+    || fail "direct-PR completion refused its registered PR"
+  [ "$(tail -n 1 "$status")" = "$note" ] || fail "direct-PR completion lost its status event"
+  pass "fm-status: direct-PR registration completes before done retry"
+}
+
+test_direct_pr_registration_before_done
 test_status_requires_the_registered_external_review
 
 test_records_one_review_and_no_watch

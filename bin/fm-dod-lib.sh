@@ -583,6 +583,16 @@ fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>] [<consent>] [<p
     nm_base="This task's base branch is \`$base\`, not the repository default: pass \`--base-branch $base_q\` on every \`no-mistakes axi run\` that starts a run, so the pipeline rebases onto, opens its PR against, and watches CI for that branch.
 "
   fi
+  if [ "$mode" != local-only ]; then
+    cat <<'EOF'
+Before any publishing-ship done report below, complete this registration handoff after publication and the required checks.
+Use this task's status command to append `blocked [key=review-registration] [at=<epoch>]: register review {full URL}` with this task's published PR, change, or external-review URL.
+Stop and wait for firstmate to register that URL and confirm success through this task's steering inbox.
+If registration fails, follow firstmate's steering, then request registration again after correcting the delivery.
+After confirmation, append `resolved [key=review-registration] [at=<epoch>]: review registered` through the same status command, then emit the mode-specific done report below with that exact URL.
+Do not write registration metadata yourself; the done writer requires this task's recorded URL.
+EOF
+  fi
   case "$mode:$forge" in
     direct-PR:gerrit)
       cat <<EOF

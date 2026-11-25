@@ -1776,6 +1776,13 @@ test_generated_status_refuses_done_before_pr() {
         if bash -c "$command" > "$home/out" 2>&1; then
           fail "$mode accepted an unrecorded PR"
         fi
+        command=${append//\{one short line\}/register review ${note#PR }}
+        command=${command/ checks green/}
+        command=${command/"done [at="/"blocked [key=review-registration] [at="}
+        bash -c "$command" || fail "$mode could not request registration before done"
+        assert_grep 'blocked [key=review-registration]' "$home/state/$id.status" 'registration request did not reach the status channel'
+        assert_no_grep 'done ' "$home/state/$id.status" 'registration request completed the task'
+        rm "$home/state/$id.status"
         printf 'pr=%s\n' "${note#PR }" | sed 's/ checks green$//' >> "$home/state/$id.meta"
         for note in "committed follow-up to ${note#PR } ; ready for validation" 'committed follow-up to https://github.com/o/r/pull/7 ; ready for validation' 'PR https://github.com/o/r/pull/7 checks green'; do
           command=${append//\{one short line\}/$note}
