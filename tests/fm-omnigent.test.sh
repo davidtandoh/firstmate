@@ -2,6 +2,7 @@
 # Contracts for the Omnigent launch boundary and its observed process shapes.
 # Run with --claude-accounts for focused Claude account boundary checks.
 # Run with --probe for focused session-probe and supervision checks.
+# Run with --polling for focused snapshot request-budget checks.
 set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -76,13 +77,113 @@ fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
+polling_checks() (
+  poll_state="$TMP_ROOT/poll/state"
+  mkdir -p "$poll_state"
+  poll_meta="$poll_state/bound.meta"
+  printf 'spawn_gen=poll.1\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$poll_meta"
+  export FM_TEST_SEAM=1 FM_TEST_OMNIGENT_SNAPSHOT_NOW=1000
+  requests() { jq -s '[.[] | select(.method == "GET" and (.url | contains("/v1/sessions/")))] | length' "$TMP_ROOT/serve/requests.jsonl"; }
+  for tick in 1000 1015 1030 1045; do
+    export FM_TEST_OMNIGENT_SNAPSHOT_NOW=$tick
+    [ "$("$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'healthy snapshot lost cleared approvals'
+    [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'healthy snapshot lost runner liveness'
+  done
+  [ "$(requests)" = 2 ] || fail "one worker minute made $(requests) session GETs instead of 2"
+  [ "$(jq -s '[.[] | select(.url? | endswith("/health"))] | length' "$TMP_ROOT/serve/requests.jsonl")" = 0 ] || fail 'healthy session still required health polling'
+  pass 'one worker minute shares two session reads across approval and liveness checks'
+  export FM_TEST_OMNIGENT_SNAPSHOT_NOW=1060
+  pending='[{"elicitation_id":"new","params":{"message":"Claude wants to call **Bash**\nsecret command","content_preview":"SECRET"}}]'
+  [ "$(OMNI_PENDING="$pending" "$OMNI" approvals "$poll_meta" | jq -r '.[0].id')" = new ] || fail 'TTL boundary hid a new approval'
+  snapshot="$poll_state/.bound.omnigent-snapshot.json"
+  if rg -q 'secret|SECRET|content_preview|params' "$snapshot"; then fail 'snapshot persisted private prompt content'; fi
+  [ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe --fresh "$poll_meta")" = dead ] || fail 'fresh consult reused cached live runner'
+  [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'fresh consult overwrote the shared snapshot'
+  printf 'spawn_gen=poll.2\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$poll_meta"
+  [ "$(OMNI_PENDING='[]' "$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'new generation reused old approval'
+  printf 'spawn_gen=poll.2\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://localhost:6767\n' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb > "$poll_meta"
+  [ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe "$poll_meta")" = dead ] || fail 'new binding reused old liveness'
+  printf 'omnigent_attach_pid=%s\nomnigent_attach_start=unused\n' "$$" >> "$poll_meta"
+  before=$(requests)
+  if "$OMNI" stop-attach "$poll_meta"; then fail 'cached dead verdict authorized stopping a now-live attach client'; fi
+  [ "$(requests)" = "$((before + 1))" ] || fail 'stop-attach did not require a fresh session read'
+  pass 'expiry, relaunch and binding changes refresh while lifecycle checks bypass snapshots'
+
+  rm "$snapshot"
+  : > "$TMP_ROOT/serve/requests.jsonl"
+  export OMNI_SESSION_STATE=server-error
+  for tick in 2000 2015 2030 2089 2090 2209 2210; do
+    export FM_TEST_OMNIGENT_SNAPSHOT_NOW=$tick
+    [ "$("$OMNI" approvals "$poll_meta")" = unknown ] || fail 'failed read reused expired approvals'
+    [ "$("$OMNI" probe "$poll_meta")" = unknown ] || fail 'server error supplied a liveness verdict'
+    case "$tick" in
+      2000|2015) expected=1 ;;
+      2030|2089) expected=2 ;;
+      2090|2209) expected=3 ;;
+      *) expected=4 ;;
+    esac
+    [ "$(requests)" = "$expected" ] || fail "backoff at $tick made $(requests) requests instead of $expected"
+  done
+  export FM_TEST_OMNIGENT_SNAPSHOT_NOW=2330
+  unset OMNI_SESSION_STATE
+  [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'server recovery did not restore liveness'
+  export FM_TEST_OMNIGENT_SNAPSHOT_NOW=2360
+  [ "$("$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'server recovery did not restore approvals'
+  [ "$(requests)" = 6 ] || fail 'recovery did not reset the normal cadence'
+  rm "$snapshot"
+  [ "$(OMNI_HEALTH=down "$OMNI" probe "$poll_meta")" = dead ] || fail 'stopped server lost its dead verdict'
+  pass 'failed reads back off for 30/60/120 seconds, preserve unknown and recover'
+
+  rm "$snapshot"
+  : > "$TMP_ROOT/serve/requests.jsonl"
+  for tick in 2500 2530; do
+    export FM_TEST_OMNIGENT_SNAPSHOT_NOW=$tick
+    [ "$(OMNI_SESSION_DELAY=3 "$OMNI" probe "$poll_meta")" = alive ] || fail 'slow successful read lost liveness'
+  done
+  export FM_TEST_OMNIGENT_SNAPSHOT_NOW=2589
+  [ "$("$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'slow successful read lost approvals'
+  [ "$(requests)" = 2 ] || fail 'slow successful reads did not back off'
+  printf '{broken' > "$snapshot"
+  [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'malformed snapshot prevented recovery'
+  [ "$(requests)" = 3 ] || fail 'malformed snapshot did not refresh once'
+  chmod 666 "$snapshot"
+  [ "$("$OMNI" probe "$poll_meta")" = unknown ] || fail 'writable cache was trusted'
+  [ "$(requests)" = 3 ] || fail 'unsafe permissions caused an uncached polling fallback'
+  chmod 600 "$snapshot"
+  pass 'slow successful reads back off and invalid snapshots fail safely'
+
+  rm "$snapshot"
+  : > "$TMP_ROOT/serve/requests.jsonl"
+  export FM_TEST_OMNIGENT_SNAPSHOT_NOW=3000
+  OMNI_SESSION_DELAY=1 "$OMNI" approvals "$poll_meta" > "$TMP_ROOT/concurrent-first" &
+  first=$!
+  # The fixture logs the GET before its delay, proving refresh holds the lock.
+  for ((attempt=0; attempt<100; attempt++)); do
+    [ -s "$TMP_ROOT/serve/requests.jsonl" ] && break
+    sleep 0.1
+  done
+  [ "$("$OMNI" probe "$poll_meta")" = unknown ] || fail 'contending refresh was treated as authoritative'
+  wait "$first"
+  [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'completed refresh was not shared'
+  [ "$(requests)" = 1 ] || fail 'concurrent callers multiplied session reads'
+  rm "$snapshot"
+  ln -s "$TMP_ROOT/protected" "$snapshot"
+  [ "$("$OMNI" probe "$poll_meta")" = unknown ] || fail 'symlink cache was accepted'
+  [ ! -e "$TMP_ROOT/protected" ] || fail 'cache wrote through a symlink'
+  [ "$(requests)" = 1 ] || fail 'unsafe cache caused an uncached polling fallback'
+  pass 'concurrent refreshes coalesce and unsafe cache paths fail closed'
+)
+if [ "${1:-}" != --claude-accounts ]; then
+  polling_checks
+fi
+[ "${1:-}" != --polling ] || exit 0
 if [ "${1:-}" != --claude-accounts ]; then
 probe_home="$TMP_ROOT/probe/state"
 mkdir -p "$probe_home"
 printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$probe_home/bound.meta"
 printf 'harness=codex\nomnigent=on\n' > "$probe_home/newer.meta"
 # The supervision probe maps a gone server or session to dead.
-probe() { "$OMNI" probe "$probe_home/bound.meta"; }
+probe() { "$OMNI" probe --fresh "$probe_home/bound.meta"; }
 [ "$(probe)" = alive ] || fail 'live session did not probe alive'
 # Real records exceed 150 KB. Bound the entire probe, including shell parsing.
 . "$ROOT/bin/fm-timeout-lib.sh"
@@ -90,7 +191,7 @@ for state in alive runner-gone; do
   expected=alive
   [ "$state" != runner-gone ] || expected=dead
   result=$(OMNI_SESSION_PADDING=170000 OMNI_SESSION_STATE="$state" \
-    fm_run_timed 6 bash "$OMNI" probe "$probe_home/bound.meta") \
+    fm_run_timed 6 bash "$OMNI" probe --fresh "$probe_home/bound.meta") \
     || fail "large $state session probe exceeded its completion bound"
   [ "$result" = "$expected" ] || fail "large $state session probed $result instead of $expected"
 done
@@ -106,6 +207,10 @@ done
 [ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = dead ] \
   || fail 'supervision view kept a wrapped worker with a gone session alive'
 [ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = alive ] || fail 'supervision view changed a live wrapped worker'
+[ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe "$probe_home/bound.meta")" = dead ] || fail 'could not seed dead supervision snapshot'
+[ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = alive ] || fail 'recovery reader trusted cached death'
+[ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta" --cached)" = dead ] || fail 'supervision reader did not share snapshot'
+rm "$probe_home/.bound.omnigent-snapshot.json"
 [ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$probe_home/bound.meta")" = missing ] \
   || fail 'supervision view rewrote a non-alive pane verdict'
 [ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$probe_home/newer.meta")" = alive ] \
@@ -115,39 +220,44 @@ pass 'a stopped server or gone session reads dead in the supervision view only w
 fi
 if [ "${1:-}" != --claude-accounts ]; then
 export OMNI_PENDING='[{"type":"response.elicitation_request","elicitation_id":"approval-1","params":{"message":"Claude wants to call **Bash**\nsecret command","content_preview":"SECRET"}}]'
-approvals=$("$OMNI" approvals "$probe_home/bound.meta")
+approvals=$("$OMNI" approvals --fresh "$probe_home/bound.meta")
 printf '%s' "$approvals" | jq -e 'length == 1 and .[0].summary == "Claude wants to call Bash"' >/dev/null \
   || fail 'pending approval did not report its safe prompt summary'
 case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;; esac
-[ "$(OMNI_TITLE_MODE=http-error "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'failed HTTP request reported an approval'
-[ "$(OMNI_PENDING='[{"elicitation_id":null,"params":{"message":"bad"}}]' "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'malformed approval did not report unknown'
-[ "$(OMNI_SESSION_PADDING=170000 "$OMNI" approvals "$probe_home/bound.meta")" = "$approvals" ] || fail 'large session changed approval result'
-[ "$(OMNI_SESSION_STATE=server-error "$OMNI" approvals "$probe_home/bound.meta")" = unknown ] || fail 'unreachable session was treated as parked'
-[ "$(OMNI_PENDING='[]' "$OMNI" approvals "$probe_home/bound.meta")" = '[]' ] || fail 'cleared prompt remained parked'
+[ "$(OMNI_TITLE_MODE=http-error "$OMNI" approvals --fresh "$probe_home/bound.meta")" = unknown ] || fail 'failed HTTP request reported an approval'
+[ "$(OMNI_PENDING='[{"elicitation_id":null,"params":{"message":"bad"}}]' "$OMNI" approvals --fresh "$probe_home/bound.meta")" = unknown ] || fail 'malformed approval did not report unknown'
+[ "$(OMNI_SESSION_PADDING=170000 "$OMNI" approvals --fresh "$probe_home/bound.meta")" = "$approvals" ] || fail 'large session changed approval result'
+[ "$(OMNI_SESSION_STATE=server-error "$OMNI" approvals --fresh "$probe_home/bound.meta")" = unknown ] || fail 'unreachable session was treated as parked'
+[ "$(OMNI_PENDING='[]' "$OMNI" approvals --fresh "$probe_home/bound.meta")" = '[]' ] || fail 'cleared prompt remained parked'
 [ "$("$OMNI" approvals "$probe_home/newer.meta")" = unknown ] || fail 'unbound session was treated as parked'
 # Drive the sourced poll check with a wake recorder to test receipt reuse.
 # The complete watcher subprocess below checks its real exit behavior.
 check_watcher_approvals() (
   . "$ROOT/bin/fm-watch.sh"
   wake() { printf '%s\n' "$1"; }
+  rm -f "$probe_home/.bound.omnigent-snapshot.json"
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/first-approval"
   [ "$(cat "$TMP_ROOT/first-approval")" = 'check: bound parked on Omnigent approval at session:fm-bound: Claude wants to call Bash' ] || fail 'first poll did not wake with task, endpoint, and safe heading'
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/repeated-approval"
   [ ! -s "$TMP_ROOT/repeated-approval" ] || fail 'same approval woke twice'
+  rm "$probe_home/.bound.omnigent-snapshot.json"
   OMNI_PENDING=$(printf '%s' "$OMNI_PENDING" | sed 's/approval-1/approval-2/') \
     omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/new-approval"
   [ -s "$TMP_ROOT/new-approval" ] || fail 'new approval did not wake'
+  rm "$probe_home/.bound.omnigent-snapshot.json"
   if OMNI_PENDING='[]' omnigent_approval_check session:fm-bound bound; then fail 'cleared prompt stayed parked'; fi
+  rm "$probe_home/.bound.omnigent-snapshot.json"
   if OMNI_SESSION_STATE=server-error omnigent_approval_check session:fm-bound bound; then fail 'unreachable session alarmed'; fi
   printf 'backend=tmux\nharness=claude\n' > "$probe_home/native.meta"
   if omnigent_approval_check session:fm-native native; then fail 'non-Omnigent task alarmed'; fi
   pass 'watcher poll wakes immediately once per approval, with no clear/unknown/native alarms'
 )
 FM_STATE_OVERRIDE="$probe_home" check_watcher_approvals
+rm "$probe_home/.bound.omnigent-snapshot.json"
 printf 'worktree=%s\nkind=scout\n' "$TMP_ROOT" >> "$probe_home/bound.meta"
 state=$(FM_STATE_OVERRIDE="$probe_home" bash "$ROOT/bin/fm-crew-state.sh" bound)
 case "$state" in 'state: parked'*'source: omnigent'*'Claude wants to call Bash'*) ;; *) fail "crew state did not show parked: $state" ;; esac
-[ "$(OMNI_PENDING='[{"elicitation_id":"x","params":{"message":"Approve running secret command?"}}]' "$OMNI" approvals "$probe_home/bound.meta" | jq -r '.[0].summary')" = 'approval prompt (open Omnigent for details)' ] || fail 'unrecognized message was exposed or dropped'
+[ "$(OMNI_PENDING='[{"elicitation_id":"x","params":{"message":"Approve running secret command?"}}]' "$OMNI" approvals --fresh "$probe_home/bound.meta" | jq -r '.[0].summary')" = 'approval prompt (open Omnigent for details)' ] || fail 'unrecognized message was exposed or dropped'
 (
   . "$ROOT/tests/watch-triage-helpers.sh"
   dir=$(make_case approval-first-poll)
@@ -497,7 +607,8 @@ jq -e '.environment.GIT_CONFIG_COUNT == "2" and
   .environment.GIT_CONFIG_KEY_0 == "credential.helper" and .environment.GIT_CONFIG_VALUE_0 == "fixture" and
   .environment.GIT_CONFIG_KEY_1 == "core.hooksPath" and .environment.GIT_CONFIG_VALUE_1 == "/hooks"' \
   "$OMNI_RESULT" >/dev/null || fail 'counted git configuration was not forwarded completely'
-GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/hooks "$OMNI" run codex 'git env'
+env -u GIT_CONFIG_KEY_1 -u GIT_CONFIG_VALUE_1 \
+  GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/hooks "$OMNI" run codex 'git env'
 jq -e '.environment | (has("GIT_CONFIG_COUNT") or has("GIT_CONFIG_KEY_0")) | not' "$OMNI_RESULT" >/dev/null \
   || fail 'incomplete git configuration reached the native environment'
 env -u GIT_CONFIG_COUNT "$OMNI" run codex 'git env'
@@ -904,6 +1015,7 @@ pass 'primary starts preserve backend overrides and clear stale daemon selection
 # Remote-server mode: a remote second mate's host has no Kit. Its own omnigent
 # launches against the parent's server only as the registered host id.
 fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
+fm_test_omnigent_remote_upgrade_window "$TMP_ROOT/tools"
 remote_server=https://omnigent.example.ts.net
 remote_host=d5f2b09bd5744ef39fe34b4e58a35f5f
 remote_config="$TMP_ROOT/serve/config"
@@ -974,9 +1086,9 @@ OMNI_HEALTH=down remote_refuses 'server is unreachable' 'unreachable server' rem
 remote_refuses 'needs both a server and a registered host id' 'partial binding' \
   remote env FM_OMNIGENT_HOST= "$OMNI" run codex p
 remote_refuses 'expected an https origin' 'loopback binding' \
-  remote env FM_OMNIGENT_SERVER=http://127.0.0.1:6767 "$OMNI" run codex p
+  remote env FM_OMNIGENT_SERVER=http://127.0.0.1:6767 "$OMNI" check codex
 remote_refuses 'expected an https origin' 'server path' \
-  remote env FM_OMNIGENT_SERVER="$remote_server/api" "$OMNI" run codex p
+  remote env FM_OMNIGENT_SERVER="$remote_server/api" "$OMNI" check codex
 remote_refuses 'invalid registered Omnigent host id' 'host name instead of id' \
   remote env FM_OMNIGENT_HOST=david-k8-plus "$OMNI" run codex p
 remote_identity 1504544106274a81b7bd2e2dac00ccdf

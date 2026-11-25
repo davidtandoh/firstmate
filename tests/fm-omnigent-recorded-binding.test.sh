@@ -16,6 +16,11 @@ mkdir -p "$TMP_ROOT/code/bin" "$TMP_ROOT/home/bin" "$TMP_ROOT/home/state/parent-
 export HOME="$TMP_ROOT/user" FM_HOME="$TMP_ROOT/home"
 mkdir -p "$HOME"
 cp "$ROOT/bin/fm-remote-secondmate-control.sh" "$TMP_ROOT/code/bin/"
+cp "$ROOT/bin/fm-remote-herdr-identity-lib.sh" "$TMP_ROOT/code/bin/"
+mkdir -p "$HOME/.firstmate"
+printf '%s\n' "$(cd "$TMP_ROOT/code" && pwd -P)" > "$HOME/.firstmate/remote-herdr-owner"
+fm_test_omnigent_remote_upgrade_window "$TMP_ROOT/tools"
+export PATH="$TMP_ROOT/tools:$PATH"
 printf 'mate\n' > "$FM_HOME/.fm-secondmate-home"
 : > "$FM_HOME/AGENTS.md"
 for lib in fm-ff-lib.sh fm-pending-reply-lib.sh fm-task-inbox-lib.sh; do

@@ -6,8 +6,8 @@
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
 #        fm-omnigent.sh upgrade-gate
-#        fm-omnigent.sh probe <task-meta>
-#        fm-omnigent.sh approvals <task-meta>
+#        fm-omnigent.sh probe [--fresh] <task-meta>
+#        fm-omnigent.sh approvals [--fresh] <task-meta>
 #        fm-omnigent.sh binding [<task-meta>]
 # mode: config/omnigent (auto|on, absent=auto) can force wrapping; otherwise
 # OMNIGENT=1 enables wrapping before inherited FM_OMNIGENT (on|off).
@@ -87,10 +87,18 @@
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
 # without a recorded or verified unnamed session. Callers archive only a
 # proven-stopped worker.
-# probe prints alive, dead or unknown for the recorded session from one bounded
-# GET of /health and one of /v1/sessions/<id>.
+# probe prints alive, dead or unknown for the recorded session.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
-# Its single session GET has the same time bound and a 2 MiB response limit.
+# Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
+# by server, session and spawn generation. No messages or tool arguments persist.
+# One nonblocking task lock coalesces concurrent refreshes; contention is unknown.
+# Unsafe cache paths or permissions return unknown without an uncached request.
+# Session GETs allow 5 seconds and 2 MiB. Only a failed or inconclusive GET needs
+# /health; unreachable health still proves dead. Failed, malformed or >=3-second
+# reads back off for 30, 60, then 120 seconds, without reusing an expired verdict.
+# --fresh bypasses cache reads and writes, including backoff; stop-attach requires
+# it before signalling. Native hooks, not session polling, own turn/busy state.
+# FM_TEST_OMNIGENT_SNAPSHOT_NOW fixes the snapshot clock only with FM_TEST_SEAM=1.
 # FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
 # or failing also report their name, elapsed time and bound on stderr.
 # Kit's internal status stages remain Kit-owned; this boundary measures the
@@ -522,33 +530,22 @@ archive_bound_session() {
 # Classify the recorded session for supervision. Prints alive, dead or unknown.
 # dead means the server is unreachable or the record proves the session's
 # runner is gone, failed, archived or deleted. No binding, or a reply that
-# proves neither, is unknown. One bounded request each; never retried here.
-probe_session() ( # <task meta>
-  local code body
-  [ "$#" -eq 1 ] || fail 'probe requires one task record'
-  if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
-  if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --noproxy '*' --proto '=http,https' \
-    "$SERVER/health" 2>/dev/null | jq -e '.status == "ok"' >/dev/null 2>&1; then
-    echo dead; return 0
-  fi
-  # Keep large records out of shell pattern expansion so parsing cannot stall supervision.
-  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-probe.XXXXXX") || { echo unknown; return 0; }
-  trap 'rm -f -- "$body"' EXIT
-  session_snapshot "$body" || { echo unknown; return 0; }
+# proves neither, is unknown. No request is retried within one consult.
+probe_from_snapshot() { # <body file>; prints alive|dead|unknown
   case "$code" in
     404) echo dead; return 0 ;;
     200) ;;
     *) echo unknown; return 0 ;;
   esac
-  if jq -e --arg id "$SESSION_ID" '.id == $id and
-    (.archived == true or .status == "failed" or .runner_online == false)' "$body" >/dev/null 2>&1; then
+  if jq -se --arg id "$SESSION_ID" 'length == 1 and (.[0] | .id == $id and
+    (.archived == true or .status == "failed" or .runner_online == false))' "$1" >/dev/null 2>&1; then
     echo dead
-  elif jq -e --arg id "$SESSION_ID" '.id == $id and .runner_online == true' "$body" >/dev/null 2>&1; then
+  elif jq -se --arg id "$SESSION_ID" 'length == 1 and (.[0] | .id == $id and .runner_online == true)' "$1" >/dev/null 2>&1; then
     echo alive
   else
     echo unknown
   fi
-)
+}
 # Shared session lookup for supervision; caller owns the temporary body file.
 # Keep response parsing off shell variables and bound both time and disk use.
 session_snapshot() { # <output file>; sets code
@@ -559,13 +556,8 @@ session_snapshot() { # <output file>; sets code
 # Read-only approval snapshot: JSON array of correlation ids and safe summaries,
 # or literal unknown. Never copy content_preview, tool arguments or raw messages.
 # Only a recognized prompt heading is safe to expose; other wording is generic.
-approvals_session() ( # <task meta>
-  local body code
-  [ "$#" -eq 1 ] || fail 'approvals requires one task record'
-  if ! read_binding "$1" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
-  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-approvals.XXXXXX") || { echo unknown; return 0; }
-  trap 'rm -f -- "$body"' EXIT
-  session_snapshot "$body" && [ "$code" = 200 ] || { echo unknown; return 0; }
+approvals_from_snapshot() { # <body file>
+  [ "$code" = 200 ] || { echo unknown; return 0; }
   jq -sce --arg id "$SESSION_ID" '
     if length == 1 then .[0] else error("multiple session records") end |
     select(.id == $id and .runner_online == true and .archived != true and .status != "failed") |
@@ -575,8 +567,100 @@ approvals_session() ( # <task meta>
         (.params.message | capture("^(?<heading>[A-Za-z]+ wants to call (?:\\*\\*)?[A-Za-z0-9_.:-]+)").heading | gsub("\\*"; "") | .[0:120])
         // "approval prompt (open Omnigent for details)")})
     else error("invalid approval") end
-  ' "$body" 2>/dev/null || echo unknown
+  ' "$1" 2>/dev/null || echo unknown
+}
+
+snapshot_now() {
+  if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "${FM_TEST_OMNIGENT_SNAPSHOT_NOW:-}" ]; then
+    [[ "$FM_TEST_OMNIGENT_SNAPSHOT_NOW" =~ ^[0-9]{1,10}$ ]] || return 1
+    printf '%s\n' "$FM_TEST_OMNIGENT_SNAPSHOT_NOW"
+  else
+    date +%s
+  fi
+}
+
+# One cache per task, containing only the two supervision projections. The
+# existing lock and atomic record publisher own filesystem mutation mechanics.
+# A cache failure refuses the consult instead of multiplying uncached requests.
+supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
+  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code
+  local key now previous='' result probe approvals delay=30 cooldown=0 started cached mode
+  shift
+  if [ "${1:-}" = --fresh ]; then fresh=1; shift; fi
+  [ "$#" -eq 1 ] || fail "$field requires one task record"
+  meta=$1
+  if ! read_binding "$meta" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
+  now=$(snapshot_now) || { echo unknown; return 0; }
+  trap 'rm -f -- "${body:-}" "${staged:-}"; [ -z "$lock" ] || fm_lock_release "$lock"' EXIT
+  if [ "$fresh" = 0 ]; then
+    fm_dirname_to dir "$meta"
+    fm_basename_to base "${meta%.meta}"
+    cache="$dir/.$base.omnigent-snapshot.json"
+    # shellcheck source=bin/fm-wake-lib.sh
+    . "$SCRIPT_DIR/fm-wake-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+    lock="$cache.lock"
+    fm_lock_try_acquire "$lock" || { lock=''; echo unknown; return 0; }
+    key=$(jq -cn --arg server "$SERVER" --arg session "$SESSION_ID" \
+      --arg gen "$(fm_meta_get "$meta" spawn_gen)" '{server:$server,session:$session,generation:$gen}')
+    if [ -e "$cache" ] || [ -L "$cache" ]; then
+      fm_backlog_record_present "$cache" snapshot "$dir" && [ -O "$cache" ] && [ ! -L "$cache" ] \
+        || { echo unknown; return 0; }
+      mode=$(fm_pr_file_mode "$cache") || { echo unknown; return 0; }
+      [ $((8#$mode & 8#077)) -eq 0 ] || { echo unknown; return 0; }
+      cached=$(LC_ALL=C head -c 131073 "$cache") || { echo unknown; return 0; }
+      if [ "${#cached}" -le 131072 ]; then
+        previous=$(printf '%s' "$cached" | jq -cse --argjson key "$key" --argjson now "$now" '
+          select(length == 1) | .[0] | select(.schema == 1 and .key == $key) |
+          select((.at | type == "number" and floor == .) and .at <= $now) |
+          select(.delay == 30 or .delay == 60 or .delay == 120) |
+          select(.cooldown == true or .cooldown == false) |
+          select(.probe == "alive" or .probe == "dead" or .probe == "unknown") |
+          select(.approvals == "unknown" or (.approvals | type == "array"))
+        ' 2>/dev/null) || previous=''
+      fi
+      if [ -n "$previous" ] && [ $((now - $(printf '%s' "$previous" | jq -r .at))) -lt "$(printf '%s' "$previous" | jq -r .delay)" ]; then
+        printf '%s' "$previous" | jq -cr --arg field "$field" '.[$field]'
+        return 0
+      fi
+    fi
+  fi
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-snapshot.XXXXXX") || { echo unknown; return 0; }
+  started=$SECONDS
+  if ! session_snapshot "$body"; then code=000; fi
+  probe=$(probe_from_snapshot "$body")
+  approvals=$(approvals_from_snapshot "$body")
+  if [ "$probe" = unknown ]; then
+    # A healthy session response already proves reachability. A failed health
+    # request preserves the existing stopped-server supervision verdict.
+    if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --max-filesize 131072 --noproxy '*' --proto '=http,https' \
+      "$SERVER/health" 2>/dev/null | head -c 131073 | jq -e '.status == "ok"' >/dev/null 2>&1; then
+      probe=dead
+    fi
+  fi
+  if [ "$approvals" = unknown ] || [ "$probe" = unknown ] || [ $((SECONDS - started)) -ge 3 ]; then
+    cooldown=1
+    if [ -n "$previous" ] && [ "$(printf '%s' "$previous" | jq -r .cooldown)" = true ]; then
+      delay=$(( $(printf '%s' "$previous" | jq -r .delay) * 2 ))
+      [ "$delay" -le 120 ] || delay=120
+    fi
+  fi
+  now=$(snapshot_now) || { echo unknown; return 0; }
+  result=$(jq -cnS --argjson key "${key:-null}" --argjson at "$now" --argjson delay "$delay" \
+    --argjson cooldown "$cooldown" --arg probe "$probe" \
+    --argjson approvals "$(if [ "$approvals" = unknown ]; then printf '"unknown"'; else printf '%s' "$approvals"; fi)" \
+    '{schema:1,key:$key,at:$at,delay:$delay,cooldown:($cooldown == 1),probe:$probe,approvals:$approvals}')
+  if [ "$fresh" = 0 ]; then
+    staged=$(mktemp "$dir/.$base.omnigent-snapshot.XXXXXX") || { echo unknown; return 0; }
+    printf '%s\n' "$result" > "$staged"
+    fm_backlog_atomic_transition publish "$staged" "$cache" snapshot "$dir" || { echo unknown; return 0; }
+  fi
+  printf '%s' "$result" | jq -cr --arg field "$field" '.[$field]'
 )
+
+probe_session() { supervision_snapshot probe "$@"; }
+approvals_session() { supervision_snapshot approvals "$@"; }
 
 stop_attach() {
   local meta=$1 pid started current pgid
@@ -585,7 +669,7 @@ stop_attach() {
   pid=$(fm_meta_get "$meta" omnigent_attach_pid)
   started=$(fm_meta_get "$meta" omnigent_attach_start)
   [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ -n "$started" ] || return 1
-  [ "$(probe_session "$meta")" = dead ] || return 1
+  [ "$(probe_session --fresh "$meta")" = dead ] || return 1
   current=$(fm_pid_start_time "$pid") || return 1
   [ "$current" = "$started" ] || return 1
   pgid=$(LC_ALL=C ps -p "$pid" -o pgid= | tr -d '[:space:]') || return 1

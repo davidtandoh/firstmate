@@ -1921,7 +1921,7 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
   marker="$STATE/.dead-reported-$key"
   agent_state=$(fm_backend_agent_state "$(window_backend "$win")" "$win" 2>/dev/null) || agent_state=unreadable
   if [ "$agent_state" = alive ] && [ -n "$task" ] &&
-     [ "$(fm_backend_omnigent_agent_state alive "$STATE/$task.meta")" = dead ]; then
+     [ "$(fm_backend_omnigent_agent_state alive "$STATE/$task.meta" --cached)" = dead ]; then
     agent_state=dead
     detail='its Omnigent server stopped answering or its session runner is gone, though the attach client still holds the endpoint'
   fi

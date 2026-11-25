@@ -2,6 +2,20 @@
 # Isolated status/CLI contract double shared by local and SSH launch tests.
 # The CLI records argv and the explicit native environment without model calls.
 set -euo pipefail
+# Remote contract fixtures have no live server owner's SSH endpoint.
+fm_test_omnigent_remote_upgrade_window() { # <tool-dir>
+  mkdir -p "$1"
+  cat > "$1/ssh" <<'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  *'-- omnigent.example.ts.net '*) printf absent ;;
+  *) exit 2 ;;
+esac
+SHIM
+  chmod +x "$1/ssh"
+}
+
 fm_test_omnigent_service() { # <service-root> <tool-dir>
   local service=$1 tool_dir=$2
   mkdir -p "$service/runtime/bin" "$tool_dir"
@@ -54,6 +68,7 @@ if '/v1/hosts/' in url:
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
+time.sleep(float(os.environ.get('OMNI_SESSION_DELAY', '0')))
 # A loaded server: only the first session request is slow (beyond the old
 # 5-second limit) or fails; later requests answer normally.
 if mode in ('slow-first', 'fail-first'):
