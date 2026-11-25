@@ -63,7 +63,6 @@ Five exclusions keep the shape test from producing false positives.
 
 - `REPORT_ONLY_TOOLS`: the exact name `subagenthandback` (`SubagentHandback`) is allowed.
   A running subagent calls it to deliver its finished report to its parent, and PreToolUse hooks also fire on a subagent's own tool calls.
-  Denying it let the allowed web-fetch agent read a page but never return the report, so every run ended with no report delivered.
   Delivering a report starts no work, because the subagent that calls it already exists.
   `SendMessage` stays denied, including a message to a running web-fetch agent, because the hook cannot tell from the payload which agent the message reaches; a follow-up question goes to a new web-fetch agent instead.
 
@@ -377,15 +376,6 @@ Result: the Workflow tool call was NOT blocked by a hook. It launched and ran to
 A Claude deny is honored only when the hook's stdout is empty.
 `tests/fm-subagent-pretool-check.test.sh` asserts stdout is empty on every `--claude` deny and that default mode still emits the Grok object on stdout.
 The live consequence is confirmed by the shipped-guard result above: Claude honored the deny and reported the reason text.
-
-## Live validation record, web-fetch report handback, 2026-11-25
-
-Claude Code 2.1.332, interactive session, in a scratch firstmate-shaped home whose only hook logged each PreToolUse payload and then ran this guard with `--claude`.
-The prompt asked the primary to read a page through the `web-fetch` agent only.
-The logged tool sequence was `Agent` (subagent type `web-fetch`), then `WebFetch` and `SubagentHandback`, each with payload `agent_type` `web-fetch`.
-With the guard before the report-handback exclusion, both `SubagentHandback` calls were denied and the primary received no report.
-With the exclusion, `SubagentHandback` was allowed and the primary received the page heading.
-A `claude -p` run never calls `SubagentHandback`, so only an interactive session reproduces the failure.
 
 ## Automated validation
 
