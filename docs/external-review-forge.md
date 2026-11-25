@@ -22,6 +22,7 @@ The invariant is enforced in three layers, from strongest to weakest:
 3. The generated brief's first rule forbids every such push, and its Definition of done names the review tool as the only publishing path.
 
 The ready report is `done: review <url> uploaded for review`.
+The worker follows `bin/fm-dod-lib.sh`'s generated registration handoff before reporting done; the supervisor follows [`ship-landing`](../.agents/skills/ship-landing/SKILL.md).
 Firstmate cannot observe, approve, or merge the review, so `bin/fm-review-check.sh` records `review=` and `review_head=` without arming a merge watch, and the review always escalates to the captain whatever the yolo setting.
 A scout launches without the guard and the task record, so `bin/fm-promote.sh` refuses to promote one onto a `forge=external` project; such work starts as a ship.
 
@@ -34,7 +35,8 @@ Spawn refuses a backup remote the project does not have, or one whose URL matche
 Where the backup remote points is the captain's call; firstmate cannot police it, so a project whose code must not leave a network needs a backup inside that network.
 
 With a backup configured, the ready report is accepted only once HEAD is on the backup remote's namespace, and teardown's existing landed-work test sees the copy as reachable from a remote-tracking ref.
-Without one, the ready report is accepted on the review URL alone, because the snapshot lives in a tool firstmate cannot read; `review_head=` records what was uploaded.
+Without one, registration requires no remote-tracking copy, because the snapshot lives in a tool firstmate cannot read; `review_head=` records what was uploaded.
+The [`fm-status.sh` header](../bin/fm-status.sh) owns the recorded-URL requirement for worker completion.
 Teardown is unchanged either way, so without a backup it refuses cleanup until the reviewed content reaches origin's default branch, and the worker copy is retained until a human merges the review.
 
 ## Accepted residual

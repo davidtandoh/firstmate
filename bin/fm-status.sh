@@ -4,8 +4,11 @@
 # Reads kind, mode, and forge from the status file's sibling .meta, so a promoted
 # scout uses its current ship contract even with its original brief command.
 # Missing or invalid delivery metadata refuses done; nonterminal events pass.
+# Publishing ships must use a ready-report URL matching this task's pr= field,
+# or review= for forge=external; incidental or unrelated URLs do not qualify.
 # Local-only ships, scouts, and secondmates do not need a PR URL.
-# A refusal writes nothing and tells the worker to run its delivery pipeline.
+# A refusal writes nothing and points to the delivery and registration handoff
+# owned by bin/fm-dod-lib.sh's generated definition of done.
 # URL presence is not forge verification; the existing delivery gates own that.
 # After an append, capture the opt-in fleet ledger best-effort as before.
 # --dry-run validates and prints the status path without writing or ledger capture.

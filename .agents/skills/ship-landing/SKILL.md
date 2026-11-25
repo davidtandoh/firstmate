@@ -1,6 +1,6 @@
 ---
 name: ship-landing
-description: Load when a ship reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
+description: Load when a ship requests review registration or reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
 user-invocable: false
 metadata:
   internal: true
