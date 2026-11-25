@@ -15,7 +15,7 @@
 # Usage:
 #   fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch]
 #     [--expected-head <full-sha>]
-#     [--allow-red <check>]... [--allow-missing <check>]... [--allow-no-pipeline]
+#     [--allow-red <check>]... [--allow-missing <check>] [--allow-no-pipeline]
 #     [-- <forge merge flags>]
 #   fm-pr-merge.sh -h | --help
 #
@@ -69,15 +69,13 @@
 # separate argument and may repeat, once per distinct exact name the captain
 # waived; each waives only checks with that exact name, every unnamed check
 # must still be green, and the head stays bound. Its twin, an attended
-# --allow-missing <check-name>, follows the same rules for required checks that
-# have not reported: each waives only its exact name, every other required check
-# must still have reported, and every check must be green unless separately
+# --allow-missing <check-name>, may be passed once for one required check that
+# has not reported: it waives only that exact name, still requires every other
+# required check to have reported and every check to be green unless separately
 # waived by --allow-red. It matches the required context name even for an
 # app-bound requirement, and never waives an unreadable required source or
-# producer read. A repeated name or a name containing a line break is refused.
-# Every waived name is recorded in the task metadata once the forge accepts the
-# merge, one merge_allow_red=<pr-url> <check-name> or
-# merge_allow_missing=<pr-url> <check-name> line per name. Both are
+# producer read. A repeated --allow-red name or an --allow-red name containing
+# a line break is refused. Both are
 # refused while the away-posture record exists, and neither
 # applies on GitLab, where a merge already requires the head pipeline to have
 # succeeded, or on Forgejo, where a merge already requires the head's combined
@@ -225,7 +223,7 @@
 # explicit captain instruction and never skips the live green check, the
 # away-record read, or a captain hold.
 #
-# Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch] [--expected-head <full-sha>] [--allow-red <check-name>]... [--allow-missing <check-name>]... [--allow-no-pipeline] [-- <extra forge merge args>]
+# Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--update-branch] [--expected-head <full-sha>] [--allow-red <check-name>]... [--allow-missing <check-name>] [--allow-no-pipeline] [-- <extra forge merge args>]
 #
 # On GitLab, this script confirms the MR is actually merged before reporting it;
 # an auto-merge-queued or unconfirmed request leaves the poll armed and records
@@ -309,10 +307,6 @@ ALLOW_RED=()
 ALLOW_MISSING=()
 EXPECTED_HEAD=
 
-# Each --allow-red or --allow-missing names one check exactly, and either flag
-# may repeat with a different name. A name is matched whole, never as a prefix
-# or pattern, and is recorded one per metadata line, so a line break in it is
-# refused rather than split.
 waiver_name_valid() {  # <flag> <check-name>
   case "$2" in
     *$'\n'*|*$'\r'*)
@@ -331,14 +325,6 @@ allow_red_covers() {  # <check-name>
   return 1
 }
 
-allow_missing_covers() {  # <check-name>
-  local check
-  [ "${#ALLOW_MISSING[@]}" -gt 0 ] || return 1
-  for check in "${ALLOW_MISSING[@]}"; do
-    [ "$check" != "$1" ] || return 0
-  done
-  return 1
-}
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --attended-override)
@@ -370,8 +356,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     --allow-missing)
       [ -n "${2:-}" ] || { echo "error: --allow-missing requires a check name" >&2; exit 2; }
-      waiver_name_valid --allow-missing "$2" || exit 2
-      ! allow_missing_covers "$2" || { echo "error: --allow-missing names check '$2' more than once" >&2; exit 2; }
+      [ "${#ALLOW_MISSING[@]}" -eq 0 ] || { echo "error: --allow-missing may be specified only once" >&2; exit 2; }
       ALLOW_MISSING+=("$2")
       shift 2
       ;;
@@ -1309,7 +1294,7 @@ EOF
   else
     while IFS= read -r name; do
       [ -n "$name" ] || continue
-      ! allow_missing_covers "$name" || continue
+      [ "${#ALLOW_MISSING[@]}" -gt 0 ] && [ "${ALLOW_MISSING[0]}" = "$name" ] && continue
       refusals="$refusals  - required check '$name' has not reported at head $live_head
 "
       FM_PR_GITHUB_UNREPORTED=true
@@ -1662,24 +1647,6 @@ require_current_away_authority() {
   fi
 }
 
-# Record every check name the caller waived for this accepted merge, one task
-# metadata line per name, as merge_allow_red=<pr-url> <check-name> or
-# merge_allow_missing=<pr-url> <check-name>. The URL keeps several PRs merged
-# from one task apart. The caller holds the metadata lock.
-record_accepted_waivers() {
-  local check
-  if [ "${#ALLOW_RED[@]}" -gt 0 ]; then
-    for check in "${ALLOW_RED[@]}"; do
-      printf 'merge_allow_red=%s %s\n' "$URL" "$check" >> "$META" || return 1
-    done
-  fi
-  if [ "${#ALLOW_MISSING[@]}" -gt 0 ]; then
-    for check in "${ALLOW_MISSING[@]}"; do
-      printf 'merge_allow_missing=%s %s\n' "$URL" "$check" >> "$META" || return 1
-    done
-  fi
-}
-
 persist_accepted_merge_authority() {
   local status=0
   MERGE_META_LOCK=$(fm_meta_lock_path "$META") || return 1
@@ -1687,7 +1654,6 @@ persist_accepted_merge_authority() {
   fm_merge_authority_persist "$STATE" "$ID" "$META" \
     "$PROVIDER" "$PR_HOST" "$PR_PATH" "$PR_NUMBER" "$FM_PR_MERGE_AUTHORITY" \
     || status=1
-  [ "$status" -ne 0 ] || record_accepted_waivers || status=1
   fm_lock_release "$MERGE_META_LOCK" || status=1
   MERGE_META_LOCK=
   if [ "$status" -eq 0 ]; then
