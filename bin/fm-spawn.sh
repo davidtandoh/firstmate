@@ -251,6 +251,12 @@
 #   it) and keeps holding it through metadata publication; a verdict that does
 #   not admit prints `deferred:` and exits 75 with the task exactly as queued,
 #   and an unreadable declaration refuses with exit 1.
+#   Omnigent upgrade window: while the Agent Kit's upgrade window is active
+#   (bin/fm-upgrade-window-lib.sh owns the reading), every Omnigent-wrapped
+#   spawn, relaunch and secondmate included, prints `deferred:` and exits 75
+#   at its initial check before endpoint creation; native launches are unaffected.
+#   The launcher's final check can also defer after task publication; see
+#   docs/omnigent.md "Upgrade pause window".
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
 #   else failed. A relaunch and a --secondmate spawn are never counted against
 #   either capacity.
@@ -2248,7 +2254,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
     pair_rc=0
     FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "${pair_args[@]}" || pair_rc=$?
     if [ "$pair_rc" -eq "$FM_PROJECT_CAPACITY_DEFER_EXIT" ]; then
-      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - its project or this machine's lanes are at capacity, so it stays queued" >&2
+      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - its project or this machine's lanes are at capacity, or an Omnigent upgrade has paused new work, so it stays queued" >&2
       [ "$rc" -ne 0 ] || rc=$FM_PROJECT_CAPACITY_DEFER_EXIT
     elif [ "$pair_rc" -ne 0 ]; then
       echo "batch: FAILED to spawn ${pair%%=*} (${pair#*=})" >&2
@@ -2445,6 +2451,11 @@ if [ -n "$SPAWN_OMNIGENT_SERVER" ]; then
   export FM_OMNIGENT_SERVER="$SPAWN_OMNIGENT_SERVER" FM_OMNIGENT_HOST="$SPAWN_OMNIGENT_HOST"
 else
   unset FM_OMNIGENT_SERVER FM_OMNIGENT_HOST
+fi
+if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
+  # shellcheck source=bin/fm-upgrade-window-lib.sh
+  . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+  fm_upgrade_window_gate "task $ID" "$STATE" || exit 75
 fi
 if [ "$KIND" = secondmate ]; then
   if spawn_remote_secondmate "$ID"; then

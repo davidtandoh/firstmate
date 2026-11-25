@@ -1372,6 +1372,56 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
   pass "watcher: dead-pane recovery overrides stale busy state"
 }
 
+test_watcher_preserves_paused_owner_delivery() (
+  local mode dir rec window
+  for mode in ring retry; do
+    dir=$(setup_watch_case "upgrade-$mode")
+    mkdir -p "$dir/config" "$dir/observation/serve"
+    : > "$dir/config/wait-no-turns"
+    printf 'omnigent=on\nomnigent_remote_server=https://owner.example\n' >> "$dir/state/t1.meta"
+    if [ "$mode" = retry ]; then
+      rec=$(inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 'deferred drain' fire-and-forget)
+      inbox_lib "$dir/state" fm_task_inbox_mark_retry "$dir/state" t1 "$rec"
+      age_path "$dir/state/t1.inbox/.retry-ring"
+    else
+      rec=$(inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 'deferred steer')
+    fi
+    age_path "$rec"
+    window="$dir/remote-window.json"
+    jq -n --argjson exp "$(( $(date +%s) + 600 ))" \
+      '{schema_version:"1",job:"remote",phase:"switching",outcome:null,expires_at:$exp,interrupted_sessions:[]}' > "$window"
+    cat > "$dir/fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat "$OWNER_WINDOW"
+SH
+    chmod +x "$dir/fakebin/ssh"
+    export OWNER_WINDOW="$window" AGENT_KIT_OBSERVATION_DIR="$dir/observation" FM_CONFIG_OVERRIDE="$dir/config"
+    steer_check_once "$dir" || fail "paused $mode check failed"
+    [ ! -s "$dir/send.log" ] || fail "paused $mode typed a doorbell"
+    [ ! -e "$dir/state/t1.inbox/.ring-state" ] || fail "paused $mode consumed a delivery attempt"
+    [ ! -e "$dir/state/t1.inbox/.busy-state" ] || fail "paused $mode consumed a busy wait"
+    if [ "$mode" = retry ]; then
+      [ "$(cat "$dir/state/t1.inbox/.retry-ring" 2>/dev/null)" = "${rec##*/}" ] || fail 'paused retry was cleared'
+    fi
+    jq '.expires_at=1' "$window" > "$window.new"
+    mv "$window.new" "$window"
+    steer_check_once "$dir" || fail "resumed $mode check failed"
+    grep -q 'Firstmate instruction waiting' "$dir/send.log" || fail "resumed $mode did not ring"
+    if [ "$mode" = retry ]; then
+      [ ! -e "$dir/state/t1.inbox/.retry-ring" ] || fail 'resumed retry did not clear after ringing'
+    else
+      [ "$(cut -f2 "$dir/state/t1.inbox/.ring-state")" = 1 ] || fail 'resumed delivery did not consume exactly one attempt'
+    fi
+  done
+  pass 'watcher: remote owner pause preserves retries and delivery budgets until resume'
+)
+
+if [ "${1:-}" = --upgrade-window ]; then
+  test_watcher_preserves_paused_owner_delivery
+  exit 0
+fi
+
 test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
@@ -1423,3 +1473,5 @@ test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state
+
+test_watcher_preserves_paused_owner_delivery

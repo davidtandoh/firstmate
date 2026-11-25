@@ -379,9 +379,10 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
 # other than our own doorbell (the watcher re-rings later), 2 the backend send
 # failed, 3 skipped because the endpoint is positively dead or missing (nothing
-# typed; recovery owns the record). No return value is delivery proof; the
+# typed; recovery owns the record), 75 held by the upgrade-window gate (record
+# retained; caller owns retry). No return value is delivery proof; the
 # acknowledgement move is the only delivery signal.
-# The skip is deliberately narrow: only an exact `pending` verdict can defer,
+# The composer skip is narrow: only an exact `pending` verdict can defer,
 # because there our Enter could submit someone's real half-typed content.
 # `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
 # CONSTANT line the worker recovers semantically, while skipping on ambiguous
@@ -393,6 +394,17 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # a lost first Enter gets one confirmed retry.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict
+  local state task meta
+  state=${rec%/*/*}
+  task=${rec%/*}
+  task=${task##*/}
+  meta="$state/${task%.inbox}.meta"
+  if [ "$(fm_meta_get "$meta" omnigent)" = on ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$_FM_TASK_INBOX_LIB_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "the doorbell for ${task%.inbox}" "$state" \
+      "$(fm_meta_get "$meta" omnigent_remote_server)" || return 75
+  fi
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac

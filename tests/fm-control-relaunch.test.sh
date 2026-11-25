@@ -486,6 +486,31 @@ test_omnigent_relaunch_archives_the_stopped_session() {
   pass "fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it"
 }
 
+# An active Omnigent upgrade window defers a wrapped relaunch with 75 before
+# the old agent is touched; once the window has resumed the relaunch proceeds.
+test_omnigent_relaunch_defers_during_upgrade_window() {
+  local dir out rc id=rl-omni-window obs meta_before
+  dir=$(new_case omni-window "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' dddddddddddddddddddddddddddddddd >> "$dir/home/state/$id.meta"
+  obs="$dir/observation"
+  mkdir -p "$obs/serve"
+  jq -n --argjson exp "$(( $(date +%s) + 600 ))" \
+    '{schema_version:"1", job:"job-c", phase:"pausing", outcome:null, expires_at:$exp, interrupted_sessions:[]}' \
+    > "$obs/serve/upgrade-window.json"
+  meta_before=$(cat "$dir/home/state/$id.meta")
+  out=$(AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
+  expect_code 75 "$rc" "a wrapped relaunch during an upgrade window must defer"$'\n'"$out"
+  ! grep -q '/exit' "$dir/fake/literal" 2>/dev/null || fail "the old agent was exited during the upgrade window"
+  [ "$(cat "$dir/home/state/$id.meta")" = "$meta_before" ] || fail "the deferred relaunch changed the task record"
+  [ ! -e "$dir/serve/archived.jsonl" ] || fail "the deferred relaunch archived the running session"
+  jq '.phase = "resumed" | .outcome = "upgraded"' "$obs/serve/upgrade-window.json" > "$obs/w" && mv "$obs/w" "$obs/serve/upgrade-window.json"
+  out=$(AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
+  expect_code 0 "$rc" "a wrapped relaunch after the window resumed should succeed"$'\n'"$out"
+  pass "fm-control relaunch: an Omnigent upgrade window defers a wrapped relaunch before the old agent stops"
+}
+
 # A lane relaunched after its PR was recorded keeps that PR as its record's
 # tail, so the armed merge poll still validates against it.
 test_relaunch_keeps_a_recorded_pr_valid_for_the_merge_poll() {
@@ -3403,6 +3428,7 @@ test_omnigent_late_binding_retirement() {
 
 if [ "${1:-}" = --omnigent ]; then
   test_omnigent_relaunch_archives_the_stopped_session
+  test_omnigent_relaunch_defers_during_upgrade_window
   test_omnigent_dead_attach_recovery
   test_omnigent_late_binding_retirement
   exit 0
@@ -3479,6 +3505,7 @@ test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch
 test_omnigent_relaunch_archives_the_stopped_session
+test_omnigent_relaunch_defers_during_upgrade_window
 test_omnigent_dead_attach_recovery
 test_omnigent_late_binding_retirement
 test_missing_worktree_refuses_before_stopping_anything

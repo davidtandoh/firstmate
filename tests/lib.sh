@@ -62,6 +62,9 @@ unset FM_TASK_ID
 # A suite launched from a traced primary must not contact the real observation
 # service. Omnigent contract cases set their marker after sourcing this library.
 unset OMNIGENT FM_OMNIGENT
+# Nor may it read this machine's real Omnigent upgrade window; window cases
+# point this at their own directory.
+export AGENT_KIT_OBSERVATION_DIR=/nonexistent/fm-test-agent-kit-observation
 # Clear the launcher identity, terminal marker, runtime-backend selector, and
 # home/state overrides a suite inherits from the terminal that started it. A
 # session running inside herdr exports HERDR_ENV/HERDR_PANE_ID/HERDR_SOCKET_PATH/...

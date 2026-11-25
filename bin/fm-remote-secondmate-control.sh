@@ -266,6 +266,11 @@ cmd_launch() {
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
   validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
+  if [ "$omnigent_mode" = on ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "remote secondmate $id" "$CONTROL_STATE" "$omnigent_server" || return 75
+  fi
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|omp) ;;
@@ -376,6 +381,11 @@ cmd_relaunch() {
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
   validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
+  if [ "$omnigent_mode" = on ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "remote secondmate $id" "$CONTROL_STATE" "$omnigent_server" || return 75
+  fi
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|omp) ;;
@@ -431,9 +441,7 @@ cmd_send_body() {
   # best-effort (bin/fm-task-inbox-lib.sh owns the record and doorbell). The
   # write is idempotent - re-running the same request after an ambiguous
   # transport failure lands on the existing record instead of a duplicate - so
-  # the parent may safely repeat this leg. Exit 0 once the record durably
-  # exists; no ring outcome changes it, because the parent transport owns any
-  # retry or reply-tracking policy from here.
+  # the parent may safely repeat this leg.
   if ! rec=$(fm_task_inbox_write_idempotent "$CONTROL_STATE" "$id" "$message" "$delivery_mode"); then
     fm_lock_release "$meta_lock"
     die "steering-inbox record could not be written under $CONTROL_STATE/$id.inbox"
@@ -449,6 +457,10 @@ cmd_send_body() {
   esac
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
   case "$ring_rc" in
+    75)
+      printf 'deferred: Omnigent upgrade held the doorbell; the steer is retained at %s; retry the same request after resume\n' "$rec" >&2
+      return 75
+      ;;
     1) printf 'notice: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at %s\n' "$rec" >&2 ;;
     2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
     3) printf 'notice: doorbell not typed because the agent in %s has exited; the steer is durably recorded at %s for recovery\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;

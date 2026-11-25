@@ -107,6 +107,39 @@ An unreachable server, or a session that is missing, archived, failed, or withou
 An absent binding or an inconclusive session response leaves the pane verdict unchanged.
 Lifecycle commands use the dead-session verdict to stop a retained attach client, then require the pane-level verdict to confirm that the client stopped.
 
+## Upgrade pause window
+
+```mermaid
+flowchart LR
+    kit[Agent Kit upgrade writes the window] -->|pausing or switching| hold[Firstmate holds new Omnigent work]
+    hold -->|resumed or expired| wake[One supervision notification]
+    wake --> relaunch[Relaunch interrupted workers and retry deferred dispatch]
+```
+
+Takeaway: an Omnigent upgrade never receives new work mid-switch, and the workers it interrupted are named for relaunch afterwards.
+
+The Agent Kit's Omnigent upgrade publishes a pause window at `${AGENT_KIT_OBSERVATION_DIR:-~/.agents/state/observation}/serve/upgrade-window.json`; the Kit owns its schema (personal-agent-kit ADR-0030).
+While the window's phase is `pausing` or `switching` and its expiry is in the future, Firstmate starts no Omnigent-wrapped worker through that server and sends no new prompt to one:
+
+- The initial spawn check defers before endpoint creation; `fm-control.sh relaunch` defers before stopping the old agent.
+- The launcher checks again after preflight, so an in-flight spawn can leave a task record and endpoint while its Omnigent launch is deferred.
+- Local inbox steers remain recorded while the watcher holds doorbells and retry bookkeeping until the window closes.
+- Remote inbox steers remain recorded but require a caller retry after the window closes; the [`fm-send.sh` header](../bin/fm-send.sh) owns delivery status and safe resend mechanics.
+- Typed-plane text is deferred without being sent.
+- Running turns are never interrupted, and native launches are unaffected.
+
+Launch and typed-send deferrals print `deferred:` and exit 75.
+Automatic secondmate recovery checks the server owner's window before consuming a recovery attempt or changing the endpoint, including when the destination uses its own Kit service.
+Firstmate does not write the optional acknowledgement; the Kit owns the bounded drain.
+Remote bindings read the server owner's window through a bounded, noninteractive SSH read to the binding's hostname.
+That host must be reachable through SSH with the current account; an unavailable read defers work with exit 75.
+When the job resumes or its window expires, a home that deferred work for it or has eligible recovery tasks gets one `check: omnigent-upgrade` notification.
+The notification names local workers whose recorded sessions were interrupted or are proven dead, plus local launches without a session binding whose endpoints are proven dead or missing.
+Review-parked workers and remote secondmates are excluded; a missing binding alone does not establish death.
+Supervision uses the notification to relaunch the named workers and retry deferred dispatch; the notification itself does not launch workers.
+An unreadable window is ignored with a warning, because it carries no expiry that would bound the pause.
+`bin/fm-upgrade-window-lib.sh` owns this reading.
+
 ## Fresh main sessions
 
 The main Claude primary can use [`/fresh`](../.agents/skills/fresh/SKILL.md) to complete `/stow` and replace its long-running Omnigent session in one step.
