@@ -1,0 +1,185 @@
+$ bin/fm-correction.sh add --class done-before-pr --description first --evidence past-instance:first --date 2026-11-25
+logged: done-before-pr (1 in class)
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr
+error: "Task \"correct-done-before-pr\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+[exit 1]
+$ bin/fm-correction.sh add --class done-before-pr --description second --evidence past-instance:second --date 2026-11-25
+logged: done-before-pr (2 in class)
+correct task held: correct-done-before-pr
+[exit 0]
+$ bin/fm-captain-hold.sh open correct-done-before-pr
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr
+task:
+  id: correct-done-before-pr
+  title: "Correct repeated mistake: done-before-pr"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Correction class done-before-pr repeated 2 times; approve a correct task to turn it into a structural guard proven against a past instance. Evidence: 2026-11-25 past-instance:first; 2026-11-25 past-instance:second"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-11-25
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-11-25T15:38:07Z"
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description third --evidence past-instance:third --date 2026-11-25
+logged: done-before-pr (3 in class)
+correct task already covers class: correct-done-before-pr
+[exit 0]
+$ bin/fm-captain-hold.sh answer correct-done-before-pr --decision-file /Users/davidtandoh/.no-mistakes/evidence/01M89MJFQRZ1W42N32N9VFAPVR/correction-cli-home/decision.txt --release
+released: correct-done-before-pr
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description released --evidence past-instance:released --date 2026-11-25
+logged: done-before-pr (4 in class)
+correct task already covers class: correct-done-before-pr
+[exit 0]
+$ bin/fm-captain-hold.sh open correct-done-before-pr
+[exit 1]
+$ bin/fm-tasks-axi.sh start correct-done-before-pr
+ok: start correct-done-before-pr -> In flight
+help[1]:
+  - Run `tasks-axi done correct-done-before-pr --pr <url>` when it ships
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description inflight --evidence past-instance:inflight --date 2026-11-25
+logged: done-before-pr (5 in class)
+correct task already covers class: correct-done-before-pr
+[exit 0]
+$ bin/fm-captain-hold.sh open correct-done-before-pr
+[exit 1]
+$ bin/fm-tasks-axi.sh done correct-done-before-pr
+ok: done correct-done-before-pr -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr
+task:
+  id: correct-done-before-pr
+  title: "Correct repeated mistake: done-before-pr"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: "-"
+  closed: 2026-11-25
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 5da7f28f336f365d3c6cb55643cf59d0000bdf7326a5316433ce84715918a06f\nResolution mode: released\n\nCaptain decision:\nImplement the structural guard."
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description after-completion --evidence past-instance:after-completion --date 2026-11-25
+logged: done-before-pr (6 in class)
+correct task held: correct-done-before-pr-2026-11-25
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr
+task:
+  id: correct-done-before-pr
+  title: "Correct repeated mistake: done-before-pr"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: "-"
+  closed: 2026-11-25
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 5da7f28f336f365d3c6cb55643cf59d0000bdf7326a5316433ce84715918a06f\nResolution mode: released\n\nCaptain decision:\nImplement the structural guard."
+[exit 0]
+$ bin/fm-captain-hold.sh open correct-done-before-pr-2026-11-25
+[exit 0]
+$ bin/fm-captain-hold.sh answer correct-done-before-pr-2026-11-25 --decision-file /Users/davidtandoh/.no-mistakes/evidence/01M89MJFQRZ1W42N32N9VFAPVR/correction-cli-home/decision.txt
+answered: correct-done-before-pr-2026-11-25
+[exit 0]
+$ bin/fm-tasks-axi.sh add retention-trigger Trigger retention
+ok: added retention-trigger -> Queued
+task:
+  id: retention-trigger
+  title: Trigger retention
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-25
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start retention-trigger` to move it to in flight
+  - Run `tasks-axi block retention-trigger --by <other>` to record a dependency
+[exit 0]
+$ bin/fm-tasks-axi.sh done retention-trigger
+ok: done retention-trigger -> Done; pruned 1
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr
+error: "Task \"correct-done-before-pr\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+[exit 1]
+$ bin/fm-captain-hold.sh archived correct-done-before-pr
+[exit 0]
+$ bin/fm-tasks-axi.sh show correct-done-before-pr-2026-11-25
+error: "Task \"correct-done-before-pr-2026-11-25\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+[exit 1]
+$ bin/fm-captain-hold.sh archived correct-done-before-pr-2026-11-25
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description after-archive --evidence past-instance:after-archive --date 2026-11-25
+logged: done-before-pr (7 in class)
+correct task held: correct-done-before-pr-2026-11-25-2
+[exit 0]
+$ bin/fm-captain-hold.sh open correct-done-before-pr-2026-11-25-2
+[exit 0]
+$ bin/fm-correction.sh add --class done-before-pr --description later-date --evidence past-instance:later-date --date 2026-11-26
+logged: done-before-pr (8 in class)
+correct task already covers class: correct-done-before-pr-2026-11-25-2
+[exit 0]
+$ bin/fm-correction.sh add --class Bad_Class --description invalid --evidence e
+fm-correction: class must be a lowercase slug of letters, digits and hyphens (at most 64): Bad_Class
+[exit 1]
+$ bin/fm-correction.sh add --class valid --description two
+lines --evidence e
+fm-correction: description must be one plain line with no line breaks or control characters
+[exit 1]
+$ bin/fm-correction.sh list --class done-before-pr
+2026-11-25	done-before-pr	first	past-instance:first
+2026-11-25	done-before-pr	second	past-instance:second
+2026-11-25	done-before-pr	third	past-instance:third
+2026-11-25	done-before-pr	released	past-instance:released
+2026-11-25	done-before-pr	inflight	past-instance:inflight
+2026-11-25	done-before-pr	after-completion	past-instance:after-completion
+2026-11-25	done-before-pr	after-archive	past-instance:after-archive
+2026-11-26	done-before-pr	later-date	past-instance:later-date
+[exit 0]
+$ bin/fm-correction.sh repeats
+done-before-pr	8
+[exit 0]

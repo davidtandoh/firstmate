@@ -1,0 +1,32 @@
+[
+  {
+    "name": "First correction persists evidence without filing a task",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Repeated corrections hold one task carrying past evidence",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Further corrections preserve released and in-flight work",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Completed task gets a held dated successor",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Archived original and dated identities remain reserved",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Invalid rows cannot alter log and queries show all accepted corrections",
+    "result": "pass",
+    "live": true
+  }
+]
