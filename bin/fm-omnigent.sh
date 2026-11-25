@@ -92,6 +92,7 @@
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
 # by server, session and spawn generation. No messages or tool arguments persist.
 # One nonblocking task lock coalesces concurrent refreshes; contention is unknown.
+# Unsafe cache paths or permissions return unknown without an uncached request.
 # Session GETs allow 5 seconds and 2 MiB. Only a failed or inconclusive GET needs
 # /health; unreachable health still proves dead. Failed, malformed or >=3-second
 # reads back off for 30, 60, then 120 seconds, without reusing an expired verdict.

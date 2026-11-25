@@ -193,7 +193,7 @@ The remote endpoint reports its actual mode to the parent, alongside its native 
 A recorded wrapped task remains wrapped through recovery.
 
 On each pane poll, the watcher consults pending approvals through the shared session snapshot before applying busy or declared-wait suppression.
-Snapshot expiry bounds approval detection latency; server failures can extend it to the backoff limit.
+Approval detection follows snapshot expiry and the watcher's poll cadence; slow or failed reads extend the refresh interval through backoff.
 An outstanding approval emits one actionable check wake per session and approval id, naming the task, endpoint, and a safe prompt heading.
 The daemon routes this wake directly to escalation without stale-task or declared-wait classification.
 Unrecognized prompt text uses a generic summary; command previews and tool arguments are never included.
