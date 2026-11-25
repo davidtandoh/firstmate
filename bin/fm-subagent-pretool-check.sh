@@ -24,6 +24,7 @@
 # This script is therefore the single owner of classification.
 # It matches a delegation-SHAPED tool name rather than a fixed list, so a future
 # tool that ships before anyone updates a local deny list is still refused.
+# A subagent's own report handback is allowed by exact name (REPORT_ONLY_TOOLS).
 # Its one argument-aware exclusion is Claude Code's built-in read-only web-fetch
 # agent: a Claude Agent or Task payload whose subagent_type is exactly
 # web-fetch is allowed unless a project or user agent definition of
@@ -83,6 +84,14 @@ OBSERVE_ONLY_TOOLS='taskoutput taskstop taskget tasklist cronlist bashoutput kil
 # widen by accident.
 PLAN_ONLY_TOOLS='taskcreate taskupdate'
 
+# Exact lowercase tool name a running subagent calls to deliver its finished
+# report to its parent. PreToolUse hooks also fire on a subagent's own tool
+# calls, so denying this name let the allowed web-fetch agent read a page but
+# never return what it read. Delivering a report starts no work; the subagent
+# that calls it already exists, so it is a separate exact-name list from both
+# the observe-or-stop and the plan-only lists.
+REPORT_ONLY_TOOLS='subagenthandback'
+
 # Claude Code's built-in web-fetch agent only reads a public page and reports
 # what it says; it is the only way a primary session without its own fetch tool
 # can read the web. It edits nothing, starts no fleet work, and returns its
@@ -105,6 +114,7 @@ Usage: fm-subagent-pretool-check.sh [--tool <tool-name>] [--claude|--agy]
 With no --tool, reads a PreToolUse-style JSON payload on stdin (Claude/Codex
 tool_name, Grok toolName, or Antigravity toolCall.name).
 Denies a delegation-SHAPED tool name in a genuine primary home.
+Allows SubagentHandback, which only returns a running subagent's report.
 Allows a Claude Agent or Task payload whose subagent_type is exactly web-fetch,
 unless a project or user agent has the parsed frontmatter name web-fetch.
 Unreadable definitions or unavailable YAML parsing also withdraw the exemption.
@@ -176,7 +186,7 @@ case "$TOOL" in
   mcp__*) exit 0 ;;
 esac
 
-for allowed in $OBSERVE_ONLY_TOOLS $PLAN_ONLY_TOOLS; do
+for allowed in $OBSERVE_ONLY_TOOLS $PLAN_ONLY_TOOLS $REPORT_ONLY_TOOLS; do
   [ "$NORMALIZED" != "$allowed" ] || exit 0
 done
 
