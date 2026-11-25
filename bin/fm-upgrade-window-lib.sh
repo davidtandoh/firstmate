@@ -36,8 +36,8 @@ fm_upgrade_window_read() {
   local now=${1:-$(date +%s)} server=${2:-} file fields content host
   file="$(fm_upgrade_window_dir)/upgrade-window.json"
   FM_UPGRADE_WINDOW_FILE=$file
-  FM_UPGRADE_WINDOW_JOB= FM_UPGRADE_WINDOW_PHASE= FM_UPGRADE_WINDOW_OUTCOME=
-  FM_UPGRADE_WINDOW_EXPIRES= FM_UPGRADE_WINDOW_SESSIONS=
+  FM_UPGRADE_WINDOW_JOB='' FM_UPGRADE_WINDOW_PHASE='' FM_UPGRADE_WINDOW_OUTCOME=''
+  FM_UPGRADE_WINDOW_EXPIRES='' FM_UPGRADE_WINDOW_SESSIONS=''
   if [ -n "$server" ]; then
     host=${server#https://}
     host=${host%/}
@@ -46,6 +46,7 @@ fm_upgrade_window_read() {
       FM_UPGRADE_WINDOW_STATE=unavailable
       return 0
     fi
+    # shellcheck disable=SC2016 # Variables expand in the remote owner's shell.
     content=$(fm_run_timed 8 ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1 -- "$host" \
       'f="${AGENT_KIT_OBSERVATION_DIR:-$HOME/.agents/state/observation}/serve/upgrade-window.json"; if [ ! -e "$f" ] && [ ! -L "$f" ]; then printf absent; else head -c 65537 "$f"; fi' 2>/dev/null) || {
       FM_UPGRADE_WINDOW_STATE=unavailable

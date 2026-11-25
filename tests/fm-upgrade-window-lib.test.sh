@@ -4,6 +4,7 @@
 # held without acknowledgement, an expired or absent window defers nothing, an
 # unreadable one warns and defers nothing, and a closed job raises one wake for
 # a home that deferred work or owns an interrupted session, naming those tasks.
+# shellcheck disable=SC2030,SC2031 # Subshell tests intentionally isolate environment changes; later tests use the parent values.
 set -u
 
 # shellcheck source=tests/lib.sh
