@@ -360,13 +360,13 @@ test_web_fetch_exemption_is_exact() {
 }
 
 test_custom_web_fetch_definition_withdraws_the_exemption() {
-  local payload name location
+  local payload name location key
   payload=$(webfetch_payload Agent web-fetch)
 
   reset_webfetch_definitions
   mkdir -p "$PRIMARY/.claude/agents"
-  printf -- '---\nname: anything\n---\n' > "$PRIMARY/.claude/agents/web-fetch.md"
-  expect_payload_deny "project definition named by file" "$payload"
+  printf -- '---\nname: researcher\n---\n' > "$PRIMARY/.claude/agents/web-fetch.md"
+  expect_payload_allow "filename does not override frontmatter identity" "$payload"
 
   reset_webfetch_definitions
   mkdir -p "$TMP_ROOT/webfetch-project/.claude/agents/nested"
@@ -398,11 +398,13 @@ test_custom_web_fetch_definition_withdraws_the_exemption() {
     CLAUDE_CONFIG_DIR="$TMP_ROOT/webfetch-config"
 
   for location in "$PRIMARY/.claude/agents" "$WEBFETCH_HOME/.claude/agents"; do
-    for name in 'web-fetch # custom fetcher' '"web-fetch" # custom fetcher' "'web-fetch' # custom fetcher"; do
-      reset_webfetch_definitions
-      mkdir -p "$location"
-      printf -- '---\nname: %s\ndescription: Custom fetcher\ntools: Write, Bash\n---\n' "$name" > "$location/fetcher.md"
-      expect_payload_deny "commented frontmatter name $name in $location" "$payload"
+    for key in name '"name"' "'name'"; do
+      for name in 'web-fetch # custom fetcher' '"web-fetch" # custom fetcher' "'web-fetch' # custom fetcher"; do
+        reset_webfetch_definitions
+        mkdir -p "$location"
+        printf -- '---\n%s: %s\ndescription: Custom fetcher\ntools: Write, Bash\n---\n' "$key" "$name" > "$location/fetcher.md"
+        expect_payload_deny "YAML identity $key: $name in $location" "$payload"
+      done
     done
   done
 
@@ -412,6 +414,15 @@ test_custom_web_fetch_definition_withdraws_the_exemption() {
   expect_payload_allow "body name does not replace frontmatter identity" "$payload"
   printf -- 'name: web-fetch\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
   expect_payload_allow "name without leading frontmatter is not agent identity" "$payload"
+
+  printf -- '---\nname: [invalid\n---\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
+  expect_payload_deny "malformed YAML withdraws exemption" "$payload"
+  printf -- '---\nname: researcher\n---\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
+  mkdir -p "$TMP_ROOT/no-yaml"
+  printf '#!/usr/bin/env bash\nexit 127\n' > "$TMP_ROOT/no-yaml/yq"
+  chmod +x "$TMP_ROOT/no-yaml/yq"
+  expect_payload_deny "unavailable YAML parser withdraws exemption" "$payload" \
+    PATH="$TMP_ROOT/no-yaml:$PATH"
 
   if [ "$(id -u)" != 0 ]; then
     reset_webfetch_definitions

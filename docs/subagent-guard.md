@@ -65,9 +65,11 @@ Four exclusions keep the shape test from producing false positives.
   Claude Code's built-in web-fetch agent only reads a public page and returns its report into the same turn, and it is the only way a primary session without its own fetch tool can read the web.
   It starts no fleet work and nothing that outlives the turn, so denying it blocked reading rather than delegation.
   The match is exact and case-sensitive, so `Web-Fetch`, `web-fetcher`, `plugin:web-fetch`, and every other subagent type stay denied, as does the same type on any other tool name, a bare `--tool` name, and the `--agy` transport.
-  The exemption is withdrawn whenever an agent definition named `web-fetch`, by file name or `name` in the leading frontmatter block (with optional quotes and a trailing YAML comment), exists in the home's, `CLAUDE_PROJECT_DIR`'s, or the payload `cwd`'s `.claude/agents`, in the user's `agents` directory under `~/.claude` or `CLAUDE_CONFIG_DIR`, because such a definition would replace the built-in agent and borrow its exemption.
+  The exemption is withdrawn whenever an agent definition named `web-fetch`, by its parsed top-level `name` in the leading YAML frontmatter block, exists in the home's, `CLAUDE_PROJECT_DIR`'s, or the payload `cwd`'s `.claude/agents`, in the user's `agents` directory under `~/.claude` or `CLAUDE_CONFIG_DIR`, because such a definition would replace the built-in agent and borrow its exemption.
   Plugin agent directories are excluded because plugin agents use namespaced types such as `plugin-name:web-fetch`, which the exact type check already denies.
-  A location that cannot be searched or read completely also withdraws it.
+  The filename does not determine agent identity.
+  The hook uses Mike Farah’s `yq` to parse extracted YAML frontmatter, including quoted keys, quoted values, and trailing comments.
+  An unavailable parser, invalid frontmatter identity, or a location that cannot be searched or read completely also withdraws the exemption.
   An agent supplied only through Claude Code's `--agents` launch flag is not visible to a hook, so a primary must not be launched with a custom `web-fetch` agent that way.
 
 Both exclusion lists match the whole normalized name, never a substring, so neither can widen by accident: `TaskCreateAgent` and `RemoteTaskCreate` stay denied.
