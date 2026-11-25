@@ -4,7 +4,7 @@
 # A firstmate primary must arm the watcher or run a Codex checkpoint as a
 # standalone verified harness call.
 # bin/fm-arm-command-policy.mjs is the sole owner of shell classification,
-# protected execution identity, the blessed setup tree, and deny reason codes.
+# protected watcher identity, the blessed setup tree, and watcher deny codes.
 # This wrapper only acquires the harness payload, discovers the active roots,
 # invokes those policies, and renders the established harness-specific responses.
 # Raw GitHub PR merges are denied only in primary and secondmate homes through

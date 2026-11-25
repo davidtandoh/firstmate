@@ -32,7 +32,8 @@ It tokenizes the bytes and classifies lexical execution positions only.
 
 The wrapper discovers the code root from its own location.
 The active firstmate home is `${FM_HOME:-<code-root>}`.
-It passes both roots and the exact command string to the Node policy owner.
+It passes both roots and the exact command string to the watcher-arm policy.
+The merge policy receives only the command string after the transport checks its scope.
 
 The wrapper fast-allows a command without invoking a Node policy owner only when the command cannot contain either `fm-watch` or `gh` even after the classifier's decoders run.
 The fast path may allow only when both of these hold:
@@ -53,7 +54,8 @@ Deeper decode-required obfuscation beyond the coupled marker set stays the class
 
 Malformed or empty stdin, invalid JSON, missing `jq` for stdin transport, missing Node, a missing classifier, or an invalid classifier response fail open with exit 0 and no output.
 This transport behavior prevents a broken hook from denying every shell tool call.
-Malformed or unsupported shell syntax that contains a protected command is a semantic classification result and fails closed.
+For the watcher-arm policy, malformed or unsupported shell syntax that contains a protected watcher command is a semantic classification result and fails closed.
+The merge policy's classification limits are described in [Raw PR merge guard](#raw-pr-merge-guard).
 
 ## Raw PR merge guard
 
