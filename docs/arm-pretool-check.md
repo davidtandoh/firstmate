@@ -1,7 +1,7 @@
 # Watcher arm and PR merge PreToolUse seatbelt
 
-This document is the authoritative human-readable contract for the watcher arm PreToolUse seatbelt.
-`bin/fm-arm-command-policy.mjs` is the single semantic owner.
+This document is the authoritative human-readable contract for the watcher arm and raw PR merge PreToolUse seatbelt.
+`bin/fm-arm-command-policy.mjs` owns the watcher-arm decision and shared shell classification.
 `bin/fm-merge-command-policy.mjs` owns the separate raw PR merge decision described below.
 `bin/fm-arm-pretool-check.sh` is the shared harness transport, merge-scope check, and output renderer.
 The tracked harness adapters forward command text without classifying it.
@@ -66,6 +66,8 @@ An unmarked worker worktree is exempt even when it inherits a supervisor's `FM_H
 Runtime backends need no separate integration because the harness hook invokes the same transport in each backend.
 
 The policy denies executed `gh pr merge` and `gh-axi pr merge` commands, including path-qualified executables and global repository selectors.
+The help-only forms `gh pr merge --help` and `gh-axi pr merge --help` remain allowed, including with global repository selectors before `pr`.
+This exception requires `--help` to be the sole argument after `merge`; help-like text used as a merge option value does not exempt a merge.
 It also denies mutating `gh api` and `gh-axi api` calls to the GitHub PR merge endpoint.
 Read-only merge-status requests remain allowed.
 The `raw-pr-merge` reason directs the supervisor to `bin/fm-pr-merge.sh`.
@@ -84,6 +86,9 @@ The existing transport failure behavior also applies to this policy.
 
 The tokenizer recognizes cooked words with quote provenance, comments, heredoc bodies, shell list operators, pipelines, redirections, command and process substitutions, parenthesized subshells, brace groups, and literal nested execution payloads.
 Quoted text, comments, heredoc bodies, and later argument words are data positions unless a recognized execution sink recursively executes them.
+Shared command-position analysis skips leading unquoted conditional keywords (`if`, `then`, `elif`, `else`) and shell negation (`!`) before recognizing assignments and ordinary wrappers.
+Quoted or escaped lookalikes remain command words rather than shell execution prefixes.
+Recognizing these positions does not make conditional watcher calls part of the blessed syntax tree below.
 
 A command word in executed position is a protected execution when its normalized path suffix matches one of the protected watcher scripts:
 
