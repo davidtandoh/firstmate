@@ -276,6 +276,155 @@ test_missing_jq_stdin_transport_fails_open() {
   pass "missing jq for stdin transport fails open rather than denying every tool call"
 }
 
+# Claude Code's built-in web-fetch agent only reads a page and reports back.
+# Feed one Claude PreToolUse payload with an isolated home so the result never
+# depends on the agent definitions of the machine running the tests.
+WEBFETCH_HOME="$TMP_ROOT/webfetch-home"
+
+run_agent_payload() {
+  local payload=$1 rc=0
+  shift
+  : > "$OUT"
+  : > "$ERR"
+  printf '%s' "$payload" \
+    | env -u CLAUDE_CONFIG_DIR -u CLAUDE_PROJECT_DIR HOME="$WEBFETCH_HOME" \
+      FM_ROOT_OVERRIDE="$PRIMARY" FM_HOME="$PRIMARY" FM_STATE_OVERRIDE="$STATE" "$@" \
+      "$CHECK" --claude > "$OUT" 2> "$ERR" || rc=$?
+  return "$rc"
+}
+
+expect_payload_allow() {
+  local label=$1 payload=$2 rc=0
+  shift 2
+  run_agent_payload "$payload" "$@" || rc=$?
+  [ "$rc" -eq 0 ] || fail "$label must allow, got exit $rc: $(cat "$ERR")"
+  [ ! -s "$OUT" ] && [ ! -s "$ERR" ] || fail "$label allow wrote output: $(cat "$OUT" "$ERR")"
+}
+
+expect_payload_deny() {
+  local label=$1 payload=$2 rc=0
+  shift 2
+  run_agent_payload "$payload" "$@" || rc=$?
+  [ "$rc" -eq 2 ] || fail "$label must deny with exit 2, got $rc"
+  [ ! -s "$OUT" ] || fail "$label deny wrote stdout: $(cat "$OUT")"
+  jq -e '.systemMessage | startswith("[subagent-dispatch]")' "$ERR" >/dev/null 2>&1 \
+    || fail "$label deny message lost its code: $(cat "$ERR")"
+}
+
+webfetch_payload() {  # <tool-name> <subagent-type> [cwd]
+  jq -cn --arg t "$1" --arg s "$2" --arg c "${3:-}" \
+    '{tool_name:$t, tool_input:{subagent_type:$s, prompt:"read https://example.com"}} + (if $c == "" then {} else {cwd:$c} end)'
+}
+
+reset_webfetch_definitions() {
+  rm -rf "$WEBFETCH_HOME" "$PRIMARY/.claude" "$TMP_ROOT/webfetch-project" "$TMP_ROOT/webfetch-config"
+  mkdir -p "$WEBFETCH_HOME"
+}
+
+test_builtin_web_fetch_agent_is_allowed() {
+  local tool
+  reset_webfetch_definitions
+  for tool in Agent Task; do
+    expect_payload_allow "built-in web-fetch through $tool" "$(webfetch_payload "$tool" web-fetch)"
+  done
+  # An unrelated plugin markdown file outside an agents directory is not an
+  # agent definition, so it must not withdraw the exemption.
+  mkdir -p "$WEBFETCH_HOME/.claude/plugins/cache/p/skills/web-fetch"
+  printf -- '---\nname: web-fetch\n---\n' > "$WEBFETCH_HOME/.claude/plugins/cache/p/skills/web-fetch/SKILL.md"
+  expect_payload_allow "web-fetch beside a plugin skill of that name" "$(webfetch_payload Agent web-fetch)"
+  pass "the built-in read-only web-fetch agent is allowed in a primary home"
+}
+
+test_web_fetch_exemption_is_exact() {
+  local type tool
+  reset_webfetch_definitions
+  for type in general-purpose Explore Web-Fetch WEB-FETCH 'web-fetch ' web-fetcher webfetch plugin:web-fetch ''; do
+    expect_payload_deny "subagent_type '$type'" "$(webfetch_payload Agent "$type")"
+  done
+  expect_payload_deny "Agent call with no subagent_type" '{"tool_name":"Agent","tool_input":{"prompt":"go"}}'
+  expect_payload_deny "non-string subagent_type" '{"tool_name":"Agent","tool_input":{"subagent_type":["web-fetch"]}}'
+  for tool in Workflow SendMessage RemoteTrigger AgentPool; do
+    expect_payload_deny "web-fetch subagent_type on $tool" "$(webfetch_payload "$tool" web-fetch)"
+  done
+  # The exemption reads only the Claude payload; a bare tool name carries no
+  # subagent type, and the Antigravity transport is not Claude's Agent tool.
+  expect_deny "CLI transport cannot claim web-fetch" Agent
+  local rc=0
+  printf '%s' "$(webfetch_payload Agent web-fetch)" \
+    | env -u CLAUDE_CONFIG_DIR -u CLAUDE_PROJECT_DIR HOME="$WEBFETCH_HOME" \
+      FM_ROOT_OVERRIDE="$PRIMARY" FM_HOME="$PRIMARY" FM_STATE_OVERRIDE="$STATE" \
+      "$CHECK" --agy > "$OUT" 2> "$ERR" || rc=$?
+  jq -e '.decision == "deny"' "$OUT" >/dev/null 2>&1 \
+    || fail "the Antigravity transport must not take the web-fetch exemption: $(cat "$OUT")"
+  pass "only the exact web-fetch subagent type on Claude's Agent or Task tool is exempt"
+}
+
+test_custom_web_fetch_definition_withdraws_the_exemption() {
+  local payload
+  payload=$(webfetch_payload Agent web-fetch)
+
+  reset_webfetch_definitions
+  mkdir -p "$PRIMARY/.claude/agents"
+  printf -- '---\nname: anything\n---\n' > "$PRIMARY/.claude/agents/web-fetch.md"
+  expect_payload_deny "project definition named by file" "$payload"
+
+  reset_webfetch_definitions
+  mkdir -p "$TMP_ROOT/webfetch-project/.claude/agents/nested"
+  printf -- '---\nname: "web-fetch"\n---\n' > "$TMP_ROOT/webfetch-project/.claude/agents/nested/fetcher.md"
+  expect_payload_deny "CLAUDE_PROJECT_DIR definition named by frontmatter" "$payload" \
+    CLAUDE_PROJECT_DIR="$TMP_ROOT/webfetch-project"
+  expect_payload_deny "payload cwd definition" "$(webfetch_payload Agent web-fetch "$TMP_ROOT/webfetch-project")"
+
+  reset_webfetch_definitions
+  mkdir -p "$WEBFETCH_HOME/.claude/agents"
+  printf -- "---\nname: 'web-fetch'\n---\n" > "$WEBFETCH_HOME/.claude/agents/mine.md"
+  expect_payload_deny "user definition" "$payload"
+
+  reset_webfetch_definitions
+  mkdir -p "$TMP_ROOT/webfetch-config/agents"
+  printf -- '---\nname: web-fetch\n---\n' > "$TMP_ROOT/webfetch-config/agents/mine.md"
+  expect_payload_deny "CLAUDE_CONFIG_DIR user definition" "$payload" \
+    CLAUDE_CONFIG_DIR="$TMP_ROOT/webfetch-config"
+
+  reset_webfetch_definitions
+  mkdir -p "$WEBFETCH_HOME/.claude/plugins/cache/market/plug/1.0/agents"
+  printf -- '---\nname: web-fetch\n---\n' > "$WEBFETCH_HOME/.claude/plugins/cache/market/plug/1.0/agents/fetch.md"
+  expect_payload_deny "plugin definition" "$payload"
+
+  reset_webfetch_definitions
+  mkdir -p "$TMP_ROOT/webfetch-config/plugins/p/agents"
+  printf -- '---\nname: web-fetch\n---\n' > "$TMP_ROOT/webfetch-config/plugins/p/agents/fetch.md"
+  expect_payload_deny "CLAUDE_CONFIG_DIR plugin definition" "$payload" \
+    CLAUDE_CONFIG_DIR="$TMP_ROOT/webfetch-config"
+
+  if [ "$(id -u)" != 0 ]; then
+    reset_webfetch_definitions
+    mkdir -p "$WEBFETCH_HOME/.claude/agents"
+    printf -- '---\nname: other\n---\n' > "$WEBFETCH_HOME/.claude/agents/locked.md"
+    chmod 000 "$WEBFETCH_HOME/.claude/agents/locked.md"
+    expect_payload_deny "unreadable user definition" "$payload"
+    chmod 600 "$WEBFETCH_HOME/.claude/agents/locked.md"
+  fi
+
+  reset_webfetch_definitions
+  mkdir -p "$WEBFETCH_HOME/.claude/agents"
+  printf -- '---\nname: researcher\n---\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
+  expect_payload_allow "unrelated user definition" "$payload"
+  reset_webfetch_definitions
+  pass "a project, user, or plugin agent named web-fetch withdraws the exemption"
+}
+
+test_web_fetch_exemption_keeps_the_escape_hatch() {
+  # Inside a primary home the escape hatch still applies unchanged.
+  reset_webfetch_definitions
+  mkdir -p "$PRIMARY/.claude/agents"
+  printf -- '---\nname: web-fetch\n---\n' > "$PRIMARY/.claude/agents/web-fetch.md"
+  expect_payload_allow "custom web-fetch with the escape hatch" "$(webfetch_payload Agent web-fetch)" \
+    FM_ALLOW_SUBAGENT=1
+  reset_webfetch_definitions
+  pass "the web-fetch exemption leaves the escape hatch unchanged"
+}
+
 test_guard_denies_every_currently_known_delegation_tool
 test_guard_denies_hypothetical_future_tools
 test_guard_allows_ordinary_and_observe_only_tools
@@ -289,3 +438,7 @@ test_secondmate_home_is_in_scope
 test_stdin_transports_and_output_shapes
 test_malformed_transport_fails_open
 test_missing_jq_stdin_transport_fails_open
+test_builtin_web_fetch_agent_is_allowed
+test_web_fetch_exemption_is_exact
+test_custom_web_fetch_definition_withdraws_the_exemption
+test_web_fetch_exemption_keeps_the_escape_hatch
