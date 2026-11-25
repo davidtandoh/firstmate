@@ -26,13 +26,15 @@
 #
 # REPEAT RULE. When `add` leaves a class with two or more rows, it runs
 # `bin/fm-captain-hold.sh hold correct-<class>` with the class's evidence as
-# the reason, creating that task on the first repeat and leaving an existing
-# active hold unchanged after it. The hold is the captain's approval point; a
-# hold refusal (for example the class's earlier `correct` task is already
-# closed) is printed and exits 1 after the row is already logged.
+# the reason on the first repeat. An open task already covering the class is
+# left unchanged, including released or in-flight work. After completion, a
+# new task uses correct-<class>-YYYY-MM-DD (the correction date), adding a
+# numeric suffix from 2 if needed. The hold is the captain's approval point;
+# a task read or hold failure exits 1 after the row is already logged.
 #
 # Output: `add` prints `logged: <class> (<n> in class)` and, on a repeat,
-# `correct task held: correct-<class>`. `list` prints matching rows as
+# `correct task held: <task-id>` or `correct task already covers class: <task-id>`.
+# `list` prints matching rows as
 # `<date>\t<class>\t<description>\t<evidence>`. `repeats` prints
 # `<class>\t<count>` for every class with two or more rows.
 # Exit codes: 0 success, 1 failure, 2 usage.
@@ -44,6 +46,11 @@ FM_HOME="${FM_HOME:-$FM_ROOT}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 LOG="$DATA/corrections.md"
 HEADER='| Date | Class | Description | Evidence |'
+
+# shellcheck source=bin/fm-tasks-axi-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-backlog-transition-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 
 usage() {
   sed -n '/^# Usage:/,/^# LOG FORMAT/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'
@@ -85,7 +92,7 @@ rows() {
 }
 
 command_add() {
-  local class='' description='' evidence='' date='' count reason
+  local class='' description='' evidence='' date='' count reason tasks ids id task suffix=2
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --class|--description|--evidence|--date)
@@ -125,11 +132,38 @@ command_add() {
   printf 'logged: %s (%s in class)\n' "$class" "$count"
   [ "$count" -ge 2 ] || return 0
 
+  tasks=$(fm_backlog_row_list "$DATA") || die "logged the row, but could not list correct tasks"
+  ids=$(printf '%s\n' "$tasks" | awk -F, '/^  [A-Za-z0-9._-]+,/ && $2 != "done" {
+    sub(/^ +/, "", $1); print $1
+  }')
+  while IFS= read -r id; do
+    if [ "$id" = "correct-$class" ] || [[ "$id" =~ ^correct-$class-[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]+)?$ ]]; then
+      printf 'correct task already covers class: %s\n' "$id"
+      return 0
+    fi
+  done <<< "$ids"
+
+  task="correct-$class"
+  while fm_backlog_row_probe "$DATA" "$task"; do
+    if [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; then
+      printf 'correct task already covers class: %s\n' "$task"
+      return 0
+    fi
+    if [ "$task" = "correct-$class" ]; then
+      task="correct-$class-$date"
+    else
+      task="correct-$class-$date-$suffix"
+      suffix=$((suffix + 1))
+    fi
+  done
+  [ "$FM_BACKLOG_ROW_RESULT" = not_found ] \
+    || die "logged the row, but could not read $task: $FM_BACKLOG_ROW_ERROR"
+
   reason="Correction class $class repeated $count times; approve a correct task to turn it into a structural guard proven against a past instance. Evidence: $(rows | awk -F'\t' -v c="$class" '$2 == c { printf "%s%s %s", sep, $1, $4; sep = "; " }')"
-  "$SCRIPT_DIR/fm-captain-hold.sh" hold "correct-$class" \
+  "$SCRIPT_DIR/fm-captain-hold.sh" hold "$task" \
     --title "Correct repeated mistake: $class" --reason "$reason" >/dev/null \
-    || die "logged the row, but could not hold correct-$class"
-  printf 'correct task held: correct-%s\n' "$class"
+    || die "logged the row, but could not hold $task"
+  printf 'correct task held: %s\n' "$task"
 }
 
 command_list() {

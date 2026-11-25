@@ -65,10 +65,56 @@ test_repeat_holds_one_correct_task() {
   assert_contains "$show" "https://example.com/pr/9" "hold reason carries the repeat evidence"
   out=$(run_fc "$home" add --class done-before-pr --date 2026-11-26 \
     --description "Worker reported done before opening its PR" --evidence "third")
-  assert_contains "$out" "correct task held: correct-done-before-pr" "a third row keeps the same hold"
+  assert_contains "$out" "correct task already covers class: correct-done-before-pr" "a third row keeps the same hold"
   assert_equals 1 "$(FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$ROOT/bin/fm-tasks-axi.sh" list | grep -c 'correct-done-before-pr')" \
     "repeats never file a second task"
   pass "the second row in a class holds one correct task and later rows keep it"
+}
+
+test_released_and_inflight_tasks_stay_unchanged() {
+  local home out before
+  home=$(make_home released)
+  run_fc "$home" add --class released --description first --evidence e1 >/dev/null
+  run_fc "$home" add --class released --description second --evidence e2 >/dev/null
+  printf 'Implement the structural guard.\n' > "$home/decision.txt"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer correct-released \
+    --decision-file "$home/decision.txt" --release >/dev/null
+  before=$(task_show "$home" correct-released)
+  out=$(run_fc "$home" add --class released --description third --evidence e3)
+  assert_contains "$out" "correct task already covers class: correct-released" "released work covers the class"
+  assert_equals "$before" "$(task_show "$home" correct-released)" "released task is untouched"
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" start correct-released >/dev/null
+  before=$(task_show "$home" correct-released)
+  out=$(run_fc "$home" add --class released --description fourth --evidence e4)
+  assert_contains "$out" "correct task already covers class: correct-released" "in-flight work covers the class"
+  assert_equals "$before" "$(task_show "$home" correct-released)" "in-flight task is untouched"
+  pass "recurrences preserve released and in-flight work"
+}
+
+test_closed_tasks_get_dated_successors() {
+  local home out before successor
+  home=$(make_home closed)
+  run_fc "$home" add --class closed --description first --evidence e1 >/dev/null
+  run_fc "$home" add --class closed --description second --evidence e2 >/dev/null
+  printf 'The guard is complete.\n' > "$home/decision.txt"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer correct-closed \
+    --decision-file "$home/decision.txt" >/dev/null
+  before=$(task_show "$home" correct-closed)
+  out=$(run_fc "$home" add --class closed --date 2026-11-25 --description third --evidence e3)
+  successor=correct-closed-2026-11-25
+  assert_contains "$out" "correct task held: $successor" "closed work gets a dated successor"
+  assert_equals "$before" "$(task_show "$home" correct-closed)" "closed task is untouched"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" open "$successor" || fail "successor must be held"
+  before=$(task_show "$home" "$successor")
+  out=$(run_fc "$home" add --class closed --date 2026-11-26 --description fourth --evidence e4)
+  assert_contains "$out" "correct task already covers class: $successor" "later dates reuse open successors"
+  assert_equals "$before" "$(task_show "$home" "$successor")" "successor stays untouched"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer "$successor" \
+    --decision-file "$home/decision.txt" >/dev/null
+  out=$(run_fc "$home" add --class closed --date 2026-11-25 --description fifth --evidence e5)
+  assert_contains "$out" "correct task held: $successor-2" "same-date collisions get a numeric suffix"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" open "$successor-2" || fail "numbered successor must be held"
+  pass "closed work gets held dated successors without reopening completed tasks"
 }
 
 test_list_and_repeats() {
@@ -113,5 +159,7 @@ test_validation_and_foreign_table() {
 fm_test_run \
   test_first_row_creates_log_without_hold \
   test_repeat_holds_one_correct_task \
+  test_released_and_inflight_tasks_stay_unchanged \
+  test_closed_tasks_get_dated_successors \
   test_list_and_repeats \
   test_validation_and_foreign_table
