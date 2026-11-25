@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append one worker status event, refusing publishing-ship done without a review URL.
+# Append one worker status event, refusing publishing-ship done without its recorded review URL.
 # Usage: fm-status.sh [--dry-run] <config-dir> <status-file> <line>
 # Reads kind, mode, and forge from the status file's sibling .meta, so a promoted
 # scout uses its current ship contract even with its original brief command.
@@ -36,20 +36,17 @@ if [ "$(status_line_verb "$line")" = "done" ]; then
         no-mistakes|direct-PR)
           note=$(status_line_note "$line")
           forge=$(fm_dod_meta_value "$meta" forge) || forge=
+          recorded=$(fm_dod_meta_value "$meta" pr) || recorded=
           valid=0
           if [ "$forge" = external ]; then
             url=$(fm_dod_review_url_from_done_note "$note") || url=
-            if [ -n "$url" ] && fm_external_review_url_parse "$url" "$config"; then valid=1; fi
-          elif [ -n "$note" ]; then
-            # Split note tokens without pathname expansion; canonical forge URL
-            # parsing is shared with registration and includes Gerrit and Forgejo.
-            read -r -a tokens <<< "$note" || true
-            for url in "${tokens[@]-}"; do
-              if FM_CONFIG_OVERRIDE="$config" fm_pr_url_parse "$url"; then valid=1; break; fi
-            done
+            if [ -n "$url" ] && [ "$url" = "$recorded" ] && fm_external_review_url_parse "$url" "$config"; then valid=1; fi
+          else
+            url=$(fm_dod_ready_note_url "$note") || url=
+            if [ -n "$url" ] && [ "$url" = "$recorded" ] && FM_CONFIG_OVERRIDE="$config" fm_pr_url_parse "$url"; then valid=1; fi
           fi
           [ "$valid" -eq 1 ] || {
-            echo "error: $mode ship done requires a PR/review URL; run the delivery pipeline first, then report done with its full URL" >&2
+            echo "error: $mode ship done requires its recorded PR/review URL; run the delivery pipeline and have firstmate register the review before reporting done" >&2
             exit 1
           }
           ;;

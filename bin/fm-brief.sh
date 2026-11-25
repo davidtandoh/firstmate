@@ -467,8 +467,11 @@ shell_quote() {
 }
 
 STATUS_FILE=$(shell_quote "$STATE/$ID.status")
-# Workers append through the delivery guard; it also owns optional ledger capture.
-STATUS_APPEND="$(shell_quote "$FM_ROOT/bin/fm-status.sh") $(shell_quote "$CONFIG") $STATUS_FILE \"{state} [at=<epoch>]: {one short line}\""
+if [ "$KIND" = secondmate ]; then
+  STATUS_APPEND="echo \"{state} [at=<epoch>]: {one short line}\" >> $STATUS_FILE && { [ ! -e $(shell_quote "$CONFIG/fleet-ledger") ] || $(shell_quote "$FM_ROOT/bin/fm-fleet-ledger.sh") appended $(shell_quote "$CONFIG") $STATUS_FILE >/dev/null 2>&1 || true; }"
+else
+  STATUS_APPEND="$(shell_quote "$FM_ROOT/bin/fm-status.sh") $(shell_quote "$CONFIG") $STATUS_FILE \"{state} [at=<epoch>]: {one short line}\""
+fi
 INBOX_DIR=$(shell_quote "$STATE/$ID.inbox")
 
 # The receive-and-ack half of the steering-inbox contract, included in every

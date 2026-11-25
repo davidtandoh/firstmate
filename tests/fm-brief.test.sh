@@ -1773,6 +1773,19 @@ test_generated_status_refuses_done_before_pr() {
           note='PR https://enterprise.example.com/example/project/pull/123 checks green'
         fi
         command=${append//\{one short line\}/$note}
+        if bash -c "$command" > "$home/out" 2>&1; then
+          fail "$mode accepted an unrecorded PR"
+        fi
+        printf 'pr=%s\n' "${note#PR }" | sed 's/ checks green$//' >> "$home/state/$id.meta"
+        for note in "committed follow-up to ${note#PR } ; ready for validation" 'committed follow-up to https://github.com/o/r/pull/7 ; ready for validation' 'PR https://github.com/o/r/pull/7 checks green'; do
+          command=${append//\{one short line\}/$note}
+          if bash -c "$command" > "$home/out" 2>&1; then
+            fail "$mode accepted an unrelated PR"
+          fi
+        done
+        assert_absent "$home/state/$id.status" 'rejected review wrote a terminal event'
+        note="PR $(sed -n 's/^pr=//p' "$home/state/$id.meta") checks green"
+        command=${append//\{one short line\}/$note}
         bash -c "$command" || fail "$mode refused done with a PR URL"
         ;;
       *) [ "$rc" -eq 0 ] || fail "$mode completion was affected" ;;
@@ -1792,11 +1805,25 @@ test_generated_status_refuses_done_before_pr() {
       fail 'missing or malformed PR URL was accepted'
     fi
   done
+  printf 'pr=https://github.com/example/project/pull/123\n' >> "$home/state/$id.meta"
   "$ROOT/bin/fm-status.sh" --dry-run "$home/config" "$home/state/$id.status" \
     'done: PR https://github.com/example/project/pull/123' > "$home/out" \
     || fail 'dry-run refused a valid completion'
   assert_grep "$home/state/$id.status" "$home/out" 'dry-run omitted destination'
   assert_absent "$home/state/$id.status" 'dry-run appended an event'
+  id=remote-secondmate
+  home="$TMP_ROOT/remote-secondmate"
+  mkdir -p "$home/data" "$home/state" "$home/config"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" --secondmate --no-projects >/dev/null
+  brief="$home/data/$id/brief.md"
+  append=$(awk '/appending one line:/{getline; gsub(/^ *`|` *$/, ""); print; exit}' "$brief")
+  mkdir -p "$home/remote/state"
+  append=${append//"$home/state/$id.status"/"$home/remote/state/parent-replies.status"}
+  append=${append//\{state\}/done}
+  append=${append//<epoch>/1795628587}
+  append=${append//\{one short line\}/charter complete}
+  bash -c "$append" || fail 'remote secondmate completion required parent metadata'
+  assert_grep 'done [at=1795628587]: charter complete' "$home/remote/state/parent-replies.status" 'remote secondmate lost its report'
   pass 'generated status command refuses publishing ship completion without a PR'
 }
 
