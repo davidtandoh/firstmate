@@ -404,7 +404,7 @@ test_ship_mode_is_explicit_not_registry() {
   brief="$home/data/brief-explicit-a5/brief.md"
   grep -qx "Delivery contract: mode=no-mistakes" "$brief" \
     || fail "registered direct-PR posture overrode the explicit --mode"
-  assert_grep "Firstmate will then instruct you to run /no-mistakes" "$brief" \
+  assert_grep "After committing, run /no-mistakes" "$brief" \
     "explicit no-mistakes brief did not render the pipeline definition of done"
 
   # An unregistered project is not a blocker either, because nothing is looked up.
@@ -905,7 +905,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_HOME changed charter bytes compared with the same absolute home"
-  assert_grep ">> '$home/state/relative-home.status'" "$brief" \
+  assert_grep "'$home/state/relative-home.status'" "$brief" \
     "relative FM_HOME did not render an absolute secondmate status path"
 
   brief="$home/data/relative-state/brief.md"
@@ -921,7 +921,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_STATE_OVERRIDE changed charter bytes compared with the same absolute state directory"
-  assert_grep ">> '$state_override/relative-state.status'" "$brief" \
+  assert_grep "'$state_override/relative-state.status'" "$brief" \
     "relative FM_STATE_OVERRIDE did not render an absolute secondmate status path"
 
   brief="$data_override/relative-data/brief.md"
@@ -937,7 +937,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_DATA_OVERRIDE changed charter bytes compared with the same absolute data directory"
-  assert_grep ">> '$home/state/relative-data.status'" "$brief" \
+  assert_grep "'$home/state/relative-data.status'" "$brief" \
     "relative FM_DATA_OVERRIDE changed the absolute default status path"
 
   err="$root/unresolved.err"
@@ -1014,9 +1014,9 @@ test_pause_verb_override_renders_all_brief_scaffolds() {
     # may not carry an unevaluated substitution that a file-write tool would
     # copy through verbatim.
     # shellcheck disable=SC2016 # Match literal backticks in the generated interface.
-    append=$(sed -n '/`echo "{state}/s/.*`\(echo .*\)`.*/\1/p' "$brief")
+    append=$(awk '/appending one line:/{getline; gsub(/^ *`|` *$/, ""); print; exit}' "$brief")
     now=$(date +%s)
-    append=${append//\{state\}/done}
+    append=${append//\{state\}/working}
     append=${append//\{one short line\}/test event}
     append=${append//<epoch>/$now}
     case "$append" in
@@ -1738,6 +1738,103 @@ test_default_briefs_require_attached_waits() {
   done
   pass 'default ship and scout briefs require attached waits and forbid duplicate gate responses'
 }
+
+# Reconstruct the 2026-10-30 and 2026-11-24/25 done-before-pr correction:
+# a committed ship reports completion without opening its delivery PR.
+test_generated_status_refuses_done_before_pr() {
+  local home mode id brief append command rc note
+  home="$TMP_ROOT/done-before-pr path's"
+  mkdir -p "$home/data" "$home/state" "$home/config"
+  printf 'enterprise.example.com\n' > "$home/config/github-hosts"
+  for mode in no-mistakes direct-PR local-only scout; do
+    id="guard-$mode"
+    if [ "$mode" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --scout >/dev/null
+      printf 'kind=scout\n' > "$home/state/$id.meta"
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode "$mode" >/dev/null
+      printf 'kind=ship\nmode=%s\n' "$mode" > "$home/state/$id.meta"
+    fi
+    brief="$home/data/$id/brief.md"
+    append=$(awk '/appending one line:/{getline; gsub(/^ *`|` *$/, ""); print; exit}' "$brief")
+    [ -n "$append" ] || fail 'generated brief has no status command'
+    append=${append//\{state\}/done}
+    append=${append//<epoch>/1795628587}
+    command=${append//\{one short line\}/committed implementation; ready for validation}
+    rc=0
+    bash -c "$command" > "$home/out" 2>&1 || rc=$?
+    case "$mode" in
+      no-mistakes|direct-PR)
+        [ "$rc" -ne 0 ] || fail "$mode accepted done after commit without a PR"
+        assert_absent "$home/state/$id.status" 'refused done wrote a terminal event'
+        assert_grep 'delivery pipeline' "$home/out" 'refusal omitted recovery guidance'
+        note='PR https://github.com/example/project/pull/123 checks green'
+        if [ "$mode" = no-mistakes ]; then
+          note='PR https://enterprise.example.com/example/project/pull/123 checks green'
+        fi
+        command=${append//\{one short line\}/$note}
+        if bash -c "$command" > "$home/out" 2>&1; then
+          fail "$mode accepted an unrecorded PR"
+        fi
+        command=${append//\{one short line\}/register review ${note#PR }}
+        command=${command/ checks green/}
+        command=${command/"done [at="/"blocked [key=review-registration] [at="}
+        bash -c "$command" || fail "$mode could not request registration before done"
+        assert_grep 'blocked [key=review-registration]' "$home/state/$id.status" 'registration request did not reach the status channel'
+        assert_no_grep 'done ' "$home/state/$id.status" 'registration request completed the task'
+        rm "$home/state/$id.status"
+        printf 'pr=%s\n' "${note#PR }" | sed 's/ checks green$//' >> "$home/state/$id.meta"
+        for note in "committed follow-up to ${note#PR } ; ready for validation" 'committed follow-up to https://github.com/o/r/pull/7 ; ready for validation' 'PR https://github.com/o/r/pull/7 checks green'; do
+          command=${append//\{one short line\}/$note}
+          if bash -c "$command" > "$home/out" 2>&1; then
+            fail "$mode accepted an unrelated PR"
+          fi
+        done
+        assert_absent "$home/state/$id.status" 'rejected review wrote a terminal event'
+        note="PR $(sed -n 's/^pr=//p' "$home/state/$id.meta") checks green"
+        command=${append//\{one short line\}/$note}
+        bash -c "$command" || fail "$mode refused done with a PR URL"
+        ;;
+      *) [ "$rc" -eq 0 ] || fail "$mode completion was affected" ;;
+    esac
+    assert_grep 'done [at=1795628587]:' "$home/state/$id.status" 'accepted event lost its stamp'
+  done
+  # Promotion must consult the changed metadata rather than the scout scaffold.
+  printf 'kind=ship\nmode=direct-PR\n' > "$home/state/$id.meta"
+  rm "$home/state/$id.status"
+  if bash -c "$command" > "$home/out" 2>&1; then
+    fail 'promoted scout retained a completion exemption'
+  fi
+  assert_absent "$home/state/$id.status" 'promoted scout wrote a premature done'
+  for note in '' 'https://example.com/report' 'PR https://github.com/example/project/pull/0'; do
+    command=${append//\{one short line\}/$note}
+    if bash -c "$command" > "$home/out" 2>&1; then
+      fail 'missing or malformed PR URL was accepted'
+    fi
+  done
+  printf 'pr=https://github.com/example/project/pull/123\n' >> "$home/state/$id.meta"
+  "$ROOT/bin/fm-status.sh" --dry-run "$home/config" "$home/state/$id.status" \
+    'done: PR https://github.com/example/project/pull/123' > "$home/out" \
+    || fail 'dry-run refused a valid completion'
+  assert_grep "$home/state/$id.status" "$home/out" 'dry-run omitted destination'
+  assert_absent "$home/state/$id.status" 'dry-run appended an event'
+  id=remote-secondmate
+  home="$TMP_ROOT/remote-secondmate"
+  mkdir -p "$home/data" "$home/state" "$home/config"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" --secondmate --no-projects >/dev/null
+  brief="$home/data/$id/brief.md"
+  append=$(awk '/appending one line:/{getline; gsub(/^ *`|` *$/, ""); print; exit}' "$brief")
+  mkdir -p "$home/remote/state"
+  append=${append//"$home/state/$id.status"/"$home/remote/state/parent-replies.status"}
+  append=${append//\{state\}/done}
+  append=${append//<epoch>/1795628587}
+  append=${append//\{one short line\}/charter complete}
+  bash -c "$append" || fail 'remote secondmate completion required parent metadata'
+  assert_grep 'done [at=1795628587]: charter complete' "$home/remote/state/parent-replies.status" 'remote secondmate lost its report'
+  pass 'generated status command refuses publishing ship completion without a PR'
+}
+
+test_generated_status_refuses_done_before_pr
 
 test_default_briefs_require_attached_waits
 test_script_parses

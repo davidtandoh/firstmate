@@ -1723,6 +1723,9 @@ families_for_changed_path() {
     bin/fm-gate-refuse*|bin/fm-lock*)
       printf '%s\n' session-bootstrap
       ;;
+    bin/fm-status.sh)
+      printf '%s\n' "__script__:fm-brief.test.sh"
+      ;;
     bin/fm-bootstrap.sh)
       printf '%s\n' session-bootstrap
       printf '%s\n' "__script__:fm-brief.test.sh"

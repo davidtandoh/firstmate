@@ -185,7 +185,7 @@ worker_status_command() {  # <state> <note> [<state-dir> [<config-dir>]]
     "$ROOT/bin/fm-brief.sh" "$TASK" sample --mode no-mistakes >/dev/null) \
     || fail "brief scaffold failed"
   # shellcheck disable=SC2016 # Match literal backticks in the generated brief.
-  cmd=$(sed -n '/`echo "{state}/s/.*`\(echo .*\)`.*/\1/p' "$HOME_DIR/data/$TASK/brief.md" | head -1)
+  cmd=$(awk '/4. Report status by appending one line:/{getline; gsub(/^ *`|` *$/, ""); print; exit}' "$HOME_DIR/data/$TASK/brief.md")
   [ -n "$cmd" ] || fail "the brief carries no status command"
   cmd=${cmd//\{state\}/$1}
   cmd=${cmd//<epoch>/1790000000}
@@ -270,10 +270,10 @@ test_worker_status_line_with_the_flag_absent() {
   local out leftovers
   make_case off-immediate off
   mkdir -p "$HOME_DIR/data"
-  out=$(run_worker_command "$(worker_status_command 'done' 'ready')" 2>&1) \
+  out=$(run_worker_command "$(worker_status_command 'working' 'ready')" 2>&1) \
     || fail "the worker status command failed: $out"
   assert_equals "" "$out" "worker status command output"
-  assert_equals "done [at=1790000000]: ready" "$(cat "$HOME_DIR/state/$TASK.status")" "status log"
+  assert_equals "working [at=1790000000]: ready" "$(cat "$HOME_DIR/state/$TASK.status")" "status log"
   leftovers=$(cd "$HOME_DIR/state" && find . -name '*fleet-ledger*')
   assert_equals "" "$leftovers" "ledger files with the flag absent"
   pass "flag off: the worker's status command is a plain append and leaves no ledger file, offset, or lock"
