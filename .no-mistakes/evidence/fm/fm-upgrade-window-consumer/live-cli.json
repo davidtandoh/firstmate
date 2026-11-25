@@ -1,0 +1,96 @@
+[
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "upgrade-gate"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 75,
+    "expected_exit": 75,
+    "expired": false,
+    "phase": "pausing",
+    "stderr": "deferred: an Omnigent upgrade (job live-cli-window, phase pausing) has paused new Omnigent work until it resumes or 2026-11-25T15:42Z; remote secondmate recovery was not started and nothing changed - retry after the window closes\n",
+    "stdout": ""
+  },
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "run",
+      "codex",
+      "upgrade admission verification"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 75,
+    "expected_exit": 75,
+    "expired": false,
+    "phase": "pausing",
+    "stderr": "deferred: an Omnigent upgrade (job live-cli-window, phase pausing) has paused new Omnigent work until it resumes or 2026-11-25T15:42Z; the Omnigent codex launch was not started and nothing changed - retry after the window closes\n",
+    "stdout": ""
+  },
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "upgrade-gate"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 75,
+    "expected_exit": 75,
+    "expired": false,
+    "phase": "switching",
+    "stderr": "deferred: an Omnigent upgrade (job live-cli-window, phase switching) has paused new Omnigent work until it resumes or 2026-11-25T15:42Z; remote secondmate recovery was not started and nothing changed - retry after the window closes\n",
+    "stdout": ""
+  },
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "run",
+      "codex",
+      "upgrade admission verification"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 75,
+    "expected_exit": 75,
+    "expired": false,
+    "phase": "switching",
+    "stderr": "deferred: an Omnigent upgrade (job live-cli-window, phase switching) has paused new Omnigent work until it resumes or 2026-11-25T15:42Z; the Omnigent codex launch was not started and nothing changed - retry after the window closes\n",
+    "stdout": ""
+  },
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "upgrade-gate"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 0,
+    "expected_exit": 0,
+    "expired": false,
+    "phase": "resumed",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "ack_exists": false,
+    "command": [
+      "bash",
+      "bin/fm-omnigent.sh",
+      "upgrade-gate"
+    ],
+    "deferred_job": "live-cli-window",
+    "exit": 0,
+    "expected_exit": 0,
+    "expired": true,
+    "phase": "switching",
+    "stderr": "",
+    "stdout": ""
+  }
+]
