@@ -26,7 +26,7 @@
 # tool that ships before anyone updates a local deny list is still refused.
 # Its one argument-aware exclusion is Claude Code's built-in read-only web-fetch
 # agent: a Claude Agent or Task payload whose subagent_type is exactly
-# web-fetch is allowed unless a project, user, or plugin agent definition of
+# web-fetch is allowed unless a project or user agent definition of
 # that name exists (READ_ONLY_SUBAGENT below).
 #
 # The guard is narrow by design. It classifies ONE thing: the shape of the tool
@@ -88,7 +88,7 @@ PLAN_ONLY_TOOLS='taskcreate taskupdate'
 # report into this turn, so it is not the untracked work this guard stops.
 # The exemption is exact: only a Claude Agent or Task call (stdin transport)
 # whose tool_input.subagent_type is exactly "web-fetch", and only while no
-# project, user, or plugin agent definition of that name exists, because such a
+# project or user agent definition of that name exists, because such a
 # definition would replace the built-in agent and borrow its exemption.
 READ_ONLY_SUBAGENT='web-fetch'
 
@@ -105,7 +105,7 @@ With no --tool, reads a PreToolUse-style JSON payload on stdin (Claude/Codex
 tool_name, Grok toolName, or Antigravity toolCall.name).
 Denies a delegation-SHAPED tool name in a genuine primary home.
 Allows a Claude Agent or Task payload whose subagent_type is exactly web-fetch,
-unless a project, user, or plugin agent definition named web-fetch exists.
+unless a project or user agent definition named web-fetch exists.
 Claude primaries may also add an untracked per-home permissions.deny list that
 removes known delegation tools from the model schema before this hook is needed.
 Do not ship that Claude-only list in tracked project settings, because linked
@@ -210,18 +210,18 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 
 # Whether any agent definition named $READ_ONLY_SUBAGENT exists in a standard
 # Claude Code location: the project's .claude/agents, the user's agents
-# directory, and the agents directory of every installed plugin. A definition
-# matches by file name or by a frontmatter name line. A location that cannot be
+# directory. A definition matches by file name or by a name in its leading
+# frontmatter block. A location that cannot be
 # searched or read completely counts as a match, so an unreadable definition
 # never grants the exemption.
 custom_read_only_agent_defined() {
-  local dir files file status
+  local dir files file status matched
   local -a dirs=()
   dirs+=("$FM_ROOT/.claude/agents")
   [ -z "${CLAUDE_PROJECT_DIR:-}" ] || dirs+=("$CLAUDE_PROJECT_DIR/.claude/agents")
   [ -z "$PAYLOAD_CWD" ] || dirs+=("$PAYLOAD_CWD/.claude/agents")
-  [ -z "${CLAUDE_CONFIG_DIR:-}" ] || dirs+=("$CLAUDE_CONFIG_DIR/agents" "$CLAUDE_CONFIG_DIR/plugins")
-  [ -z "${HOME:-}" ] || dirs+=("$HOME/.claude/agents" "$HOME/.claude/plugins")
+  [ -z "${CLAUDE_CONFIG_DIR:-}" ] || dirs+=("$CLAUDE_CONFIG_DIR/agents")
+  [ -z "${HOME:-}" ] || dirs+=("$HOME/.claude/agents")
   for dir in "${dirs[@]}"; do
     [ -e "$dir" ] || [ -L "$dir" ] || continue
     status=0
@@ -229,14 +229,18 @@ custom_read_only_agent_defined() {
     [ "$status" -eq 0 ] || return 0
     while IFS= read -r file; do
       [ -n "$file" ] || continue
-      case "$dir" in
-        */plugins) case "$file" in */agents/*) ;; *) continue ;; esac ;;
-      esac
       [ "$(basename -- "$file")" != "$READ_ONLY_SUBAGENT.md" ] || return 0
-      status=0
-      grep -qE "^name:[[:space:]]*[\"']?${READ_ONLY_SUBAGENT}[\"']?[[:space:]]*\$" "$file" 2>/dev/null || status=$?
-      [ "$status" -ne 0 ] || return 0
-      [ "$status" -eq 1 ] || return 0
+      matched=$(awk -v name="$READ_ONLY_SUBAGENT" '
+        BEGIN { quote = sprintf("%c", 39) }
+        NR == 1 { in_frontmatter = ($0 ~ /^---[[:space:]]*$/); next }
+        in_frontmatter && /^(---|\.\.\.)[[:space:]]*$/ { in_frontmatter = 0 }
+        in_frontmatter {
+          pattern = "^name:[[:space:]]*(" name "|\"" name "\"|" quote name quote ")([[:space:]]+#.*)?[[:space:]]*$"
+          if ($0 ~ pattern) found = 1
+        }
+        END { print found + 0 }
+      ' "$file" 2>/dev/null) || return 0
+      [ "$matched" != 1 ] || return 0
     done <<EOF
 $files
 EOF

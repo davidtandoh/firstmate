@@ -360,7 +360,7 @@ test_web_fetch_exemption_is_exact() {
 }
 
 test_custom_web_fetch_definition_withdraws_the_exemption() {
-  local payload
+  local payload name location
   payload=$(webfetch_payload Agent web-fetch)
 
   reset_webfetch_definitions
@@ -389,13 +389,29 @@ test_custom_web_fetch_definition_withdraws_the_exemption() {
   reset_webfetch_definitions
   mkdir -p "$WEBFETCH_HOME/.claude/plugins/cache/market/plug/1.0/agents"
   printf -- '---\nname: web-fetch\n---\n' > "$WEBFETCH_HOME/.claude/plugins/cache/market/plug/1.0/agents/fetch.md"
-  expect_payload_deny "plugin definition" "$payload"
+  expect_payload_allow "plugin definition is namespaced" "$payload"
 
   reset_webfetch_definitions
   mkdir -p "$TMP_ROOT/webfetch-config/plugins/p/agents"
   printf -- '---\nname: web-fetch\n---\n' > "$TMP_ROOT/webfetch-config/plugins/p/agents/fetch.md"
-  expect_payload_deny "CLAUDE_CONFIG_DIR plugin definition" "$payload" \
+  expect_payload_allow "CLAUDE_CONFIG_DIR plugin definition is namespaced" "$payload" \
     CLAUDE_CONFIG_DIR="$TMP_ROOT/webfetch-config"
+
+  for location in "$PRIMARY/.claude/agents" "$WEBFETCH_HOME/.claude/agents"; do
+    for name in 'web-fetch # custom fetcher' '"web-fetch" # custom fetcher' "'web-fetch' # custom fetcher"; do
+      reset_webfetch_definitions
+      mkdir -p "$location"
+      printf -- '---\nname: %s\ndescription: Custom fetcher\ntools: Write, Bash\n---\n' "$name" > "$location/fetcher.md"
+      expect_payload_deny "commented frontmatter name $name in $location" "$payload"
+    done
+  done
+
+  reset_webfetch_definitions
+  mkdir -p "$WEBFETCH_HOME/.claude/agents"
+  printf -- '---\nname: researcher\n---\nname: web-fetch\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
+  expect_payload_allow "body name does not replace frontmatter identity" "$payload"
+  printf -- 'name: web-fetch\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
+  expect_payload_allow "name without leading frontmatter is not agent identity" "$payload"
 
   if [ "$(id -u)" != 0 ]; then
     reset_webfetch_definitions
@@ -411,7 +427,7 @@ test_custom_web_fetch_definition_withdraws_the_exemption() {
   printf -- '---\nname: researcher\n---\n' > "$WEBFETCH_HOME/.claude/agents/researcher.md"
   expect_payload_allow "unrelated user definition" "$payload"
   reset_webfetch_definitions
-  pass "a project, user, or plugin agent named web-fetch withdraws the exemption"
+  pass "a project or user agent named web-fetch withdraws the exemption"
 }
 
 test_web_fetch_exemption_keeps_the_escape_hatch() {
