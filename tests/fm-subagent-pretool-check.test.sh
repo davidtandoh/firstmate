@@ -134,6 +134,21 @@ test_plan_only_exclusion_is_exact_name() {
   pass "the plan-only exclusion releases exactly two names and nothing that merely contains them"
 }
 
+test_guard_allows_subagent_report_handback() {
+  # A subagent delivers its finished report through SubagentHandback. The hook
+  # also fires on a subagent's own tool calls, so denying this name left the
+  # allowed web-fetch agent unable to return any report to the primary.
+  # Delivering a report starts no work, so the exclusion is the exact name only.
+  local tool
+  expect_allow "subagent report handback" SubagentHandback
+  expect_payload_allow "web-fetch report handback" \
+    '{"tool_name":"SubagentHandback","agent_type":"web-fetch","tool_input":{"message":"report"}}'
+  for tool in SubagentHandbackAgent HandbackSubagent SubagentHandoff SendMessage; do
+    expect_deny "report handback near miss" "$tool"
+  done
+  pass "a subagent can hand its report back while near-miss names stay denied"
+}
+
 test_guard_never_classifies_mcp_tools() {
   # An MCP server names its own tools; a task or agent noun there is common and
   # has nothing to do with fleet dispatch.
@@ -469,3 +484,4 @@ test_builtin_web_fetch_agent_is_allowed
 test_web_fetch_exemption_is_exact
 test_custom_web_fetch_definition_withdraws_the_exemption
 test_web_fetch_exemption_keeps_the_escape_hatch
+test_guard_allows_subagent_report_handback
