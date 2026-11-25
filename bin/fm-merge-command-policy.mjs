@@ -20,7 +20,10 @@ function rawMerge(position) {
     const flag = args[index++];
     if (["-R", "--repo", "--hostname"].includes(flag)) index += 1;
   }
-  if (args[index] === "pr") return args[index + 1] === "merge";
+  if (args[index] === "pr") {
+    if (args[index + 1] !== "merge") return false;
+    return !(args.length === index + 3 && args[index + 2] === "--help");
+  }
   if (args[index] !== "api") return false;
 
   let method = "GET";

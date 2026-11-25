@@ -513,6 +513,12 @@ test_merge_bypass_guard() {
     "bash -lc 'gh pr merge 43'" \
     "eval 'gh pr merge 43'" \
     'echo "$(gh pr merge 43)"' \
+    'gh pr merge 43 --subject --help' \
+    'gh-axi pr merge 43 --body --help' \
+    'gh pr merge 43 --subject=--help' \
+    'gh-axi pr merge 43 -t --help' \
+    'gh pr merge 43 -- --help' \
+    'gh pr merge --help; gh-axi pr merge 43' \
     'gh api --method=PUT /repos/fixture/repo/pulls/43/merge' \
     'gh api -XPUT https://api.github.com/repos/fixture/repo/pulls/43/merge' \
     'gh api repos/fixture/repo/pulls/43/merge -f merge_method=squash' \
@@ -523,6 +529,10 @@ test_merge_bypass_guard() {
     assert_contains "$out" '[raw-pr-merge]' "nested merge must carry the merge reason"
   done
   for cmd in \
+    'gh pr merge --help' \
+    'gh-axi pr merge --help' \
+    'gh -R fixture/repo pr merge --help' \
+    "bash -lc 'gh-axi pr merge --help'" \
     'bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43' \
     'gh pr view 43' \
     'gh api repos/fixture/repo/pulls/43' \
@@ -550,9 +560,15 @@ test_merge_bypass_guard() {
   out=$("$child/bin/fm-arm-pretool-check.sh" --claude --command 'gh pr merge 43' 2>&1); rc=$?
   expect_code 2 "$rc" "linked secondmate home must be guarded"
   assert_contains "$out" '[raw-pr-merge]' "secondmate merge must carry the merge reason"
+  out=$("$child/bin/fm-arm-pretool-check.sh" --claude --command 'gh pr merge --help' 2>&1); rc=$?
+  expect_code 0 "$rc" "linked secondmate must allow merge help"
+  [ -z "$out" ] || fail "secondmate merge help was not silently allowed: $out"
   printf 'sm-merge\n' > "$dir/.fm-secondmate-home"
   out=$("$checker" --claude --command 'gh-axi pr merge 43' 2>&1); rc=$?
   expect_code 2 "$rc" "plain secondmate home must be guarded"
+  out=$("$checker" --claude --command 'gh-axi pr merge --help' 2>&1); rc=$?
+  expect_code 0 "$rc" "plain secondmate must allow merge help"
+  [ -z "$out" ] || fail "plain secondmate merge help was not silently allowed: $out"
   pass "merge bypasses refused through every harness transport; guarded path and read-only commands allowed"
 }
 
