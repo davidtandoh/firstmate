@@ -134,7 +134,7 @@ TOML
   FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer correct-archived \
     --decision-file "$home/decision.txt" >/dev/null
   FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" add archive-trigger-1 "Trigger retention" >/dev/null
-  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" done archive-trigger-1 >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" "done" archive-trigger-1 >/dev/null
   assert_grep 'correct-archived' "$home/data/history/completed.md" "completion archives the original id"
   if task_show "$home" correct-archived >/dev/null 2>&1; then
     fail "the original task must be absent from the live backlog"
@@ -149,7 +149,7 @@ TOML
   FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer "$successor" \
     --decision-file "$home/decision.txt" >/dev/null
   FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" add archive-trigger-2 "Trigger retention again" >/dev/null
-  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" done archive-trigger-2 >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" "done" archive-trigger-2 >/dev/null
   assert_grep "$successor" "$home/data/history/completed.md" "completion archives the dated id"
   if task_show "$home" "$successor" >/dev/null 2>&1; then
     fail "the dated task must be absent from the live backlog"

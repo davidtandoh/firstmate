@@ -147,7 +147,7 @@ command_add() {
   task="correct-$class"
   while :; do
     if fm_backlog_row_probe "$DATA" "$task"; then
-      if [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; then
+      if [ "${FM_BACKLOG_ROW_STATE%% *}" != "done" ]; then
         printf 'correct task already covers class: %s\n' "$task"
         return 0
       fi
