@@ -29,9 +29,10 @@
 # web-fetch is allowed unless a project or user agent definition of
 # that frontmatter name exists (READ_ONLY_SUBAGENT below).
 #
-# The guard is narrow by design. It classifies ONE thing: the shape of the tool
-# name. It makes no judgment about whether the work should be delegated at all,
-# which is a reasoning boundary no tool-shape hook can enforce.
+# The guard is narrow by design. It classifies the shape of the tool name,
+# with the read-only exclusion above. It makes no judgment about whether the
+# work should be delegated at all, which is a reasoning boundary no tool-shape
+# hook can enforce.
 # See docs/subagent-guard.md for the complete contract and validation record.
 #
 # Usage:

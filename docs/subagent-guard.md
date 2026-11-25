@@ -3,7 +3,7 @@
 This document is the authoritative human-readable contract for the guard that stops a firstmate primary from delegating work outside the fleet.
 
 The shipped mechanism is `bin/fm-subagent-pretool-check.sh`, a PreToolUse guard that denies a delegation-SHAPED tool name in a genuine primary home.
-Claude primaries should also use an untracked per-home local `permissions.deny` list as hardening for known Claude delegation tools, because it removes them from the model's schema entirely.
+Claude primaries should also use the [recommended local deny list](#recommended-local-claude-deny-list) to remove other known Claude delegation tools from the model's schema while retaining the guarded web-fetch path.
 That deny list must not ship in tracked `.claude/settings.json` because it is Claude-only rather than harness-agnostic, and because tracked project settings propagate into linked worktrees where they disarm legitimate crewmates.
 
 ## Why this exists
@@ -75,7 +75,7 @@ Four exclusions keep the shape test from producing false positives.
 Both exclusion lists match the whole normalized name, never a substring, so neither can widen by accident: `TaskCreateAgent` and `RemoteTaskCreate` stay denied.
 Folding the two lists together would be the drift risk, because the observe-or-stop rationale is not true of a tool that writes.
 
-The shipped guard fires on every delegation-shaped name that reaches it, including future names that no deny list knows about yet.
+Apart from the exclusions above, the shipped guard fires on every delegation-shaped name that reaches it, including future names that no deny list knows about yet.
 That future-name behavior is the reason the tracked matcher must match all tools and let the script filter.
 
 ## Recommended Local Claude Deny List
@@ -86,8 +86,6 @@ Claude primaries should add this deny list in untracked per-home local settings,
 {
   "permissions": {
     "deny": [
-      "Task",
-      "Agent",
       "Workflow",
       "RemoteTrigger",
       "Monitor",
@@ -112,6 +110,9 @@ The model is never offered the tool, so there is no call to intercept, no matche
 This is removal, not interception, and it is strictly stronger than any hook.
 
 This list is recommended local hardening because it closes the known Claude surface before the hook is needed.
+It leaves `Agent` and `Task` available so the hook can apply the web-fetch exclusion described above and deny other subagent calls.
+If an existing local list denies either name, remove both entries before launching a primary that needs web-fetch.
+An operator who deliberately disables all subagents may retain both entries, but the hook cannot restore web-fetch through a tool removed from the schema.
 It is not tracked for two reasons.
 
 - It is Claude-only, so it can never be the harness-agnostic shipped fix.
@@ -139,8 +140,8 @@ That is not what this machine shows.
 A five-way A/B with a control, each run in its own directory to rule out settings caching, found that `Task` and `Agent` each independently remove the tool, and that a nonsense name leaves it present.
 The full evidence is in the validation record below.
 
-Pinning both names in the recommended local deny list is correct regardless of which build is running.
-It costs one line and removes the failure mode where a rename or a rollback silently reopens the surface.
+For an operator who deliberately disables all subagents, pinning both names covers either tool name across builds.
+The recommended list above instead leaves both names available for the guarded web-fetch path.
 
 ## Scope
 
@@ -192,7 +193,7 @@ Applicability turns on one question: does the harness expose built-in delegation
 
 | Harness | Delegation surface | Status |
 | --- | --- | --- |
-| Claude | 16 known tools, listed above | Scoped guard wired and live-verified; untracked local deny list verified and recommended. |
+| Claude | Known tools listed above, plus `Agent` and `Task` | Scoped guard wired and live-verified; local denial mechanics verified below; current exclusions covered by the automated validation matrix. |
 | Antigravity | present (`invoke_subagent`, `define_subagent`) | Scoped guard wired and live-verified via `.agents/hooks.json` PreToolUse hook (`bin/fm-subagent-pretool-check.sh --agy`). |
 | Codex | none | Not applicable, verified empirically below. Codex 0.144.1 exposes no subagent, sub-task, or delegated-agent tool, so there is nothing to remove or intercept. `.codex/hooks.json` is unchanged. |
 | Grok | present, exact tokens unconfirmed | Not wired pending live verification. See below. |
