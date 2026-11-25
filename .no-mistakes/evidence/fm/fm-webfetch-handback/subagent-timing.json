@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 4656,
+      "failed": 0,
+      "name": "pure-contract-unit"
+    }
+  ],
+  "finished_at": "2026-11-25T15:26:28Z",
+  "run_id": "fm-test-run-1795620384161-73860",
+  "scripts": [
+    {
+      "duration_ms": 4656,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-subagent-pretool-check.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-25T15:26:24Z",
+  "summary": {
+    "duration_ms": 4718,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}

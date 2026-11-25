@@ -1,0 +1,51 @@
+[
+  {
+    "scenario": "Launch read-only web fetch",
+    "input": {
+      "tool_name": "Agent",
+      "tool_input": {
+        "subagent_type": "web-fetch",
+        "prompt": "Read https://example.com"
+      }
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scenario": "Deliver completed report",
+    "input": {
+      "tool_name": "SubagentHandback",
+      "agent_type": "web-fetch",
+      "tool_input": {
+        "message": "Example Domain"
+      }
+    },
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scenario": "Block message follow-up",
+    "input": {
+      "tool_name": "SendMessage",
+      "tool_input": {
+        "recipient": "web-fetch",
+        "message": "Return the report"
+      }
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[subagent-dispatch] the firstmate primary dispatches through the fleet, not the harness's own delegation tools: work started that way has no durable fleet record, leaves every firstmate guard inert, and dies with this session. Instead, first classify the work under the AGENTS.md intake contract, then use bin/fm-brief.sh followed by bin/fm-spawn.sh for dispatched work (blocked tool: SendMessage, delegation-shaped on \\\"sendmessage\\\"). Launch the session with FM_ALLOW_SUBAGENT=1 for a deliberate exception.\"}\n"
+  },
+  {
+    "scenario": "Block handback near miss",
+    "input": {
+      "tool_name": "SubagentHandbackAgent",
+      "tool_input": {}
+    },
+    "exit": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[subagent-dispatch] the firstmate primary dispatches through the fleet, not the harness's own delegation tools: work started that way has no durable fleet record, leaves every firstmate guard inert, and dies with this session. Instead, first classify the work under the AGENTS.md intake contract, then use bin/fm-brief.sh followed by bin/fm-spawn.sh for dispatched work (blocked tool: SubagentHandbackAgent, delegation-shaped on \\\"agent\\\"). Launch the session with FM_ALLOW_SUBAGENT=1 for a deliberate exception.\"}\n"
+  }
+]

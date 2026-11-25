@@ -1,0 +1,4 @@
+Claude Code 2.1.332 installed; normal login available (loggedIn=true).
+Created isolated marked lab .test-webfetch-lab. Attempted interactive primary from run worktree using tmux -L fm-lab and TMUX_TMPDIR=.test-webfetch-lab/tmux.
+Launch failed before Claude started: error connecting to /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89MZ6QDG8YXQXZXFQ2M2PC3/.test-webfetch-lab/tmux/tmux-501/fm-lab (File name too long).
+macOS Unix-domain socket pathname limit prevents this socket under the required worktree path. Provide authority for a shorter external private socket directory to re-run. No default tmux server or fleet panes touched.
