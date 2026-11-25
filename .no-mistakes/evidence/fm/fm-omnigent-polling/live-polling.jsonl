@@ -1,0 +1,4 @@
+{"scenario": "four approval/liveness pairs share one real session GET", "results": [{"probe": "alive", "approvals": {"pending_count": 0}}, {"probe": "alive", "approvals": {"pending_count": 0}}, {"probe": "alive", "approvals": {"pending_count": 0}}, {"probe": "alive", "approvals": {"pending_count": 0}}], "upstream_requests": [{"path": "/v1/sessions/707a50f9d11c48d59c59ac46605196a4", "status": 200}]}
+{"scenario": "fresh read bypasses cache and preserves shared snapshot", "probe": "alive", "total_upstream_GETs": 2}
+{"scenario": "expired snapshot refreshes against real server", "total_upstream_GETs": 3}
+{"scenario": "new launch binding invalidates snapshot; real missing session is dead", "last_request": {"path": "/v1/sessions/00000000000000000000000000000000", "status": 404}}
