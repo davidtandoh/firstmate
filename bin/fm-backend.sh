@@ -1556,12 +1556,20 @@ fm_backend_agent_state() {  # <backend> <target>
 # (bin/fm-omnigent.sh probe) turns a server that stopped answering or a
 # session whose runner is gone into `dead`, so the ordinary dead-endpoint
 # report and recovery take over. Every other reading passes through unchanged.
-# Supervision readers only: lifecycle gates keep the pane-level verdict.
-fm_backend_omnigent_agent_state() {  # <pane agent state> <task meta>
+# Recovery readers use a fresh probe by default. Watcher and crew-state readers
+# may pass --cached to share the bounded supervision snapshot. Lifecycle gates
+# keep the pane-level verdict and stop-attach requires its own fresh proof.
+fm_backend_omnigent_agent_state() {  # <pane agent state> <task meta> [--cached]
   local state=$1 meta=$2
+  local probe_args=(--fresh)
+  case "${3:-}" in
+    --cached) probe_args=() ;;
+    '') ;;
+    *) printf 'unknown'; return 0 ;;
+  esac
   if [ "$state" = alive ] && [ "$(fm_meta_get "$meta" omnigent)" = on ] &&
      [ -n "$(fm_meta_get "$meta" omnigent_session)" ] &&
-     [ "$(bash "$FM_BACKEND_LIB_DIR/fm-omnigent.sh" probe "$meta" 2>/dev/null)" = dead ]; then
+     [ "$(bash "$FM_BACKEND_LIB_DIR/fm-omnigent.sh" probe ${probe_args[@]+"${probe_args[@]}"} "$meta" 2>/dev/null)" = dead ]; then
     state=dead
   fi
   printf '%s' "$state"

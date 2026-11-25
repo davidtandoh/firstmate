@@ -102,10 +102,18 @@ The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.
 
 The pane check proves only that the Omnigent attach client is running.
-When it reads alive and a session binding exists, supervision readers and local or remote secondmate liveness probes also make one bounded read of the server's `/health` and the recorded session.
+When it reads alive and a session binding exists, supervision readers consult the shared session snapshot.
+The watcher, crew-state reconciliation, and stale checks share one sanitized snapshot per task and launch binding.
+The snapshot contains runner liveness and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
+A successful session read proves reachability without a separate `/health` request.
+An inconclusive session read also checks `/health` to distinguish an unreachable server from an unknown session verdict.
+Slow or failed reads reduce the refresh rate through bounded backoff.
+The [`bin/fm-omnigent.sh` header](../bin/fm-omnigent.sh) owns expiry, request limits, cache identity, and refresh mechanics.
 An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
 An absent binding or an inconclusive session response leaves the pane verdict unchanged.
-Lifecycle commands use the dead-session verdict to stop a retained attach client, then require the pane-level verdict to confirm that the client stopped.
+Secondmate recovery readers require fresh session reads, including remote recovery probes.
+Lifecycle commands require a fresh session read before stopping a retained attach client, then require the pane-level verdict to confirm that the client stopped.
+Cached supervision verdicts never authorize that signal.
 
 ## Upgrade pause window
 
@@ -184,7 +192,8 @@ The parent sends its resolved mode for launch and relaunch, including secondmate
 The remote endpoint reports its actual mode to the parent, alongside its native profile.
 A recorded wrapped task remains wrapped through recovery.
 
-On each pane poll, the watcher reads pending approvals from the recorded Omnigent session before applying busy or declared-wait suppression.
+On each pane poll, the watcher consults pending approvals through the shared session snapshot before applying busy or declared-wait suppression.
+Snapshot expiry bounds approval detection latency; server failures can extend it to the backoff limit.
 An outstanding approval emits one actionable check wake per session and approval id, naming the task, endpoint, and a safe prompt heading.
 The daemon routes this wake directly to escalation without stale-task or declared-wait classification.
 Unrecognized prompt text uses a generic summary; command previews and tool arguments are never included.
