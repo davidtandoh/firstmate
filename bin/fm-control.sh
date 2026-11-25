@@ -94,7 +94,7 @@
 #              The same pre-stop refusal applies to this home's worker tool
 #              exclusions (bin/fm-exclude-tools-lib.sh): a malformed list, or a
 #              replacement runtime that cannot hide the listed tools.
-#              An Omnigent-wrapped replacement during this host's active
+#              An Omnigent-wrapped replacement during its server owner's active
 #              Omnigent upgrade window (bin/fm-upgrade-window-lib.sh) prints
 #              `deferred:` and exits 75 before the old agent stops.
 #              Refused on t3code before anything is stopped: a T3 thread
@@ -1286,7 +1286,7 @@ record_note() {
   esac
 }
 
-# An open upgrade window of this host's Omnigent defers an Omnigent-wrapped
+# An open upgrade window of the server owner defers an Omnigent-wrapped
 # replacement with exit 75 before the old agent is touched
 # (bin/fm-upgrade-window-lib.sh owns the reading).
 relaunch_upgrade_window_gate() {

@@ -9,15 +9,13 @@
 # before draining Omnigent and closes it with the outcome. This file owns only
 # Firstmate's reading of it:
 #   active  - phase pausing or switching, and expires_at still in the future.
-#             No new Omnigent worker launches (fm-spawn, fm-control relaunch:
-#             exit 75, nothing changed, the backlog item stays queued) and no
-#             new prompt reaches an Omnigent session (fm-send records an inbox
-#             steer without ringing and defers a typed one with exit 75; the
-#             watcher holds re-rings). Running turns are never interrupted.
+#             docs/omnigent.md "Upgrade pause window" owns operator behavior;
+#             each caller owns its deferral status and retry contract.
 #   closed  - phase resumed, or an open phase whose expires_at has passed.
 #   absent  - no window file.
 #   invalid - unreadable or outside the schema; it warns and is treated as no
 #             window, because a window with no readable expiry has no bound.
+#   unavailable - remote owner could not be read; callers defer with exit 75.
 
 FM_UPGRADE_WINDOW_DEFER_EXIT=75
 
@@ -30,9 +28,9 @@ fm_upgrade_window_dir() {
   printf '%s/serve\n' "$root"
 }
 
-# fm_upgrade_window_read [now-epoch]
-# Sets FM_UPGRADE_WINDOW_STATE (active|closed|absent|invalid) and, unless absent
-# or invalid, FM_UPGRADE_WINDOW_JOB, _PHASE, _OUTCOME (outcome or "expired"),
+# fm_upgrade_window_read [now-epoch] [server]
+# Sets FM_UPGRADE_WINDOW_STATE (active|closed|absent|invalid|unavailable) and,
+# for active or closed, FM_UPGRADE_WINDOW_JOB, _PHASE, _OUTCOME (outcome or "expired"),
 # _EXPIRES, and _SESSIONS (one interrupted session id per line).
 fm_upgrade_window_read() {
   local now=${1:-$(date +%s)} server=${2:-} file fields content host
@@ -88,10 +86,12 @@ fm_upgrade_window_read() {
   fi
 }
 
-# fm_upgrade_window_gate <what> [state-dir]
-# 0 when no window is active (an invalid file warns on stderr); otherwise prints
-# a deferral naming <what>, records the job as deferred in this home (when
-# <state-dir> is given), and returns FM_UPGRADE_WINDOW_DEFER_EXIT.
+# fm_upgrade_window_gate <what> [state-dir] [server]
+# 0 when no window is active (an invalid file warns on stderr); an active
+# window or unavailable remote read prints a deferral and returns
+# FM_UPGRADE_WINDOW_DEFER_EXIT. Only an active window records its job as
+# deferred in this home when <state-dir> is given.
+# An omitted server inherits FM_OMNIGENT_SERVER; an empty server reads locally.
 fm_upgrade_window_gate() {
   fm_upgrade_window_read "$(date +%s)" "${3-${FM_OMNIGENT_SERVER:-}}"
   case "$FM_UPGRADE_WINDOW_STATE" in
@@ -147,9 +147,9 @@ fm_upgrade_window_tasks() {
 
 # fm_upgrade_window_supervise <state-dir>
 # One watcher poll; runs in the caller's shell so FM_UPGRADE_WINDOW_STATE stays
-# set. Once a job closes - or its window
-# vanishes or breaks - and this home deferred work for it
-# (<state>/.upgrade-window-deferred) or owns a session it lists as interrupted,
+# set. When this home deferred work for a job, closing, removing, or invalidating
+# its window produces a check reason. A closed readable window also produces a
+# reason for eligible local recovery tasks from fm_upgrade_window_tasks.
 # FM_UPGRADE_WINDOW_REASON is set to one check reason; the caller queues it and
 # then runs fm_upgrade_window_commit so it is raised once per job. Otherwise
 # FM_UPGRADE_WINDOW_REASON stays empty.

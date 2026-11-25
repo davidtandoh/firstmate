@@ -121,14 +121,22 @@ Takeaway: an Omnigent upgrade never receives new work mid-switch, and the worker
 The Agent Kit's Omnigent upgrade publishes a pause window at `${AGENT_KIT_OBSERVATION_DIR:-~/.agents/state/observation}/serve/upgrade-window.json`; the Kit owns its schema (personal-agent-kit ADR-0030).
 While the window's phase is `pausing` or `switching` and its expiry is in the future, Firstmate starts no Omnigent-wrapped worker through that server and sends no new prompt to one:
 
-- A spawn or `fm-control.sh relaunch` prints `deferred:` and exits 75 before anything changes, so the backlog item stays queued and the running agent stays untouched.
-- `fm-send.sh` still records an inbox steer but does not ring it, and the watcher holds its doorbells until the window closes; a typed-plane text exits 75 with nothing sent.
+- The initial spawn check defers before endpoint creation; `fm-control.sh relaunch` defers before stopping the old agent.
+- The launcher checks again after preflight, so an in-flight spawn can leave a task record and endpoint while its Omnigent launch is deferred.
+- Local inbox steers remain recorded while the watcher holds doorbells and retry bookkeeping until the window closes.
+- Remote inbox steers remain recorded but require a caller retry after the window closes; the [`fm-send.sh` header](../bin/fm-send.sh) owns delivery status and safe resend mechanics.
+- Typed-plane text is deferred without being sent.
 - Running turns are never interrupted, and native launches are unaffected.
 
+Launch and typed-send deferrals print `deferred:` and exit 75.
+Automatic secondmate recovery checks the server owner's window before consuming a recovery attempt or changing the endpoint, including when the destination uses its own Kit service.
 Firstmate does not write the optional acknowledgement; the Kit owns the bounded drain.
 Remote bindings read the server owner's window through a bounded, noninteractive SSH read to the binding's hostname.
 That host must be reachable through SSH with the current account; an unavailable read defers work with exit 75.
-When the job resumes or its window expires, a home that deferred work for it or owns an interrupted or stopped Omnigent session gets one `check: omnigent-upgrade` notification naming those tasks for `bin/fm-control.sh <task> relaunch`.
+When the job resumes or its window expires, a home that deferred work for it or has eligible recovery tasks gets one `check: omnigent-upgrade` notification.
+The notification names local workers whose recorded sessions were interrupted or are proven dead, plus local launches without a session binding whose endpoints are proven dead or missing.
+Review-parked workers and remote secondmates are excluded; a missing binding alone does not establish death.
+Supervision uses the notification to relaunch the named workers and retry deferred dispatch; the notification itself does not launch workers.
 An unreadable window is ignored with a warning, because it carries no expiry that would bound the pause.
 `bin/fm-upgrade-window-lib.sh` owns this reading.
 

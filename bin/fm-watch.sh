@@ -293,9 +293,8 @@ WATCH_HOME_EXISTED=0
 # (inbox_steer_check below).
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
-# Omnigent upgrade window: each poll acknowledges an active window, holds
-# doorbells to local Omnigent-wrapped tasks while it is active, and raises one
-# check wake per closed job (bin/fm-upgrade-window-lib.sh owns all three).
+# bin/fm-upgrade-window-lib.sh owns upgrade-window reads and close-time wakes;
+# inbox_steer_check also gates retry bookkeeping against each task's owner.
 # shellcheck source=bin/fm-upgrade-window-lib.sh
 . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
 # The away-posture record (state/.afk-contract) is the posture in both the
@@ -4242,9 +4241,8 @@ while :; do
     triage_log "inactive-outcome reconciliation unavailable"
   fi
 
-  # Omnigent upgrade window, every poll: acknowledge an active window and wake
-  # once per job when it closes so interrupted workers are relaunched and
-  # deferred dispatch resumes. The durable wake lands before the job is marked
+  # Surface a closed upgrade job without acknowledging an active window.
+  # The durable wake lands before the job is marked
   # surfaced, so a failure between them can only repeat the wake.
   fm_upgrade_window_supervise "$STATE"
   if [ -n "$FM_UPGRADE_WINDOW_REASON" ]; then

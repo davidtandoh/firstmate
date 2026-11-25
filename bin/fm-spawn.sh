@@ -254,7 +254,9 @@
 #   Omnigent upgrade window: while the Agent Kit's upgrade window is active
 #   (bin/fm-upgrade-window-lib.sh owns the reading), every Omnigent-wrapped
 #   spawn, relaunch and secondmate included, prints `deferred:` and exits 75
-#   before any record exists; native launches are unaffected.
+#   at its initial check before endpoint creation; native launches are unaffected.
+#   The launcher's final check can also defer after task publication; see
+#   docs/omnigent.md "Upgrade pause window".
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
 #   else failed. A relaunch and a --secondmate spawn are never counted against
 #   either capacity.

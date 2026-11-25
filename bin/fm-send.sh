@@ -52,11 +52,9 @@
 # ordinary record by the worker's acknowledgement move into handled/.
 # bin/fm-task-inbox-lib.sh owns the record format, doorbell line, and retry and
 # escalation policy for ordinary and fire-and-forget records.
-# While this host's Omnigent upgrade window is active
-# (bin/fm-upgrade-window-lib.sh), a steer to a local Omnigent-wrapped task is
-# still recorded (exit 0) but not rung, and the watcher holds its re-rings until
-# the window closes; a typed-plane text to such a task exits 75 with nothing
-# sent. --key is unaffected, and a running turn is never interrupted.
+# docs/omnigent.md "Upgrade pause window" owns pause behavior.
+# A held local inbox steer exits 0; a held typed-plane text exits 75.
+# --key is unaffected.
 # On pane backends, the composer pre-check before the ring is ADVISORY only: when
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
@@ -137,8 +135,12 @@
 # The remote record is the delivery, exactly as it is
 # locally: leg exit 0 means durably recorded (fm-send then exits 0, marks the
 # pending-reply expectation delivered, and closes any --resolve-key
-# decisions), and any real remote failure fails loudly with the remote leg's
-# own stderr attached. Transport loss (ssh exit 255) means completion unknown,
+# decisions). A held upgrade doorbell instead exits 75 with the record kept;
+# retry after resume with the same body and delivery id, using the printed
+# FM_PENDING_REPLY_EXISTING_CORR resend command for reply-bearing requests.
+# Exit 75 leaves the reply expectation and --resolve-key decisions open.
+# Any real remote failure fails loudly with the remote leg's own stderr
+# attached. Transport loss (ssh exit 255) means completion unknown,
 # so fm-send retries the identical leg once - safe because the remote write
 # deduplicates the same request onto the same record - and a still-lost
 # transport exits nonzero while preserving a reply-bearing marked request's
@@ -287,9 +289,8 @@ fi
 # shellcheck source=bin/fm-upgrade-window-lib.sh
 . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
 
-# 0 when this host's active Omnigent upgrade window holds a new prompt to the
-# recorded task's local Omnigent session (bin/fm-upgrade-window-lib.sh owns the
-# reading and prints the deferral); 1 otherwise.
+# 0 when the recorded task's server-owner window holds a new prompt or cannot
+# be reached (bin/fm-upgrade-window-lib.sh prints the deferral); 1 otherwise.
 fm_send_upgrade_window_holds() { # <meta-file> <what>
   [ -n "$1" ] && [ "$(fm_meta_get "$1" omnigent)" = on ] || return 1
   ! fm_upgrade_window_gate "$2" "$STATE" "$(fm_meta_get "$1" omnigent_remote_server)"
