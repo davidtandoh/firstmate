@@ -119,14 +119,24 @@ fm_upgrade_window_note_deferred() {
 }
 
 fm_upgrade_window_tasks() {
-  local state=$1 meta session verdict
+  local state=$1 meta session verdict backend target id
   for meta in "$state"/*.meta; do
     [ -f "$meta" ] || continue
     session=$(sed -n 's/^omnigent_session=//p' "$meta" | tail -n 1)
     [ "$(sed -n 's/^omnigent=//p' "$meta" | tail -n 1)" = on ] || continue
-    [ -n "$session" ] || continue
+    id=${meta##*/}
+    id=${id%.meta}
+    [ ! -f "$state/$id.review-park" ] || continue
     [ -z "$(sed -n 's/^remote_host=//p' "$meta" | tail -n 1)" ] || continue
-    if printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
+    if [ -z "$session" ]; then
+      # shellcheck source=bin/fm-backend.sh
+      . "${BASH_SOURCE[0]%/*}/fm-backend.sh"
+      backend=$(fm_backend_of_meta "$meta")
+      target=$(fm_backend_target_of_meta "$meta")
+      [ -n "$target" ] || continue
+      verdict=$(fm_backend_agent_state "$backend" "$target" 2>/dev/null) || verdict=unknown
+      case "$verdict" in dead|missing) printf '%s\n' "$id" ;; esac
+    elif printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
       basename "$meta" .meta
     else
       verdict=$("${BASH_SOURCE[0]%/*}/fm-omnigent.sh" probe "$meta") || verdict=unknown

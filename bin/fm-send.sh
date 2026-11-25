@@ -1100,6 +1100,15 @@ else
         "$TARGET_REMOTE_ID" fm-remote-secondmate-control.sh send-stdin "${REMOTE_SEND_ARGS[@]}" || remote_rc=$?
     fi
     fm_lock_release "$REMOTE_META_LOCK"
+    if [ "$remote_rc" -eq 75 ]; then
+      echo "deferred: remote secondmate $TARGET_REMOTE_ID retained the steer but held its doorbell; retry after the upgrade using the same request and delivery id" >&2
+      if [ -n "$PENDING_REPLY_CORR" ]; then
+        printf '%sFM_PENDING_REPLY_EXISTING_CORR=%q %s' "$(fm_send_resend_env)" "$PENDING_REPLY_CORR" "$(fm_send_resend_exe)" >&2
+        for resend_arg in "${FM_SEND_ORIGINAL_ARGS[@]}"; do printf ' %q' "$resend_arg" >&2; done
+        printf '\n' >&2
+      fi
+      exit 75
+    fi
     if [ "$remote_rc" -ne 0 ] && [ "$remote_completion_unknown" -eq 1 ]; then
       if [ -n "$FIRE_AND_FORGET_ID" ]; then
         echo "error: fire-and-forget steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (delivery-id=$FIRE_AND_FORGET_ID); retry only with the same delivery id" >&2

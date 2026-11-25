@@ -268,6 +268,86 @@ SH
   pass 'remote destination pause or unavailable transport consumes no recovery budget'
 )
 
+test_close_respects_parking_and_proves_unbound_stop() (
+  local state tasks
+  state=$(new_state lifecycle)
+  mkdir -p "$TMP_ROOT/lifecycle-tools"
+  cat > "$TMP_ROOT/lifecycle-tools/tmux" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  list-windows) printf 'live\n' ;;
+  display-message)
+    for arg in "$@"; do case "$arg" in *pane_current_command*) printf 'claude\n'; exit 0 ;; esac; done
+    ;;
+esac
+SH
+  chmod +x "$TMP_ROOT/lifecycle-tools/tmux"
+  export PATH="$TMP_ROOT/lifecycle-tools:$PATH"
+  printf 'omnigent=on\nwindow=sess:late\n' > "$state/late.meta"
+  printf 'omnigent=on\nwindow=sess:live\n' > "$state/live.meta"
+  printf 'omnigent=on\nwindow=unproven\n' > "$state/unknown.meta"
+  printf 'omnigent=on\nremote_host=worker\nwindow=sess:late\n' > "$state/remote.meta"
+  printf 'omnigent=on\nomnigent_session=sess-parked\n' > "$state/parked.meta"
+  printf 'pr=42\nparked_at=1\n' > "$state/parked.review-park"
+  printf 'omnigent=on\nwindow=sess:late\n' > "$state/parking.meta"
+  printf 'pr=43\npending=1\n' > "$state/parking.review-park"
+  write_window job-lifecycle resumed 600 upgraded '["sess-parked"]'
+  fm_upgrade_window_supervise "$state"
+  case "$FM_UPGRADE_WINDOW_REASON" in *'relaunch: late') ;; *) fail "lifecycle recovery wrong: $FM_UPGRADE_WINDOW_REASON" ;; esac
+  tasks=$(fm_upgrade_window_tasks "$state")
+  [ "$tasks" = late ] || fail "recovery included parked, remote or unproven workers: $tasks"
+  pass 'close recovers a proven missing local launch while preserving parked and live workers'
+)
+
+test_remote_send_preserves_retryable_deferral() (
+  local dir home state rc records item
+  dir="$TMP_ROOT/remote-send"
+  home="$dir/home"
+  state="$home/state/parent-route"
+  mkdir -p "$dir/code/bin" "$home/bin" "$state" "$dir/user"
+  cp "$ROOT/bin/fm-remote-secondmate-control.sh" "$dir/code/bin/"
+  printf 'mate\n' > "$home/.fm-secondmate-home"
+  : > "$home/AGENTS.md"
+  for item in fm-ff-lib.sh fm-pending-reply-lib.sh fm-remote-herdr-identity-lib.sh; do : > "$dir/code/bin/$item"; done
+  cat > "$dir/code/bin/fm-backend.sh" <<'SH'
+. "$SEND_CODE_ROOT/bin/fm-backend.sh"
+fm_backend_validate_task_endpoint() {
+  FM_BACKEND_VALIDATED_BACKEND=rex
+  FM_BACKEND_VALIDATED_TARGET=session:block
+}
+fm_backend_agent_state() { printf alive; }
+fm_backend_composer_state() { printf empty; }
+fm_backend_send_text_submit() { printf '%s\n' "$3" >> "$SEND_RING_LOG"; printf submitted; }
+SH
+  cat > "$dir/code/bin/fm-task-inbox-lib.sh" <<'SH'
+. "$SEND_CODE_ROOT/bin/fm-task-inbox-lib.sh"
+. "${BASH_SOURCE[0]%/*}/fm-backend.sh"
+SH
+  printf 'omnigent=on\nrex_server=unix:///fixture\n' > "$state/mate.meta"
+  write_window job-send switching 600
+  for item in first retry; do
+    rc=0
+    env -i PATH="$PATH" HOME="$dir/user" FM_HOME="$home" \
+      SEND_CODE_ROOT="$ROOT" SEND_RING_LOG="$dir/rings" AGENT_KIT_OBSERVATION_DIR="$AGENT_KIT_OBSERVATION_DIR" \
+      bash "$dir/code/bin/fm-remote-secondmate-control.sh" send mate 'same durable request' fire-and-forget \
+      > "$dir/out" 2> "$dir/err" || rc=$?
+    [ "$rc" = 75 ] || fail "remote $item did not defer: $rc: $(cat "$dir/err")"
+    [ -f "$state/mate.inbox/001.msg" ] || fail 'remote deferred record was lost'
+    [ ! -e "$dir/rings" ] || fail 'remote pause rang the endpoint'
+  done
+  records=$(find "$state/mate.inbox" -name '*.msg' | wc -l | tr -d ' ')
+  [ "$records" = 1 ] || fail 'retry duplicated the deferred remote record'
+  write_window job-send resumed 600 upgraded
+  env -i PATH="$PATH" HOME="$dir/user" FM_HOME="$home" \
+    SEND_CODE_ROOT="$ROOT" SEND_RING_LOG="$dir/rings" AGENT_KIT_OBSERVATION_DIR="$AGENT_KIT_OBSERVATION_DIR" \
+    bash "$dir/code/bin/fm-remote-secondmate-control.sh" send mate 'same durable request' fire-and-forget \
+    > "$dir/out" 2> "$dir/err" || fail "resumed remote send failed: $(cat "$dir/err")"
+  [ "$(wc -l < "$dir/rings" | tr -d ' ')" = 1 ] || fail 'resumed remote retry did not ring once'
+  [ ! -e "$state/mate.inbox/002.msg" ] || fail 'resume duplicated the deferred remote record'
+  pass 'remote send retains one durable record and returns 75 until its ring can resume'
+)
+
 fm_test_run \
   test_absent_window_defers_nothing \
   test_paused_window_defers_and_records \
@@ -281,4 +361,6 @@ fm_test_run \
   test_remote_window_uses_server_owner \
   test_close_names_unlisted_stopped_runner \
   test_launch_rechecks_after_preflight \
-  test_remote_recovery_checks_destination_before_attempt
+  test_remote_recovery_checks_destination_before_attempt \
+  test_close_respects_parking_and_proves_unbound_stop \
+  test_remote_send_preserves_retryable_deferral
