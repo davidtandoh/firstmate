@@ -1,0 +1,144 @@
+{
+  "scope": "Isolated fixture CLI probe; PR metadata seeded locally. External registrar is real; no remote upload or acceptance asserted.",
+  "events": [
+    {
+      "task": "no-mistakes",
+      "submitted": "done: committed implementation; ready for validation",
+      "exit": 1,
+      "output": "error: no-mistakes ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": null
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "done: PR https://github.com/example/project/pull/123 checks green",
+      "exit": 1,
+      "output": "error: no-mistakes ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": null
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "done: PR https://github.com/other/project/pull/7 checks green",
+      "exit": 1,
+      "output": "error: no-mistakes ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "done: committed follow-up to https://github.com/example/project/pull/123 ; ready for validation",
+      "exit": 1,
+      "output": "error: no-mistakes ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "resolved [key=review-registration]: review registered",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\nresolved [key=review-registration]: review registered\n"
+    },
+    {
+      "task": "no-mistakes",
+      "submitted": "done: PR https://github.com/example/project/pull/123 checks green",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\nresolved [key=review-registration]: review registered\ndone: PR https://github.com/example/project/pull/123 checks green\n"
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "done: committed implementation; ready for validation",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": null
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "done: PR https://github.com/example/project/pull/123 checks green",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": null
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "done: PR https://github.com/other/project/pull/7 checks green",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "done: committed follow-up to https://github.com/example/project/pull/123 ; ready for validation",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\n"
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "resolved [key=review-registration]: review registered",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\nresolved [key=review-registration]: review registered\n"
+    },
+    {
+      "task": "direct-PR",
+      "submitted": "done: PR https://github.com/example/project/pull/123 checks green",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://github.com/example/project/pull/123\nresolved [key=review-registration]: review registered\ndone: PR https://github.com/example/project/pull/123 checks green\n"
+    },
+    {
+      "task": "external",
+      "submitted": "done: review https://review.example.test/r/123 uploaded for review",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": null
+    },
+    {
+      "task": "external",
+      "submitted": "blocked [key=review-registration]: register review https://review.example.test/r/123",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://review.example.test/r/123\n"
+    },
+    {
+      "command": "bin/fm-review-check.sh external https://review.example.test/r/123",
+      "exit": 0,
+      "output": "recorded: review=https://review.example.test/r/123 (no merge watch: a human approves and merges the review; escalate it to the captain)\n",
+      "persisted_meta": "kind=ship\nmode=direct-PR\nforge=external\npr=https://review.example.test/r/123\nreview=https://review.example.test/r/123\n"
+    },
+    {
+      "task": "external",
+      "submitted": "done: review https://review.example.test/r/999 uploaded for review",
+      "exit": 1,
+      "output": "error: direct-PR ship done requires its recorded PR/review URL; run the delivery pipeline, then use the registration handoff in the definition of done: append a blocked [key=review-registration] event with the published URL and wait for firstmate through the steering inbox before retrying done\n",
+      "persisted_status": "blocked [key=review-registration]: register review https://review.example.test/r/123\n"
+    },
+    {
+      "task": "external",
+      "submitted": "resolved [key=review-registration]: review registered",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://review.example.test/r/123\nresolved [key=review-registration]: review registered\n"
+    },
+    {
+      "task": "external",
+      "submitted": "done: review https://review.example.test/r/123 uploaded for review",
+      "exit": 0,
+      "output": "",
+      "persisted_status": "blocked [key=review-registration]: register review https://review.example.test/r/123\nresolved [key=review-registration]: review registered\ndone: review https://review.example.test/r/123 uploaded for review\n"
+    }
+  ]
+}

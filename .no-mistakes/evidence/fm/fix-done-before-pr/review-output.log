@@ -1,0 +1,13 @@
+FM_TEST_BEGIN 2026-11-25T18:13:06Z tests/fm-review-check.test.sh family=unclassified expected_gate_skip=none
+ok - fm-status: direct-PR registration completes before done retry
+ok - fm-status: external completion requires this task's registered review
+ok - fm-review-check: records one review= and review_head=, arms no watch, and a re-record replaces both
+ok - fm-review-check: refuses a forge PR, non-https, a pattern mismatch, an unsafe id, missing input, a non-external task, and an unbacked copy
+ok - fm-review-check: a secondmate home publishes the child's review-ready line to the parent channel
+# all fm-review-check tests passed
+FM_TEST_END 2026-11-25T18:13:09Z tests/fm-review-check.test.sh exit=0 duration_ms=3214 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=3279
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=3214 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-review-check.test.sh duration_ms=3214
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M89XPDW4XFWYY2TR891MRZCC/review-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=3279
