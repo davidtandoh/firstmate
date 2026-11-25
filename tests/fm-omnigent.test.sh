@@ -734,6 +734,30 @@ grep -q 'cannot enforce config/claude-account' "$TMP_ROOT/error" || fail 'accoun
 [ "$(cat "$spawn_home/config/claude-account")" = personal ] || fail 'spawn altered the account pin'
 pass 'wrapped launches refuse guarantees the additive daemon environment cannot enforce'
 
+# An active Omnigent upgrade window defers a wrapped launch with 75 before any
+# record exists; the same spawn proceeds once the window has expired.
+window_obs="$TMP_ROOT/upgrade-observation"
+mkdir -p "$window_obs/serve"
+write_upgrade_window() { # <expires-offset>
+  jq -n --argjson exp "$(( $(date +%s) + $1 ))" \
+    '{schema_version:"1", job:"job-w", phase:"pausing", outcome:null, expires_at:$exp, interrupted_sessions:[]}' \
+    > "$window_obs/serve/upgrade-window.json"
+}
+write_upgrade_window 600
+fm_test_spawn_brief "$spawn_home" omni-window
+window_rc=0
+AGENT_KIT_OBSERVATION_DIR="$window_obs" spawn omni-window "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/error" 2>&1 || window_rc=$?
+[ "$window_rc" = 75 ] || fail "spawn during an upgrade window exited $window_rc: $(cat "$TMP_ROOT/error")"
+grep -q '^deferred: an Omnigent upgrade (job job-w' "$TMP_ROOT/error" || fail 'upgrade deferral was not explained'
+[ ! -e "$spawn_home/state/omni-window.meta" ] || fail 'deferred spawn published task metadata'
+[ ! -s "$launch_log" ] || fail 'deferred spawn launched a pane'
+[ "$(cat "$spawn_home/state/.upgrade-window-deferred")" = job-w ] || fail 'deferred spawn did not record the job'
+write_upgrade_window -1
+AGENT_KIT_OBSERVATION_DIR="$window_obs" spawn omni-window "$spawn_project" --mode no-mistakes --yolo off > "$TMP_ROOT/output" 2>&1 \
+  || fail "spawn after the window expired: $(cat "$TMP_ROOT/output")"
+grep -qx 'omnigent=on' "$spawn_home/state/omni-window.meta" || fail 'post-window spawn was not wrapped'
+pass 'an active Omnigent upgrade window defers a wrapped spawn before any record, and expiry admits it'
+
 rm "$spawn_home/config/claude-account"
 spawn_project="$spawn_home/user-home/workspace/guidex/app"
 spawn_wt="$TMP_ROOT/guidex-worktree"

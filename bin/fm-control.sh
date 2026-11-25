@@ -94,6 +94,9 @@
 #              The same pre-stop refusal applies to this home's worker tool
 #              exclusions (bin/fm-exclude-tools-lib.sh): a malformed list, or a
 #              replacement runtime that cannot hide the listed tools.
+#              An Omnigent-wrapped replacement during this host's active
+#              Omnigent upgrade window (bin/fm-upgrade-window-lib.sh) prints
+#              `deferred:` and exits 75 before the old agent stops.
 #              Refused on t3code before anything is stopped: a T3 thread
 #              keeps its conversation, so a new turn or a provider change on
 #              it continues the same agent rather than a fresh one
@@ -1283,6 +1286,23 @@ record_note() {
   esac
 }
 
+# An open upgrade window of this host's Omnigent defers an Omnigent-wrapped
+# replacement with exit 75 before the old agent is touched
+# (bin/fm-upgrade-window-lib.sh owns the reading). A replacement through a
+# remote parent's server is gated by that host, not this one.
+relaunch_upgrade_window_gate() {
+  local mode binding
+  mode=$(fm_meta_get "$META" omnigent)
+  [ "$mode" = on ] || mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}") || exit 1
+  [ "$mode" = on ] || return 0
+  binding=$("$SCRIPT_DIR/fm-omnigent.sh" binding "$META") || exit 1
+  [ -z "$binding" ] || return 0
+  # shellcheck source=bin/fm-upgrade-window-lib.sh
+  . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+  fm_upgrade_window_gate "the replacement for $ID (its current agent was left untouched)" "$STATE" \
+    || exit "$FM_UPGRADE_WINDOW_DEFER_EXIT"
+}
+
 do_relaunch() {
   local exit_result state note_line
   local -a spawn_args
@@ -1291,6 +1311,7 @@ do_relaunch() {
   fm_control_backend_relaunch_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, where a thread keeps its conversation and a new turn or provider change continues the same agent, so no fresh replacement can be launched into its endpoint; 'interrupt' ends its turn, and a fresh task needs a teardown and a new dispatch"
   resolve_relaunch_profile
+  relaunch_upgrade_window_gate
 
   case "$KIND" in
     ship|scout)

@@ -293,6 +293,12 @@ WATCH_HOME_EXISTED=0
 # (inbox_steer_check below).
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+# Omnigent upgrade window: each poll acknowledges an active window, holds
+# doorbells to local Omnigent-wrapped tasks while it is active, and raises one
+# check wake per closed job (bin/fm-upgrade-window-lib.sh owns all three).
+# shellcheck source=bin/fm-upgrade-window-lib.sh
+. "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+UPGRADE_WINDOW_STATE=absent
 # The away-posture record (state/.afk-contract) is the posture in both the
 # attended and the afk session; bin/fm-afk-contract.sh owns its schema and its
 # away-or-quiet reading, which is all this watcher reads (away_record_present
@@ -627,6 +633,13 @@ inbox_steer_check() {  # <window> <task>
   verb=${action%% *}
   [ "$verb" != quiet ] || return 0
   if [ "$verb" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$task.status")" ]; then
+    return 0
+  fi
+  # An active Omnigent upgrade window holds every doorbell and escalation to a
+  # local Omnigent-wrapped task; the ladder continues once it closes.
+  if [ "$UPGRADE_WINDOW_STATE" = active ] && [ "$(fm_meta_get "$STATE/$task.meta" omnigent)" = on ] &&
+    [ -z "$(fm_meta_get "$STATE/$task.meta" omnigent_remote_server)" ]; then
+    fm_upgrade_window_note_deferred "$STATE"
     return 0
   fi
   rec=${action#* }
@@ -4229,6 +4242,18 @@ while :; do
     fi
   else
     triage_log "inactive-outcome reconciliation unavailable"
+  fi
+
+  # Omnigent upgrade window, every poll: acknowledge an active window and wake
+  # once per job when it closes so interrupted workers are relaunched and
+  # deferred dispatch resumes. The durable wake lands before the job is marked
+  # surfaced, so a failure between them can only repeat the wake.
+  fm_upgrade_window_supervise "$STATE"
+  UPGRADE_WINDOW_STATE=$FM_UPGRADE_WINDOW_STATE
+  if [ -n "$FM_UPGRADE_WINDOW_REASON" ]; then
+    fm_wake_append check omnigent-upgrade "$FM_UPGRADE_WINDOW_REASON" || exit 1
+    fm_upgrade_window_commit "$STATE"
+    wake "$FM_UPGRADE_WINDOW_REASON"
   fi
 
   # Slow per-task checks (firstmate writes these, e.g. a merged-PR poll).

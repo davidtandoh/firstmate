@@ -251,6 +251,10 @@
 #   it) and keeps holding it through metadata publication; a verdict that does
 #   not admit prints `deferred:` and exits 75 with the task exactly as queued,
 #   and an unreadable declaration refuses with exit 1.
+#   Omnigent upgrade window: while the Agent Kit's upgrade window is active
+#   (bin/fm-upgrade-window-lib.sh owns the reading), every Omnigent-wrapped
+#   spawn, relaunch and secondmate included, prints `deferred:` and exits 75
+#   before any record exists; native launches are unaffected.
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
 #   else failed. A relaunch and a --secondmate spawn are never counted against
 #   either capacity.
@@ -2248,7 +2252,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
     pair_rc=0
     FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "${pair_args[@]}" || pair_rc=$?
     if [ "$pair_rc" -eq "$FM_PROJECT_CAPACITY_DEFER_EXIT" ]; then
-      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - its project or this machine's lanes are at capacity, so it stays queued" >&2
+      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - its project or this machine's lanes are at capacity, or an Omnigent upgrade has paused new work, so it stays queued" >&2
       [ "$rc" -ne 0 ] || rc=$FM_PROJECT_CAPACITY_DEFER_EXIT
     elif [ "$pair_rc" -ne 0 ]; then
       echo "batch: FAILED to spawn ${pair%%=*} (${pair#*=})" >&2
@@ -3498,6 +3502,14 @@ SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
 SPAWN_OMNIGENT_PREFLIGHT=
 if [ "$SPAWN_OMNIGENT_MODE" = on ]; then
   [ "$RAW_LAUNCH" = 0 ] || { echo 'error: Omnigent requires a verified harness, not a raw launch command' >&2; exit 1; }
+  # An open upgrade window of this host's Omnigent defers the launch here,
+  # before any record, endpoint, worktree, or backlog move exists
+  # (bin/fm-upgrade-window-lib.sh). A remote-server launch uses another host's.
+  if [ -z "$SPAWN_OMNIGENT_SERVER" ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "task $ID" "$STATE" || exit "$FM_PROJECT_CAPACITY_DEFER_EXIT"
+  fi
   # --env augments the runner environment; it cannot enforce env -i semantics.
   [ "$LAUNCH_ENV_ENABLED" = 0 ] || { echo 'error: Omnigent cannot enforce config/launch-env-allowlist across its daemon boundary' >&2; exit 1; }
   if [ "$HARNESS" = claude ] && { [ -e "$CONFIG/claude-account" ] || [ -L "$CONFIG/claude-account" ]; }; then

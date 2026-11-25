@@ -497,6 +497,38 @@ test_unwritable_inbox_fails_loudly() {
   pass "fm-send inbox: an unwritable record is a loud local failure that leaves no false expectation"
 }
 
+# An active Omnigent upgrade window holds new prompts to an Omnigent-wrapped
+# task: the inbox steer is still recorded but not rung, and a typed-plane text
+# is deferred with 75 and nothing typed. Once the window expires both proceed.
+test_upgrade_window_holds_omnigent_prompts() {
+  local dir err rc obs
+  dir=$(setup_case upgrade-window)
+  printf 'omnigent=on\nomnigent_session=sess-1\n' >> "$dir/home/state/t1.meta"
+  obs="$dir/observation"
+  mkdir -p "$obs/serve"
+  jq -n --argjson exp "$(( $(date +%s) + 600 ))" \
+    '{schema_version:"1", job:"job-1", phase:"switching", outcome:null, expires_at:$exp, interrupted_sessions:[]}' \
+    > "$obs/serve/upgrade-window.json"
+  err="$dir/send.err"
+  run_send "$dir" "$err" AGENT_KIT_OBSERVATION_DIR="$obs" -- t1 "please continue"
+  expect_code 0 "$?" "a held inbox steer is still durably sent"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the held steer was not recorded"
+  [ ! -s "$dir/send.log" ] || fail "a doorbell was typed during the upgrade window: $(cat "$dir/send.log")"
+  grep -q 'rings it once the Omnigent upgrade window closes' "$err" || fail "the hold was not explained: $(cat "$err")"
+  [ "$(cat "$dir/home/state/.upgrade-window-deferred")" = job-1 ] || fail "the held steer did not record the deferral"
+  rc=0
+  run_send "$dir" "$err" AGENT_KIT_OBSERVATION_DIR="$obs" -- t1 "/compact" || rc=$?
+  expect_code 75 "$rc" "a typed-plane text is deferred during the window"
+  [ ! -s "$dir/send.log" ] || fail "typed text reached the session during the window"
+  run_send "$dir" "$err" -- t1 "/compact"
+  expect_code 0 "$?" "a typed-plane text proceeds with no window"
+  jq '.expires_at = 1' "$obs/serve/upgrade-window.json" > "$obs/w" && mv "$obs/w" "$obs/serve/upgrade-window.json"
+  run_send "$dir" "$err" AGENT_KIT_OBSERVATION_DIR="$obs" -- t1 "after expiry"
+  expect_code 0 "$?" "a steer after expiry is sent"
+  [ -s "$dir/send.log" ] || fail "the doorbell stayed held after the window expired"
+  pass "fm-send inbox: an active Omnigent upgrade window holds new prompts until it closes"
+}
+
 test_empty_message_refused() {
   local dir err rc
   # The lived defect: an empty marked secondmate steer used to deliver a
@@ -558,4 +590,5 @@ test_post_enqueue_bookkeeping_failure_is_not_retryable
 test_meta_lock_contention_fails_bounded
 test_delivery_lock_serializes_enqueue
 test_unwritable_inbox_fails_loudly
+test_upgrade_window_holds_omnigent_prompts
 test_empty_message_refused

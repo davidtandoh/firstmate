@@ -107,6 +107,29 @@ An unreachable server, or a session that is missing, archived, failed, or withou
 An absent binding or an inconclusive session response leaves the pane verdict unchanged.
 Lifecycle commands use the dead-session verdict to stop a retained attach client, then require the pane-level verdict to confirm that the client stopped.
 
+## Upgrade pause window
+
+```mermaid
+flowchart LR
+    kit[Agent Kit upgrade writes the window] -->|pausing or switching| hold[Firstmate holds new Omnigent work]
+    hold -->|resumed or expired| wake[One supervision notification]
+    wake --> relaunch[Relaunch interrupted workers and retry deferred dispatch]
+```
+
+Takeaway: an Omnigent upgrade never receives new work mid-switch, and the workers it interrupted are named for relaunch afterwards.
+
+The Agent Kit's Omnigent upgrade publishes a pause window at `${AGENT_KIT_OBSERVATION_DIR:-~/.agents/state/observation}/serve/upgrade-window.json`; the Kit owns its schema (personal-agent-kit ADR-0030).
+While the window's phase is `pausing` or `switching` and its expiry is in the future, Firstmate starts no Omnigent-wrapped worker on this host and sends no new prompt to one:
+
+- A spawn or `fm-control.sh relaunch` prints `deferred:` and exits 75 before anything changes, so the backlog item stays queued and the running agent stays untouched.
+- `fm-send.sh` still records an inbox steer but does not ring it, and the watcher holds its doorbells until the window closes; a typed-plane text exits 75 with nothing sent.
+- Running turns are never interrupted, and native launches and launches through a remote parent's server are unaffected.
+
+The watcher acknowledges each active job once by writing `upgrade-window.ack.json` beside the window.
+When the job resumes or its window expires, a home that deferred work for it or owns a session it lists as interrupted gets one `check: omnigent-upgrade` notification naming those tasks for `bin/fm-control.sh <task> relaunch`.
+An unreadable window is ignored with a warning, because it carries no expiry that would bound the pause.
+`bin/fm-upgrade-window-lib.sh` owns this reading.
+
 ## Fresh main sessions
 
 The main Claude primary can use [`/fresh`](../.agents/skills/fresh/SKILL.md) to complete `/stow` and replace its long-running Omnigent session in one step.

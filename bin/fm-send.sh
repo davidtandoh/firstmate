@@ -52,6 +52,11 @@
 # ordinary record by the worker's acknowledgement move into handled/.
 # bin/fm-task-inbox-lib.sh owns the record format, doorbell line, and retry and
 # escalation policy for ordinary and fire-and-forget records.
+# While this host's Omnigent upgrade window is active
+# (bin/fm-upgrade-window-lib.sh), a steer to a local Omnigent-wrapped task is
+# still recorded (exit 0) but not rung, and the watcher holds its re-rings until
+# the window closes; a typed-plane text to such a task exits 75 with nothing
+# sent. --key is unaffected, and a running turn is never interrupted.
 # On pane backends, the composer pre-check before the ring is ADVISORY only: when
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
@@ -279,6 +284,17 @@ fi
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+# shellcheck source=bin/fm-upgrade-window-lib.sh
+. "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+
+# 0 when this host's active Omnigent upgrade window holds a new prompt to the
+# recorded task's local Omnigent session (bin/fm-upgrade-window-lib.sh owns the
+# reading and prints the deferral); 1 otherwise.
+fm_send_upgrade_window_holds() { # <meta-file> <what>
+  [ -n "$1" ] && [ "$(fm_meta_get "$1" omnigent)" = on ] || return 1
+  [ -z "$(fm_meta_get "$1" omnigent_remote_server)" ] || return 1
+  ! fm_upgrade_window_gate "$2" "$STATE"
+}
 
 FM_GUARD_CONTINUE_LINE='This is a supervision warning only; the requested message WILL still be sent.' "$SCRIPT_DIR/fm-guard.sh" || true
 
@@ -1227,6 +1243,10 @@ else
     # Ring the doorbell, best-effort: no ring outcome changes the exit status,
     # because the watcher owns loss detection from here, either through its
     # bounded re-ring ladder or direct unavailable-endpoint recovery.
+    if fm_send_upgrade_window_holds "$TARGET_META" "the doorbell for $INBOX_TASK_ID"; then
+      echo "fm-send: the steer is durably recorded at $INBOX_RECORD; the watcher rings it once the Omnigent upgrade window closes" >&2
+      exit 0
+    fi
     ring_rc=0
     fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" || ring_rc=$?
     ring_retry="the watcher will re-ring"
@@ -1248,6 +1268,11 @@ else
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
     esac
     exit 0
+  fi
+  if fm_send_upgrade_window_holds "$TARGET_META" "this text to $T"; then
+    fm_send_known_undelivered_cleanup ||
+      echo "error: known-undelivered pending-reply state could not be reset for $TARGET_TASK_ID" >&2
+    exit "$FM_UPGRADE_WINDOW_DEFER_EXIT"
   fi
   # Slash commands open a completion popup in some TUIs (verified on codex);
   # submitting too fast selects nothing, so give the popup time to settle before
