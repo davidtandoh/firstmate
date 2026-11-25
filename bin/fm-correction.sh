@@ -29,7 +29,8 @@
 # the reason on the first repeat. An open task already covering the class is
 # left unchanged, including released or in-flight work. After completion, a
 # new task uses correct-<class>-YYYY-MM-DD (the correction date), adding a
-# numeric suffix from 2 if needed. The hold is the captain's approval point;
+# numeric suffix from 2 if needed. Archived completed ids remain reserved.
+# The hold is the captain's approval point;
 # a task read or hold failure exits 1 after the row is already logged.
 #
 # Output: `add` prints `logged: <class> (<n> in class)` and, on a repeat,
@@ -92,7 +93,7 @@ rows() {
 }
 
 command_add() {
-  local class='' description='' evidence='' date='' count reason tasks ids id task suffix=2
+  local class='' description='' evidence='' date='' count reason tasks ids id task suffix=2 archive_status
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --class|--description|--evidence|--date)
@@ -144,10 +145,22 @@ command_add() {
   done <<< "$ids"
 
   task="correct-$class"
-  while fm_backlog_row_probe "$DATA" "$task"; do
-    if [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; then
-      printf 'correct task already covers class: %s\n' "$task"
-      return 0
+  while :; do
+    if fm_backlog_row_probe "$DATA" "$task"; then
+      if [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; then
+        printf 'correct task already covers class: %s\n' "$task"
+        return 0
+      fi
+    else
+      [ "$FM_BACKLOG_ROW_RESULT" = not_found ] \
+        || die "logged the row, but could not read $task: $FM_BACKLOG_ROW_ERROR"
+      archive_status=0
+      "$SCRIPT_DIR/fm-captain-hold.sh" archived "$task" || archive_status=$?
+      case "$archive_status" in
+        0) ;;
+        1) break ;;
+        *) die "logged the row, but could not read the archive for $task" ;;
+      esac
     fi
     if [ "$task" = "correct-$class" ]; then
       task="correct-$class-$date"
@@ -156,8 +169,6 @@ command_add() {
       suffix=$((suffix + 1))
     fi
   done
-  [ "$FM_BACKLOG_ROW_RESULT" = not_found ] \
-    || die "logged the row, but could not read $task: $FM_BACKLOG_ROW_ERROR"
 
   reason="Correction class $class repeated $count times; approve a correct task to turn it into a structural guard proven against a past instance. Evidence: $(rows | awk -F'\t' -v c="$class" '$2 == c { printf "%s%s %s", sep, $1, $4; sep = "; " }')"
   "$SCRIPT_DIR/fm-captain-hold.sh" hold "$task" \

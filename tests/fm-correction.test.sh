@@ -117,6 +117,49 @@ test_closed_tasks_get_dated_successors() {
   pass "closed work gets held dated successors without reopening completed tasks"
 }
 
+test_archived_tasks_keep_their_identities() {
+  local home out successor
+  home=$(make_home archived)
+  mkdir -p "$home/data/history"
+  cat > "$home/.tasks.toml" <<'TOML'
+backend = "markdown"
+[markdown]
+path = "data/backlog.md"
+archive = "data/history/completed.md"
+done_keep = 1
+TOML
+  run_fc "$home" add --class archived --description first --evidence e1 >/dev/null
+  run_fc "$home" add --class archived --description second --evidence e2 >/dev/null
+  printf 'The guard is complete.\n' > "$home/decision.txt"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer correct-archived \
+    --decision-file "$home/decision.txt" >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" add archive-trigger-1 "Trigger retention" >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" done archive-trigger-1 >/dev/null
+  assert_grep 'correct-archived' "$home/data/history/completed.md" "completion archives the original id"
+  if task_show "$home" correct-archived >/dev/null 2>&1; then
+    fail "the original task must be absent from the live backlog"
+  fi
+  out=$(run_fc "$home" add --class archived --date 2026-11-25 --description third --evidence e3)
+  successor=correct-archived-2026-11-25
+  assert_contains "$out" "correct task held: $successor" "archived work gets a dated successor"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" open "$successor" || fail "successor must be held"
+  if task_show "$home" correct-archived >/dev/null 2>&1; then
+    fail "recurrence must not recreate the archived original id"
+  fi
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" answer "$successor" \
+    --decision-file "$home/decision.txt" >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" add archive-trigger-2 "Trigger retention again" >/dev/null
+  FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" done archive-trigger-2 >/dev/null
+  assert_grep "$successor" "$home/data/history/completed.md" "completion archives the dated id"
+  if task_show "$home" "$successor" >/dev/null 2>&1; then
+    fail "the dated task must be absent from the live backlog"
+  fi
+  out=$(run_fc "$home" add --class archived --date 2026-11-25 --description fourth --evidence e4)
+  assert_contains "$out" "correct task held: $successor-2" "archived dated collisions get a numeric suffix"
+  FM_HOME="$home" "$ROOT/bin/fm-captain-hold.sh" open "$successor-2" || fail "numbered successor must be held"
+  pass "archived correction identities stay reserved in the configured archive"
+}
+
 test_list_and_repeats() {
   local home
   home=$(make_home listing)
@@ -161,5 +204,6 @@ fm_test_run \
   test_repeat_holds_one_correct_task \
   test_released_and_inflight_tasks_stay_unchanged \
   test_closed_tasks_get_dated_successors \
+  test_archived_tasks_keep_their_identities \
   test_list_and_repeats \
   test_validation_and_foreign_table
