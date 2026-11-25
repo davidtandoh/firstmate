@@ -236,6 +236,11 @@ test_direct_policy_contract() {
   assert_policy direct-unsupported $'deny\tunclassifiable-protected-command' 'if true; then bin/fm-watch-arm.sh; fi'
   assert_policy direct-conditional-example $'deny\tunclassifiable-protected-command' "if true; then printf '%s' 'bin/fm-watch-arm.sh'; fi"
   assert_policy direct-conditional-wrapper $'deny\tunclassifiable-protected-command' 'if true; then exec bin/fm-watch-arm.sh; fi'
+  assert_policy direct-negated-arm $'deny\twatcher-nested' '! bin/fm-watch-arm.sh'
+  assert_policy direct-negated-conditional-arm $'deny\tunclassifiable-protected-command' 'if ! exec bin/fm-watch-arm.sh; then echo failed; fi'
+  assert_policy direct-quoted-negation allow "'!' bin/fm-watch-arm.sh"
+  assert_policy direct-escaped-negation allow '\! bin/fm-watch-arm.sh'
+  assert_policy direct-negated-example allow "! printf '%s' 'bin/fm-watch-arm.sh'"
   assert_policy direct-constructed-payload $'deny\twatcher-nested' "WATCHER='bin/fm-watch-arm.sh &'; bash -lc \"\$WATCHER\""
   assert_policy direct-parameter-export allow 'export FM_HOME=${HOME}; bin/fm-watch-checkpoint.sh --seconds 180'
   assert_policy direct-expanded-arm-blessed allow '$FM_HOME/bin/fm-watch-arm.sh'
@@ -483,6 +488,7 @@ test_merge_bypass_guard() {
     'gh pr merge 4 --admin --squash' \
     'gh-axi pr merge 43 --squash' \
     'if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi' \
+    "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi" \
     'gh api -X PUT repos/fixture/repo/pulls/43/merge' \
     'gh-axi api repos/fixture/repo/pulls/43/merge -X PUT'; do
     for entry in claude codex grok pi cursor agy; do
@@ -510,6 +516,12 @@ test_merge_bypass_guard() {
   done
   for cmd in \
     '(gh pr merge 43)' \
+    '! gh pr merge 43' \
+    '! ! gh-axi pr merge 43' \
+    '! command gh-axi pr merge 43' \
+    'if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi' \
+    'if true; then ! timeout 30 gh-axi pr merge 43; fi' \
+    'if false; then echo skipped; elif ! command gh pr merge 43; then echo failed; fi' \
     'if gh pr merge 43; then echo done; fi' \
     'if false; then echo skipped; elif gh pr merge 43; then echo done; fi' \
     'if false; then echo skipped; else gh-axi pr merge 43; fi' \
@@ -538,6 +550,15 @@ test_merge_bypass_guard() {
   done
   for cmd in \
     'gh pr merge --help' \
+    '! gh pr merge --help' \
+    'if ! gh-axi pr merge --help; then echo failed; fi' \
+    "'!' gh pr merge 43" \
+    '\! gh-axi pr merge 43' \
+    'i\f gh pr merge 43' \
+    "if true; then '!' gh pr merge 43; fi" \
+    'if true; then \! gh-axi pr merge 43; fi' \
+    "! printf '%s' 'gh-axi pr merge 43'" \
+    'command ! gh pr merge 43' \
     'if true; then gh pr merge --help; else gh-axi pr merge --help; fi' \
     "if true; then printf '%s' 'gh-axi pr merge 43'; fi" \
     "if false; then echo skipped; elif printf '%s' 'gh pr merge 43'; then echo done; fi" \

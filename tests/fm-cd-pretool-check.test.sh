@@ -108,6 +108,9 @@ matrix_case B28 deny 'if true; then cd projects/foo; fi'
 matrix_case B29 deny 'if cd projects/foo; then pwd; fi'
 matrix_case B30 deny 'if false; then echo skipped; elif true; then command cd projects/foo; fi'
 matrix_case B31 deny 'if false; then echo skipped; else cd projects/foo; fi'
+matrix_case B32 deny '! cd projects/foo'
+matrix_case B33 deny 'if ! command cd projects/foo; then echo failed; fi'
+matrix_case B34 deny 'if true; then ! cd projects/foo; fi'
 
 # ALLOW: not a persistent top-level cwd change (scoped, data, or non-cd).
 matrix_case A01 allow 'git -C projects/foo status'
@@ -150,6 +153,13 @@ matrix_case A37 allow "if true; then printf '%s' 'cd projects/foo'; fi"
 matrix_case A38 allow 'if true; then (cd projects/foo && pwd); fi'
 matrix_case A39 allow 'if true; then command -v cd; fi'
 matrix_case A40 allow "'then' cd projects/foo"
+matrix_case A41 allow "'!' cd projects/foo"
+matrix_case A42 allow '\! cd projects/foo'
+matrix_case A43 allow 'i\f cd projects/foo'
+matrix_case A44 allow '! command -v cd'
+matrix_case A45 allow '! env cd projects/foo'
+matrix_case A46 allow '! (cd projects/foo && pwd)'
+matrix_case A47 allow "! printf '%s' 'cd projects/foo'"
 
 # HOME: the one allowed cd target is a single literal absolute path that
 # resolves, symlinks included, to the primary checkout itself; a child, sibling,

@@ -327,6 +327,7 @@ export class Lexer {
           this.index += 2;
           continue;
         }
+        word.quoted = true;
         word.value += this.source[this.index + 1];
         this.index += 2;
         continue;
@@ -546,7 +547,7 @@ export function commandPosition(tokens) {
   const words = wordsInNode(tokens);
   let index = 0;
   while (words[index]?.literal && !words[index].quoted &&
-    ["if", "then", "elif", "else"].includes(words[index].value)) index += 1;
+    ["if", "then", "elif", "else", "!"].includes(words[index].value)) index += 1;
   while (index < words.length && isAssignment(words[index].value)) index += 1;
   const prefixAssignments = index;
   const wrappers = [];
