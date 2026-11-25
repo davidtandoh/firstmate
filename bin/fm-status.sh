@@ -36,12 +36,13 @@ if [ "$(status_line_verb "$line")" = "done" ]; then
         no-mistakes|direct-PR)
           note=$(status_line_note "$line")
           forge=$(fm_dod_meta_value "$meta" forge) || forge=
-          recorded=$(fm_dod_meta_value "$meta" pr) || recorded=
           valid=0
           if [ "$forge" = external ]; then
+            recorded=$(fm_dod_meta_value "$meta" review) || recorded=
             url=$(fm_dod_review_url_from_done_note "$note") || url=
             if [ -n "$url" ] && [ "$url" = "$recorded" ] && fm_external_review_url_parse "$url" "$config"; then valid=1; fi
           else
+            recorded=$(fm_dod_meta_value "$meta" pr) || recorded=
             url=$(fm_dod_ready_note_url "$note") || url=
             if [ -n "$url" ] && [ "$url" = "$recorded" ] && FM_CONFIG_OVERRIDE="$config" fm_pr_url_parse "$url"; then valid=1; fi
           fi

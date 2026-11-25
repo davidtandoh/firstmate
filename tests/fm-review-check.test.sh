@@ -105,6 +105,30 @@ test_secondmate_home_publishes_the_ready_line() {
   pass "fm-review-check: a secondmate home publishes the child's review-ready line to the parent channel"
 }
 
+test_status_requires_the_registered_external_review() {
+  local status note
+  fixture status-review forge=external "pr=$URL"
+  status="$HOME_DIR/state/t1.status"
+  note="done: review $URL uploaded for review"
+  if "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" "$note" > "$TMP_ROOT/status.out" 2>&1; then
+    fail "external completion accepted pr= without review registration"
+  fi
+  assert_absent "$status" "unregistered external completion wrote a status event"
+  run_check t1 "$URL"
+  expect_code 0 "$RC" "external review registration failed: $OUT"
+  if "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" \
+    'done: review https://review.example.test/r/999 uploaded for review' > "$TMP_ROOT/status.out" 2>&1; then
+    fail "external completion accepted an unrelated review URL"
+  fi
+  assert_absent "$status" "unrelated external completion wrote a status event"
+  "$ROOT/bin/fm-status.sh" "$HOME_DIR/config" "$status" "$note" \
+    || fail "external completion refused its registered review"
+  [ "$(cat "$status")" = "$note" ] || fail "registered external completion lost its status event"
+  pass "fm-status: external completion requires this task's registered review"
+}
+
+test_status_requires_the_registered_external_review
+
 test_records_one_review_and_no_watch
 test_refusals
 test_secondmate_home_publishes_the_ready_line
