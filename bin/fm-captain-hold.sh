@@ -33,6 +33,7 @@
 #   fm-captain-hold.sh complete <origin-id> (--none | <task-id>...)
 #   fm-captain-hold.sh verify <origin-id>
 #   fm-captain-hold.sh open <task-id> [--identity] [--distinguish-absent]
+#   fm-captain-hold.sh archived <task-id>
 #   fm-captain-hold.sh diverged
 #   fm-captain-hold.sh reconcile list
 #   fm-captain-hold.sh reconcile close <task-id> --evidence-file <path>
@@ -162,9 +163,12 @@
 # erase a source before this gate has succeeded: every recorded inventory
 # entry must still satisfy the same durability and origin checks as `complete`,
 # and no keyed status decision may be open.
+# `archived` is a read-only predicate over the configured markdown Done archive:
+# exit 0 means the id is archived, 1 means it is not, and other statuses are errors.
+# It prints nothing and does not modify backlog records.
 # `complete` and `verify` also read an entry that markdown Done retention moved
 # into the configured Done archive, where it counts only through a recorded
-# resolution; no other subcommand reads the archive.
+# resolution; `archived` also reads the archive to reserve completed identities.
 # Metadata compatibility: the attestation keeps the historical
 # `decisions_reviewed=1` and `decision_keys=` keys, and an inventory entry that
 # names no existing task resolves through the legacy `<origin>-decision-<entry>`
@@ -946,9 +950,8 @@ refuse_self_inventory() {
 #
 # Done retention moves closed markdown rows into the configured archive, which
 # tasks-axi show never reads, so an answered call a scout attested would read as
-# absent once retention ran. Only the completion gate consults the archive: an
-# archived row is closed, so it can satisfy the gate solely through a recorded
-# resolution, and every mutating path keeps seeing it as absent.
+# absent once retention ran. An archived row is closed, so it can satisfy the
+# completion gate solely through a recorded resolution.
 
 # The [markdown] archive key tasks-axi would honour, resolved with tasks-axi's
 # own source precedence: the backlog root's .tasks.toml first, then the
@@ -2430,6 +2433,13 @@ case "${1:-}" in
   complete) shift; command_complete "$@" ;;
   verify) shift; command_verify "$@" ;;
   open) shift; command_open "$@" ;;
+  archived)
+    shift
+    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    validate_slug task-id "$1"
+    fm_tasks_axi_compatible || exit 2
+    task_show_archived "$1" || exit $?
+    ;;
   diverged) shift; command_diverged "$@" ;;
   reconcile) shift; command_reconcile "$@" ;;
   pr-policy) shift; command_pr_policy "$@" ;;
