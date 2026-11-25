@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-upgrade-window-lib.sh, Firstmate's reader of the
 # Agent Kit's Omnigent upgrade pause window: an active window defers and is
-# acknowledged once per job, an expired or absent window defers nothing, an
+# held without acknowledgement, an expired or absent window defers nothing, an
 # unreadable one warns and defers nothing, and a closed job raises one wake for
 # a home that deferred work or owns an interrupted session, naming those tasks.
 set -u
@@ -72,24 +72,15 @@ test_invalid_window_warns_and_defers_nothing() {
   pass 'an unreadable window warns and defers nothing'
 }
 
-test_active_window_is_acknowledged_once() {
-  local state first
+test_active_window_leaves_acknowledgement_to_kit() {
+  local state
   state=$(new_state ack)
   rm -f "$ACK"
   write_window job-a pausing 600
   fm_upgrade_window_supervise "$state"
   [ -z "$FM_UPGRADE_WINDOW_REASON" ] || fail 'an active window woke the supervisor'
-  jq -e '.job == "job-a" and (.paused_at | type == "number")' "$ACK" >/dev/null || fail 'acknowledgement missing or malformed'
-  [ "$(stat -f %Lp "$ACK" 2>/dev/null || stat -c %a "$ACK")" = 600 ] || fail 'acknowledgement is not owner-only'
-  first=$(cat "$ACK")
-  printf '{"job":"job-a","paused_at":1}\n' > "$ACK"
-  fm_upgrade_window_supervise "$state"
-  [ "$(jq -r .paused_at "$ACK")" = 1 ] || fail 'acknowledgement was rewritten for the same job'
-  write_window job-b pausing 600
-  fm_upgrade_window_supervise "$state"
-  [ "$(jq -r .job "$ACK")" = job-b ] || fail 'a new job was not acknowledged'
-  [ -n "$first" ] || fail 'first acknowledgement was empty'
-  pass 'an active window is acknowledged once per job without waking the supervisor'
+  [ ! -e "$ACK" ] || fail 'watcher acknowledged without proving all in-flight launches stopped'
+  pass 'active window waits for the bounded Kit drain without acknowledging'
 }
 
 test_resumed_window_names_interrupted_workers_once() {
@@ -101,7 +92,7 @@ test_resumed_window_names_interrupted_workers_once() {
   write_window job-r resumed 600 upgraded '["sess-1","sess-foreign"]'
   fm_upgrade_window_supervise "$state"
   case "$FM_UPGRADE_WINDOW_REASON" in
-    'check: omnigent-upgrade job-r closed (upgraded);'*'relaunch interrupted workers with bin/fm-control.sh <task> relaunch: w1') ;;
+    'check: omnigent-upgrade job-r closed (upgraded);'*'relaunch interrupted or stopped workers with bin/fm-control.sh <task> relaunch: w1') ;;
     *) fail "resumed reason wrong: $FM_UPGRADE_WINDOW_REASON" ;;
   esac
   fm_upgrade_window_commit "$state"
@@ -132,11 +123,120 @@ test_close_wakes_only_a_home_that_deferred() {
   pass 'expiry or a vanished window wakes only a home that deferred work for that job'
 }
 
+test_shared_ring_preserves_pending_record() (
+  local state rec rc=0
+  state=$(new_state ring)
+  export FM_STATE_OVERRIDE="$state"
+  . "$ROOT/bin/fm-task-inbox-lib.sh"
+  printf 'omnigent=on\n' > "$state/w1.meta"
+  rec=$(fm_task_inbox_write "$state" w1 'durable feedback') || fail 'enqueue failed'
+  write_window job-ring switching 600
+  fm_task_inbox_ring tmux nonexistent "$rec" fm-w1 2>"$TMP_ROOT/ring.err" || rc=$?
+  [ "$rc" = 1 ] || fail "shared ring did not hold delivery: $rc"
+  [ -f "$rec" ] || fail 'held feedback lost its durable record'
+  [ "$(cat "$state/.upgrade-window-deferred")" = job-ring ] || fail 'shared ring did not remember deferral'
+  pass 'shared ring holds durable feedback before touching the endpoint'
+)
+
+test_secondmate_pause_preserves_recovery_budget() (
+  local rc=0
+  STATE=$(new_state recovery)
+  export FM_STATE_OVERRIDE="$STATE"
+  . "$ROOT/bin/fm-secondmate-liveness-lib.sh"
+  printf 'omnigent=on\nkind=secondmate\nwindow=gone\n' > "$STATE/mate.meta"
+  write_window job-recovery pausing 600
+  FM_SM_LIVE_STATE=dead FM_SM_LIVE_KILL=1 FM_SM_LIVE_RESUME=0
+  fm_secondmate_liveness_relaunch "$STATE/mate.meta" mate 1 2>"$TMP_ROOT/recovery.err" || rc=$?
+  [ "$rc" = 75 ] || fail "recovery did not defer: $rc"
+  [ ! -e "$STATE/.secondmate-relaunch-mate" ] || fail 'pause consumed recovery budget'
+  [ ! -e "$STATE/.secondmate-relaunch.lock" ] || fail 'pause mutated endpoint recovery locks'
+  pass 'secondmate pause consumes no recovery attempt or endpoint mutation'
+)
+
+test_remote_window_uses_server_owner() (
+  local state rc=0
+  state=$(new_state remote)
+  mkdir -p "$TMP_ROOT/remote-bin"
+  cat > "$TMP_ROOT/remote-bin/ssh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$SSH_LOG"
+[ "${SSH_FAIL:-0}" = 0 ] || exit 255
+cat "$SSH_WINDOW"
+SH
+  chmod +x "$TMP_ROOT/remote-bin/ssh"
+  export PATH="$TMP_ROOT/remote-bin:$PATH" SSH_WINDOW="$TMP_ROOT/remote-window.json" SSH_LOG="$TMP_ROOT/ssh.log"
+  write_window job-remote pausing 600
+  cp "$WINDOW" "$SSH_WINDOW"
+  rm "$WINDOW"
+  fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 2>/dev/null || rc=$?
+  [ "$rc" = 75 ] || fail 'remote server pause was bypassed by absent local window'
+  [ "$(cat "$state/.upgrade-window-deferred")" = job-remote ] || fail 'remote pause not recorded'
+  grep -q -- '-- owner.example ' "$SSH_LOG" || fail 'remote read used the wrong server owner'
+  write_window job-remote resumed 600 upgraded
+  cp "$WINDOW" "$SSH_WINDOW"
+  fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 || fail 'remote resume did not admit work'
+  rc=0
+  SSH_FAIL=1 fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 2>/dev/null || rc=$?
+  [ "$rc" = 75 ] || fail 'unavailable remote owner admitted work'
+  pass 'remote binding honors its owner window and fails closed on unavailable reads'
+)
+
+test_close_names_unlisted_stopped_runner() (
+  local state
+  state=$(new_state stopped)
+  . "$ROOT/tests/omnigent-fixture.sh"
+  fm_test_omnigent_service "$TMP_ROOT/probe-service" "$TMP_ROOT/probe-tools"
+  export PATH="$TMP_ROOT/probe-tools:$PATH" OMNI_SESSION_STATE=runner-gone
+  printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' > "$state/stopped.meta"
+  write_window job-stopped resumed 600 upgraded
+  fm_upgrade_window_supervise "$state"
+  case "$FM_UPGRADE_WINDOW_REASON" in *'relaunch: stopped') ;; *) fail "unlisted stopped runner omitted: $FM_UPGRADE_WINDOW_REASON" ;; esac
+  fm_upgrade_window_commit "$state"
+  fm_upgrade_window_supervise "$state"
+  [ -z "$FM_UPGRADE_WINDOW_REASON" ] || fail 'stopped runner wake repeated'
+  write_window job-live resumed 600 upgraded
+  export OMNI_SESSION_STATE=alive
+  fm_upgrade_window_supervise "$state"
+  [ -z "$FM_UPGRADE_WINDOW_REASON" ] || fail 'live runner named for recovery'
+  pass 'close reconciles unlisted stopped sessions and preserves live workers'
+)
+
+test_launch_rechecks_after_preflight() (
+  local rc=0
+  . "$ROOT/tests/omnigent-fixture.sh"
+  fm_test_omnigent_service "$TMP_ROOT/race-service" "$TMP_ROOT/race-tools"
+  export PATH="$TMP_ROOT/race-tools:$PATH" FM_HOME="$TMP_ROOT/race-home"
+  mkdir -p "$FM_HOME/state"
+  export FM_STATE_OVERRIDE="$FM_HOME/state"
+  write_window job-race pausing 600
+  export RACE_WINDOW="$TMP_ROOT/race-window.json" RACE_DEST="$WINDOW"
+  mv "$WINDOW" "$RACE_WINDOW"
+  mv "$TMP_ROOT/race-tools/agent-kit" "$TMP_ROOT/race-tools/agent-kit-original"
+  cat > "$TMP_ROOT/race-tools/agent-kit" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$*" = 'observe serve status --readiness --json' ]; then cp "$RACE_WINDOW" "$RACE_DEST"; fi
+exec "${0%/*}/agent-kit-original" "$@"
+SH
+  chmod +x "$TMP_ROOT/race-tools/agent-kit"
+  bash "$ROOT/bin/fm-omnigent.sh" run codex 'initial turn' >"$TMP_ROOT/race.out" 2>"$TMP_ROOT/race.err" || rc=$?
+  [ "$rc" = 75 ] || fail "late window did not defer launch: $rc: $(cat "$TMP_ROOT/race.err")"
+  [ -f "$WINDOW" ] || fail 'preflight did not publish the racing window'
+  [ ! -e "$TMP_ROOT/race-service/result.json" ] || fail 'native launch ran during pause'
+  pass 'shared launch rechecks a window published during preflight'
+)
+
 fm_test_run \
   test_absent_window_defers_nothing \
   test_paused_window_defers_and_records \
   test_expired_window_defers_nothing \
   test_invalid_window_warns_and_defers_nothing \
-  test_active_window_is_acknowledged_once \
+  test_active_window_leaves_acknowledgement_to_kit \
   test_resumed_window_names_interrupted_workers_once \
-  test_close_wakes_only_a_home_that_deferred
+  test_close_wakes_only_a_home_that_deferred \
+  test_shared_ring_preserves_pending_record \
+  test_secondmate_pause_preserves_recovery_budget \
+  test_remote_window_uses_server_owner \
+  test_close_names_unlisted_stopped_runner \
+  test_launch_rechecks_after_preflight

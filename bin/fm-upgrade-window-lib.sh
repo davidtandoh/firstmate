@@ -18,13 +18,11 @@
 #   absent  - no window file.
 #   invalid - unreadable or outside the schema; it warns and is treated as no
 #             window, because a window with no readable expiry has no bound.
-# The watcher acknowledges an active window once per job by writing
-# upgrade-window.ack.json beside it. When the job closes, a home that deferred
-# work for it or owns an interrupted session gets one check wake naming its
-# tasks whose Omnigent sessions the window lists as interrupted, for relaunch
-# through bin/fm-control.sh <task> relaunch; deferred dispatch is retried then.
 
 FM_UPGRADE_WINDOW_DEFER_EXIT=75
+
+# shellcheck source=bin/fm-timeout-lib.sh
+. "${BASH_SOURCE[0]%/*}/fm-timeout-lib.sh"
 
 fm_upgrade_window_dir() {
   local root=${AGENT_KIT_OBSERVATION_DIR:-$HOME/.agents/state/observation}
@@ -37,16 +35,33 @@ fm_upgrade_window_dir() {
 # or invalid, FM_UPGRADE_WINDOW_JOB, _PHASE, _OUTCOME (outcome or "expired"),
 # _EXPIRES, and _SESSIONS (one interrupted session id per line).
 fm_upgrade_window_read() {
-  local now=${1:-$(date +%s)} file fields
+  local now=${1:-$(date +%s)} server=${2:-} file fields content host
   file="$(fm_upgrade_window_dir)/upgrade-window.json"
   FM_UPGRADE_WINDOW_FILE=$file
   FM_UPGRADE_WINDOW_JOB= FM_UPGRADE_WINDOW_PHASE= FM_UPGRADE_WINDOW_OUTCOME=
   FM_UPGRADE_WINDOW_EXPIRES= FM_UPGRADE_WINDOW_SESSIONS=
-  if [ ! -e "$file" ] && [ ! -L "$file" ]; then
-    FM_UPGRADE_WINDOW_STATE=absent
-    return 0
+  if [ -n "$server" ]; then
+    host=${server#https://}
+    host=${host%/}
+    host=${host%%:*}
+    if ! [[ "$server" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$ ]]; then
+      FM_UPGRADE_WINDOW_STATE=unavailable
+      return 0
+    fi
+    content=$(fm_run_timed 8 ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1 -- "$host" \
+      'f="${AGENT_KIT_OBSERVATION_DIR:-$HOME/.agents/state/observation}/serve/upgrade-window.json"; if [ ! -e "$f" ] && [ ! -L "$f" ]; then printf absent; else head -c 65537 "$f"; fi' 2>/dev/null) || {
+      FM_UPGRADE_WINDOW_STATE=unavailable
+      return 0
+    }
+    if [ "$content" = absent ]; then FM_UPGRADE_WINDOW_STATE=absent; return 0; fi
+  else
+    if [ ! -e "$file" ] && [ ! -L "$file" ]; then
+      FM_UPGRADE_WINDOW_STATE=absent
+      return 0
+    fi
+    content=$(head -c 65537 "$file" 2>/dev/null) || { FM_UPGRADE_WINDOW_STATE=invalid; return 0; }
   fi
-  fields=$(head -c 65537 "$file" 2>/dev/null | jq -er '
+  fields=$(printf '%s' "$content" | jq -er '
     def clean: type == "string" and length > 0 and (test("[\u0000-\u001f\u007f]") | not);
     select(type == "object" and .schema_version == "1" and (.job | clean)
       and (.phase == "pausing" or .phase == "switching" or .phase == "resumed")
@@ -78,11 +93,15 @@ fm_upgrade_window_read() {
 # a deferral naming <what>, records the job as deferred in this home (when
 # <state-dir> is given), and returns FM_UPGRADE_WINDOW_DEFER_EXIT.
 fm_upgrade_window_gate() {
-  fm_upgrade_window_read
+  fm_upgrade_window_read "$(date +%s)" "${3-${FM_OMNIGENT_SERVER:-}}"
   case "$FM_UPGRADE_WINDOW_STATE" in
     active)
       [ -z "${2:-}" ] || fm_upgrade_window_note_deferred "$2"
       echo "deferred: an Omnigent upgrade (job $FM_UPGRADE_WINDOW_JOB, phase $FM_UPGRADE_WINDOW_PHASE) has paused new Omnigent work until it resumes or $(date -u -r "$FM_UPGRADE_WINDOW_EXPIRES" +%Y-%m-%dT%H:%MZ 2>/dev/null || date -u -d "@$FM_UPGRADE_WINDOW_EXPIRES" +%Y-%m-%dT%H:%MZ); $1 was not started and nothing changed - retry after the window closes" >&2
+      return "$FM_UPGRADE_WINDOW_DEFER_EXIT"
+      ;;
+    unavailable)
+      echo "deferred: cannot read the Omnigent server owner's upgrade window; $1 was not started" >&2
       return "$FM_UPGRADE_WINDOW_DEFER_EXIT"
       ;;
     invalid)
@@ -99,41 +118,26 @@ fm_upgrade_window_note_deferred() {
     printf '%s\n' "$FM_UPGRADE_WINDOW_JOB" > "$1/.upgrade-window-deferred" 2>/dev/null || true
 }
 
-# fm_upgrade_window_ack - write upgrade-window.ack.json for the active job once.
-# A current acknowledgement for the same job is left alone; failure returns 1.
-fm_upgrade_window_ack() {
-  local dir ack tmp
-  [ "$FM_UPGRADE_WINDOW_STATE" = active ] || return 0
-  dir=$(fm_upgrade_window_dir)
-  ack="$dir/upgrade-window.ack.json"
-  [ "$(jq -r '.job // empty' "$ack" 2>/dev/null)" != "$FM_UPGRADE_WINDOW_JOB" ] || return 0
-  tmp=$(umask 077 && mktemp "$dir/.upgrade-window.ack.XXXXXX") || return 1
-  if jq -n --arg job "$FM_UPGRADE_WINDOW_JOB" --argjson at "$(date +%s)" \
-      '{job:$job, paused_at:$at}' > "$tmp" && mv -f "$tmp" "$ack"; then
-    return 0
-  fi
-  rm -f "$tmp"
-  return 1
-}
-
-# fm_upgrade_window_tasks <state-dir> - this home's task ids whose recorded
-# omnigent_session is listed in FM_UPGRADE_WINDOW_SESSIONS, one per line.
 fm_upgrade_window_tasks() {
-  local state=$1 meta session
-  [ -n "$FM_UPGRADE_WINDOW_SESSIONS" ] || return 0
+  local state=$1 meta session verdict
   for meta in "$state"/*.meta; do
     [ -f "$meta" ] || continue
     session=$(sed -n 's/^omnigent_session=//p' "$meta" | tail -n 1)
-    [ -n "$session" ] || continue
-    if printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
+    [ "$(sed -n 's/^omnigent=//p' "$meta" | tail -n 1)" = on ] || continue
+    if [ -n "$session" ] && printf '%s\n' "$FM_UPGRADE_WINDOW_SESSIONS" | grep -qxF -- "$session"; then
       basename "$meta" .meta
+    elif [ -z "$session" ]; then
+      basename "$meta" .meta
+    else
+      verdict=$("${BASH_SOURCE[0]%/*}/fm-omnigent.sh" probe "$meta") || verdict=unknown
+      [ "$verdict" != dead ] || basename "$meta" .meta
     fi
   done
 }
 
 # fm_upgrade_window_supervise <state-dir>
 # One watcher poll; runs in the caller's shell so FM_UPGRADE_WINDOW_STATE stays
-# set. An active window is acknowledged. Once a job closes - or its window
+# set. Once a job closes - or its window
 # vanishes or breaks - and this home deferred work for it
 # (<state>/.upgrade-window-deferred) or owns a session it lists as interrupted,
 # FM_UPGRADE_WINDOW_REASON is set to one check reason; the caller queues it and
@@ -142,14 +146,14 @@ fm_upgrade_window_tasks() {
 fm_upgrade_window_supervise() {
   local state=$1 deferred_job='' tasks
   FM_UPGRADE_WINDOW_REASON=
-  fm_upgrade_window_read
+  fm_upgrade_window_read "$(date +%s)" "${FM_OMNIGENT_SERVER:-}"
   [ ! -f "$state/.upgrade-window-deferred" ] || deferred_job=$(cat "$state/.upgrade-window-deferred")
   case "$FM_UPGRADE_WINDOW_STATE" in
     active)
-      fm_upgrade_window_ack || echo "warning: could not acknowledge Omnigent upgrade job $FM_UPGRADE_WINDOW_JOB" >&2
       return 0
       ;;
     closed) ;;
+    unavailable) return 0 ;;
     *)
       [ -n "$deferred_job" ] || return 0
       FM_UPGRADE_WINDOW_JOB=$deferred_job
@@ -165,7 +169,7 @@ fm_upgrade_window_supervise() {
     return 0
   fi
   FM_UPGRADE_WINDOW_REASON="check: omnigent-upgrade $FM_UPGRADE_WINDOW_JOB closed (${FM_UPGRADE_WINDOW_OUTCOME:-resumed}); Omnigent dispatch and steering resume"
-  [ -z "$tasks" ] || FM_UPGRADE_WINDOW_REASON="$FM_UPGRADE_WINDOW_REASON; relaunch interrupted workers with bin/fm-control.sh <task> relaunch: $tasks"
+  [ -z "$tasks" ] || FM_UPGRADE_WINDOW_REASON="$FM_UPGRADE_WINDOW_REASON; relaunch interrupted or stopped workers with bin/fm-control.sh <task> relaunch: $tasks"
 }
 
 # fm_upgrade_window_commit <state-dir> - record the closed job as surfaced.

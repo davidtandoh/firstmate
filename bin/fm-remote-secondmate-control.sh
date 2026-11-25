@@ -266,6 +266,11 @@ cmd_launch() {
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
   validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
+  if [ "$omnigent_mode" = on ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "remote secondmate $id" "$CONTROL_STATE" "$omnigent_server" || return 75
+  fi
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|omp) ;;
@@ -376,6 +381,11 @@ cmd_relaunch() {
   validate_id "$id"
   case "$omnigent_mode" in ''|on|off) ;; *) die 'invalid Omnigent launch mode' ;; esac
   validate_omnigent_binding "$omnigent_mode" "$omnigent_server" "$omnigent_host"
+  if [ "$omnigent_mode" = on ]; then
+    # shellcheck source=bin/fm-upgrade-window-lib.sh
+    . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+    fm_upgrade_window_gate "remote secondmate $id" "$CONTROL_STATE" "$omnigent_server" || return 75
+  fi
   validate_home "$id"
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|omp) ;;

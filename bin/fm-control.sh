@@ -1288,18 +1288,17 @@ record_note() {
 
 # An open upgrade window of this host's Omnigent defers an Omnigent-wrapped
 # replacement with exit 75 before the old agent is touched
-# (bin/fm-upgrade-window-lib.sh owns the reading). A replacement through a
-# remote parent's server is gated by that host, not this one.
+# (bin/fm-upgrade-window-lib.sh owns the reading).
 relaunch_upgrade_window_gate() {
   local mode binding
   mode=$(fm_meta_get "$META" omnigent)
   [ "$mode" = on ] || mode=$("$SCRIPT_DIR/fm-omnigent.sh" mode "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}") || exit 1
   [ "$mode" = on ] || return 0
   binding=$("$SCRIPT_DIR/fm-omnigent.sh" binding "$META") || exit 1
-  [ -z "$binding" ] || return 0
   # shellcheck source=bin/fm-upgrade-window-lib.sh
   . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
   fm_upgrade_window_gate "the replacement for $ID (its current agent was left untouched)" "$STATE" \
+    "$(printf '%s\n' "$binding" | sed -n 's/^server=//p')" \
     || exit "$FM_UPGRADE_WINDOW_DEFER_EXIT"
 }
 

@@ -292,8 +292,7 @@ fi
 # reading and prints the deferral); 1 otherwise.
 fm_send_upgrade_window_holds() { # <meta-file> <what>
   [ -n "$1" ] && [ "$(fm_meta_get "$1" omnigent)" = on ] || return 1
-  [ -z "$(fm_meta_get "$1" omnigent_remote_server)" ] || return 1
-  ! fm_upgrade_window_gate "$2" "$STATE"
+  ! fm_upgrade_window_gate "$2" "$STATE" "$(fm_meta_get "$1" omnigent_remote_server)"
 }
 
 FM_GUARD_CONTINUE_LINE='This is a supervision warning only; the requested message WILL still be sent.' "$SCRIPT_DIR/fm-guard.sh" || true

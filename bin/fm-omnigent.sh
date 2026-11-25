@@ -1073,6 +1073,11 @@ if [ "$OP" = start ]; then
   case "$HARNESS" in claude|codex) ;; *) fail 'start supports Claude and Codex primaries' ;; esac
   [ "$#" -eq 0 ] || fail 'start takes only the primary harness'
 fi
+if [ "$OP" != check ]; then
+  # shellcheck source=bin/fm-upgrade-window-lib.sh
+  . "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+  fm_upgrade_window_gate "the Omnigent $HARNESS launch" "${FM_STATE_OVERRIDE:-${FM_HOME:-${SCRIPT_DIR%/bin}}/state}" || exit 75
+fi
 if [ "$OP" = run ] && [ -n "${FM_OMNIGENT_PREFLIGHT:-}" ]; then
   PREFLIGHT_STARTED=$(fm_timing_now_ms)
   PREFLIGHT_DEADLINE=$((PREFLIGHT_STARTED + 10000))
@@ -1207,6 +1212,10 @@ export FM_OMNIGENT_ATTACH_START
 # Keep the native wrapper as the foreground exec owner. Only its diagnostic
 # stderr enters the invocation-private reader; terminal attach/stdin/stdout,
 # signals and native exit status retain the existing transport owner.
+# shellcheck source=bin/fm-upgrade-window-lib.sh
+. "$SCRIPT_DIR/fm-upgrade-window-lib.sh"
+fm_upgrade_window_gate "the Omnigent $HARNESS launch" "${FM_STATE_OVERRIDE:-${FM_HOME:-${SCRIPT_DIR%/bin}}/state}" \
+  "${FM_OMNIGENT_SERVER:-}" || exit 75
 exec env ${CLIENT_ENV[@]+"${CLIENT_ENV[@]}"} LC_ALL="$client_locale" "$OMNIGENT_BIN" "${ARGS[@]}" -- "${REST[@]+${REST[@]}}" \
   2> >(python3 "$SCRIPT_DIR/fm-omnigent-title.py" --server "$SERVER" --harness "$HARNESS" \
     --title "$TITLE" --started "$TITLE_STARTED" --launcher "$SCRIPT_DIR/fm-omnigent.sh")
