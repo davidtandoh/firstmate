@@ -1,0 +1,62 @@
+[
+  {
+    "command": [
+      "bin/fm-pr-merge.sh",
+      "validation-nonexistent-task",
+      "https://github.com/example/repo/pull/1",
+      "--allow-red",
+      "lint",
+      "--allow-red",
+      "lint"
+    ],
+    "exit": 2,
+    "pass": true,
+    "scenario": "duplicate-red",
+    "stderr": "error: --allow-red names check 'lint' more than once\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bin/fm-pr-merge.sh",
+      "validation-nonexistent-task",
+      "https://github.com/example/repo/pull/1",
+      "--allow-red",
+      "lint\nunit"
+    ],
+    "exit": 2,
+    "pass": true,
+    "scenario": "newline-red",
+    "stderr": "error: --allow-red check name must not contain a line break\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bin/fm-pr-merge.sh",
+      "validation-nonexistent-task",
+      "https://github.com/example/repo/pull/1",
+      "--allow-red",
+      "lint\runit"
+    ],
+    "exit": 2,
+    "pass": true,
+    "scenario": "carriage-return-red",
+    "stderr": "error: --allow-red check name must not contain a line break\n",
+    "stdout": ""
+  },
+  {
+    "command": [
+      "bin/fm-pr-merge.sh",
+      "validation-nonexistent-task",
+      "https://github.com/example/repo/pull/1",
+      "--allow-missing",
+      "lint",
+      "--allow-missing",
+      "unit"
+    ],
+    "exit": 2,
+    "pass": true,
+    "scenario": "duplicate-missing",
+    "stderr": "error: --allow-missing may be specified only once\n",
+    "stdout": ""
+  }
+]
