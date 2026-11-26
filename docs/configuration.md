@@ -2118,7 +2118,7 @@ Ship and scout briefs provide an optional Standing answers subsection under Firs
 Firstmate sets `AGENT_KIT_TASK_WORKER=1` for ship and scout launches, including relaunches, across supported harnesses and runtime backends.
 Secondmates and the primary Firstmate session do not receive this task-worker marker.
 The marker lets Agent Kit suppress advisory hooks for task workers; Firstmate does not change the kit's safety hooks.
-The pane launch and T3Code harness configuration paths are covered by [`worker environment tests`](../tests/fm-spawn-compact-adviser-disable.test.sh) and [`T3Code tests`](../tests/fm-backend-t3code.test.sh).
+Launch coverage includes pane and Omnigent environments in [`worker environment tests`](../tests/fm-spawn-compact-adviser-disable.test.sh) and harness configuration in [`T3Code tests`](../tests/fm-backend-t3code.test.sh).
 
 ### Commit attribution
 
