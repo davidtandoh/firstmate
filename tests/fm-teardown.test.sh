@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Tests for bin/fm-teardown.sh's landed-work safety and stale-lock recovery.
+# Run with --codex-hooks-only to exercise the five copied-hook cleanup cases.
 #
 # The check refuses to tear down a worktree whose work has not LANDED, because
 # treehouse return hard-resets the worktree. "Landed" means reachable from a remote
@@ -6325,7 +6326,6 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
   pass "present required sources still reach the ordinary teardown refusal"
 }
 
-test_teardown_preserves_opencode_busy_plugin_on_pool_return
 
 # An orphan status log archived by record hygiene must survive status-archive
 # retention: the prune counts 30 days from archive time, not the log's last write.
@@ -7010,6 +7010,16 @@ SH
   pass "post-reap proof retains late work and retry records on ordinary and Orca paths, preserving clean/force/scout behavior"
 }
 
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -ne 1 ] || [ "$1" != --codex-hooks-only ]; then
+    echo "Usage: $0 [--codex-hooks-only]" >&2
+    exit 2
+  fi
+  test_codex_hooks_copy_of_firstmate_hooks
+  exit 0
+fi
+
+test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_hidden_untracked_work_refuses_before_return
 test_content_fallback_git_capability_boundary
 test_work_written_at_reap_boundary_is_preserved
