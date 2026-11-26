@@ -234,6 +234,13 @@ test_direct_policy_contract() {
   assert_policy direct-leading-redirection $'deny\twatcher-redirection' '>/tmp/out bin/fm-watch-arm.sh'
   assert_policy direct-unclassifiable $'deny\tunclassifiable-protected-command' "bin/fm-watch-arm.sh 'unterminated"
   assert_policy direct-unsupported $'deny\tunclassifiable-protected-command' 'if true; then bin/fm-watch-arm.sh; fi'
+  assert_policy direct-conditional-example $'deny\tunclassifiable-protected-command' "if true; then printf '%s' 'bin/fm-watch-arm.sh'; fi"
+  assert_policy direct-conditional-wrapper $'deny\tunclassifiable-protected-command' 'if true; then exec bin/fm-watch-arm.sh; fi'
+  assert_policy direct-negated-arm $'deny\twatcher-nested' '! bin/fm-watch-arm.sh'
+  assert_policy direct-negated-conditional-arm $'deny\tunclassifiable-protected-command' 'if ! exec bin/fm-watch-arm.sh; then echo failed; fi'
+  assert_policy direct-quoted-negation allow "'!' bin/fm-watch-arm.sh"
+  assert_policy direct-escaped-negation allow '\! bin/fm-watch-arm.sh'
+  assert_policy direct-negated-example allow "! printf '%s' 'bin/fm-watch-arm.sh'"
   assert_policy direct-constructed-payload $'deny\twatcher-nested' "WATCHER='bin/fm-watch-arm.sh &'; bash -lc \"\$WATCHER\""
   assert_policy direct-parameter-export allow 'export FM_HOME=${HOME}; bin/fm-watch-checkpoint.sh --seconds 180'
   assert_policy direct-expanded-arm-blessed allow '$FM_HOME/bin/fm-watch-arm.sh'
@@ -463,6 +470,143 @@ test_shellcheck_clean() {
   pass "bin/fm-arm-pretool-check.sh is clean under bin/fm-lint.sh"
 }
 
+test_merge_bypass_guard() {
+  local sandbox dir checker cmd out rc entry payload expected child
+  local -a mode
+  sandbox=$(fm_test_tmproot fm-merge-pretool)
+  dir="$sandbox/primary"
+  git init -q "$dir"
+  : > "$dir/AGENTS.md"
+  mkdir -p "$dir/bin"
+  cp "$CHECK" "$POLICY" "$ROOT/bin/fm-hook-host-lib.sh" "$ROOT/bin/fm-primary-scope-lib.sh" \
+    "$ROOT/bin/fm-merge-command-policy.mjs" "$dir/bin/"
+  checker="$dir/bin/fm-arm-pretool-check.sh"
+  # Minimal reconstructions of the three recorded merge-around-guard incidents.
+  # The commands are inspected by the hook, never executed against GitHub.
+  for cmd in \
+    'gh pr merge 362 --repo fixture/guidex_meta --squash' \
+    'gh pr merge 4 --admin --squash' \
+    'gh-axi pr merge 43 --squash' \
+    'if gh pr checks 43 --watch; then gh-axi pr merge 43 --squash; fi' \
+    "if ! gh-axi pr merge 43 --squash; then echo 'Merge failed'; fi" \
+    'gh api -X PUT repos/fixture/repo/pulls/43/merge' \
+    'gh-axi api repos/fixture/repo/pulls/43/merge -X PUT'; do
+    for entry in claude codex grok pi cursor agy; do
+      mode=()
+      expected=2
+      case "$entry" in
+        claude) mode=(--claude) ;;
+        cursor) mode=(--cursor); expected=0 ;;
+        agy) mode=(--agy); expected=0 ;;
+      esac
+      case "$entry" in
+        pi) out=$("$checker" --command "$cmd" 2>&1); rc=$? ;;
+        *)
+          case "$entry" in
+            grok) payload=$(jq -cn --arg c "$cmd" '{toolInput:{command:$c}}') ;;
+            agy) payload=$(jq -cn --arg c "$cmd" '{toolCall:{args:{CommandLine:$c}}}') ;;
+            *) payload=$(jq -cn --arg c "$cmd" '{tool_input:{command:$c}}') ;;
+          esac
+          out=$(printf '%s' "$payload" | "$checker" ${mode[@]+"${mode[@]}"} 2>&1); rc=$?
+          ;;
+      esac
+      expect_code "$expected" "$rc" "merge bypass must be refused via $entry: $cmd"
+      assert_contains "$out" 'bin/fm-pr-merge.sh' "merge denial must name the guarded path via $entry"
+    done
+  done
+  for cmd in \
+    '(gh pr merge 43)' \
+    '! gh pr merge 43' \
+    '! ! gh-axi pr merge 43' \
+    '! command gh-axi pr merge 43' \
+    'if ! GH_REPO=fixture/repo env gh pr merge 43; then echo failed; fi' \
+    'if true; then ! timeout 30 gh-axi pr merge 43; fi' \
+    'if false; then echo skipped; elif ! command gh pr merge 43; then echo failed; fi' \
+    'if gh pr merge 43; then echo done; fi' \
+    'if false; then echo skipped; elif gh pr merge 43; then echo done; fi' \
+    'if false; then echo skipped; else gh-axi pr merge 43; fi' \
+    'if true; then if true; then command gh pr merge 43; fi; fi' \
+    'if true; then GH_REPO=fixture/repo gh pr merge 43; fi' \
+    'echo before; gh-axi pr merge 43' \
+    'env -u GH_TOKEN /usr/local/bin/gh pr merge 43' \
+    'command gh -R fixture/repo pr merge 43' \
+    "bash -lc 'gh pr merge 43'" \
+    "eval 'gh pr merge 43'" \
+    'echo "$(gh pr merge 43)"' \
+    'gh pr merge 43 --subject --help' \
+    'gh-axi pr merge 43 --body --help' \
+    'gh pr merge 43 --subject=--help' \
+    'gh-axi pr merge 43 -t --help' \
+    'gh pr merge 43 -- --help' \
+    'gh pr merge --help; gh-axi pr merge 43' \
+    'gh api --method=PUT /repos/fixture/repo/pulls/43/merge' \
+    'gh api -XPUT https://api.github.com/repos/fixture/repo/pulls/43/merge' \
+    'gh api repos/fixture/repo/pulls/43/merge -f merge_method=squash' \
+    'g"h" pr merge 43' \
+    "\$'\\147h' pr merge 43"; do
+    out=$("$checker" --claude --command "$cmd" 2>&1); rc=$?
+    expect_code 2 "$rc" "ordinary shell syntax must not hide a merge: $cmd"
+    assert_contains "$out" '[raw-pr-merge]' "nested merge must carry the merge reason"
+  done
+  for cmd in \
+    'gh pr merge --help' \
+    '! gh pr merge --help' \
+    'if ! gh-axi pr merge --help; then echo failed; fi' \
+    "'!' gh pr merge 43" \
+    '\! gh-axi pr merge 43' \
+    'i\f gh pr merge 43' \
+    "if true; then '!' gh pr merge 43; fi" \
+    'if true; then \! gh-axi pr merge 43; fi' \
+    "! printf '%s' 'gh-axi pr merge 43'" \
+    'command ! gh pr merge 43' \
+    'if true; then gh pr merge --help; else gh-axi pr merge --help; fi' \
+    "if true; then printf '%s' 'gh-axi pr merge 43'; fi" \
+    "if false; then echo skipped; elif printf '%s' 'gh pr merge 43'; then echo done; fi" \
+    "'if' gh pr merge 43" \
+    "'then' gh-axi pr merge 43" \
+    'gh-axi pr merge --help' \
+    'gh -R fixture/repo pr merge --help' \
+    "bash -lc 'gh-axi pr merge --help'" \
+    'bin/fm-pr-merge.sh task-x https://github.com/fixture/repo/pull/43' \
+    'gh pr view 43' \
+    'gh api repos/fixture/repo/pulls/43' \
+    'gh api -X GET repos/fixture/repo/pulls/43/merge' \
+    'gh api repos/fixture/repo/pulls/43/merge' \
+    'gh api -X PUT repos/fixture/repo/issues/43' \
+    'gh api -X PUT repos/fixture/repo/issues/43 -f body="gh pr merge 43"' \
+    "printf '%s' 'gh pr merge 43'" \
+    'rg "gh pr merge" docs'; do
+    out=$("$checker" --claude --command "$cmd" 2>&1); rc=$?
+    expect_code 0 "$rc" "ordinary command and guarded merge must remain allowed: $cmd"
+    [ -z "$out" ] || fail "allowed merge-related command produced output: $out"
+  done
+  # Genuine task worktrees inherit tracked hooks and sometimes FM_HOME. They
+  # must keep their legitimate no-mistakes commands. Only a valid secondmate
+  # marker makes a linked worktree a guarded supervisor home.
+  git -C "$dir" add .
+  git -C "$dir" -c user.name=fmtest -c user.email=fmtest@example.invalid commit -qm init
+  child="$sandbox/worker"
+  git -C "$dir" worktree add -q -b fm/merge-worker "$child"
+  out=$(FM_HOME="$dir" "$child/bin/fm-arm-pretool-check.sh" --claude --command 'gh pr merge 43' 2>&1); rc=$?
+  expect_code 0 "$rc" "worker with inherited FM_HOME must remain exempt"
+  [ -z "$out" ] || fail "worker merge was not silently allowed: $out"
+  printf 'sm-merge\n' > "$child/.fm-secondmate-home"
+  out=$("$child/bin/fm-arm-pretool-check.sh" --claude --command 'gh pr merge 43' 2>&1); rc=$?
+  expect_code 2 "$rc" "linked secondmate home must be guarded"
+  assert_contains "$out" '[raw-pr-merge]' "secondmate merge must carry the merge reason"
+  out=$("$child/bin/fm-arm-pretool-check.sh" --claude --command 'gh pr merge --help' 2>&1); rc=$?
+  expect_code 0 "$rc" "linked secondmate must allow merge help"
+  [ -z "$out" ] || fail "secondmate merge help was not silently allowed: $out"
+  printf 'sm-merge\n' > "$dir/.fm-secondmate-home"
+  out=$("$checker" --claude --command 'gh-axi pr merge 43' 2>&1); rc=$?
+  expect_code 2 "$rc" "plain secondmate home must be guarded"
+  out=$("$checker" --claude --command 'gh-axi pr merge --help' 2>&1); rc=$?
+  expect_code 0 "$rc" "plain secondmate must allow merge help"
+  [ -z "$out" ] || fail "plain secondmate merge help was not silently allowed: $out"
+  pass "merge bypasses refused through every harness transport; guarded path and read-only commands allowed"
+}
+
+test_merge_bypass_guard
 test_full_acceptance_matrix
 test_direct_policy_contract
 test_command_equals_form

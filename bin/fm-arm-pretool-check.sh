@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Stable PreToolUse transport for the watcher-arm command policy.
+# Stable PreToolUse transport for watcher-arm and raw PR merge policies.
 #
 # A firstmate primary must arm the watcher or run a Codex checkpoint as a
 # standalone verified harness call.
 # bin/fm-arm-command-policy.mjs is the sole owner of shell classification,
-# protected execution identity, the blessed setup tree, and deny reason codes.
+# protected watcher identity, the blessed setup tree, and watcher deny codes.
 # This wrapper only acquires the harness payload, discovers the active roots,
-# invokes that policy, and renders the established harness-specific responses.
+# invokes those policies, and renders the established harness-specific responses.
+# Raw GitHub PR merges are denied only in primary and secondmate homes through
+# fm-merge-command-policy.mjs and the shared fm-primary-scope-lib.sh predicate.
+# Worker worktrees remain exempt; the supported fm-pr-merge.sh call is allowed.
 # It never executes, sources, evaluates, or expands the submitted command.
 # See docs/arm-pretool-check.md for the complete contract and validation record.
 #
@@ -41,7 +44,7 @@
 # OpenCode and Pi consume exit 2 plus stderr.
 # Cursor consumes the stdout decision object.
 # Antigravity (agy) consumes the stdout decision object.
-set -u
+set -euo pipefail
 
 CMD=""
 CMD_SET=0
@@ -58,6 +61,8 @@ With no --command, reads a PreToolUse-style JSON payload on stdin (Grok
 toolInput.command, Antigravity toolCall.args.CommandLine/command, or
 Claude/Codex/Cursor tool_input.command).
 Exits 0 to allow and 2 to deny.
+Raw GitHub PR merges in primary and secondmate homes must use bin/fm-pr-merge.sh.
+This merge policy is inert in worker worktrees, including no-mistakes workers.
 The deny reason is written to stderr, with a Grok decision object on stdout
 unless --claude is supplied.
 With --cursor, a deny is Cursor's own decision object on stdout and exit 0,
@@ -135,10 +140,10 @@ fi
 [ -n "$CMD" ] || exit 0
 
 # Strict-superset prefilter (transport only; owns zero classification semantics).
-# Every protected watcher execution and every broad watcher kill resolves to the
-# fm-watch byte sequence AFTER the classifier's byte normalization, so a command
-# that cannot contain fm-watch even after that normalization can never be a
-# deniable watcher command and is fast-allowed without the Node policy owner.
+# Protected watcher execution and broad watcher kills contain fm-watch, while
+# raw GitHub merges contain gh AFTER the classifier's byte normalization.
+# A command containing neither cannot be denied by either policy and is
+# fast-allowed without the Node policy owners.
 # We mirror the classifier's cheapest byte transforms here (drop line-
 # continuation and escape backslashes, quotes, and newlines) so obfuscated
 # protected paths such as fm-watc\<newline>h-arm.sh or fm-"watch"-arm.sh still
@@ -146,7 +151,7 @@ fi
 # existing fm-watch run.
 #
 # The fast path may allow ONLY when BOTH hold: (a) the stripped/normalized text
-# lacks the fm-watch watcher substring, AND (b) the raw command carries no
+# lacks both fm-watch and gh, AND (b) the raw command carries no
 # quoting-decoder marker - a $ immediately followed by a single quote (ANSI-C
 # $'...') or a double quote (bash locale $"..."), both of which the classifier
 # decodes and can therefore reconstruct fm-watch from bytes this cheap byte
@@ -167,7 +172,7 @@ case "$CMD" in
   *"\$'"*|*'$"'*) ;;
   *)
     case "$PREFILTER" in
-      *fm-watch*) ;;
+      *fm-watch*|*gh*) ;;
       *) exit 0 ;;
     esac
     ;;
@@ -181,7 +186,23 @@ POLICY="$ROOT/bin/fm-arm-command-policy.mjs"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$POLICY" ] || exit 0
 
-POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --root "$ROOT" --home "$ACTIVE_HOME" 2>/dev/null) || exit 0
+POLICY_OUTPUT=""
+MERGE_CANDIDATE=0
+case "$PREFILTER" in *gh*) MERGE_CANDIDATE=1 ;; esac
+case "$CMD" in *"\$'"*|*'$"'*) MERGE_CANDIDATE=1 ;; esac
+# Scope from the executing code root, never an inherited FM_HOME: workers may
+# inherit a supervisor home while running this tracked hook in a task worktree.
+if [ "$MERGE_CANDIDATE" -eq 1 ] && [ -f "$ROOT/bin/fm-merge-command-policy.mjs" ] && [ -f "$ROOT/bin/fm-primary-scope-lib.sh" ]; then
+  # shellcheck source=bin/fm-primary-scope-lib.sh
+  . "$ROOT/bin/fm-primary-scope-lib.sh"
+  if fm_primary_root_matches "$ROOT"; then
+    POLICY_OUTPUT=$(node "$ROOT/bin/fm-merge-command-policy.mjs" --command "$CMD" 2>/dev/null) || POLICY_OUTPUT=""
+  fi
+fi
+case "$POLICY_OUTPUT" in
+  deny*) ;;
+  *) POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --root "$ROOT" --home "$ACTIVE_HOME" 2>/dev/null) || exit 0 ;;
+esac
 [ -n "$POLICY_OUTPUT" ] || exit 0
 
 TAB=$(printf '\t')

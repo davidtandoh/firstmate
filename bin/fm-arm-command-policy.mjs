@@ -327,6 +327,7 @@ export class Lexer {
           this.index += 2;
           continue;
         }
+        word.quoted = true;
         word.value += this.source[this.index + 1];
         this.index += 2;
         continue;
@@ -545,6 +546,8 @@ function consumeWrapperOptions(name, words, index) {
 export function commandPosition(tokens) {
   const words = wordsInNode(tokens);
   let index = 0;
+  while (words[index]?.literal && !words[index].quoted &&
+    ["if", "then", "elif", "else", "!"].includes(words[index].value)) index += 1;
   while (index < words.length && isAssignment(words[index].value)) index += 1;
   const prefixAssignments = index;
   const wrappers = [];
@@ -614,7 +617,7 @@ function hasUnclassifiableProtectedExpansion(word, root) {
   return /(?:^|\/)fm-watch/.test(word.value);
 }
 
-function shellInvocation(position) {
+export function shellInvocation(position) {
   if (!position.command) return null;
   const name = basename(position.command.value);
   if (!["sh", "bash", "zsh"].includes(name)) return null;
@@ -649,13 +652,13 @@ function shellInvocation(position) {
   return { kind: "stdin", payload: null };
 }
 
-function shellHeredocPayloads(tokens, position) {
+export function shellHeredocPayloads(tokens, position) {
   if (shellInvocation(position)?.kind !== "stdin") return [];
   const heredocs = tokens.filter((token) => token.type === "redir" && token.fd === 0 && typeof token.heredoc === "string");
   return heredocs.length === 0 ? [] : [heredocs.at(-1).heredoc];
 }
 
-function shellHereStringPayloads(tokens, position) {
+export function shellHereStringPayloads(tokens, position) {
   if (shellInvocation(position)?.kind !== "stdin") return [];
   const payloads = [];
   for (let i = 0; i < tokens.length; i += 1) {
@@ -672,7 +675,7 @@ function sourcedScript(position) {
   return position.words[position.index + 1] || null;
 }
 
-function evalPayload(position) {
+export function evalPayload(position) {
   if (!position.command || basename(position.command.value) !== "eval") return null;
   const payloads = position.words.slice(position.index + 1);
   if (payloads.length === 0 || payloads.some((payload) => !payload.literal || payload.subs.length > 0)) return null;

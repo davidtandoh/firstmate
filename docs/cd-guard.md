@@ -38,6 +38,7 @@ Secondmate child crew and scout worktrees are likewise inert under the linked-wo
 The discriminator is persistence to the parent shell's cwd, not the mere presence of the token `cd`.
 
 The guard **blocks** a `cd`, `pushd`, or `popd` builtin that runs in an executed top-level position in the parent shell, because such a command persistently changes the primary shell's own working directory.
+The [shared command-position analysis](arm-pretool-check.md#command-position-classification) also identifies these builtins behind conditional and negation prefixes.
 This covers a bare `cd projects/foo`, `cd ..`, `cd`, `cd -`, an absolute `cd /some/path` other than the home itself (still a persistent relocation of the parent shell), `pushd <dir>`, `popd`, a leading-assignment form such as `X=1 cd foo`, quoted or escaped command-word fragments that cook to a bare builtin, and any list form where the builtin runs in the parent shell (`cd x && cmd`, `cmd; cd x`, `cmd || cd x`, `command cd x`, `command -p cd x`, `command -- cd x`, `builtin cd x`, `command builtin cd x`, `cd x >/dev/null`, and newline-separated lists).
 
 The guard **allows** everything else, including these safe scoped forms that must never be blocked:
@@ -116,7 +117,7 @@ Identical in shape to `docs/arm-pretool-check.md`:
 `bin/fm-cd-command-policy.mjs` imports the shell tokenizer and command-position analysis (`Lexer`, `splitProgram`, `commandPosition`) from `bin/fm-arm-command-policy.mjs`, the sole owner of firstmate's shell classification.
 `basename` remains a private helper of the shared arm classifier because the cd policy identifies shell builtins by exact cooked-word identity.
 The cd-guard never duplicates shell lexing; it adds only the cd-specific decision on top of that shared classifier.
-`bin/fm-arm-command-policy.mjs` runs its own CLI entry point only when invoked directly, never on import, so the two policies stay independent CLIs over one parser.
+`bin/fm-arm-command-policy.mjs` runs its own CLI entry point only when invoked directly, never on import, so the watcher-arm, cd, and [raw PR merge policies](arm-pretool-check.md#raw-pr-merge-guard) stay independent CLIs over one parser.
 
 ## Harness wiring
 

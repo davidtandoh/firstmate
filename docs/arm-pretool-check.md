@@ -1,8 +1,9 @@
-# Watcher arm PreToolUse seatbelt
+# Watcher arm and PR merge PreToolUse seatbelt
 
-This document is the authoritative human-readable contract for the watcher arm PreToolUse seatbelt.
-`bin/fm-arm-command-policy.mjs` is the single semantic owner.
-`bin/fm-arm-pretool-check.sh` is only the stable harness transport and output renderer.
+This document is the authoritative human-readable contract for the watcher arm and raw PR merge PreToolUse seatbelt.
+`bin/fm-arm-command-policy.mjs` owns the watcher-arm decision and shared shell classification.
+`bin/fm-merge-command-policy.mjs` owns the separate raw PR merge decision described below.
+`bin/fm-arm-pretool-check.sh` is the shared harness transport, merge-scope check, and output renderer.
 The tracked harness adapters forward command text without classifying it.
 `bin/fm-arm-command-policy.mjs` is also the sole owner of firstmate's shell classification: it exports the tokenizer and command-position analysis, which the sibling cd-guard seatbelt (`bin/fm-cd-pretool-check.sh`, `docs/cd-guard.md`) reuses instead of duplicating shell lexing.
 
@@ -31,19 +32,20 @@ It tokenizes the bytes and classifies lexical execution positions only.
 
 The wrapper discovers the code root from its own location.
 The active firstmate home is `${FM_HOME:-<code-root>}`.
-It passes both roots and the exact command string to the Node policy owner.
+It passes both roots and the exact command string to the watcher-arm policy.
+The merge policy receives only the command string after the transport checks its scope.
 
-The wrapper fast-allows a command without invoking the Node policy owner only when the command cannot contain the `fm-watch` byte sequence even after the classifier's decoders run.
+The wrapper fast-allows a command without invoking a Node policy owner only when the command cannot contain either `fm-watch` or `gh` even after the classifier's decoders run.
 The fast path may allow only when both of these hold:
 
-1. The stripped text lacks the `fm-watch` watcher substring, after mirroring the classifier's cheapest byte normalizations - dropping line-continuation and escape backslashes, quotes, and newlines.
+1. The stripped text lacks both `fm-watch` and `gh`, after mirroring the classifier's cheapest byte normalizations - dropping line-continuation and escape backslashes, quotes, and newlines.
 2. The raw command carries no quoting-decoder marker: a `$` immediately followed by a single quote (ANSI-C `$'...'`) or a double quote (bash locale `$"..."`).
 
-Any `fm-watch` match or any quoting-decoder marker delegates to the classifier.
+Any `fm-watch` or `gh` match, or any quoting-decoder marker, delegates to the policies.
 Normalizing first keeps this a strict superset: a protected watcher path obfuscated as `fm-watc\<newline>h-arm.sh` or `fm-"watch"-arm.sh` still delegates, and stripping only those non-alphanumeric bytes can never destroy an existing `fm-watch` run.
 The quoting-decoder marker closes the case the byte strip cannot: `bin/fm-$'\x77'atch-arm.sh` and `bin/fm-$"watch"-arm.sh` both resolve to `bin/fm-watch-arm.sh` only after the classifier decodes the encoded character, so a cheap byte strip would otherwise lose the `fm-watch` bytes and fast-allow them.
 This marker set is coupled to the classifier's decoder set in `bin/fm-arm-command-policy.mjs`: adding any new quote or expansion form the classifier decodes requires extending this marker set in the same change, or the prefilter stops being a strict superset.
-The prefilter owns no semantic exception: it can only ever fast-allow a command that is definitely not a watcher command, so it never flips a classification and the classifier remains the single owner of every decision.
+The prefilter owns no semantic exception: it can only fast-allow a command irrelevant to both policies, so it never flips either policy's classification.
 
 The seatbelt's threat model is agent mistakes: no one accidentally writes an ANSI-C- or locale-obfuscated watcher path, and deliberate obfuscation is the post-arm liveness guard's territory.
 The marker guard closes the static gap anyway because it is cheap and provable per encoding class.
@@ -52,12 +54,43 @@ Deeper decode-required obfuscation beyond the coupled marker set stays the class
 
 Malformed or empty stdin, invalid JSON, missing `jq` for stdin transport, missing Node, a missing classifier, or an invalid classifier response fail open with exit 0 and no output.
 This transport behavior prevents a broken hook from denying every shell tool call.
-Malformed or unsupported shell syntax that contains a protected command is a semantic classification result and fails closed.
+For the watcher-arm policy, malformed or unsupported shell syntax that contains a protected watcher command is a semantic classification result and fails closed.
+The merge policy's classification limits are described in [Raw PR merge guard](#raw-pr-merge-guard).
+
+## Raw PR merge guard
+
+The merge policy prevents a supervisor from bypassing the checks and task-metadata recording in `bin/fm-pr-merge.sh`.
+It runs through the existing harness registrations, with no additional hook configuration.
+Coverage follows the tracked primary integrations below; Kimi remains outside those project-hook integrations as described in [the primary guard limits](turnend-guard.md#compatibility-limits).
+The transport uses `fm_primary_root_matches` from `bin/fm-primary-scope-lib.sh` against its code root.
+That predicate includes plain primary checkouts and valid marked secondmate homes, including linked secondmate homes.
+An unmarked worker worktree is exempt even when it inherits a supervisor's `FM_HOME`, so no-mistakes workers retain their own merge commands.
+Runtime backends need no separate integration because the harness hook invokes the same transport in each backend.
+
+The policy denies executed `gh pr merge` and `gh-axi pr merge` commands, including path-qualified executables and global repository selectors.
+The help-only forms `gh pr merge --help` and `gh-axi pr merge --help` remain allowed, including with global repository selectors before `pr`.
+This exception requires `--help` to be the sole argument after `merge`; help-like text used as a merge option value does not exempt a merge.
+It also denies mutating `gh api` and `gh-axi api` calls to the GitHub PR merge endpoint.
+Read-only merge-status requests remain allowed.
+The `raw-pr-merge` reason directs the supervisor to `bin/fm-pr-merge.sh`.
+Calling that script remains allowed; the hook inspects submitted command text rather than opening the script or intercepting its internal forge calls.
+
+The policy reuses the existing shell tokenizer, command-position analysis, shell payload readers, and `eval` payload reader.
+It inspects command lists, groups, substitutions, ordinary wrappers, and literal nested shell payloads without executing them.
+Quoted examples and documentation searches remain data.
+The boundary is an agent-mistake guard, not a sandbox: unsupported or malformed syntax, opaque variable dataflow, external scripts, and arbitrary interpreters are outside this merge classifier.
+The existing transport failure behavior also applies to this policy.
+
+`tests/fm-arm-pretool-check.test.sh` covers the reconstructed historical merge commands, API mutations, harness response formats, primary and secondmate scope, worker exemption, and the permitted guarded path.
+`tests/fm-pr-merge.test.sh` verifies the guarded script's merge and metadata behavior with isolated forge fixtures.
 
 ## Command-position classification
 
 The tokenizer recognizes cooked words with quote provenance, comments, heredoc bodies, shell list operators, pipelines, redirections, command and process substitutions, parenthesized subshells, brace groups, and literal nested execution payloads.
 Quoted text, comments, heredoc bodies, and later argument words are data positions unless a recognized execution sink recursively executes them.
+Shared command-position analysis skips leading unquoted conditional keywords (`if`, `then`, `elif`, `else`) and shell negation (`!`) before recognizing assignments and ordinary wrappers.
+Quoted or escaped lookalikes remain command words rather than shell execution prefixes.
+Recognizing these positions does not make conditional watcher calls part of the blessed syntax tree below.
 
 A command word in executed position is a protected execution when its normalized path suffix matches one of the protected watcher scripts:
 
