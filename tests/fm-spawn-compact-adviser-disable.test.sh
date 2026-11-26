@@ -463,3 +463,42 @@ test_launch_exports_task_inbox
 test_launch_exports_active_home
 test_relaunch_rebuilds_the_switch
 test_raw_compound_launch_command_carries_the_switch
+
+
+test_task_worker_marker() {
+  local kind setting rec id out status seen want launch
+  for kind in ship scout secondmate; do
+    for setting in absent enabled; do
+      id="marker-$kind-$setting"
+      rec=$(make_case "$id" codex "$id")
+      read_case "$rec"
+      [ "$setting" = absent ] || : > "$HOME_DIR/config/launch-env-allowlist"
+      if [ "$kind" = secondmate ]; then
+        # Reuse the public secondmate launch fixture and inspect its environment below.
+        mkdir -p "$CASE_DIR/sm/bin" "$CASE_DIR/sm/data"
+        printf '# Firstmate\n' > "$CASE_DIR/sm/AGENTS.md"
+        printf '%s\n' "$id" > "$CASE_DIR/sm/.fm-secondmate-home"
+        printf 'charter\n' > "$CASE_DIR/sm/data/charter.md"
+        git -C "$CASE_DIR/sm" init -q -b main
+        out=$(run_case_spawn "$id" "$CASE_DIR/sm" --secondmate)
+        status=$?
+        want='unset'
+      elif [ "$kind" = scout ]; then
+        out=$(run_case_spawn "$id" "$PROJ_DIR" --scout)
+        status=$?
+        want=1
+      else
+        out=$(run_case_spawn "$id" "$PROJ_DIR" --mode no-mistakes --yolo off)
+        status=$?
+        want=1
+      fi
+      expect_code 0 "$status" "$id spawn: $out"
+      install_env_probe "$FAKEBIN_DIR" codex AGENT_KIT_TASK_WORKER
+      launch=$(cat "$LAUNCH_LOG")
+      seen=$(env -i HOME="$TMP_ROOT/pane-home" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm AGENT_KIT_TASK_WORKER=0 /bin/sh -c "$launch") || fail "$id launch failed"
+      assert_equals "$want" "$seen" "$id task worker marker"
+    done
+  done
+  pass 'only task workers receive the task-worker marker across allowlist postures'
+}
+test_task_worker_marker

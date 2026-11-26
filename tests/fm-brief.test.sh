@@ -1879,3 +1879,38 @@ test_branch_prefix_is_refused_where_it_does_not_apply
 test_branch_prefix_value_is_validated
 test_branch_prefix_command_is_shell_safe
 test_crewmate_scaffolds_forbid_pool_administration
+
+
+test_worker_prevalidation_contract() {
+  local mode brief
+  for mode in no-mistakes direct-PR local-only; do
+    FM_HOME="$BRIEF_HOME" "$ROOT/bin/fm-brief.sh" "worker-defaults-$mode" example --mode "$mode" >/dev/null || fail "scaffold failed"
+    brief="$BRIEF_HOME/data/worker-defaults-$mode/brief.md"
+    assert_grep '### Standing answers (optional)' "$brief" 'standing answers subsection missing'
+    assert_grep 'guidance-only change: no live-validatable surface; proceed without live validation' "$brief" 'guidance default missing'
+    assert_grep 'static-gate change: targeted static-tool execution authorized to prove the gate fails on planted errors' "$brief" 'static gate default missing'
+    assert_grep 'never cover merge, destructive, security or credential decisions' "$brief" 'standing answer boundary missing'
+    if [ "$mode" = no-mistakes ]; then
+      # shellcheck disable=SC2016 # Assert the literal generated command, without executing it.
+      assert_grep 'pre-answered decisions through `no-mistakes axi respond --instructions`' "$brief" 'validation handoff missing'
+      assert_grep 'Commented examples are not selected answers' "$brief" 'unselected answer boundary missing'
+    fi
+    assert_grep 'Self-review the diff against the brief' "$brief" 'self-review step missing'
+    assert_grep 'docs, ADR links and READMEs in the same commit' "$brief" 'documentation step missing'
+  done
+  pass 'ship briefs carry bounded optional standing answers and prevalidation self-review'
+}
+test_worker_prevalidation_contract
+
+
+test_standing_answers_do_not_fill_spec() {
+  local brief
+  FM_HOME="$BRIEF_HOME" "$ROOT/bin/fm-brief.sh" standing-placeholder example --mode no-mistakes >/dev/null || fail 'scaffold failed'
+  brief="$BRIEF_HOME/data/standing-placeholder/brief.md"
+  sed 's/{TASK}/An authorized task./' "$brief" > "$brief.filled"
+  if ! bash -c '. "$1/bin/fm-dod-lib.sh"; fm_brief_task_placeholders_present "$2"' _ "$ROOT" "$brief.filled"; then
+    fail 'optional standing-answer scaffolding hid the unfilled Firstmate spec'
+  fi
+  pass 'standing-answer scaffolding does not bypass the unfilled-spec guard'
+}
+test_standing_answers_do_not_fill_spec

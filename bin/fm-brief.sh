@@ -8,7 +8,10 @@
 # report, decision, or PR the ask refers to, without added speaker labels or
 # direct address) and `{FIRSTMATE_SPEC}`
 # under `## Firstmate spec` (build instructions, which are never the captain's
-# intent). That subsection also ends with a `Skills to use: {SKILLS}` line
+# intent). Its optional Standing answers subsection holds task-selected
+# pre-answered validation decisions; the scaffold comments document two defaults
+# without authorizing either until Firstmate selects it. The spec also has a
+# `Skills to use: {SKILLS}` line
 # Firstmate fills with the skills whose triggers fit the task, or `none`
 # (AGENTS.md section 11). bin/fm-dod-lib.sh owns the no-mistakes `--intent`
 # contract those subsections feed; bin/fm-spawn.sh refuses leftover `{TASK}` /
@@ -663,6 +666,14 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 {FIRSTMATE_SPEC}
 
 Skills to use: {SKILLS}
+
+### Standing answers (optional)
+<!-- Firstmate: remove this subsection if unused, or replace this comment with
+only the answers authorized for this task. Available defaults:
+- guidance-only change: no live-validatable surface; proceed without live validation
+- static-gate change: targeted static-tool execution authorized to prove the gate fails on planted errors
+Standing answers never cover merge, destructive, security or credential decisions.
+-->
 EOF
 TASK_SECTION=${TASK_SECTION%$'\n'}
 

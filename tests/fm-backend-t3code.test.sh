@@ -1566,8 +1566,9 @@ test_spawn_leases_slot_creates_thread_and_starts_launch_turn() {
   [ "$(t3_json_field "$settings" 'd.env.GIT_CONFIG_KEY_0')" = core.hooksPath ] || fail "T3 workers must select core.hooksPath"
   [ "$(t3_json_field "$settings" 'd.env.GIT_CONFIG_COUNT')" = 1 ] || fail "T3 workers must select one Git config override"
   [ "$(t3_json_field "$settings" 'd.env.TRACEPARENT')" = undefined ] || fail "TRACEPARENT must be absent when trace context is off"
+  [ "$(t3_json_field "$settings" 'd.env.AGENT_KIT_TASK_WORKER')" = 1 ] || fail "Claude task worker marker missing"
   [ "$(t3_json_field "$settings" 'd.env.COMPACT_ADVISER_DISABLE')" = 1 ] || fail "settings env must carry the compact-adviser kill switch every launch carries"
-  [ "$(t3_json_field "$settings" 'Object.keys(d.env).sort().join(" ")')" = "COMPACT_ADVISER_DISABLE FM_HOME FM_T3CODE_ENV_KEYS FM_TASK_ID FM_TASK_INBOX GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GOTMPDIR" ] || fail "a worker env block carries the task inbox and Git hook with the launch environment"
+  [ "$(t3_json_field "$settings" 'Object.keys(d.env).sort().join(" ")')" = "AGENT_KIT_TASK_WORKER COMPACT_ADVISER_DISABLE FM_HOME FM_T3CODE_ENV_KEYS FM_TASK_ID FM_TASK_INBOX GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GOTMPDIR" ] || fail "a worker env block carries the task inbox and Git hook with the launch environment"
   t3_excluded "$wt" .claude/settings.local.json || fail "the settings file must be git-excluded"
   assert_present "$wt/CLAUDE.local.md" "a claude worker gets the task-worker channel statement as CLAUDE.local.md"
   assert_grep "task worker launched by Firstmate" "$wt/CLAUDE.local.md" "CLAUDE.local.md must carry the channel statement"
@@ -1609,6 +1610,7 @@ test_spawn_codex_scout_writes_toml_env_with_traceparent() {
   [ "$(t3_toml_env "$toml" FM_TASK_ID)" = "$id" ] || fail "a scout's config.toml must set FM_TASK_ID"
   [ "$(t3_toml_env "$toml" FM_TASK_INBOX)" = "$state/$id.inbox" ] || fail "a scout's config.toml must set FM_TASK_INBOX"
   [ "$(t3_toml_env "$toml" GIT_CONFIG_VALUE_0)" = "$state/$id.git-hooks" ] || fail "a scout's config.toml must select the installed Git hook"
+  [ "$(t3_toml_env "$toml" AGENT_KIT_TASK_WORKER)" = 1 ] || fail "Codex task worker marker missing"
   [ "$(t3_toml_env "$toml" COMPACT_ADVISER_DISABLE)" = 1 ] || fail "config.toml must set the compact-adviser kill switch"
   tp=$(t3_toml_env "$toml" TRACEPARENT)
   case "$tp" in 00-????????????????????????????????-????????????????-??) ;; *) fail "config.toml must set a W3C TRACEPARENT when trace context is on, got '$(cat "$toml")'" ;; esac
