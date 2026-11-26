@@ -1,0 +1,281 @@
+$ bin/fm-lab-home.sh create /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp 
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+exit=0
+$ git init -q -b main 
+exit=0
+$ git add .gitignore 
+exit=0
+$ git commit -q -m Initialize lab 
+exit=0
+$ treehouse get --lease --no-fetch --json 
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/generated-637c7e/1/generated. Run 'treehouse return ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/generated-637c7e/1/generated' to release it.
+{"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/generated-637c7e/1/generated","lease_id":"fd0726282b88b72b64037482091c097f","lease_holder":"","leased_at":"2026-11-26T10:10:57.129654Z","base_branch":"main"}
+exit=0
+allocation {'path': '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/generated-637c7e/1/generated', 'lease_id': 'fd0726282b88b72b64037482091c097f', 'lease_holder': '', 'leased_at': '2026-11-26T10:10:57.129654Z', 'base_branch': 'main'}
+$ tasks-axi add live-hooks Hook cleanup lab --kind ship --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: added live-hooks (ship) -> Queued
+task:
+  id: live-hooks
+  title: Hook cleanup lab
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-26
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-hooks --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-hooks --by <other> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to record a dependency
+exit=0
+$ tasks-axi start live-hooks --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: start live-hooks -> In flight
+help[1]:
+  - Run `tasks-axi done live-hooks --pr <url> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` when it ships
+exit=0
+$ bin/fm-teardown.sh live-hooks --legacy-record 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown live-hooks complete (window none, worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/generated-637c7e/1/generated, legacy record accepted without spawn_gen: endpoint missing, incarnation legacy-20261126T101058Z-68068)
+Backlog: live-hooks is closed in /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+exit=0
+OBSERVED {"variant": "generated", "exit": 0, "hooks_exist": false, "pass": true}
+$ git init -q -b main 
+exit=0
+$ git add .gitignore 
+exit=0
+$ git commit -q -m Initialize lab 
+exit=0
+$ treehouse get --lease --no-fetch --json 
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/modified-00c819/1/modified. Run 'treehouse return ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/modified-00c819/1/modified' to release it.
+{"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/modified-00c819/1/modified","lease_id":"00a11522f5c95e8ad7a770dd130bbab1","lease_holder":"","leased_at":"2026-11-26T10:11:04.021564Z","base_branch":"main"}
+exit=0
+allocation {'path': '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/modified-00c819/1/modified', 'lease_id': '00a11522f5c95e8ad7a770dd130bbab1', 'lease_holder': '', 'leased_at': '2026-11-26T10:11:04.021564Z', 'base_branch': 'main'}
+$ tasks-axi add live-hooks Hook cleanup lab --kind ship --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: added live-hooks (ship) -> Queued
+task:
+  id: live-hooks
+  title: Hook cleanup lab
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-26
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-hooks --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-hooks --by <other> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to record a dependency
+exit=0
+$ tasks-axi start live-hooks --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: start live-hooks -> In flight
+help[1]:
+  - Run `tasks-axi done live-hooks --pr <url> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` when it ships
+exit=0
+$ bin/fm-teardown.sh live-hooks --legacy-record 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: local-only worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/modified-00c819/1/modified has work not yet merged into main and not on any remote.
+uncommitted changes present (untracked-only leftovers)
+untracked paths (up to 10):
+  .codex/hooks.json
+Merge the branch into local main first (bin/fm-merge-local.sh after the captain approves), or push to a fork/remote, or get the captain's explicit OK to discard, then --force.
+exit=1
+OBSERVED {"variant": "modified", "exit": 1, "hooks_exist": true, "pass": true}
+$ git init -q -b main 
+exit=0
+$ git add .gitignore 
+exit=0
+$ git commit -q -m Initialize lab 
+exit=0
+$ treehouse get --lease --no-fetch --json 
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/timeout-a0b278/1/timeout. Run 'treehouse return ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/timeout-a0b278/1/timeout' to release it.
+{"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/timeout-a0b278/1/timeout","lease_id":"4d5104c0dc16d35b518c13636a0a8227","lease_holder":"","leased_at":"2026-11-26T10:11:05.517286Z","base_branch":"main"}
+exit=0
+allocation {'path': '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/timeout-a0b278/1/timeout', 'lease_id': '4d5104c0dc16d35b518c13636a0a8227', 'lease_holder': '', 'leased_at': '2026-11-26T10:11:05.517286Z', 'base_branch': 'main'}
+$ tasks-axi add live-hooks Hook cleanup lab --kind ship --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: added live-hooks (ship) -> Queued
+task:
+  id: live-hooks
+  title: Hook cleanup lab
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-26
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-hooks --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-hooks --by <other> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to record a dependency
+exit=0
+$ tasks-axi start live-hooks --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: start live-hooks -> In flight
+help[1]:
+  - Run `tasks-axi done live-hooks --pr <url> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` when it ships
+exit=0
+$ bin/fm-teardown.sh live-hooks --legacy-record 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: local-only worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/timeout-a0b278/1/timeout has work not yet merged into main and not on any remote.
+uncommitted changes present (untracked-only leftovers)
+untracked paths (up to 10):
+  .codex/hooks.json
+Merge the branch into local main first (bin/fm-merge-local.sh after the captain approves), or push to a fork/remote, or get the captain's explicit OK to discard, then --force.
+exit=1
+OBSERVED {"variant": "timeout", "exit": 1, "hooks_exist": true, "pass": true}
+$ git init -q -b main 
+exit=0
+$ git add .gitignore 
+exit=0
+$ git commit -q -m Initialize lab 
+exit=0
+$ treehouse get --lease --no-fetch --json 
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/moved-event-7e1a35/1/moved-event. Run 'treehouse return ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/moved-event-7e1a35/1/moved-event' to release it.
+{"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/moved-event-7e1a35/1/moved-event","lease_id":"cdc2f692cabf42085533c9ade2a54620","lease_holder":"","leased_at":"2026-11-26T10:11:07.008191Z","base_branch":"main"}
+exit=0
+allocation {'path': '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/moved-event-7e1a35/1/moved-event', 'lease_id': 'cdc2f692cabf42085533c9ade2a54620', 'lease_holder': '', 'leased_at': '2026-11-26T10:11:07.008191Z', 'base_branch': 'main'}
+$ tasks-axi add live-hooks Hook cleanup lab --kind ship --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: added live-hooks (ship) -> Queued
+task:
+  id: live-hooks
+  title: Hook cleanup lab
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-26
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-hooks --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-hooks --by <other> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to record a dependency
+exit=0
+$ tasks-axi start live-hooks --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: start live-hooks -> In flight
+help[1]:
+  - Run `tasks-axi done live-hooks --pr <url> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` when it ships
+exit=0
+$ bin/fm-teardown.sh live-hooks --legacy-record 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: local-only worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/moved-event-7e1a35/1/moved-event has work not yet merged into main and not on any remote.
+uncommitted changes present (untracked-only leftovers)
+untracked paths (up to 10):
+  .codex/hooks.json
+Merge the branch into local main first (bin/fm-merge-local.sh after the captain approves), or push to a fork/remote, or get the captain's explicit OK to discard, then --force.
+exit=1
+OBSERVED {"variant": "moved-event", "exit": 1, "hooks_exist": true, "pass": true}
+$ git init -q -b main 
+exit=0
+$ git add .gitignore 
+exit=0
+$ git commit -q -m Initialize lab 
+exit=0
+$ treehouse get --lease --no-fetch --json 
+A new version of treehouse is available: v3.1.0 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/other-895f01/1/other. Run 'treehouse return ~/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/other-895f01/1/other' to release it.
+{"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/other-895f01/1/other","lease_id":"26069e0e67e4701c8b4632a2aa7c789a","lease_holder":"","leased_at":"2026-11-26T10:11:08.546787Z","base_branch":"main"}
+exit=0
+allocation {'path': '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/other-895f01/1/other', 'lease_id': '26069e0e67e4701c8b4632a2aa7c789a', 'lease_holder': '', 'leased_at': '2026-11-26T10:11:08.546787Z', 'base_branch': 'main'}
+$ tasks-axi add live-hooks Hook cleanup lab --kind ship --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: added live-hooks (ship) -> Queued
+task:
+  id: live-hooks
+  title: Hook cleanup lab
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-11-26
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-hooks --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-hooks --by <other> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` to record a dependency
+exit=0
+$ tasks-axi start live-hooks --file /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md 
+ok: start live-hooks -> In flight
+help[1]:
+  - Run `tasks-axi done live-hooks --pr <url> --file=/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/data/backlog.md` when it ships
+exit=0
+$ bin/fm-teardown.sh live-hooks --legacy-record 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: local-only worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M89RA752VQJ6V4PB7XSETC8E/.fm-test-live-mx9h6chp/pool/.treehouse/other-895f01/1/other has work not yet merged into main and not on any remote.
+uncommitted changes present (untracked-only leftovers)
+untracked paths (up to 10):
+  notes.txt
+Merge the branch into local main first (bin/fm-merge-local.sh after the captain approves), or push to a fork/remote, or get the captain's explicit OK to discard, then --force.
+exit=1
+OBSERVED {"variant": "other", "exit": 1, "hooks_exist": true, "pass": true}
+RESULTS [{"variant": "generated", "pass": true}, {"variant": "modified", "pass": true}, {"variant": "timeout", "pass": true}, {"variant": "moved-event", "pass": true}, {"variant": "other", "pass": true}]
