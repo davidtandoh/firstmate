@@ -1,0 +1,57 @@
+[
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "evidence-no-mistakes",
+      "example",
+      "--mode",
+      "no-mistakes"
+    ],
+    "duration_ms": 80,
+    "exit": 0,
+    "gate_skip": false,
+    "generated_interface_checks": "pass",
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8D28VT4Q870K9NNZ6E2WNC4/.worker-brief-check-7ai3hw4w/data/evidence-no-mistakes/brief.md (ship, mode=no-mistakes; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "evidence-direct-PR",
+      "example",
+      "--mode",
+      "direct-PR"
+    ],
+    "duration_ms": 67,
+    "exit": 0,
+    "gate_skip": false,
+    "generated_interface_checks": "pass",
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8D28VT4Q870K9NNZ6E2WNC4/.worker-brief-check-7ai3hw4w/data/evidence-direct-PR/brief.md (ship, mode=direct-PR; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "evidence-local-only",
+      "example",
+      "--mode",
+      "local-only"
+    ],
+    "duration_ms": 66,
+    "exit": 0,
+    "gate_skip": false,
+    "generated_interface_checks": "pass",
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8D28VT4Q870K9NNZ6E2WNC4/.worker-brief-check-7ai3hw4w/data/evidence-local-only/brief.md (ship, mode=local-only; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  },
+  {
+    "command": [
+      "bin/fm-brief.sh",
+      "evidence-scout",
+      "example",
+      "--scout"
+    ],
+    "duration_ms": 269,
+    "exit": 0,
+    "gate_skip": false,
+    "generated_interface_checks": "pass",
+    "output": "scaffolded: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8D28VT4Q870K9NNZ6E2WNC4/.worker-brief-check-7ai3hw4w/data/evidence-scout/brief.md (scout; replace {TASK}, {FIRSTMATE_SPEC}, and {SKILLS})\n"
+  }
+]

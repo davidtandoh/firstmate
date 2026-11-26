@@ -1,0 +1,8 @@
+FM_TEST_BEGIN 2026-11-26T23:33:46Z tests/fm-backend-t3code.test.sh family=backend-dispatch expected_gate_skip=none
+ok - fm-spawn.sh --backend t3code --secondmate: project on the home, root-strategy thread, charter message, launch prefix as settings env
+FM_TEST_END 2026-11-26T23:33:49Z tests/fm-backend-t3code.test.sh exit=0 duration_ms=3170 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=3235
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=3170 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-backend-t3code.test.sh duration_ms=3170
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M8D28VT4Q870K9NNZ6E2WNC4/t3code-claude-supervisor-timing.json
+FM_TEST_BUDGET max_wall_ms=240000 duration_ms=3235

@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 2737,
+      "failed": 0,
+      "name": "backend-dispatch"
+    }
+  ],
+  "finished_at": "2026-11-26T23:33:39Z",
+  "run_id": "fm-test-run-1795736016223-50373",
+  "scripts": [
+    {
+      "duration_ms": 2737,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-backend-t3code.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-26T23:33:36Z",
+  "summary": {
+    "duration_ms": 2794,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}
