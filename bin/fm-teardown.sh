@@ -2245,17 +2245,16 @@ codex_hooks_copy_is_firstmate() {  # <worktree>
   command -v jq >/dev/null 2>&1 || return 1
   ! git -C "$wt" ls-files --error-unmatch -- .codex/hooks.json >/dev/null 2>&1 || return 1
   jq -e --slurpfile s "$settings" '
-    ([$s[0].hooks // {} | .[]? | .[]? | .hooks[]? | .command | strings]) as $ours
-    | type == "object" and keys == ["hooks"]
+    type == "object" and keys == ["hooks"]
+      and .hooks == ($s[0].hooks | del(.StopFailure))
       and (.hooks | type == "object" and length > 0)
       and all(.hooks[]; type == "array" and length > 0
         and all(.[]; type == "object" and keys == ["hooks"]
           and (.hooks | type == "array" and length > 0)
           and all(.hooks[]; type == "object"
-            and (keys - ["timeout"]) == ["command", "type"]
+            and keys == ["command", "type"]
             and .type == "command"
-            and (.command | type == "string" and contains("fm-busy-event.sh"))
-            and (.command as $c | any($ours[]; . == $c)))))
+            and (.command | type == "string" and contains("fm-busy-event.sh")))))
   ' "$file" >/dev/null 2>&1
 }
 

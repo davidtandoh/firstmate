@@ -2063,7 +2063,7 @@ SH
 test_codex_hooks_copy_of_firstmate_hooks() {
   local case_dir rc variant cmd
   cmd="'/fm/bin/fm-busy-event.sh' apply '/fm/state' 'task-x1' idle --gen 'g1' --source claude-hook --event session-end 2>/dev/null || true"
-  for variant in generated modified other; do
+  for variant in generated modified timeout moved-event other; do
     case_dir=$(make_case "codex-hooks-$variant")
     write_meta "$case_dir" no-mistakes ship
     cat > "$case_dir/fakebin/treehouse" <<'SH'
@@ -2088,9 +2088,20 @@ SH
           "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
         mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
         ;;
+      timeout)
+        jq '.hooks.SessionEnd[0].hooks[0].timeout = 60' \
+          "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
+        mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
+        ;;
+      moved-event)
+        jq '.hooks.Stop = .hooks.SessionEnd | del(.hooks.SessionEnd)' \
+          "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
+        mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
+        ;;
       other) printf '%s\n' 'real work' > "$case_dir/wt/notes.txt" ;;
     esac
 
+    cp "$case_dir/wt/.codex/hooks.json" "$case_dir/hooks-before.json"
     rc=0
     run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     if [ "$variant" = generated ]; then
@@ -2102,10 +2113,10 @@ SH
       assert_grep 'REFUSED: worktree' "$case_dir/stderr" "codex-hooks/$variant: no refusal"
       assert_absent "$case_dir/state/returned" "codex-hooks/$variant: pool return ran before refusal"
       [ -f "$case_dir/wt/.codex/hooks.json" ] || fail "codex-hooks/$variant: refusal removed the hooks file"
-      if [ "$variant" = modified ]; then
-        assert_grep '  .codex/hooks.json' "$case_dir/stderr" "codex-hooks/modified: edited copy not named"
-        grep -q 'example.invalid' "$case_dir/wt/.codex/hooks.json" \
-          || fail "codex-hooks/modified: refusal changed the edited copy"
+      if [ "$variant" != other ]; then
+        assert_grep '  .codex/hooks.json' "$case_dir/stderr" "codex-hooks/$variant: edited copy not named"
+        cmp -s "$case_dir/hooks-before.json" "$case_dir/wt/.codex/hooks.json" \
+          || fail "codex-hooks/$variant: refusal changed the edited copy"
       else
         assert_grep '  notes.txt' "$case_dir/stderr" "codex-hooks/other: untracked file not named"
         assert_no_grep '.codex/hooks.json' "$case_dir/stderr" \
