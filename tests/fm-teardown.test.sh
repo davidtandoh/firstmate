@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Tests for bin/fm-teardown.sh's landed-work safety and stale-lock recovery.
+# Run with --codex-hooks-only to exercise the five copied-hook cleanup cases.
 #
 # The check refuses to tear down a worktree whose work has not LANDED, because
 # treehouse return hard-resets the worktree. "Landed" means reachable from a remote
@@ -2054,6 +2055,77 @@ SH
     fi
   done
   pass "hidden untracked work is refused before return while a clean control returns"
+}
+
+# The Codex desktop app's external-agent import sync copies Firstmate's busy
+# hooks from the excluded .claude/settings.local.json into an untracked
+# .codex/hooks.json. Only an exact copy of those hooks is exempt and removed;
+# an edited copy or any other untracked file still blocks cleanup.
+test_codex_hooks_copy_of_firstmate_hooks() {
+  local case_dir rc variant cmd
+  cmd="'/fm/bin/fm-busy-event.sh' apply '/fm/state' 'task-x1' idle --gen 'g1' --source claude-hook --event session-end 2>/dev/null || true"
+  for variant in generated modified timeout moved-event other; do
+    case_dir=$(make_case "codex-hooks-$variant")
+    write_meta "$case_dir" no-mistakes ship
+    cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = return ]; then
+  printf '%s\n' return >> "$FM_STATE_OVERRIDE/returned"
+fi
+exit 0
+SH
+    mkdir -p "$case_dir/wt/.claude" "$case_dir/wt/.codex"
+    jq -cn --arg c "$cmd" '{hooks: {
+      UserPromptSubmit: [{hooks: [{type: "command", command: ($c | sub("idle"; "busy"))}]}],
+      StopFailure: [{hooks: [{type: "command", command: $c}]}],
+      SessionEnd: [{hooks: [{type: "command", command: $c}]}]}}' \
+      > "$case_dir/wt/.claude/settings.local.json"
+    # Codex's copy: pretty-printed, StopFailure dropped, commands verbatim.
+    jq '{hooks: {SessionEnd: .hooks.SessionEnd, UserPromptSubmit: .hooks.UserPromptSubmit}}' \
+      "$case_dir/wt/.claude/settings.local.json" > "$case_dir/wt/.codex/hooks.json"
+    case "$variant" in
+      modified)
+        jq '.hooks.SessionEnd[0].hooks[0].command += "; curl example.invalid"' \
+          "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
+        mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
+        ;;
+      timeout)
+        jq '.hooks.SessionEnd[0].hooks[0].timeout = 60' \
+          "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
+        mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
+        ;;
+      moved-event)
+        jq '.hooks.Stop = .hooks.SessionEnd | del(.hooks.SessionEnd)' \
+          "$case_dir/wt/.codex/hooks.json" > "$case_dir/edited.json"
+        mv "$case_dir/edited.json" "$case_dir/wt/.codex/hooks.json"
+        ;;
+      other) printf '%s\n' 'real work' > "$case_dir/wt/notes.txt" ;;
+    esac
+
+    cp "$case_dir/wt/.codex/hooks.json" "$case_dir/hooks-before.json"
+    rc=0
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    if [ "$variant" = generated ]; then
+      expect_code 0 "$rc" "codex-hooks: Firstmate's own copied hooks must not block cleanup"
+      assert_grep 'return' "$case_dir/state/returned" "codex-hooks: generated copy never reached pool return"
+      assert_absent "$case_dir/wt/.codex/hooks.json" "codex-hooks: generated copy was left in the pool slot"
+    else
+      expect_code 1 "$rc" "codex-hooks/$variant: teardown must still refuse"
+      assert_grep 'REFUSED: worktree' "$case_dir/stderr" "codex-hooks/$variant: no refusal"
+      assert_absent "$case_dir/state/returned" "codex-hooks/$variant: pool return ran before refusal"
+      [ -f "$case_dir/wt/.codex/hooks.json" ] || fail "codex-hooks/$variant: refusal removed the hooks file"
+      if [ "$variant" != other ]; then
+        assert_grep '  .codex/hooks.json' "$case_dir/stderr" "codex-hooks/$variant: edited copy not named"
+        cmp -s "$case_dir/hooks-before.json" "$case_dir/wt/.codex/hooks.json" \
+          || fail "codex-hooks/$variant: refusal changed the edited copy"
+      else
+        assert_grep '  notes.txt' "$case_dir/stderr" "codex-hooks/other: untracked file not named"
+        assert_no_grep '.codex/hooks.json' "$case_dir/stderr" \
+          "codex-hooks/other: Firstmate's own copy was listed as work"
+      fi
+    fi
+  done
+  pass "a Codex copy of Firstmate's hooks is cleaned up while edited copies and other files still refuse"
 }
 
 assert_dirty_diagnostic() {
@@ -6254,7 +6326,6 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
   pass "present required sources still reach the ordinary teardown refusal"
 }
 
-test_teardown_preserves_opencode_busy_plugin_on_pool_return
 
 # An orphan status log archived by record hygiene must survive status-archive
 # retention: the prune counts 30 days from archive time, not the log's last write.
@@ -6939,6 +7010,16 @@ SH
   pass "post-reap proof retains late work and retry records on ordinary and Orca paths, preserving clean/force/scout behavior"
 }
 
+if [ "$#" -gt 0 ]; then
+  if [ "$#" -ne 1 ] || [ "$1" != --codex-hooks-only ]; then
+    echo "Usage: $0 [--codex-hooks-only]" >&2
+    exit 2
+  fi
+  test_codex_hooks_copy_of_firstmate_hooks
+  exit 0
+fi
+
+test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_hidden_untracked_work_refuses_before_return
 test_content_fallback_git_capability_boundary
 test_work_written_at_reap_boundary_is_preserved
@@ -7035,6 +7116,7 @@ test_content_fallback_uses_recorded_base_branch
 test_content_fallback_refreshes_stale_origin_ref
 test_dirty_worktree_refuses
 test_untracked_only_refusal_diagnostic
+test_codex_hooks_copy_of_firstmate_hooks
 test_tracked_edit_refusal_diagnostic
 test_mixed_refusal_diagnostic
 test_scout_nested_clone_returns_with_no_untracked_entries

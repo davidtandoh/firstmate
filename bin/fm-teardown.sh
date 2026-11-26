@@ -77,8 +77,11 @@
 # Uncommitted changes are never landed. Before return, the dirty check explicitly
 # requests all untracked files, even when status.showUntrackedFiles hides them.
 # Dirty refusals distinguish untracked-only leftovers from tracked edits and list
-# at most ten non-exempt untracked paths. tests/fm-teardown.test.sh covers hidden
-# untracked work and the clean return control.
+# at most ten non-exempt untracked paths. A Codex desktop copy of Firstmate's
+# own busy hooks at .codex/hooks.json is exempt and removed at cleanup; see
+# codex_hooks_copy_is_firstmate for what proves a copy is Firstmate's.
+# tests/fm-teardown.test.sh covers hidden untracked work, copied hooks, and
+# the clean return control.
 # local-only projects additionally accept work merged into the local default
 # branch (firstmate performs that merge after configured approval) as a fallback
 # for the common case where there is no remote at all.
@@ -96,9 +99,9 @@
 # Before that return, teardown runs `git clean -ffdq` in the copy, and a forced
 # secondmate teardown does the same in each child copy it returns.
 # The second -f removes nested repositories, and -x stays off so ignored files remain.
-# A ship teardown without --force does not run that clean: it refuses untracked
-# entries, except those under the .claude/ allowance, so a nested repository
-# there can still survive the return.
+# A ship teardown without --force does not run that clean: read_worktree_dirt
+# owns its untracked-entry exemptions, so a nested repository under the
+# .claude/ allowance can still survive the return.
 # After a return that succeeds, teardown reads `git status --porcelain --untracked-files=all`.
 # Any remaining output, a status read that fails, or a copy that is missing or
 # no longer a readable worktree is reported at once with the lost pool slot and
@@ -2223,6 +2226,47 @@ read_worktree_dirt() {
     return 1
   fi
   dirty=$(printf '%s\n' "$dirty_raw" | grep -vE '^\?\? (\.claude/|\.fm-(grok|kimi)-turnend$)' || true)
+  if printf '%s\n' "$dirty" | grep -qxF '?? .codex/hooks.json' && codex_hooks_copy_is_firstmate "$WT"; then
+    dirty=$(printf '%s\n' "$dirty" | grep -vxF '?? .codex/hooks.json' || true)
+  fi
+}
+
+# With its external-agent import sync on, the Codex desktop app copies a
+# project's Claude hooks, including Firstmate's busy hooks in the git-excluded
+# .claude/settings.local.json, into a .codex/hooks.json that Git does not
+# exclude. That copy is Firstmate's only when both files are regular files,
+# neither is a symlink, and the copy is untracked with only a hooks object.
+# Its nonempty events and hook entries must exactly match the settings file's
+# hooks after removing StopFailure, which Codex does not support.
+# Each entry must contain only a nonempty hooks array of command hooks with
+# exactly type and command fields, each command naming fm-busy-event.sh.
+# Added metadata (including timeout), moved events, any other content, or a
+# missing jq leaves the copy counted as uncommitted work.
+codex_hooks_copy_is_firstmate() {  # <worktree>
+  local wt=$1 file settings
+  file=$wt/.codex/hooks.json
+  settings=$wt/.claude/settings.local.json
+  [ -f "$file" ] && [ ! -L "$file" ] && [ -f "$settings" ] && [ ! -L "$settings" ] || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  ! git -C "$wt" ls-files --error-unmatch -- .codex/hooks.json >/dev/null 2>&1 || return 1
+  jq -e --slurpfile s "$settings" '
+    type == "object" and keys == ["hooks"]
+      and .hooks == ($s[0].hooks | del(.StopFailure))
+      and (.hooks | type == "object" and length > 0)
+      and all(.hooks[]; type == "array" and length > 0
+        and all(.[]; type == "object" and keys == ["hooks"]
+          and (.hooks | type == "array" and length > 0)
+          and all(.hooks[]; type == "object"
+            and keys == ["command", "type"]
+            and .type == "command"
+            and (.command | type == "string" and contains("fm-busy-event.sh")))))
+  ' "$file" >/dev/null 2>&1
+}
+
+remove_firstmate_codex_hooks_copy() {  # <worktree>
+  codex_hooks_copy_is_firstmate "$1" || return 0
+  rm -f "$1/.codex/hooks.json"
+  rmdir "$1/.codex" 2>/dev/null || true
 }
 
 validate_worktree_teardown_safety() {
@@ -4139,6 +4183,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
         git -C "$WT" branch -D "$branch" >/dev/null 2>&1 || true
       fi
     fi
+    remove_firstmate_codex_hooks_copy "$WT"
     rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
       "$WT/.opencode/plugins/fm-busy-state.js" \
       "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
@@ -4160,7 +4205,9 @@ elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
   fi
   # Remove our hook and environment files so a reused pool worktree cannot fire
   # signals for a dead task or hand a t3code env block or channel statement to
-  # its next holder.
+  # its next holder. The Codex copy of our hooks goes first, while the
+  # settings file that proves it ours still exists.
+  remove_firstmate_codex_hooks_copy "$WT"
   rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \
     "$WT/.fm-grok-turnend" "$WT/.fm-kimi-turnend"
   remove_harness_worktree_wiring "$WT"
