@@ -79,8 +79,9 @@
 # Dirty refusals distinguish untracked-only leftovers from tracked edits and list
 # at most ten non-exempt untracked paths. A Codex desktop copy of Firstmate's
 # own busy hooks at .codex/hooks.json is exempt and removed at cleanup; see
-# codex_hooks_copy_is_firstmate for what proves a copy is Firstmate's. tests/fm-teardown.test.sh covers hidden
-# untracked work and the clean return control.
+# codex_hooks_copy_is_firstmate for what proves a copy is Firstmate's.
+# tests/fm-teardown.test.sh covers hidden untracked work, copied hooks, and
+# the clean return control.
 # local-only projects additionally accept work merged into the local default
 # branch (firstmate performs that merge after configured approval) as a fallback
 # for the common case where there is no remote at all.
@@ -98,9 +99,9 @@
 # Before that return, teardown runs `git clean -ffdq` in the copy, and a forced
 # secondmate teardown does the same in each child copy it returns.
 # The second -f removes nested repositories, and -x stays off so ignored files remain.
-# A ship teardown without --force does not run that clean: it refuses untracked
-# entries, except those under the .claude/ allowance, so a nested repository
-# there can still survive the return.
+# A ship teardown without --force does not run that clean: read_worktree_dirt
+# owns its untracked-entry exemptions, so a nested repository under the
+# .claude/ allowance can still survive the return.
 # After a return that succeeds, teardown reads `git status --porcelain --untracked-files=all`.
 # Any remaining output, a status read that fails, or a copy that is missing or
 # no longer a readable worktree is reported at once with the lost pool slot and
@@ -2233,10 +2234,14 @@ read_worktree_dirt() {
 # With its external-agent import sync on, the Codex desktop app copies a
 # project's Claude hooks, including Firstmate's busy hooks in the git-excluded
 # .claude/settings.local.json, into a .codex/hooks.json that Git does not
-# exclude. That copy is Firstmate's only when it is an untracked regular file
-# holding nothing but plain command hooks, each found verbatim among the
-# settings file's hook commands and calling fm-busy-event.sh. Any other
-# content, or a missing jq, leaves it counted as uncommitted work.
+# exclude. That copy is Firstmate's only when both files are regular files,
+# neither is a symlink, and the copy is untracked with only a hooks object.
+# Its nonempty events and hook entries must exactly match the settings file's
+# hooks after removing StopFailure, which Codex does not support.
+# Each entry must contain only a nonempty hooks array of command hooks with
+# exactly type and command fields, each command naming fm-busy-event.sh.
+# Added metadata (including timeout), moved events, any other content, or a
+# missing jq leaves the copy counted as uncommitted work.
 codex_hooks_copy_is_firstmate() {  # <worktree>
   local wt=$1 file settings
   file=$wt/.codex/hooks.json
