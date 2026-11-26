@@ -1724,6 +1724,7 @@ GIT_CONFIG_KEY_0=core.hooksPath
 GIT_CONFIG_VALUE_0=$CASE_DIR/home/state/$id.git-hooks
 EOF
   [ "$($read FM_TASK_ID)" = undefined ] || fail "$label: a secondmate is not a task worker and must not carry FM_TASK_ID"
+  [ "$($read AGENT_KIT_TASK_WORKER)" = undefined ] || fail "$label: a secondmate must not carry the task-worker marker"
   [ "$($read TRACEPARENT)" = undefined ] || fail "$label: TRACEPARENT must be absent when trace context is off"
 }
 

@@ -512,6 +512,10 @@ test_task_worker_marker() {
       done
     done
   done
+  env -u AGENT_KIT_TASK_WORKER HOME="$TMP_ROOT/pane-home" FM_HOME="$HOME_DIR" PATH="$FAKEBIN_DIR:$PATH" \
+    bash "$ROOT/bin/fm-omnigent.sh" run codex 'primary fixture' >/dev/null || fail 'primary Omnigent launch failed'
+  seen=$(jq -r '.environment.AGENT_KIT_TASK_WORKER // "unset"' "$CASE_DIR/serve/result.json")
+  assert_equals unset "$seen" 'primary task worker marker'
   pass 'only task workers receive the task-worker marker across transports and allowlist postures'
 }
 test_task_worker_marker
