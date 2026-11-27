@@ -5,8 +5,7 @@
 # caller-owned stop proof, never inferred from retirement or runner connectivity.
 # remote_server and unnamed retain only the validated launch identity fallback.
 # Each owner-only receipt is at most 8192 bytes. No transcript or credentials.
-# Publication and removal use the shared record primitives. All receipt writers
-# and archive attempts hold the same per-binding lock, including foreground close.
+# Publication and removal use the shared record primitives.
 # reconcile-retirements [--dry-run] <state> <remaining-seconds: 1-30> visits at most 20
 # receipts, including invalid/locked ones, within the caller's home deadline.
 # It uses exact-session reads only; unknown stops remain pending and print a
@@ -115,20 +114,32 @@ retirement_save() ( # <task-meta>; called under task record lock before retireme
 )
 
 retirement_attempt() ( # <receipt> <caller-stop-proof: true|false>
-  local receipt=$1 proof=$2 lock='' body='' fallback='' code='' wrapper started host extra
-  trap 'rm -f -- "${body:-}" "${fallback:-}"; [ -z "$lock" ] || fm_lock_release "$lock"' EXIT
-  if [ "$proof" = true ]; then
-    fm_lock_acquire_wait_bounded "$receipt.lock" 10 || return 1
-  else
-    fm_lock_try_acquire "$receipt.lock" || return 0
-  fi
-  lock="$receipt.lock"
+  local receipt=$1 proof=$2 lock='' refresh_lock='' refresh_path task body='' fallback='' code='' wrapper started host extra
+  trap 'rm -f -- "${body:-}" "${fallback:-}"; [ -z "$lock" ] || fm_lock_release "$lock"; [ -z "$refresh_lock" ] || fm_lock_release "$refresh_lock"' EXIT
   [ -e "$receipt" ] || return 0
   retirement_read "$receipt" || { printf 'pending Omnigent retirement %s: invalid receipt\n' "$receipt"; return 1; }
-  if [ "$proof" = true ] && [ "$(printf '%s' "$RETIRE_JSON" | jq -r .stopped)" != true ]; then
-    RETIRE_JSON=$(printf '%s' "$RETIRE_JSON" | jq -cS '.stopped = true')
-    retirement_publish "$receipt" "$RETIRE_JSON" || return 1
+  if [ "$proof" = true ]; then
+    fm_lock_acquire_wait_bounded "$receipt.lock" 10 || return 1
+    lock="$receipt.lock"
+    [ -e "$receipt" ] || return 0
+    retirement_read "$receipt" || return 1
+    if [ "$(printf '%s' "$RETIRE_JSON" | jq -r .stopped)" != true ]; then
+      RETIRE_JSON=$(printf '%s' "$RETIRE_JSON" | jq -cS '.stopped = true')
+      retirement_publish "$receipt" "$RETIRE_JSON" || return 1
+    fi
+    fm_lock_release "$lock"
+    lock=''
   fi
+  task=$(printf '%s' "$RETIRE_JSON" | jq -r .key.task)
+  refresh_path="${RETIRE_DIR%/*}/.$task.omnigent-snapshot.json.lock"
+  if [ "$proof" = true ]; then
+    fm_lock_acquire_wait_bounded "$refresh_path" 10 || return 1
+  else
+    fm_lock_try_acquire "$refresh_path" || return 0
+  fi
+  refresh_lock=$refresh_path
+  [ -e "$receipt" ] || return 0
+  retirement_read "$receipt" || return 1
   if [ "$(printf '%s' "$RETIRE_JSON" | jq -r .stopped)" != true ]; then
     body=$(mktemp "$RETIRE_DIR/.probe.XXXXXX") || return 1
     if ! session_snapshot "$body"; then code=000; fi
@@ -146,6 +157,8 @@ retirement_attempt() ( # <receipt> <caller-stop-proof: true|false>
   else
     archive_bound_session || { printf 'pending Omnigent retirement %s: archive unconfirmed\n' "$receipt"; return 1; }
   fi
+  fm_lock_acquire_wait_bounded "$receipt.lock" 10 || return 1
+  lock="$receipt.lock"
   fm_backlog_atomic_transition remove "$receipt" retirement "$RETIRE_DIR"
 )
 

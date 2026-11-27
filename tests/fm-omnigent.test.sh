@@ -95,7 +95,39 @@ retirement_checks() (
   "$OMNI" reconcile-retirements --dry-run "$FM_STATE_OVERRIDE" 10
   [ "$(wc -l < "$TMP_ROOT/serve/requests.jsonl")" = "$requests_before" ] || fail 'retirement preview called the API'
   [ "$(count)" = 1 ] && [ ! -e "$receipts/.cursor" ] || fail 'retirement preview changed inventory'
-  "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+  time_flag=''
+  if [ -x /usr/bin/time ]; then
+    if LC_ALL=C /usr/bin/time -l bash -c ':' 2> "$TMP_ROOT/retirement-baseline.time"; then
+      time_flag=-l
+    elif LC_ALL=C /usr/bin/time -v bash -c ':' 2> "$TMP_ROOT/retirement-baseline.time"; then
+      time_flag=-v
+    fi
+  fi
+  receipt_bytes=$(wc -c "$receipts/"*.json | awk 'END {print $1}')
+  requests_before=$(wc -l < "$TMP_ROOT/serve/requests.jsonl")
+  before=$SECONDS
+  if [ -n "$time_flag" ]; then
+    LC_ALL=C /usr/bin/time "$time_flag" bash "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 \
+      2> "$TMP_ROOT/retirement-sweep.time"
+    rss_bytes() {
+      awk '/maximum resident set size/ {print $1; found=1}
+        /Maximum resident set size \(kbytes\)/ {printf "%.0f\n", $NF * 1024; found=1}
+        END {if (!found) exit 1}' "$1"
+    }
+    baseline_rss=$(rss_bytes "$TMP_ROOT/retirement-baseline.time") || fail 'interpreter peak RSS was not measured'
+    sweep_rss=$(rss_bytes "$TMP_ROOT/retirement-sweep.time") || fail 'reconciler peak RSS was not measured'
+    rss_delta=$((sweep_rss - baseline_rss))
+    printf 'retirement RSS: baseline=%s peak=%s delta=%s bytes\n' "$baseline_rss" "$sweep_rss" "$rss_delta"
+    [ "$rss_delta" -lt $((16 * 1024 * 1024)) ] || fail 'reconciler exceeded additional 16 MiB RSS budget'
+  else
+    printf 'SKIP retirement peak RSS: /usr/bin/time supports neither -l nor -v\n'
+    "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+  fi
+  elapsed=$((SECONDS - before))
+  request_count=$(( $(wc -l < "$TMP_ROOT/serve/requests.jsonl") - requests_before ))
+  printf 'retirement sweep: elapsed=%ss requests=%s receipt_bytes=%s\n' "$elapsed" "$request_count" "$receipt_bytes"
+  [ "$elapsed" -le 11 ] || fail 'measured retirement sweep exceeded home budget'
+  [ "$request_count" = 1 ] || fail 'measured retirement sweep exceeded request budget'
   [ "$(count)" = 0 ] || fail 'later sweep did not clear confirmed archive'
   [ "$(fm_meta_get "$meta" spawn_gen)" = new.2 ] || fail 'retry changed replacement generation'
   pass 'failed archive survives binding replacement and succeeds on a later sweep'
@@ -121,6 +153,34 @@ retirement_checks() (
   FM_HOME="$TMP_ROOT/foreign" "$OMNI" reconcile-retirements "$TMP_ROOT/foreign/state" 10
   [ ! -f "$TMP_ROOT/serve/archived.jsonl" ] || fail 'foreign home receipt triggered archive'
   pass 'receipts stay within byte budget and a foreign home cannot replay them'
+  binding unknown.3
+  for owner in probe retirement; do
+    rm -f "$FM_STATE_OVERRIDE/.retired.omnigent-snapshot.json" \
+      "$TMP_ROOT/serve/identity-read.started" "$TMP_ROOT/serve/identity-read.release"
+    : > "$TMP_ROOT/serve/requests.jsonl"
+    if [ "$owner" = probe ]; then
+      OMNI_TITLE_MODE=wait-identity "$OMNI" probe "$meta" > "$TMP_ROOT/retirement-probe" &
+    else
+      OMNI_TITLE_MODE=wait-identity "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 > "$TMP_ROOT/retirement-retry" &
+    fi
+    first=$!
+    for ((attempt=0; attempt<100; attempt++)); do
+      [ -e "$TMP_ROOT/serve/identity-read.started" ] && break
+      sleep 0.05
+    done
+    [ -e "$TMP_ROOT/serve/identity-read.started" ] || fail 'concurrent retirement fixture did not start its GET'
+    if [ "$owner" = probe ]; then
+      "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+    else
+      [ "$("$OMNI" probe "$meta")" = unknown ] || fail 'probe trusted an in-flight retirement refresh'
+    fi
+    touch "$TMP_ROOT/serve/identity-read.release"
+    wait "$first"
+    [ "$(jq -s '[.[] | select(.method == "GET")] | length' "$TMP_ROOT/serve/requests.jsonl")" = 1 ] \
+      || fail 'concurrent probe and retirement multiplied session GETs'
+    [ "$(count)" = 1 ] || fail 'contending refresh lost pending retirement'
+  done
+  pass 'probe and retirement share one in-flight session refresh in either order'
   rm -f "$receipts/"*.json
   binding concurrent.4
   if OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$meta" >/dev/null 2>&1; then fail 'archive failure accepted'; fi
