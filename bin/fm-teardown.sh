@@ -1320,6 +1320,7 @@ if [ "${FM_TEARDOWN_GUARD_DONE:-0}" != 1 ]; then
 fi
 HOME_PATH=$(grep '^home=' "$META" | cut -d= -f2- || true)
 PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
+TEARDOWN_VERIFIED_PR=
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
 # (/tmp/fm-<id>/); absent for tasks spawned before that change, so tolerate empty.
 TASK_TMP=$(grep '^tasktmp=' "$META" | cut -d= -f2- || true)
@@ -1822,13 +1823,7 @@ pr_is_merged() {
     [ -n "$resolved_url" ] || return 1
     PR_URL=$resolved_url
   fi
-  if [ -f "$DATA/$ID/scratch.json" ]; then
-    FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
-      bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-merge "$ID" --merged-pr "$PR_URL" >/dev/null || {
-        echo "error: verified merged PR evidence could not be preserved; refusing teardown" >&2
-        exit 1
-      }
-  fi
+  TEARDOWN_VERIFIED_PR=$PR_URL
   return 0
 }
 
@@ -3926,6 +3921,21 @@ if teardown_owns_worktree && [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
     else
       exit 1
     fi
+  fi
+fi
+
+if [ "$KIND" = ship ] && [ "$MODE" != local-only ] && [ "$FORCE" != --force ] \
+    && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ] && [ -f "$DATA/$ID/scratch.json" ]; then
+  if [ -z "$TEARDOWN_VERIFIED_PR" ] && teardown_owns_worktree && [ -d "$WT" ]; then
+    RETENTION_PR_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'HEAD')
+    pr_is_merged "$RETENTION_PR_BRANCH" || true
+  fi
+  if [ -n "$TEARDOWN_VERIFIED_PR" ]; then
+    FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+      bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-merge "$ID" --merged-pr "$TEARDOWN_VERIFIED_PR" >/dev/null || {
+        echo "error: verified merged PR evidence could not be preserved; refusing teardown" >&2
+        exit 1
+      }
   fi
 fi
 

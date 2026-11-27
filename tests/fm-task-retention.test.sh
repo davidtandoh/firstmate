@@ -200,7 +200,7 @@ class Retention(unittest.TestCase):
         self.assertEqual(row['eligible_bytes'], 4096)
         self.assertTrue(proof.exists())
 
-    def test_teardown_preserves_externally_merged_pr_before_poll(self):
+    def external_pr_fixture(self, state='MERGED', pushed=False):
         head = self.local_fixture()
         url = 'https://github.com/example/repo/pull/7'
         meta = self.home / 'state/job.meta'
@@ -210,13 +210,24 @@ class Retention(unittest.TestCase):
         gh = self.home / 'tools/fakebin/gh'
         gh.write_text('#!/usr/bin/env bash\n'
                       'if [ "${1:-} ${2:-}" = "pr view" ]; then\n'
-                      "  printf 'MERGED\\t%%s\\t%%s\\n' '%s' '%s'\n" % (head, url) +
+                      "  printf '%s\\t%%s\\t%%s\\n' '%s' '%s'\n" % (state, head, url) +
                       '  exit 0\nfi\nexit 1\n')
         gh.chmod(0o755)
         self.run_cli('declare', 'job', '--scratch', 'cache')
         self.task('reopen', 'job')
         self.task('start', 'job')
         self.assertFalse((self.home / 'data/job/retention-merge.json').exists())
+        if pushed:
+            subprocess.run(['git', '-C', str(self.home / 'worker'), 'push', '-q',
+                            'origin', 'HEAD:refs/heads/fm/job'], env=self.env,
+                           check=True, capture_output=True, text=True)
+            remaining = subprocess.check_output(['git', '-C', str(self.home / 'worker'),
+                                                  'log', '--format=%H', 'HEAD', '--not', '--remotes', '--'],
+                                                 env=self.env, text=True)
+            self.assertEqual(remaining, '')
+        return url
+
+    def assert_teardown_records_merge(self, url):
         self.teardown()
         proof = json.loads((self.home / 'data/job/retention-merge.json').read_text())
         receipt = json.loads((self.home / 'data/job/retention-complete.json').read_text())
@@ -225,6 +236,20 @@ class Retention(unittest.TestCase):
         self.assertIn('grace', self.report()['reason'])
         self.ready_from_existing()
         self.assertEqual(self.report()['eligible_bytes'], 4096)
+
+    def test_teardown_preserves_externally_merged_pr_before_poll(self):
+        self.assert_teardown_records_merge(self.external_pr_fixture())
+
+    def test_pushed_external_merge_records_completion(self):
+        self.assert_teardown_records_merge(self.external_pr_fixture(pushed=True))
+
+    def test_pushed_unmerged_branch_remains_ineligible(self):
+        self.external_pr_fixture(state='OPEN', pushed=True)
+        self.teardown()
+        self.assertFalse((self.home / 'data/job/retention-merge.json').exists())
+        self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
+        self.assertEqual(self.report()['eligible_bytes'], 0)
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
 
     def test_local_teardown_without_landing_proof_stays_ineligible(self):
         self.local_fixture()
@@ -400,6 +425,14 @@ class Retention(unittest.TestCase):
         self.ready()
         (self.home / 'config/task-retention').write_text('prune\n')
         (self.home / '.tasks.toml').write_text('backend = [invalid\n')
+        self.run_cli('report', '--prune', ok=False)
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_data_root_symlink_ancestor_is_refused(self):
+        self.ready()
+        (self.home / 'alias').symlink_to(self.home, target_is_directory=True)
+        (self.home / 'config/task-retention').write_text('prune\n')
+        self.env['FM_DATA_OVERRIDE'] = str(self.home / 'alias/data')
         self.run_cli('report', '--prune', ok=False)
         self.assertTrue((self.home / 'data/job/cache/file').exists())
 

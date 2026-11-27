@@ -1568,7 +1568,7 @@ families_for_changed_path() {
   esac
   case "$path" in
     bin/fm_record_io.py)
-      printf '%s\n' '__script__:fm-velocity-facts.test.sh' '__script__:fm-codex-notify.test.sh'
+      printf '%s\n' '__script__:fm-velocity-facts.test.sh' '__script__:fm-codex-notify.test.sh' '__script__:fm-task-retention.test.sh' '__script__:fm-record-export.test.sh' '__script__:fm-record-export-remote-home.test.sh'
       ;;
     bin/fm-codex-native.sh|bin/fm-codex-native.py)
       printf '%s\n' '__script__:fm-codex-notify.test.sh'

@@ -43,6 +43,7 @@ import tempfile
 import time
 
 from fm_record_io import RecordError, canonical, read_regular, safe_path
+from fm_record_io import open_absolute_directory as directory
 
 LIMIT = 1048576
 WEEK = 7 * 86400
@@ -64,29 +65,6 @@ class RetentionTimeout(RuntimeError):
 def require(condition, message):
     if not condition:
         raise RetentionError(message)
-
-
-def directory(path):
-    """Pin every ancestor without following symlinks; caller owns the fd.
-
-    Removal needs a pinned descriptor chain. fm-record-export.py has equivalent
-    mechanics but uses Python 3.10 runtime annotations and cannot be imported by
-    this 3.9 command. Remove this local copy when that primitive moves into the
-    Python 3.9-compatible fm_record_io module.
-    """
-    path = Path(path)
-    require(path.is_absolute(), 'absolute root required')
-    fd = os.open('/', DIR_FLAGS)
-    try:
-        for part in path.parts[1:]:
-            require(part not in ('.', '..'), 'traversal refused')
-            next_fd = os.open(part, DIR_FLAGS, dir_fd=fd)
-            os.close(fd)
-            fd = next_fd
-        return fd
-    except BaseException:
-        os.close(fd)
-        raise
 
 
 def relative(value, glob=False):

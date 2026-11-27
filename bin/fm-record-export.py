@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable
 
+from fm_record_io import RecordError, open_absolute_directory as open_record_directory
+
 
 ROOT_SCHEMA = "firstmate-record-export-root.v1"
 ROOT_MARKER = ".firstmate-record-export-root.v1.json"
@@ -99,21 +101,10 @@ def stable_identity(info: os.stat_result) -> tuple[int, int, int, int]:
 
 
 def open_absolute_directory(path: str, label: str) -> int:
-    if not os.path.isabs(path):
-        fail(f"{label} must be absolute: {path}")
-    parts = [part for part in path.split(os.sep) if part]
-    fd = os.open(os.sep, DIR_FLAGS)
     try:
-        for part in parts:
-            if part in {".", ".."}:
-                fail(f"{label} contains an unsafe component: {path}")
-            next_fd = os.open(part, DIR_FLAGS | NOFOLLOW, dir_fd=fd)
-            os.close(fd)
-            fd = next_fd
-        return fd
-    except Exception:
-        os.close(fd)
-        raise
+        return open_record_directory(path, label)
+    except RecordError as exc:
+        fail(str(exc))
 
 
 def open_parent_for_new_directory(path: str, label: str) -> tuple[int, str]:
