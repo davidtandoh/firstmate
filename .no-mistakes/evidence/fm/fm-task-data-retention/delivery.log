@@ -1,0 +1,18 @@
+FM_TEST_BEGIN 2026-11-27T23:28:42Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
+ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
+ok - fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created
+ok - fm-spawn: scout and secondmate spawns refuse ship delivery flags
+ok - fm-spawn: the brief's recorded mode and the spawn's explicit mode must agree
+ok - fm-spawn: a rigor downgrade against the registered posture is announced, never blocked
+ok - fm-spawn: a scout spawn resolves no delivery posture from the registry
+ok - fm-promote: promotion requires the delivery contract and records it exactly once
+ok - fm-promote: an opted-in home sends a publishing promotion on a project with origin back to origin's default branch
+ok - fm-promote: a symlinked task record is refused and its target is left untouched
+not ok - no-mistakes: ordinary ship brief generation should succeed
+FM_TEST_END 2026-11-27T23:29:24Z tests/fm-task-delivery.test.sh exit=1 duration_ms=41604 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=41663
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=41604 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=41604
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M8FK7E8V0FV6P5H9GS9R7YFH/delivery-timing.json
+FM_TEST_BUDGET max_wall_ms=120000 duration_ms=41663

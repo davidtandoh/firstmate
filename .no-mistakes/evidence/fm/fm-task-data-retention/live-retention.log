@@ -1,0 +1,73 @@
+$ tasks-axi add demo Completed render
+ok: added demo -> Queued
+task:
+  id: demo
+  title: Completed render
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-11-27
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start demo` to move it to in flight
+  - Run `tasks-axi block demo --by <other>` to record a dependency
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh declare demo --scratch cache --worktree-cache node_modules
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/data/demo/scratch.json
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh report
+demo: bytes=4185 eligible=0 completion not recorded
+legacy: bytes=1024 eligible=0 undeclared legacy data; decision required
+exit=0
+$ tasks-axi done demo --report data/demo/report.md
+ok: done demo -> Done (report data/demo/report.md)
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh complete demo --artifact report.md --worktree /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/slot/repo --lease-released
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/data/demo/retention-complete.json
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh report
+demo: bytes=4505 eligible=0 seven-day grace period not elapsed
+  worktree: {"bytes":128,"cache_bytes":128,"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/slot/repo","reason":"released worktree remains; report only","symlinks":"excluded without following"}
+legacy: bytes=1024 eligible=0 undeclared legacy data; decision required
+exit=0
+Fixture clock advanced beyond seven-day grace period
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh report --prune
+demo: bytes=4517 eligible=4096 eligible
+  worktree: {"bytes":128,"cache_bytes":128,"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/slot/repo","reason":"released worktree remains; report only","symlinks":"excluded without following"}
+legacy: bytes=1024 eligible=0 undeclared legacy data; decision required
+exit=0
+Confirmed: --prune alone preserved scratch under default report mode
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh report --prune --dry-run
+demo: bytes=4517 eligible=4096 eligible
+  would touch: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/data/demo/retention-removals.jsonl
+  would touch: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/data/demo/cache/render.bin
+  worktree: {"bytes":128,"cache_bytes":128,"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/slot/repo","reason":"released worktree remains; report only","symlinks":"excluded without following"}
+legacy: bytes=1024 eligible=0 undeclared legacy data; decision required
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh report --prune
+demo: bytes=4517 eligible=4096 eligible
+  audit: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/data/demo/retention-removals.jsonl
+  worktree: {"bytes":128,"cache_bytes":128,"path":"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/.retention-live-npz1c2v3/slot/repo","reason":"released worktree remains; report only","symlinks":"excluded without following"}
+legacy: bytes=1024 eligible=0 undeclared legacy data; decision required
+exit=0
+Confirmed: only declared scratch removed; deliverable, legacy data, and worktree cache preserved
+Removal audit: {"at":1795822211,"bytes":4096,"event":"planned","path":"cache/render.bin","task":"demo"}
+{"at":1795822211,"bytes":4096,"event":"removed","path":"cache/render.bin","task":"demo"}
+
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh tick
+exit=0
+$ bash /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8FK7E8V0FV6P5H9GS9R7YFH/bin/fm-task-retention.sh tick
+exit=0
+Confirmed: weekly report and wake published once; repeated tick made no additional publication
