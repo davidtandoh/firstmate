@@ -71,6 +71,14 @@ if '/v1/hosts/' in url:
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
+if mode == 'wait-identity':
+    (service / 'identity-read.started').touch()
+    deadline = time.monotonic() + 30
+    while not (service / 'identity-read.release').exists():
+        if time.monotonic() >= deadline:
+            sys.exit(28)
+        time.sleep(0.01)
+    mode = ''
 delay = os.environ.get('OMNI_SESSION_DELAY', '0')
 command_file = os.environ.get('OMNI_NATIVE_COMMAND_FILE')
 if command_file and pathlib.Path(command_file).read_text() == 'zsh':

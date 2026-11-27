@@ -342,10 +342,7 @@ record_session() { # <absolute task meta> <spawn generation>
     fi
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     status=0
-    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
-       [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ]; then
-      # Retirement intent is not stop proof. The locked lifecycle owner
-      # captured this handoff and alone may archive after proving termination.
+    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ]; then
       printf 'error: Omnigent session title: session %s: task record no longer names this launch; not recorded\n' "$SESSION_ID" >&2
       status=1
     elif ! {
