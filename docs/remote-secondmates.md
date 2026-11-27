@@ -467,6 +467,7 @@ Placement is per backend:
 A wrapped primary normally asks the remote host to wrap launches in that host's own Kit-managed Omnigent service.
 A host without a Kit, such as a Linux worker, can instead launch through the primary's Omnigent server, once its own Omnigent host daemon is connected to that server.
 [Remote host launches](omnigent.md#remote-host-launches) owns how the launch works and what it verifies.
+[Upgrade pause window](omnigent.md#upgrade-pause-window) owns the watcher and pushed-status requirements for maintenance deferral and resumption.
 
 To opt a route in:
 

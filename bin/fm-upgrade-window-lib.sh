@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # fm-upgrade-window-lib.sh - Firstmate's reader of the Agent Kit's Omnigent
-# upgrade pause window. Sourced, never executed.
+# upgrade pause window and publisher of remote copies. Sourced, never executed.
 #
 # The Kit's upgrade worker owns the window and its schema
 # (personal-agent-kit ADR-0030; integrations/tooling/agent-kit-observation/
 # upgrade.md "Firstmate pause window"). It writes
 #   ${AGENT_KIT_OBSERVATION_DIR:-~/.agents/state/observation}/serve/upgrade-window.json
-# before draining Omnigent and closes it with the outcome. This file owns only
-# Firstmate's reading of it:
+# before draining Omnigent and closes it with the outcome. This file owns
+# Firstmate's reading and pushed-copy contract:
 #   active  - phase pausing or switching, and expires_at still in the future.
 #             docs/omnigent.md "Upgrade pause window" owns operator behavior;
 #             each caller owns its deferral status and retry contract.
 #   closed  - phase resumed, or an open phase whose expires_at has passed.
 #   absent  - no window file.
-#   invalid - unreadable or outside the schema; it warns and is treated as no
-#             window, because a window with no readable expiry has no bound.
+#   invalid - local window unreadable or outside the schema; it warns and is
+#             treated as no window, because an unreadable expiry has no bound.
 #   unavailable - pushed owner copy is unusable; callers defer with exit 75.
 
 FM_UPGRADE_WINDOW_DEFER_EXIT=75
@@ -182,7 +182,7 @@ fm_upgrade_window_read() {
 
 # fm_upgrade_window_gate <what> [state-dir] [server]
 # 0 when no window is active (an invalid file warns on stderr); an active
-# window or unavailable remote read prints a deferral and returns
+# window or unavailable pushed copy prints a deferral and returns
 # FM_UPGRADE_WINDOW_DEFER_EXIT. Only an active window records its job as
 # deferred in this home when <state-dir> is given.
 # An omitted server inherits FM_OMNIGENT_SERVER; an empty server reads locally.
@@ -241,9 +241,11 @@ fm_upgrade_window_tasks() {
 
 # fm_upgrade_window_supervise <state-dir>
 # One watcher poll; runs in the caller's shell so FM_UPGRADE_WINDOW_STATE stays
-# set. When this home deferred work for a job, closing, removing, or invalidating
-# its window produces a check reason. A closed readable window also produces a
-# reason for eligible local recovery tasks from fm_upgrade_window_tasks.
+# set. When this home deferred work for a job, closing or removing its window
+# produces a check reason; invalidation does so only for local windows.
+# Unavailable pushed copies hold work without a check reason.
+# A closed readable window also produces a reason for eligible local recovery
+# tasks from fm_upgrade_window_tasks.
 # FM_UPGRADE_WINDOW_REASON is set to one check reason; the caller queues it and
 # then runs fm_upgrade_window_commit so it is raised once per job. Otherwise
 # FM_UPGRADE_WINDOW_REASON stays empty.
