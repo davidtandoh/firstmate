@@ -203,6 +203,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-timing-lib.sh
+. "$SCRIPT_DIR/fm-timing-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-omp-profile-lib.sh
@@ -423,13 +425,13 @@ fi
 agent_state() {
   local state native remaining
   state=$(fm_backend_agent_state "$BACKEND" "$T")
-  if [ "${VERIFY_OMNIGENT_STOP:-0}" = 1 ]; then
+  if [ "${VERIFY_OMNIGENT_STOP:-0}" = 1 ] && [ "$(fm_meta_get "$META" omnigent)" = on ]; then
     if [ -n "${1:-}" ]; then
-      if remaining=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
-        my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
-        exit 1 if $remaining <= 0;
-        printf "%.6f", $remaining
-      ' "$1"); then
+      if remaining=$(awk -v deadline="$1" -v now="$(fm_timing_now_ms)" 'BEGIN {
+        remaining = (deadline - now) / 1000
+        if (remaining <= 0) exit 1
+        printf "%.6f", remaining
+      }'); then
         native=$(fm_run_timed "$remaining" bash -c '
           . "$1"
           fm_backend_omnigent_agent_state "$2" "$3"
@@ -453,17 +455,15 @@ busy_verdict() {
 # wait_agent_state <wanted...> <timeout>: poll until agent_state prints one of
 # the wanted values. Prints the final observed state; returns 0 on a match.
 wait_agent_state() {  # <timeout> <wanted>...
-  local timeout=$1 state=unknown want deadline remaining pause
+  local timeout=$1 state=unknown want deadline pause
   shift
-  deadline=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
-    printf "%.6f", clock_gettime(CLOCK_MONOTONIC) + $ARGV[0]
-  ' "$timeout") || { printf unknown; return 1; }
+  deadline=$(awk -v now="$(fm_timing_now_ms)" -v timeout="$timeout" 'BEGIN {
+    printf "%.0f", now + timeout * 1000
+  }') || { printf unknown; return 1; }
   while :; do
-    remaining=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
-      my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
-      exit 1 if $remaining <= 0;
-      printf "%.6f", $remaining
-    ' "$deadline") || break
+    awk -v deadline="$deadline" -v now="$(fm_timing_now_ms)" 'BEGIN {
+      exit !(now < deadline)
+    }' || break
     state=$(agent_state "$deadline")
     for want in "$@"; do
       if [ "$state" = "$want" ]; then
@@ -471,11 +471,11 @@ wait_agent_state() {  # <timeout> <wanted>...
         return 0
       fi
     done
-    pause=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
-      my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
-      exit 1 if $remaining <= 0;
-      printf "%.6f", $remaining < $ARGV[1] ? $remaining : $ARGV[1]
-    ' "$deadline" "$POLL") || break
+    pause=$(awk -v deadline="$deadline" -v now="$(fm_timing_now_ms)" -v poll="$POLL" 'BEGIN {
+      remaining = (deadline - now) / 1000
+      if (remaining <= 0) exit 1
+      printf "%.6f", remaining < poll ? remaining : poll
+    }') || break
     sleep "$pause"
   done
   printf '%s' "$state"

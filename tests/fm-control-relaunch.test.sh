@@ -254,7 +254,7 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_TRACE_RELEASE="${FM_FAKE_TRACE_RELEASE:-}" \
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
-    "$CONTROL" "$@" 2>&1
+    "${FM_TEST_CONTROL_SHELL:-bash}" "$CONTROL" "$@" 2>&1
 }
 
 run_spawn() {  # <case-dir> <args...>
@@ -3519,8 +3519,29 @@ PYTIME
   pass 'slow native reads cannot multiply the stop wait budget'
 }
 
+test_exit_without_perl() {
+  local dir out rc shell id=rl-no-perl
+  dir=$(new_case no-perl "$id")
+  add_ship_task "$dir" "$id" codex
+  printf codex > "$dir/fake/command"
+  printf codex > "$dir/fake/becomes"
+  printf '#!/bin/sh\nprintf invoked > "%s"\nexit 127\n' "$dir/perl.called" > "$dir/fakebin/perl"
+  chmod +x "$dir/fakebin/perl"
+  for shell in bash /bin/bash; do
+    printf codex > "$dir/fake/command"
+    rc=0
+    out=$(FM_TEST_CONTROL_SHELL="$shell" run_control "$dir" "$id" exit) || rc=$?
+    expect_code 0 "$rc" "exit must work without Perl under $shell"$'\n'"$out"
+    assert_contains "$out" "stopped $id harness=codex" 'no-Perl exit did not confirm termination'
+    [ "$(cat "$dir/fake/command")" = zsh ] || fail 'no-Perl exit did not stop the agent'
+    [ ! -e "$dir/perl.called" ] || fail 'lifecycle wait invoked unavailable Perl'
+  done
+  pass 'exit works without Perl with both available clock fallbacks'
+}
+
 if [ "${1:-}" = --stop-budget ]; then
   test_omnigent_stop_budget
+  test_exit_without_perl
   exit 0
 fi
 
@@ -3531,6 +3552,7 @@ if [ "${1:-}" = --omnigent ]; then
   test_omnigent_unknown_withholds_lifecycle || exit 1
   test_omnigent_late_binding_retirement
   test_omnigent_stop_budget
+  test_exit_without_perl
   exit 0
 fi
 
@@ -3610,6 +3632,7 @@ test_omnigent_dead_attach_recovery
 test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
 test_omnigent_stop_budget
+test_exit_without_perl
 test_missing_worktree_refuses_before_stopping_anything
 test_relaunch_refuses_a_recorded_worktree_that_is_the_primary_home
 test_relaunch_refuses_a_recorded_worktree_that_is_the_project_primary_checkout
