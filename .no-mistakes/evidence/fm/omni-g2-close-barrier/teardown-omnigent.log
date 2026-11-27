@@ -1,0 +1,5 @@
+ok - teardown archives the recorded Omnigent session and a failed archive only warns
+ok - teardown observer ended: native-owner evidence governs cleanup and lease retention
+ok - teardown observer unknown: native-owner evidence governs cleanup and lease retention
+ok - teardown observer unreachable: native-owner evidence governs cleanup and lease retention
+ok - forced secondmate retirement archives descendant Omnigent sessions, best-effort
