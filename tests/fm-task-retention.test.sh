@@ -176,6 +176,20 @@ class Retention(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         proof = self.home / 'data/job/retention-local.json'
         self.assertTrue(proof.exists())
+        original = proof.read_bytes()
+        identity = proof.stat()
+        retry = subprocess.run(['bash', str(Path(os.environ['ROOT']) / 'bin/fm-merge-local.sh'), 'job'],
+                               cwd=self.home, env=self.env, capture_output=True, text=True)
+        self.assertEqual(retry.returncode, 0, retry.stdout + retry.stderr)
+        self.assertEqual(proof.read_bytes(), original)
+        self.assertEqual(proof.stat().st_ino, identity.st_ino)
+        self.assertEqual(proof.stat().st_mtime_ns, identity.st_mtime_ns)
+        prior = subprocess.check_output(['git', '-C', str(self.home / 'project'),
+                                         'rev-parse', 'HEAD^'], text=True).strip()
+        conflict = self.run_cli('confirm-local', 'job', '--project', str(self.home / 'project'),
+                                '--branch', 'main', '--head', prior, ok=False)
+        self.assertIn('conflicting local landing receipt', conflict.stderr)
+        self.assertEqual(proof.read_bytes(), original)
         self.teardown()
         self.assertIn('grace', self.report()['reason'])
         self.ready_from_existing()

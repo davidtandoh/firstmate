@@ -519,7 +519,14 @@ def main():
                       'merged_pr': merged, 'worktree': args.worktree, 'lease_released': args.lease_released,
                       'declaration_sha256': hashlib.sha256(canonical(declaration(task)).encode()).hexdigest()}
             path = task / 'retention-complete.json'
-        output = {'path': publish(path, output, exclusive=args.command != 'complete', dry=args.dry_run), 'record': output}
+        try:
+            destination = publish(path, output, exclusive=args.command != 'complete', dry=args.dry_run)
+        except FileExistsError:
+            if args.command != 'confirm-local':
+                raise
+            require(read_json(path) == output, 'conflicting local landing receipt')
+            destination = str(path)
+        output = {'path': destination, 'record': output}
     if args.json:
         print(canonical(output), end='')
     elif args.command == 'report':
