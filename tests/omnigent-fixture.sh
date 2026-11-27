@@ -68,7 +68,13 @@ if '/v1/hosts/' in url:
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
-time.sleep(float(os.environ.get('OMNI_SESSION_DELAY', '0')))
+delay = os.environ.get('OMNI_SESSION_DELAY', '0')
+command_file = os.environ.get('OMNI_NATIVE_COMMAND_FILE')
+if command_file and pathlib.Path(command_file).read_text() == 'zsh':
+    delay = os.environ.get('OMNI_SESSION_DELAY_AFTER_EXIT', delay)
+    if 'OMNI_SESSION_DELAY_AFTER_EXIT' in os.environ:
+        (service / 'slow-read.started').write_text(str(time.monotonic()))
+time.sleep(float(delay))
 # A loaded server: only the first session request is slow (beyond the old
 # 5-second limit) or fails; later requests answer normally.
 if mode in ('slow-first', 'fail-first'):

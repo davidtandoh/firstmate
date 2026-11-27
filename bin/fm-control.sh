@@ -421,10 +421,25 @@ fi
 # --- shared helpers ---------------------------------------------------------
 
 agent_state() {
-  local state native
+  local state native remaining
   state=$(fm_backend_agent_state "$BACKEND" "$T")
   if [ "${VERIFY_OMNIGENT_STOP:-0}" = 1 ]; then
-    native=$(fm_backend_omnigent_agent_state "$state" "$META")
+    if [ -n "${1:-}" ]; then
+      if remaining=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
+        my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
+        exit 1 if $remaining <= 0;
+        printf "%.6f", $remaining
+      ' "$1"); then
+        native=$(fm_run_timed "$remaining" bash -c '
+          . "$1"
+          fm_backend_omnigent_agent_state "$2" "$3"
+        ' _ "$SCRIPT_DIR/fm-backend.sh" "$state" "$META" 2>/dev/null) || native=unknown
+      else
+        native=unknown
+      fi
+    else
+      native=$(fm_backend_omnigent_agent_state "$state" "$META")
+    fi
     # Native absence and attach exit must both hold before a stop wait passes.
     if [ "$state:$native" != alive:dead ]; then state=$native; fi
   fi
@@ -438,19 +453,30 @@ busy_verdict() {
 # wait_agent_state <wanted...> <timeout>: poll until agent_state prints one of
 # the wanted values. Prints the final observed state; returns 0 on a match.
 wait_agent_state() {  # <timeout> <wanted>...
-  local timeout=$1 state want elapsed=0
+  local timeout=$1 state=unknown want deadline remaining pause
   shift
+  deadline=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
+    printf "%.6f", clock_gettime(CLOCK_MONOTONIC) + $ARGV[0]
+  ' "$timeout") || { printf unknown; return 1; }
   while :; do
-    state=$(agent_state)
+    remaining=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
+      my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
+      exit 1 if $remaining <= 0;
+      printf "%.6f", $remaining
+    ' "$deadline") || break
+    state=$(agent_state "$deadline")
     for want in "$@"; do
       if [ "$state" = "$want" ]; then
         printf '%s' "$state"
         return 0
       fi
     done
-    awk -v e="$elapsed" -v t="$timeout" 'BEGIN{exit !(e < t)}' || break
-    sleep "$POLL"
-    elapsed=$(awk -v e="$elapsed" -v p="$POLL" 'BEGIN{printf "%.3f", e + p}')
+    pause=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e '
+      my $remaining = $ARGV[0] - clock_gettime(CLOCK_MONOTONIC);
+      exit 1 if $remaining <= 0;
+      printf "%.6f", $remaining < $ARGV[1] ? $remaining : $ARGV[1]
+    ' "$deadline" "$POLL") || break
+    sleep "$pause"
   done
   printf '%s' "$state"
   return 1

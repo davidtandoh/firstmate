@@ -246,7 +246,7 @@ run_control() {  # <case-dir> <args...>
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
-    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT="${FM_TEST_CONTROL_EXIT_WAIT:-0.05}" FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
     FM_REAL_MV="${FM_REAL_MV:-}" FM_FAKE_COMPLETE_JOURNAL_MV_FAIL="${FM_FAKE_COMPLETE_JOURNAL_MV_FAIL:-}" \
     FM_FAKE_META_PUBLISH_MV_FAIL="${FM_FAKE_META_PUBLISH_MV_FAIL:-}" \
@@ -3497,12 +3497,40 @@ test_omnigent_late_binding_retirement() {
   pass 'late binding archives retired, removed and superseded launches'
 }
 
+test_omnigent_stop_budget() {
+  local dir out rc elapsed id=rl-stop-budget
+  dir=$(new_case omni-stop-budget "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  printf 'omnigent=on\nomnigent_session=dddddddddddddddddddddddddddddddd\nomnigent_server=http://127.0.0.1:6767\n' >> "$dir/home/state/$id.meta"
+  rc=0
+  out=$(FM_TEST_CONTROL_EXIT_WAIT=1 OMNI_SESSION_DELAY_AFTER_EXIT=3 OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" run_control "$dir" "$id" exit) || rc=$?
+  [ "$rc" -ne 0 ] || fail 'unavailable native read confirmed stop'
+  assert_contains "$out" 'exit=unconfirmed' 'slow read lost the fail-closed verdict'
+  assert_grep '/exit' "$dir/fake/literal" 'exit was not delivered before the slow read'
+  [ -e "$dir/serve/slow-read.started" ] || fail 'slow native read was not exercised'
+  elapsed=$(python3 - "$dir/serve/slow-read.started" <<'PYTIME'
+import pathlib, sys, time
+print(time.monotonic() - float(pathlib.Path(sys.argv[1]).read_text()))
+PYTIME
+)
+  awk -v elapsed="$elapsed" 'BEGIN { exit !(elapsed < 1.8) }' || fail "stop budget multiplied by slow reads: ${elapsed}s"
+  [ ! -e "$dir/serve/archived.jsonl" ] || fail 'unknown native owner was archived'
+  pass 'slow native reads cannot multiply the stop wait budget'
+}
+
+if [ "${1:-}" = --stop-budget ]; then
+  test_omnigent_stop_budget
+  exit 0
+fi
+
 if [ "${1:-}" = --omnigent ]; then
   test_omnigent_relaunch_archives_the_stopped_session
   test_omnigent_relaunch_defers_during_upgrade_window
   test_omnigent_dead_attach_recovery
   test_omnigent_unknown_withholds_lifecycle || exit 1
   test_omnigent_late_binding_retirement
+  test_omnigent_stop_budget
   exit 0
 fi
 
@@ -3581,6 +3609,7 @@ test_omnigent_relaunch_defers_during_upgrade_window
 test_omnigent_dead_attach_recovery
 test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
+test_omnigent_stop_budget
 test_missing_worktree_refuses_before_stopping_anything
 test_relaunch_refuses_a_recorded_worktree_that_is_the_primary_home
 test_relaunch_refuses_a_recorded_worktree_that_is_the_project_primary_checkout
