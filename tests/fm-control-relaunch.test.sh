@@ -538,6 +538,7 @@ test_omnigent_delayed_identity_after_refused_retirement() (
     printf 'kind=scout\nomnigent=on\nspawn_gen=s1.1.1\n' >> "$meta"
     ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
     printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/no-mistakes"
+    # shellcheck disable=SC2016 # Expand FM_FAKE_DIR when the generated shim runs.
     printf '#!/usr/bin/env bash\nprintf released > "$FM_FAKE_DIR/pool-return"\n' > "$dir/fakebin/treehouse"
     chmod +x "$dir/fakebin/no-mistakes" "$dir/fakebin/treehouse"
     PATH="$dir/fakebin:$PATH" OMNI_TITLE_MODE=wait-identity \
