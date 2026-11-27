@@ -195,6 +195,14 @@ if [ "$merge_status" -ne 0 ]; then
     exit 1
   }
 fi
+if [ "$merge_status" -eq 0 ] && [ -f "${FM_DATA_OVERRIDE:-$FM_HOME/data}/$ID/scratch.json" ]; then
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-local "$ID" \
+      --project "$PROJ" --branch "$DEFAULT" --head "$MERGE_HEAD" >/dev/null || {
+        echo "error: local landing succeeded but its retention proof could not be recorded" >&2
+        exit 1
+      }
+fi
 fm_lock_release "$MERGE_META_LOCK" || true
 MERGE_META_LOCK=
 fm_lock_release "$MERGE_CONTROL_LOCK" || true

@@ -3,6 +3,8 @@
 # Usage: fm-task-retention.sh declare ID [--scratch GLOB] [--worktree-cache NAME]
 #        fm-task-retention.sh complete ID [--artifact RELPATH] [--worktree PATH --lease-released]
 #        fm-task-retention.sh confirm-merge ID --merged-pr URL
+#        fm-task-retention.sh confirm-local ID --project PATH --branch NAME --head SHA
+#        fm-task-retention.sh start ID [--dry-run] [--json]
 #        fm-task-retention.sh report [--json] [--prune] [--periodic] [--dry-run]
 # FM_HOME and FM_{DATA,STATE,CONFIG}_OVERRIDE select this home's roots.
 # Declaration is exclusive; edit scratch.json deliberately to extend it.

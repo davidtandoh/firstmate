@@ -4405,11 +4405,12 @@ fi
 # and successful Done transition. A held or discarded task gets no receipt.
 # A failed receipt leaves all data ineligible, without undoing completed teardown.
 if [ "$KIND" != secondmate ] && [ "$BACKLOG_TRANSITION" != retain ] \
-  && [ "$FORCE" != --force ] && [ -f "$DATA/$ID/scratch.json" ] \
-  && [ ! -e "$DATA/$ID/retention-complete.json" ]; then
+  && [ "$FORCE" != --force ] && [ -f "$DATA/$ID/scratch.json" ]; then
   RETENTION_COMPLETE_ARGS=(complete "$ID" --worktree "$WT" --lease-released)
   if [ "$KIND" = scout ]; then
     RETENTION_COMPLETE_ARGS+=(--artifact report.md)
+  elif [ "$MODE" = local-only ]; then
+    RETENTION_COMPLETE_ARGS+=(--artifact retention-local.json)
   fi
   FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
     bash "$SCRIPT_DIR/fm-task-retention.sh" "${RETENTION_COMPLETE_ARGS[@]}" >/dev/null \

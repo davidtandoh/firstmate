@@ -518,7 +518,7 @@ Brief generation and teardown share browser identity through [`bin/fm-task-proc-
 ```mermaid
 flowchart LR
   Brief[Brief scratch declaration] --> Retention[Local retention command]
-  Merge[Confirmed merge or recorded artifact] --> Teardown[Successful task teardown]
+  Merge[Confirmed PR or local landing or recorded artifact] --> Teardown[Successful task teardown]
   Teardown --> Retention
   Watcher[Existing watcher weekly check] --> Retention
   Retention --> Report[Per-home space report]
@@ -526,9 +526,9 @@ flowchart LR
 ```
 
 The lifecycle keeps evidence by default and gives declared scratch a completion owner.
-The brief owns declaration, confirmed merge handling owns merge evidence, teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
+The brief owns declaration, spawn invalidates previous retention receipts under the task metadata lock, confirmed PR and local merge handling own landing evidence, teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
 The retention command reuses the backlog adapter and the configured Done archive owner, shared bounded record reads, and the existing metadata lock before pruning.
-It never removes worktree content; a released worktree that remains on disk is a report item.
+It never removes worktree content; a released worktree that remains on disk is a report item even after its Done row moves to the configured archive.
 Operator rollout and the switch are documented in [task scratch retention](configuration.md#task-scratch-retention-configtask-retention).
 [`tests/fm-task-retention.test.sh`](../tests/fm-task-retention.test.sh) exercises the eligibility and deletion boundaries entirely in disposable fixtures.
 

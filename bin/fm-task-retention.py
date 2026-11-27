@@ -2,9 +2,13 @@
 """Local task scratch lifecycle engine, standard library / Python 3.9.
 
 Owners: scratch.json v1 = {version, scratch:[relative glob], worktree_cache:[name]};
-retention-merge.json v1 = {version,url}; retention-complete.json v1 =
+retention-merge.json v1 = {version,url}; retention-local.json v1 =
+{version,project,branch,head}; retention-complete.json v1 =
 {version,completed_at,artifact,merged_pr,worktree,lease_released,declaration_sha256}.
 Receipts never imply current Done state: backlog reads are authoritative.
+Start invalidates completion and landing receipts under the spawn metadata lock.
+Complete refreshes the clock after confirmed delivery; local landing records
+require their exact commit to remain on the recorded local default branch.
 Control records and recorded artifacts are always evidence, even under '*'.
 An open captain hold referencing a task ID, task path, or its merged PR blocks it.
 Any task meta (including dead/uncertain endpoints) blocks pruning; only teardown
@@ -40,7 +44,7 @@ from fm_record_io import RecordError, canonical, read_regular, safe_path
 LIMIT = 1048576
 WEEK = 7 * 86400
 CONTROL = {'brief.md', 'report.md', 'scratch.json', 'retention-merge.json',
-           'retention-complete.json', 'retention-removals.jsonl'}
+           'retention-complete.json', 'retention-local.json', 'retention-removals.jsonl'}
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 ID = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$')
 
@@ -252,6 +256,30 @@ def backlog(env):
     return {row['id']: row for row in rows}
 
 
+def done_confirmed(task_id, rows, env):
+    row = rows.get(task_id)
+    if row is not None:
+        return row['state'] == 'done'
+    result = subprocess.run(['bash', str(Path(__file__).with_suffix('.sh')), 'archived', task_id],
+                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    return result.returncode == 0
+
+
+def local_landing(proof):
+    require(set(proof) == {'version', 'project', 'branch', 'head'}, 'invalid local landing record')
+    require(isinstance(proof['project'], str) and Path(proof['project']).is_absolute(), 'invalid local project')
+    require(isinstance(proof['head'], str) and re.fullmatch(r'[0-9a-f]{40,64}', proof['head']), 'invalid local head')
+    require(isinstance(proof['branch'], str), 'invalid local branch')
+    result = subprocess.run(['git', '-C', proof['project'], 'check-ref-format', 'refs/heads/' + proof['branch']],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    require(result.returncode == 0, 'invalid local branch')
+    result = subprocess.run(['git', '-C', proof['project'], 'merge-base', '--is-ancestor', proof['head'],
+                             'refs/heads/' + proof['branch']],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    require(result.returncode == 0, 'local landing no longer on default branch')
+    return proof
+
+
 def current_reason(task_id, task, state, receipt, rows, env):
     require(set(receipt) == {'version', 'completed_at', 'artifact', 'merged_pr', 'worktree', 'lease_released', 'declaration_sha256'}
             and receipt.get('version') == 1 and type(receipt.get('completed_at')) is int,
@@ -261,15 +289,8 @@ def current_reason(task_id, task, state, receipt, rows, env):
         require(receipt[field] is None or isinstance(receipt[field], str), 'invalid receipt field: ' + field)
     require(receipt['declaration_sha256'] == hashlib.sha256(canonical(declaration(task)).encode()).hexdigest(),
             'scratch declaration changed after completion')
-    row = rows.get(task_id)
-    if row is None:
-        # The existing archive owner understands configured Done archives.
-        result = subprocess.run(['bash', str(Path(__file__).with_suffix('.sh')), 'archived', task_id],
-                                env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-        if result.returncode != 0:
-            return 'task not confirmed Done in backlog/archive'
-    elif row['state'] != 'done':
-        return 'task not Done in backlog'
+    if not done_confirmed(task_id, rows, env):
+        return 'task not confirmed Done in backlog/archive'
     for other in rows.values():
         if other['state'] != 'done' and other['hold_kind'] == 'captain':
             text = canonical(other)
@@ -351,7 +372,7 @@ def report(args, roots, env):
                         decl = declaration(task)
                         receipt = read_json(task / 'retention-complete.json')
                         row['reason'] = current_reason(task_id, task, state, receipt, rows, env)
-                        if rows.get(task_id, {}).get('state') == 'done':
+                        if done_confirmed(task_id, rows, env):
                             row['worktree'] = worktree_report(receipt, decl, budget)
                         protected = CONTROL | {receipt.get('artifact', '')}
                         _, scratch = scan(fd, budget, decl['scratch'], protected)
@@ -409,7 +430,7 @@ def report(args, roots, env):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('declare', 'complete', 'confirm-merge'):
+    for name in ('declare', 'complete', 'confirm-merge', 'confirm-local', 'start'):
         p = sub.add_parser(name)
         p.add_argument('task')
         p.add_argument('--dry-run', action='store_true')
@@ -417,7 +438,11 @@ def main():
         if name == 'declare':
             p.add_argument('--scratch', action='append', default=[])
             p.add_argument('--worktree-cache', action='append', default=[])
-        else:
+        elif name == 'confirm-local':
+            p.add_argument('--project', required=True)
+            p.add_argument('--branch', required=True)
+            p.add_argument('--head', required=True)
+        elif name != 'start':
             p.add_argument('--artifact')
             p.add_argument('--merged-pr')
             p.add_argument('--worktree')
@@ -444,6 +469,16 @@ def main():
         task = roots[0] / args.task
         fd = directory(task)
         os.close(fd)
+        if args.command == 'start':
+            paths = [task / name for name in ('retention-complete.json', 'retention-merge.json', 'retention-local.json')]
+            for path in paths:
+                safe_path(roots[0], path)
+            for path in paths:
+                if os.path.lexists(path) and not args.dry_run:
+                    path.unlink()
+            output = {'paths': [str(path) for path in paths]}
+            print(canonical(output) if args.json else '\n'.join(output['paths']) + '\n', end='')
+            return
         if args.command == 'declare':
             output = {'version': 1, 'scratch': args.scratch, 'worktree_cache': args.worktree_cache}
             require(len(args.scratch) <= 32 and len(args.worktree_cache) <= 32, 'too many patterns')
@@ -452,6 +487,10 @@ def main():
             for name in args.worktree_cache:
                 require(len(relative(name)) == 1 and name != '.git', 'cache must be a named directory')
             path = task / 'scratch.json'
+        elif args.command == 'confirm-local':
+            output = {'version': 1, 'project': args.project, 'branch': args.branch, 'head': args.head}
+            local_landing(output)
+            path = task / 'retention-local.json'
         elif args.command == 'confirm-merge':
             require(isinstance(args.merged_pr, str) and args.merged_pr.startswith('https://'), 'merge URL required')
             output = {'version': 1, 'url': args.merged_pr}
@@ -465,7 +504,11 @@ def main():
                 relative(artifact)
                 safe_path(task, task / artifact)
                 read_regular(task / artifact, LIMIT, first_line=True)
-                require(artifact in canonical(rows[args.task]), 'artifact must be recorded in backlog')
+                if artifact == 'retention-local.json':
+                    require('local main' in canonical(rows[args.task]), 'local landing must be recorded in backlog')
+                    local_landing(read_json(task / artifact))
+                else:
+                    require(artifact in canonical(rows[args.task]), 'artifact must be recorded in backlog')
             elif (task / 'retention-merge.json').exists():
                 merged = read_json(task / 'retention-merge.json')['url']
                 require(isinstance(merged, str) and merged in canonical(rows[args.task]),
@@ -476,7 +519,7 @@ def main():
                       'merged_pr': merged, 'worktree': args.worktree, 'lease_released': args.lease_released,
                       'declaration_sha256': hashlib.sha256(canonical(declaration(task)).encode()).hexdigest()}
             path = task / 'retention-complete.json'
-        output = {'path': publish(path, output, exclusive=True, dry=args.dry_run), 'record': output}
+        output = {'path': publish(path, output, exclusive=args.command != 'complete', dry=args.dry_run), 'record': output}
     if args.json:
         print(canonical(output), end='')
     elif args.command == 'report':

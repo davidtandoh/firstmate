@@ -132,6 +132,107 @@ class Retention(unittest.TestCase):
         self.assertEqual(row['worktree']['cache_bytes'], 128)
         self.assertTrue(worktree.exists())
 
+    def shell(self, script, *args):
+        result = subprocess.run(['bash', '-eu', '-c', script, '_', os.environ['ROOT'],
+                                 str(self.home), *args], cwd=self.home, env=self.env,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
+
+    def local_fixture(self):
+        self.shell(''' . "$1/tests/fixtures.sh"
+            fm_git_worktree "$2/project" "$2/worker" fm/job
+            printf 'landed change\\n' > "$2/worker/landed.txt"
+            git -C "$2/worker" add landed.txt
+            git -C "$2/worker" -c user.name=Tests -c user.email=tests@example.invalid commit -qm change
+            fm_test_spawn_home "$2" codex
+            fakebin=$(fm_test_make_spawn_fakebin "$2/tools" gh gh-axi no-mistakes)
+            mkdir -p "$2/bin"
+            printf '#!/bin/sh\nexit 0\n' > "$2/bin/fm-guard.sh"
+            chmod +x "$2/bin/fm-guard.sh"
+        ''')
+        self.env['PATH'] = str(self.home / 'tools/fakebin') + os.pathsep + self.env['PATH']
+        self.env['FM_ROOT_OVERRIDE'] = str(self.home)
+        head = subprocess.check_output(['git', '-C', str(self.home / 'worker'), 'rev-parse', 'HEAD'], text=True).strip()
+        (self.home / 'state/job.meta').write_text(
+            'kind=ship\nmode=local-only\nbranch=fm/job\nspawn_gen=fixture-1\n'
+            'window=firstmate:fm-job\nendpoint_task_id=job\nproject=%s\nworktree=%s\nlocal_done_head=%s\n' %
+            (self.home / 'project', self.home / 'absent-worker', head))
+        return head
+
+    def teardown(self):
+        result = subprocess.run(['bash', str(Path(os.environ['ROOT']) / 'bin/fm-teardown.sh'), 'job'],
+                                cwd=self.home, env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.home / 'state/job.meta').exists())
+
+    def test_local_landing_teardown_requires_proof(self):
+        self.local_fixture()
+        self.run_cli('declare', 'job', '--scratch', '*')
+        self.task('reopen', 'job')
+        self.task('start', 'job')
+        result = subprocess.run(['bash', str(Path(os.environ['ROOT']) / 'bin/fm-merge-local.sh'), 'job'],
+                                cwd=self.home, env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        proof = self.home / 'data/job/retention-local.json'
+        self.assertTrue(proof.exists())
+        self.teardown()
+        self.assertIn('grace', self.report()['reason'])
+        self.ready_from_existing()
+        row = self.report()
+        self.assertEqual(row['eligible_bytes'], 4096)
+        self.assertTrue(proof.exists())
+
+    def test_local_teardown_without_landing_proof_stays_ineligible(self):
+        self.local_fixture()
+        self.run_cli('declare', 'job', '--scratch', 'cache')
+        self.task('reopen', 'job')
+        self.task('start', 'job')
+        self.teardown()
+        self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
+        self.assertEqual(self.report()['eligible_bytes'], 0)
+
+    def test_reused_task_spawn_invalidates_completion_and_refreshes_grace(self):
+        self.ready()
+        self.task('reopen', 'job')
+        self.shell(''' . "$1/tests/fixtures.sh"
+            fm_git_worktree "$2/project" "$2/pool" fm/job
+            fm_test_spawn_home "$2" codex
+            fakebin=$(fm_test_make_spawn_fakebin "$2/tools" gh gh-axi)
+            fm_test_spawn_brief "$2" job
+            printf '\\n# Definition of done\\nDelivery contract: mode=local-only\\n' >> "$2/data/job/brief.md"
+            fm_test_run_spawn "$2" "$2/pool" "$fakebin" job "$2/project" --mode local-only --yolo off
+        ''')
+        self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
+        self.assertEqual(self.report()['eligible_bytes'], 0)
+        (self.home / 'state/job.meta').unlink()
+        self.task('done', 'job', '--report', 'data/job/report.md')
+        self.run_cli('complete', 'job', '--artifact', 'report.md')
+        self.assertIn('grace', self.report()['reason'])
+        self.ready_from_existing()
+        self.run_cli('complete', 'job', '--artifact', 'report.md')
+        self.assertIn('grace', self.report()['reason'])
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_archived_done_keeps_worktree_inventory(self):
+        self.run_cli('declare', 'job', '--scratch', 'cache', '--worktree-cache', 'node_modules')
+        worktree = self.home / 'slot/repo'
+        (worktree / 'node_modules').mkdir(parents=True)
+        (worktree / 'node_modules/x').write_bytes(b'x' * 128)
+        self.run_cli('complete', 'job', '--artifact', 'report.md', '--worktree', str(worktree), '--lease-released')
+        self.ready_from_existing()
+        config = self.home / '.tasks.toml'
+        config.write_text('backend = "markdown"\n[markdown]\npath = "data/backlog.md"\n'
+                          'archive = "data/done-archive.md"\ndone_keep = 1\n')
+        self.task('add', 'later', 'Later completion')
+        self.task('done', 'later')
+        self.assertNotIn('job', self.run_cli('backlog').stdout)
+        self.run_cli('archived', 'job')
+        row = self.report()
+        self.assertEqual(row['eligible_bytes'], 4096)
+        self.assertEqual(row['worktree']['cache_bytes'], 128)
+        self.assertTrue((worktree / 'node_modules/x').exists())
+
     def test_brief_creates_explicit_declaration(self):
         subprocess.run(['bash', str(Path(os.environ['ROOT']) / 'bin/fm-brief.sh'),
                         'new-job', 'example', '--mode', 'direct-PR', '--scratch', 'renders/**',

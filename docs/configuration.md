@@ -952,7 +952,8 @@ Returning it to `report` stops subsequent pruning; deleted scratch cannot be res
 Use [`bin/fm-task-retention.sh`](../bin/fm-task-retention.sh) for manual reports and previews; its header and `--help` output own the commands and declaration format.
 Brief generation creates an explicit scratch declaration, empty unless scratch patterns or named worktree caches were supplied.
 Workers must declare expendable output before creating it; all other output remains evidence.
-Confirmed merge outcomes preserve deliverable evidence, and successful teardown records the completion time after the endpoint, lease, and backlog transition finish.
+Confirmed PR merges and guarded local landings preserve deliverable evidence, and successful teardown records the completion time after the endpoint, lease, and backlog transition finish.
+Each fresh spawn or relaunch invalidates the previous retention receipts; the next confirmed completion starts a new seven-day grace period.
 Completion seals the declaration's digest; later declaration changes make the task ineligible.
 The eligibility and filesystem-safety contract, resource limits, report schema, and audit format are owned by [`bin/fm-task-retention.py`](../bin/fm-task-retention.py).
 
