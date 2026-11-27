@@ -1,0 +1,4 @@
+ok - teardown proves stop before archive and release; unknown retains ownership and archive failure warns
+ok - delayed same-generation identity survives refused retirement without bypassing stop proof
+archived Omnigent session cccccccccccccccccccccccccccccccc
+ok - fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it

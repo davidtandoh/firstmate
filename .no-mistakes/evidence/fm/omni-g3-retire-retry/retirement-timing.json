@@ -1,0 +1,1 @@
+{"command": "bash tests/fm-omnigent.test.sh --retirement", "elapsed_ms": 68253, "exit": 0, "gate_skip": false, "timed_out": false}

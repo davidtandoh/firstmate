@@ -1,0 +1,1 @@
+{"command": "bash tests/fm-control-relaunch.test.sh --close-barrier", "elapsed_ms": 90040, "exit": 124, "gate_skip": false, "timed_out": true}

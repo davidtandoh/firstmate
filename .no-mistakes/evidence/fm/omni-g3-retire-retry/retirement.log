@@ -1,0 +1,44 @@
+ok - only native Omnigent launch commands identify an agent
+ok - session detection, explicit home policy, and inherited mode fail closed
+warning: Omnigent archive: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: PATCH failed (exit 22)
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/a38dcd30ab7cd12cae4f1ed6939a15da5466bbbbf62e8245f38f35c5023a4218.json: archive unconfirmed
+would reconcile Omnigent retirement receipt /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/a38dcd30ab7cd12cae4f1ed6939a15da5466bbbbf62e8245f38f35c5023a4218.json
+would update cursor /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/.cursor
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+retirement RSS: baseline=6717440 peak=17137664 delta=10420224 bytes
+retirement sweep: elapsed=1s requests=1 receipt_bytes=282
+ok - failed archive survives binding replacement and succeeds on a later sweep
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: stop unknown
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: stop unknown
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: stop unknown
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: stop unknown
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/retirement/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: stop unknown
+ok - unknown stop stays pending across independent reconciliation processes
+pending Omnigent retirement /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-omnigent.Ndv1zd/foreign/state/omnigent-retirements/116852898d558d39a85e6130d6b3561d77b96cfe5da26283858a37db5a16f999.json: invalid receipt
+ok - receipts stay within byte budget and a foreign home cannot replay them
+ok - probe and retirement share one in-flight session refresh in either order
+ok - fresh reads, cleanup, exit confirmation and naming serialize with retirement
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - slow archive respects sweep deadline and concurrent sweeps coalesce per binding
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ok - receipt sweeps process at most twenty bindings

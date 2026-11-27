@@ -1,0 +1,4 @@
+Starting omnigent server on 127.0.0.1:65078
+  database:  sqlite:////Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EYXKR8BCS3ZGFED7KXP1XV/.test-omni-l37mm3ub/data/chat.db
+  artifacts: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EYXKR8BCS3ZGFED7KXP1XV/.test-omni-l37mm3ub/data/artifacts
+  log:       /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EYXKR8BCS3ZGFED7KXP1XV/.test-omni-l37mm3ub/data/logs/server/server-20261127-171740-480298.log
