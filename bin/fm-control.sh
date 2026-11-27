@@ -433,6 +433,7 @@ agent_state() {
       native_command=(bash "$SCRIPT_DIR/fm-omnigent.sh" _confirm-exit "$META"
         "$OMNIGENT_EXIT_SESSION" "$OMNIGENT_EXIT_SERVER" "$OMNIGENT_EXIT_GEN")
     else
+      # shellcheck disable=SC2016 # The child shell expands its positional arguments.
       native_command=(bash -c '
         . "$1"
         fm_backend_omnigent_agent_state "$2" "$3"
@@ -762,7 +763,7 @@ retire_busy_incarnation() {
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
   local VERIFY_OMNIGENT_STOP=0 OMNIGENT_EXIT_DELIVERED=0
-  local OMNIGENT_EXIT_SESSION= OMNIGENT_EXIT_SERVER= OMNIGENT_EXIT_GEN=
+  local OMNIGENT_EXIT_SESSION='' OMNIGENT_EXIT_SERVER='' OMNIGENT_EXIT_GEN=''
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"

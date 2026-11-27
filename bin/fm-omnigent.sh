@@ -582,7 +582,7 @@ snapshot_now() {
 # existing lock and atomic record publisher own filesystem mutation mechanics.
 # A cache failure refuses the consult instead of multiplying uncached requests.
 supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
-  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code
+  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code=''
   local key now previous='' result probe approvals delay=30 cooldown=0 started cached mode
   shift
   if [ "${1:-}" = --fresh ]; then fresh=1; shift; fi
@@ -654,7 +654,7 @@ probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
 
 confirm_exit() (
-  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code health
+  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health
   [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
   read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
     [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
@@ -665,10 +665,13 @@ confirm_exit() (
     [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
     [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
   if [ "$code" = 404 ]; then echo dead; return; fi
-  [ "$code" = 200 ] && jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
+  if [ "$code" != 200 ]; then echo unknown; return; fi
+  if ! jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
     .id == $id and .runner_online == true and .status == "idle" and
-    .active_response_id == null and .archived != true)' "$body" >/dev/null 2>&1 \
-    || { echo unknown; return; }
+    .active_response_id == null and .archived != true)' "$body" >/dev/null 2>&1; then
+    echo unknown
+    return
+  fi
   health=$(fm_run_timed 6 curl --silent --fail --max-time 5 --max-filesize 131072 \
     --noproxy '*' --proto '=http,https' "$SERVER/health" 2>/dev/null) \
     || { echo unknown; return; }
