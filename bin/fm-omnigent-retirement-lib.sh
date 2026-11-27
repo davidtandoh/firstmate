@@ -114,8 +114,8 @@ retirement_save() ( # <task-meta>; called under task record lock before retireme
 )
 
 retirement_attempt() ( # <receipt> <caller-stop-proof: true|false>
-  local receipt=$1 proof=$2 lock='' refresh_lock='' refresh_path task body='' fallback='' code='' wrapper started host extra
-  trap 'rm -f -- "${body:-}" "${fallback:-}"; [ -z "$lock" ] || fm_lock_release "$lock"; [ -z "$refresh_lock" ] || fm_lock_release "$refresh_lock"' EXIT
+  local receipt=$1 proof=$2 lock='' SNAPSHOT_LOCK='' task body='' fallback='' code='' wrapper started host extra
+  trap 'rm -f -- "${body:-}" "${fallback:-}"; [ -z "$lock" ] || fm_lock_release "$lock"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
   [ -e "$receipt" ] || return 0
   retirement_read "$receipt" || { printf 'pending Omnigent retirement %s: invalid receipt\n' "$receipt"; return 1; }
   if [ "$proof" = true ]; then
@@ -131,13 +131,11 @@ retirement_attempt() ( # <receipt> <caller-stop-proof: true|false>
     lock=''
   fi
   task=$(printf '%s' "$RETIRE_JSON" | jq -r .key.task)
-  refresh_path="${RETIRE_DIR%/*}/.$task.omnigent-snapshot.json.lock"
   if [ "$proof" = true ]; then
-    fm_lock_acquire_wait_bounded "$refresh_path" 10 || return 1
+    snapshot_lock_acquire "${RETIRE_DIR%/*}/$task.meta" 10 || return 1
   else
-    fm_lock_try_acquire "$refresh_path" || return 0
+    snapshot_lock_acquire "${RETIRE_DIR%/*}/$task.meta" 0 || return 0
   fi
-  refresh_lock=$refresh_path
   [ -e "$receipt" ] || return 0
   retirement_read "$receipt" || return 1
   if [ "$(printf '%s' "$RETIRE_JSON" | jq -r .stopped)" != true ]; then

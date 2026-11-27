@@ -181,6 +181,72 @@ retirement_checks() (
     [ "$(count)" = 1 ] || fail 'contending refresh lost pending retirement'
   done
   pass 'probe and retirement share one in-flight session refresh in either order'
+  lifecycle_read() (
+    SCRIPT_DIR="$ROOT/bin"
+    case "$1" in
+      fresh) "$OMNI" probe --fresh "$meta" ;;
+      cleanup)
+        . "$SCRIPT_DIR/fm-wake-lib.sh"
+        . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+        . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+        record_lock=$(fm_meta_lock_path "$meta")
+        control_lock="$FM_STATE_OVERRIDE/.control-retired.lock"
+        fm_lock_acquire_wait_bounded "$control_lock" 6 || exit 1
+        trap 'fm_lock_release "$control_lock"; [ -z "${record_lock:-}" ] || fm_lock_release "$record_lock"' EXIT
+        fm_lock_acquire_wait_bounded "$record_lock" 6 || { record_lock=''; exit 1; }
+        fm_control_omnigent_close_locked "$meta" retired "$FM_HOME"
+        ;;
+      exit-confirmation)
+        . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+        META=$meta BACKEND=tmux T=fixture VERIFY_OMNIGENT_STOP=1 OMNIGENT_EXIT_DELIVERED=1
+        OMNIGENT_EXIT_SESSION=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        OMNIGENT_EXIT_SERVER=http://127.0.0.1:6767 OMNIGENT_EXIT_GEN=unknown.3
+        fm_backend_agent_state() { printf dead; }
+        agent_state
+        ;;
+      naming)
+        FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=unknown.3 \
+          "$OMNI" _title-session http://127.0.0.1:6767 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa claude serialized 1
+        ;;
+    esac
+  )
+  for reader in fresh cleanup exit-confirmation naming; do
+    "$OMNI" retire "$meta"
+    rm -f "$TMP_ROOT/serve/identity-read.started" "$TMP_ROOT/serve/identity-read.release" \
+      "$TMP_ROOT/lifecycle-read.finished" "$TMP_ROOT/session-get.overlap"
+    : > "$TMP_ROOT/serve/requests.jsonl"
+    OMNI_SESSION_GET_GUARD="$TMP_ROOT/session-get" OMNI_TITLE_MODE=wait-identity \
+      "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 > "$TMP_ROOT/retirement-retry" &
+    first=$!
+    for ((attempt=0; attempt<100; attempt++)); do
+      [ -e "$TMP_ROOT/serve/identity-read.started" ] && break
+      sleep 0.05
+    done
+    [ -e "$TMP_ROOT/serve/identity-read.started" ] || fail 'retirement did not hold the refresh boundary'
+    (
+      OMNI_SESSION_GET_GUARD="$TMP_ROOT/session-get" \
+        OMNI_SESSION_STATE="$(if [ "$reader" = naming ]; then echo alive; else echo missing; fi)" \
+        lifecycle_read "$reader" > "$TMP_ROOT/lifecycle-read.result"
+      touch "$TMP_ROOT/lifecycle-read.finished"
+    ) &
+    second=$!
+    sleep 1
+    [ ! -e "$TMP_ROOT/lifecycle-read.finished" ] || fail "$reader bypassed the in-flight retirement read"
+    touch "$TMP_ROOT/serve/identity-read.release"
+    wait "$first"
+    wait "$second"
+    [ ! -e "$TMP_ROOT/session-get.overlap" ] || fail "$reader overlapped a retirement session GET"
+    [ "$(jq -s '[.[] | select(.method == "GET")] | length' "$TMP_ROOT/serve/requests.jsonl")" = 2 ] \
+      || fail "$reader did not perform its own fresh read after retirement"
+    case "$reader" in
+      fresh|exit-confirmation)
+        [ "$(cat "$TMP_ROOT/lifecycle-read.result")" = dead ] || fail "$reader lost its fresh result"
+        ;;
+      cleanup) [ "$(count)" = 0 ] || fail 'serialized cleanup did not retire the stopped binding' ;;
+    esac
+  done
+  pass 'fresh reads, cleanup, exit confirmation and naming serialize with retirement'
+  rm -f "$TMP_ROOT/serve/archived.jsonl"
   rm -f "$receipts/"*.json
   binding concurrent.4
   if OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$meta" >/dev/null 2>&1; then fail 'archive failure accepted'; fi

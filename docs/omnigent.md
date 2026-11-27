@@ -114,6 +114,7 @@ Relaunch waits for the attach client to stop before it reuses the endpoint.
 The pane check reports attach-client state rather than native-worker state.
 For an Omnigent-wrapped task, supervision readers consult the shared session snapshot even when the attach client has stopped or its endpoint is missing.
 The watcher, crew-state reconciliation, and stale checks share one sanitized snapshot per task and launch binding.
+Naming, lifecycle confirmation, and retirement share the same session refresh boundary as supervision.
 The snapshot contains the session probe verdict and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
 `runner_online` reports tunnel registration freshness rather than native-process liveness.
 A successful session read proves reachability without a separate `/health` request.

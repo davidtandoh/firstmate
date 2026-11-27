@@ -168,7 +168,7 @@ session_is_launch() { # <wrapper> <launch epoch> <host id or empty> [extra jq co
 # attempt gets up to 15 seconds, never past the deadline. The title and label
 # PATCH is idempotent, so a retry after a lost response is harmless.
 naming_request() { # <deadline> <GET|PATCH> [JSON body]
-  local deadline=$1 delay=1 REQUEST_LIMIT
+  local deadline=$1 delay=1 REQUEST_LIMIT SNAPSHOT_LOCK='' rc wait
   shift
   while :; do
     REQUEST_LIMIT=$((deadline - SECONDS))
@@ -177,7 +177,27 @@ naming_request() { # <deadline> <GET|PATCH> [JSON body]
       REQUEST_ERROR="${REQUEST_ERROR:-session $SESSION_ID: $1 not attempted}; naming budget spent"
       return 1
     fi
-    session_request "$@" && return 0
+    if [ "$1" = GET ] && [ -n "${FM_OMNIGENT_RECORD_META:-}" ]; then
+      wait=$REQUEST_LIMIT
+      [ "$wait" -le 6 ] || wait=6
+      snapshot_lock_acquire "$FM_OMNIGENT_RECORD_META" "$wait" || {
+        REQUEST_ERROR="session $SESSION_ID: refresh lock unavailable"
+        return 1
+      }
+      REQUEST_LIMIT=$((deadline - SECONDS))
+      [ "$REQUEST_LIMIT" -le 15 ] || REQUEST_LIMIT=15
+      if [ "$REQUEST_LIMIT" -lt 1 ]; then
+        fm_lock_release "$SNAPSHOT_LOCK"
+        SNAPSHOT_LOCK=''
+        REQUEST_ERROR="session $SESSION_ID: naming budget spent"
+        return 1
+      fi
+    fi
+    rc=0
+    session_request "$@" || rc=$?
+    [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"
+    SNAPSHOT_LOCK=''
+    [ "$rc" != 0 ] || return 0
     [ $((SECONDS + delay)) -lt "$deadline" ] || { REQUEST_ERROR="$REQUEST_ERROR; naming budget spent"; return 1; }
     sleep "$delay"
     [ "$delay" -ge 8 ] || delay=$((delay * 2))
@@ -564,6 +584,21 @@ session_snapshot() { # <output file>; sets code
     --output "$1" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null)
 }
 
+snapshot_lock_acquire() {
+  local meta=$1 wait=$2 dir base path
+  fm_dirname_to dir "$meta"
+  fm_basename_to base "${meta%.meta}"
+  path="$dir/.$base.omnigent-snapshot.json.lock"
+  # shellcheck source=bin/fm-wake-lib.sh
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  if [ "$wait" = 0 ]; then
+    fm_lock_try_acquire "$path" || return 1
+  else
+    fm_lock_acquire_wait_bounded "$path" "$wait" || return 1
+  fi
+  SNAPSHOT_LOCK=$path
+}
+
 # Read-only approval snapshot: JSON array of correlation ids and safe summaries,
 # or literal unknown. Never copy content_preview, tool arguments or raw messages.
 # Only a recognized prompt heading is safe to expose; other wording is generic.
@@ -594,7 +629,7 @@ snapshot_now() {
 # existing lock and atomic record publisher own filesystem mutation mechanics.
 # A cache failure refuses the consult instead of multiplying uncached requests.
 supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
-  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code=''
+  local field=$1 fresh=0 meta dir base cache SNAPSHOT_LOCK='' body='' staged='' code=''
   local key now previous='' result probe approvals delay=30 cooldown=0 started cached mode
   shift
   if [ "${1:-}" = --fresh ]; then fresh=1; shift; fi
@@ -602,17 +637,14 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
   meta=$1
   if ! read_binding "$meta" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
   now=$(snapshot_now) || { echo unknown; return 0; }
-  trap 'rm -f -- "${body:-}" "${staged:-}"; [ -z "$lock" ] || fm_lock_release "$lock"' EXIT
+  trap 'rm -f -- "${body:-}" "${staged:-}"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  snapshot_lock_acquire "$meta" "$((fresh * 6))" || { echo unknown; return 0; }
   if [ "$fresh" = 0 ]; then
     fm_dirname_to dir "$meta"
     fm_basename_to base "${meta%.meta}"
     cache="$dir/.$base.omnigent-snapshot.json"
-    # shellcheck source=bin/fm-wake-lib.sh
-    . "$SCRIPT_DIR/fm-wake-lib.sh"
     # shellcheck source=bin/fm-backlog-transition-lib.sh
     . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
-    lock="$cache.lock"
-    fm_lock_try_acquire "$lock" || { lock=''; echo unknown; return 0; }
     key=$(jq -cn --arg server "$SERVER" --arg session "$SESSION_ID" \
       --arg gen "$(fm_meta_get "$meta" spawn_gen)" '{server:$server,session:$session,generation:$gen}')
     if [ -e "$cache" ] || [ -L "$cache" ]; then
@@ -666,12 +698,13 @@ probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
 
 confirm_exit() (
-  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health
+  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health SNAPSHOT_LOCK=''
   [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
   read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
     [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
   body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-exit.XXXXXX") || { echo unknown; return; }
-  trap 'rm -f -- "$body"' EXIT
+  trap 'rm -f -- "$body"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  snapshot_lock_acquire "$meta" 6 || { echo unknown; return; }
   session_snapshot "$body" || { echo unknown; return; }
   [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
     [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
