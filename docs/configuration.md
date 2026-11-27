@@ -943,6 +943,7 @@ The flag is home-local, is not inherited by secondmate homes, and takes effect o
 ## Task scratch retention (config/task-retention)
 
 Task retention runs locally in each home's existing watcher and publishes a weekly report at `state/task-retention-report.json`.
+The watcher queues a durable `check: task-retention` wake when publication succeeds or fails.
 The report lists each task's logical file bytes, eligible scratch bytes, and the reason that data is kept.
 The default is report-only; leave the switch absent or set it to `report` for the first weeks of rollout.
 Review the weekly reports before deliberately setting this home's gitignored `config/task-retention` to `prune`.
@@ -2552,6 +2553,7 @@ Required tools come in two parts: a universal toolchain every home needs regardl
 Every home requires:
 
 - node and git.
+- `python3` (Python 3.9 or newer) for task scratch declarations and retention lifecycle commands.
 - gh, with GitHub authentication through `gh auth login`.
 - no-mistakes v1.46.0 or newer.
 - Compatible gh-axi.
@@ -2595,7 +2597,6 @@ A herdr, zellij, cmux, paseo, rex, t3code, or tern home is therefore never told 
 
 - When `config/crew-dispatch.json` exists, bootstrap also requires `jq` for dispatch profile validation.
 - When Relay is opted in, bootstrap also requires `curl` and `jq` before arming the relay poll shim.
-- When `config/record-export-root` exists, record sync and teardown archival require `python3` for descriptor-relative filesystem transactions and strict manifest parsing.
 
 **Missing and outdated tool diagnostics**
 

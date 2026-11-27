@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Bounded regular-file reads and canonical JSON for Firstmate record readers."""
+"""Shared no-follow directory traversal, bounded reads and canonical record JSON."""
 import json
 import os
 import stat

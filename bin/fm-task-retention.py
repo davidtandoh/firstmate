@@ -5,6 +5,15 @@ Owners: scratch.json v1 = {version, scratch:[relative glob], worktree_cache:[nam
 retention-merge.json v1 = {version,url}; retention-local.json v1 =
 {version,project,branch,head}; retention-complete.json v1 =
 {version,completed_at,artifact,merged_pr,worktree,lease_released,declaration_sha256}.
+task-retention-report.json v1 =
+{version,generated_at,mode,home,tasks,visited_entries,shared_worktrees}.
+Task rows contain task, bytes (null if unavailable), eligible_bytes and reason;
+optional worktree/worktree_reason describe released-path attribution, paths
+lists preview/audit destinations, and pruned marks a completed pruning pass.
+Shared worktree rows contain path, tasks, bytes when measured, cache_bytes and
+reason; ambiguous paths have zero attributed cache bytes and no per-task copy.
+retention-removals.jsonl appends {event,task,path,bytes,at}, with event planned
+before each unlink and removed afterward; timestamps are Unix seconds.
 Receipts never imply current Done state: backlog reads are authoritative.
 Start invalidates completion and landing receipts under the spawn metadata lock.
 Complete refreshes the clock after confirmed delivery; local landing records

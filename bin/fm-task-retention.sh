@@ -7,7 +7,8 @@
 #        fm-task-retention.sh start ID [--dry-run] [--json]
 #        fm-task-retention.sh report [--json] [--prune] [--periodic] [--dry-run]
 # FM_HOME and FM_{DATA,STATE,CONFIG}_OVERRIDE select this home's roots.
-# Declaration is exclusive; edit scratch.json deliberately to extend it.
+# Declaration is exclusive; edit scratch.json deliberately before completion
+# to extend it. Completion seals its digest; later edits block eligibility.
 # Relative, segment-based globs support *, ?, [] and ** beneath data/ID only.
 # No declaration means no deletion. Worktree caches are always report-only.
 # Complete is called by teardown only after endpoint closure, lease release,
