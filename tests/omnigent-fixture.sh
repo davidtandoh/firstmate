@@ -2,18 +2,12 @@
 # Isolated status/CLI contract double shared by local and SSH launch tests.
 # The CLI records argv and the explicit native environment without model calls.
 set -euo pipefail
-# Remote contract fixtures have no live server owner's SSH endpoint.
-fm_test_omnigent_remote_upgrade_window() { # <tool-dir>
-  mkdir -p "$1"
-  cat > "$1/ssh" <<'SHIM'
-#!/usr/bin/env bash
-set -euo pipefail
-case "$*" in
-  *'-- omnigent.example.ts.net '*) printf absent ;;
-  *) exit 2 ;;
-esac
-SHIM
-  chmod +x "$1/ssh"
+# Remote contract fixtures receive a fresh absent-window snapshot.
+fm_test_omnigent_remote_upgrade_window() {
+  mkdir -p "$FM_HOME/state"
+  jq -cn --argjson now "$(date +%s)" \
+    '{schema_version:1,server:"https://omnigent.example.ts.net",published_at:$now,window:null}' \
+    > "$FM_HOME/state/upgrade-window-omnigent.example.ts.net.json"
 }
 
 fm_test_omnigent_service() { # <service-root> <tool-dir>

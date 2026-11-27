@@ -19,7 +19,7 @@ cp "$ROOT/bin/fm-remote-secondmate-control.sh" "$TMP_ROOT/code/bin/"
 cp "$ROOT/bin/fm-remote-herdr-identity-lib.sh" "$TMP_ROOT/code/bin/"
 mkdir -p "$HOME/.firstmate"
 printf '%s\n' "$(cd "$TMP_ROOT/code" && pwd -P)" > "$HOME/.firstmate/remote-herdr-owner"
-fm_test_omnigent_remote_upgrade_window "$TMP_ROOT/tools"
+fm_test_omnigent_remote_upgrade_window
 export PATH="$TMP_ROOT/tools:$PATH"
 printf 'mate\n' > "$FM_HOME/.fm-secondmate-home"
 : > "$FM_HOME/AGENTS.md"

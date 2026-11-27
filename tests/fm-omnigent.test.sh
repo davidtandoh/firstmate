@@ -1029,7 +1029,7 @@ pass 'primary starts preserve backend overrides and clear stale daemon selection
 # Remote-server mode: a remote second mate's host has no Kit. Its own omnigent
 # launches against the parent's server only as the registered host id.
 fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
-fm_test_omnigent_remote_upgrade_window "$TMP_ROOT/tools"
+fm_test_omnigent_remote_upgrade_window
 remote_server=https://omnigent.example.ts.net
 remote_host=d5f2b09bd5744ef39fe34b4e58a35f5f
 remote_config="$TMP_ROOT/serve/config"
@@ -1056,6 +1056,7 @@ jq -se --arg url "$remote_server/v1/hosts/$remote_host" 'any(.[]; .url == $url)'
 pass 'remote-server mode resolves the parent server and registered host without a local Kit'
 
 reset_title
+FM_HOME="$TMP_ROOT/k8-home" fm_test_omnigent_remote_upgrade_window
 OMNI_SESSION_HOST=$remote_host remote FM_HOME="$TMP_ROOT/k8-home" FM_TASK_ID=k8-task \
   "$OMNI" run codex 'remote prompt' 2> "$TMP_ROOT/title-error"
 wait_title

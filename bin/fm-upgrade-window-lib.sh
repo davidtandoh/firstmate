@@ -15,7 +15,7 @@
 #   absent  - no window file.
 #   invalid - unreadable or outside the schema; it warns and is treated as no
 #             window, because a window with no readable expiry has no bound.
-#   unavailable - remote owner could not be read; callers defer with exit 75.
+#   unavailable - pushed owner copy is unusable; callers defer with exit 75.
 
 FM_UPGRADE_WINDOW_DEFER_EXIT=75
 
@@ -28,31 +28,124 @@ fm_upgrade_window_dir() {
   printf '%s/serve\n' "$root"
 }
 
+# Pushed-copy contract: one <=64 KiB JSON envelope per https server origin in
+# the receiving home's state directory. schema_version=1, server (exact origin),
+# published_at (owner epoch seconds), window (Kit object, or null for absent).
+# A copy is usable for 600 seconds, with no future timestamps accepted.
+# The owner watcher publishes changes on its next poll and refreshes every 60s.
+# fm-on.sh supplies the existing authenticated transport; there is no reverse
+# SSH connection. Failed peers retry on the same bounded refresh cadence.
+fm_upgrade_window_copy_path() {
+  printf '%s/upgrade-window-%s.json\n' "${FM_HOME:-${BASH_SOURCE[0]%/bin/*}}/state" "${1#https://}"
+}
+
+fm_upgrade_window_unpack() {
+  jq -cers --arg server "$1" --argjson now "$2" '
+    select(length == 1) | .[0] |
+    select(type == "object" and .schema_version == 1 and .server == $server
+      and (.published_at | type == "number" and floor == .)
+      and .published_at <= $now and .published_at >= ($now - 600)
+      and has("window") and (.window == null or (.window | type == "object"))) | .window | tojson'
+}
+
+# A remote registry binding names this home's server only when this home is
+# itself a local owner (no inherited remote server). Registry parsing remains
+# owned by fm-secondmate-registry-lib.sh.
+fm_upgrade_window_local_owner() {
+  [ -z "${FM_OMNIGENT_SERVER:-}" ] || return 1
+  local reg="${FM_DATA_OVERRIDE:-${FM_HOME:-${BASH_SOURCE[0]%/bin/*}}/data}/secondmates.md" line
+  [ -f "$reg" ] && [ ! -L "$reg" ] || return 1
+  # shellcheck source=bin/fm-secondmate-registry-lib.sh
+  . "${BASH_SOURCE[0]%/*}/fm-secondmate-registry-lib.sh"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '- '*) ;; *) continue ;; esac
+    secondmate_registry_parse_line "$line" || return 1
+    if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ] &&
+      [ "$SECONDMATE_REGISTRY_OMNIGENT_SERVER" = "${1%/}" ]; then return 0; fi
+  done < "$reg"
+  return 1
+}
+
+# fm_upgrade_window_publish <state-dir> [now-epoch]
+# Called by the existing watcher. Work per destination is bounded to 8 seconds;
+# failures retry at the 60s cadence, changes bypass that cadence immediately.
+fm_upgrade_window_publish() (
+  local state=$1 now=${2:-$(date +%s)} reg line window payload marker previous stamp signature server id file
+  [ -z "${FM_OMNIGENT_SERVER:-}" ] || return 0
+  reg="${FM_DATA_OVERRIDE:-${FM_HOME:-${state%/state}}/data}/secondmates.md"
+  [ -f "$reg" ] && [ ! -L "$reg" ] || return 0
+  # shellcheck source=bin/fm-secondmate-registry-lib.sh
+  . "${BASH_SOURCE[0]%/*}/fm-secondmate-registry-lib.sh"
+  file="$(fm_upgrade_window_dir)/upgrade-window.json"
+  window=null
+  if [ -e "$file" ] || [ -L "$file" ]; then
+    window='{}'
+    if [ -f "$file" ] && [ ! -L "$file" ]; then
+      window=$(head -c 65537 "$file" 2>/dev/null) || window='{}'
+      window=$(printf '%s' "$window" | jq -ces 'select(length == 1 and (.[0] | type == "object")) | .[0]') || window='{}'
+    fi
+  fi
+  if [ "$(printf '%s' "$window" | wc -c)" -gt 64000 ]; then window='{}'; fi
+  # Leave room for the envelope within the 64 KiB transport limit.
+  # Invalid owner data must invalidate the destination copy, never bless it.
+  signature=$window
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '- '*) ;; *) continue ;; esac
+    secondmate_registry_parse_line "$line" || return 1
+    [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ] || continue
+    server=$SECONDMATE_REGISTRY_OMNIGENT_SERVER id=$SECONDMATE_REGISTRY_ID
+    [ -n "$server" ] || continue
+    marker="$state/.upgrade-window-push-$id"
+    previous=$(head -c 65537 "$marker" 2>/dev/null) || previous=
+    stamp=${previous%%$'\n'*}
+    case "$stamp" in ''|*[!0-9]*) stamp=0 ;; esac
+    if [ "$((now - stamp))" -lt 60 ] && [ "${previous#*$'\n'}" = "$server $signature" ]; then continue; fi
+    # Record attempts too, so a failed peer does not stall every watcher poll.
+    printf '%s\n%s %s\n' "$now" "$server" "$signature" > "$marker"
+    payload=$(jq -cn --arg server "$server" --argjson now "$now" --arg window "$window" '
+      {schema_version:1,server:$server,published_at:$now,window:($window|try fromjson catch {})}') || continue
+    printf '%s\n' "$payload" | fm_run_timed 8 "${BASH_SOURCE[0]%/*}/fm-on.sh" --stdin "$id" \
+      fm-upgrade-window.sh receive "$server" >/dev/null 2>&1 || true
+  done < "$reg"
+)
+
 # fm_upgrade_window_read [now-epoch] [server]
 # Sets FM_UPGRADE_WINDOW_STATE (active|closed|absent|invalid|unavailable) and,
 # for active or closed, FM_UPGRADE_WINDOW_JOB, _PHASE, _OUTCOME (outcome or "expired"),
 # _EXPIRES, and _SESSIONS (one interrupted session id per line).
 fm_upgrade_window_read() {
-  local now=${1:-$(date +%s)} server=${2:-} file fields content host
+  local now=${1:-$(date +%s)} server=${2:-} file fields content remote=0
   file="$(fm_upgrade_window_dir)/upgrade-window.json"
   FM_UPGRADE_WINDOW_FILE=$file
   FM_UPGRADE_WINDOW_JOB='' FM_UPGRADE_WINDOW_PHASE='' FM_UPGRADE_WINDOW_OUTCOME=''
   FM_UPGRADE_WINDOW_EXPIRES='' FM_UPGRADE_WINDOW_SESSIONS=''
   if [ -n "$server" ]; then
-    host=${server#https://}
-    host=${host%/}
-    host=${host%%:*}
+    server=${server%/}
     if ! [[ "$server" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$ ]]; then
       FM_UPGRADE_WINDOW_STATE=unavailable
       return 0
     fi
-    # shellcheck disable=SC2016 # Variables expand in the remote owner's shell.
-    content=$(fm_run_timed 8 ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1 -- "$host" \
-      'f="${AGENT_KIT_OBSERVATION_DIR:-$HOME/.agents/state/observation}/serve/upgrade-window.json"; if [ ! -e "$f" ] && [ ! -L "$f" ]; then printf absent; else head -c 65537 "$f"; fi' 2>/dev/null) || {
-      FM_UPGRADE_WINDOW_STATE=unavailable
+    if ! fm_upgrade_window_local_owner "$server"; then
+      remote=1
+      file=$(fm_upgrade_window_copy_path "$server")
+      FM_UPGRADE_WINDOW_FILE=$file
+      if [ ! -f "$file" ] || [ -L "$file" ]; then
+        FM_UPGRADE_WINDOW_STATE=unavailable
+        return 0
+      fi
+      content=$(head -c 65537 "$file" 2>/dev/null) || content=
+      if [ "$(printf '%s' "$content" | wc -c)" -gt 65536 ]; then content=; fi
+      content=$(printf '%s' "$content" | fm_upgrade_window_unpack "$server" "$now") || {
+        FM_UPGRADE_WINDOW_STATE=unavailable
+        return 0
+      }
+      if [ "$content" = null ]; then FM_UPGRADE_WINDOW_STATE=absent; return 0; fi
+    else
+      # This home owns the registered binding's server. Read the owner's
+      # local file, without requiring SSH to its public Tailscale Serve name.
+      fm_upgrade_window_read "$now" ""
       return 0
-    }
-    if [ "$content" = absent ]; then FM_UPGRADE_WINDOW_STATE=absent; return 0; fi
+    fi
   else
     if [ ! -e "$file" ] && [ ! -L "$file" ]; then
       FM_UPGRADE_WINDOW_STATE=absent
@@ -69,7 +162,7 @@ fm_upgrade_window_read() {
       and ((.interrupted_sessions // []) | type == "array" and length <= 256 and all(.[]; clean)))
     | [.job, .phase, (.outcome // ""), (.expires_at | floor | tostring)] + (.interrupted_sessions // [])
     | join("\n")' 2>/dev/null) || {
-    FM_UPGRADE_WINDOW_STATE=invalid
+    if [ "$remote" = 1 ]; then FM_UPGRADE_WINDOW_STATE=unavailable; else FM_UPGRADE_WINDOW_STATE=invalid; fi
     return 0
   }
   FM_UPGRADE_WINDOW_JOB=$(printf '%s\n' "$fields" | sed -n 1p)
@@ -157,6 +250,7 @@ fm_upgrade_window_tasks() {
 fm_upgrade_window_supervise() {
   local state=$1 deferred_job='' tasks
   FM_UPGRADE_WINDOW_REASON=
+  fm_upgrade_window_publish "$state"
   fm_upgrade_window_read "$(date +%s)" "${FM_OMNIGENT_SERVER:-}"
   [ ! -f "$state/.upgrade-window-deferred" ] || deferred_job=$(cat "$state/.upgrade-window-deferred")
   case "$FM_UPGRADE_WINDOW_STATE" in
