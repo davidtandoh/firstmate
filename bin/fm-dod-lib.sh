@@ -328,16 +328,26 @@ fm_ship_rule_one() {  # <no-mistakes|direct-PR|local-only> <task-id> [branch] [<
   esac
 }
 
+# Read build instructions without skill metadata or optional validation answers.
+# Both completeness guards use this projection so scaffold guidance cannot fill
+# the spec and literal examples in real build instructions remain intact.
+fm_brief_task_build_spec() {  # <file>
+  local spec standing
+  spec=$(fm_brief_task_heading_body "$1" "## Firstmate spec")
+  standing=$(fm_brief_heading_parse - "### Standing answers (optional)" body <<<"$spec")
+  spec=${spec/"### Standing answers (optional)"$'\n'"$standing"/}
+  spec=${spec/"### Standing answers (optional)"/}
+  printf '%s\n' "$spec" | grep -v '^Skills to use:' || true
+}
+
 # Return 0 when a Task subsection still consists only of its scaffold
 # placeholder. A missing file and legacy briefs carry no such placeholders.
 fm_brief_task_placeholders_present() {  # <file>
   local file=$1 intent spec
   [ -f "$file" ] || return 1
   intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
-  spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
+  spec=$(fm_brief_task_build_spec "$file")
   [ "$(printf '%s' "$intent" | tr -d '[:space:]')" = '{TASK}' ] && return 0
-  # The scaffold's `Skills to use:` line, filled or not, is not a filled spec.
-  spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
   [ "$(printf '%s' "$spec" | tr -d '[:space:]')" = '{FIRSTMATE_SPEC}' ] && return 0
   return 1
 }
@@ -397,7 +407,7 @@ EOF
 
 # Accept the current two-subsection contract only when both bodies have content.
 # Exclude `Skills to use:` lines from spec content, whether filled or not:
-# naming skills cannot substitute for build instructions.
+# naming skills or pre-answering validation cannot substitute for build instructions.
 # Briefs predating that contract remain valid when their # Task body has content.
 fm_brief_task_content_valid() {  # <file>
   local file=$1 intent spec task has_intent=0 has_spec=0
@@ -407,8 +417,7 @@ fm_brief_task_content_valid() {  # <file>
   if [ "$has_intent" -eq 1 ] || [ "$has_spec" -eq 1 ]; then
     [ "$has_intent" -eq 1 ] && [ "$has_spec" -eq 1 ] || return 1
     intent=$(fm_brief_task_heading_body "$file" "## Captain's intent")
-    spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
-    spec=$(printf '%s\n' "$spec" | grep -v '^Skills to use:' || true)
+    spec=$(fm_brief_task_build_spec "$file")
     [ -n "$(printf '%s' "$intent" | tr -d '[:space:]')" ] || return 1
     [ -n "$(printf '%s' "$spec" | tr -d '[:space:]')" ] || return 1
     return 0
@@ -484,6 +493,8 @@ When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
 For each repair requested through a gate, carry the project's commit-writing rules in \`no-mistakes axi respond --instructions\` before the pipeline generates the repair commit.
 Require a concise imperative summary that keeps the rendered subject, including its pipeline prefix, within the project's subject limit (72 characters when unspecified), without direct address or an agent co-author; keep detailed explanation and verification out of that subject.
+If the brief's optional \`### Standing answers (optional)\` subsection contains task-selected answers, pass the applicable answers to the validation pipeline as pre-answered decisions through \`no-mistakes axi respond --instructions\` with the applicable gate response.
+Commented examples are not selected answers; keep standing answers out of \`--intent\` and preserve the ask-user escalation rule below.
 Firstmate's gate decision instructions supply engineering review context under \`validation-supervision\`; keep that specification separate from \`--intent\`.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.
 
@@ -593,6 +604,11 @@ After confirmation, append `resolved [key=review-registration] [at=<epoch>]: rev
 Do not write registration metadata yourself; the done writer requires this task's recorded URL.
 EOF
   fi
+  cat <<'EOF'
+Before validation or publication, complete this preparation step:
+Self-review the diff against the brief's acceptance criteria and known edge cases.
+Update affected docs, ADR links and READMEs in the same commit as the change before entering validation.
+EOF
   case "$mode:$forge" in
     direct-PR:gerrit)
       cat <<EOF

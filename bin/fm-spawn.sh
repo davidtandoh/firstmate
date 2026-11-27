@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
+# Ship and scout processes receive AGENT_KIT_TASK_WORKER=1 on every launch
+# and relaunch; secondmates do not. This marker is for Agent Kit advisory hooks.
 # Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--dispatch-override <reason>] [--hermes-profile <name>] [--account <entry>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--dispatch-override <reason>] [--hermes-profile <name>] [--account <entry>] [--backend <name>] [--herdr-resume-lock-wait]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate
@@ -8249,6 +8251,14 @@ fi
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+# Task workers opt into the kit's advisory-hook suppression; supervisors do not.
+# Keep the export in the common launch so every harness/backend and relaunch
+# receives it, including a raw compound command.
+if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
+  LAUNCH="export AGENT_KIT_TASK_WORKER=1; $LAUNCH"
+else
+  LAUNCH="unset AGENT_KIT_TASK_WORKER; $LAUNCH"
+fi
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's
 # auto-updater cannot rewrite the shared binary during a live run. Embedding the
@@ -8303,7 +8313,7 @@ if [ "$BACKEND" = t3code ]; then
     T3CODE_ENV+=("LAVISH_AXI_HOST=$LAVISH_AXI_HOST")
   fi
   if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
-    T3CODE_ENV+=("FM_TASK_ID=$ID" "FM_HOME=$FM_HOME")
+    T3CODE_ENV+=(AGENT_KIT_TASK_WORKER=1 "FM_TASK_ID=$ID" "FM_HOME=$FM_HOME")
   fi
   if [ -n "$SPAWN_TRACEPARENT" ] && spawn_record_traceparent; then
     T3CODE_ENV+=("TRACEPARENT=$SPAWN_TRACEPARENT")

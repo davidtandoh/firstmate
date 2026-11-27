@@ -454,6 +454,7 @@ $brief"
   pass "launch preserves literal ampersands, quotes and spaces in home and brief paths"
 }
 
+if [ "${1:-}" != --task-worker-marker ]; then
 test_launch_preserves_literal_home_and_brief_paths
 test_ship_allowlist_absent
 test_ship_allowlist_enabled
@@ -463,3 +464,58 @@ test_launch_exports_task_inbox
 test_launch_exports_active_home
 test_relaunch_rebuilds_the_switch
 test_raw_compound_launch_command_carries_the_switch
+fi
+
+
+test_task_worker_marker() {
+  local transport kind setting rec id out status seen want launch
+  for transport in pane omnigent; do
+    for kind in ship scout secondmate; do
+      for setting in absent enabled; do
+        [ "$transport:$setting" != omnigent:enabled ] || continue
+        id="marker-$transport-$kind-$setting"
+        rec=$(make_case "$id" codex "$id")
+        read_case "$rec"
+        [ "$setting" = absent ] || : > "$HOME_DIR/config/launch-env-allowlist"
+        if [ "$transport" = omnigent ]; then
+          ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$CASE_DIR/serve" "$FAKEBIN_DIR" )
+          printf 'on\n' > "$HOME_DIR/config/omnigent"
+        fi
+        if [ "$kind" = secondmate ]; then
+          # Reuse the public secondmate launch fixture and inspect its environment below.
+          mkdir -p "$CASE_DIR/sm/bin" "$CASE_DIR/sm/data"
+          printf '# Firstmate\n' > "$CASE_DIR/sm/AGENTS.md"
+          printf '%s\n' "$id" > "$CASE_DIR/sm/.fm-secondmate-home"
+          printf 'charter\n' > "$CASE_DIR/sm/data/charter.md"
+          git -C "$CASE_DIR/sm" init -q -b main
+          out=$(run_case_spawn "$id" "$CASE_DIR/sm" --secondmate)
+          status=$?
+          want='unset'
+        elif [ "$kind" = scout ]; then
+          out=$(run_case_spawn "$id" "$PROJ_DIR" --scout)
+          status=$?
+          want=1
+        else
+          out=$(run_case_spawn "$id" "$PROJ_DIR" --mode no-mistakes --yolo off)
+          status=$?
+          want=1
+        fi
+        expect_code 0 "$status" "$id spawn: $out"
+        install_env_probe "$FAKEBIN_DIR" codex AGENT_KIT_TASK_WORKER
+        launch=$(cat "$LAUNCH_LOG")
+        seen=$(env -i HOME="$TMP_ROOT/pane-home" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm AGENT_KIT_TASK_WORKER=0 /bin/sh -c "$launch") || fail "$id launch failed"
+        if [ "$transport" = omnigent ]; then
+          [ -f "$CASE_DIR/serve/result.json" ] || fail "$id did not reach Omnigent"
+          seen=$(jq -r '.environment.AGENT_KIT_TASK_WORKER // "unset"' "$CASE_DIR/serve/result.json")
+        fi
+        assert_equals "$want" "$seen" "$id task worker marker"
+      done
+    done
+  done
+  env -u AGENT_KIT_TASK_WORKER HOME="$TMP_ROOT/pane-home" FM_HOME="$HOME_DIR" PATH="$FAKEBIN_DIR:$PATH" \
+    bash "$ROOT/bin/fm-omnigent.sh" run codex 'primary fixture' >/dev/null || fail 'primary Omnigent launch failed'
+  seen=$(jq -r '.environment.AGENT_KIT_TASK_WORKER // "unset"' "$CASE_DIR/serve/result.json")
+  assert_equals unset "$seen" 'primary task worker marker'
+  pass 'only task workers receive the task-worker marker across transports and allowlist postures'
+}
+test_task_worker_marker

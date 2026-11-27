@@ -2109,6 +2109,17 @@ This applies only to agents Firstmate launches; the captain's own primary Firstm
 
 [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the delivery mechanics, with focused regression coverage in [`tests/fm-spawn-compact-adviser-disable.test.sh`](../tests/fm-spawn-compact-adviser-disable.test.sh) and [`tests/fm-spawn-compact-adviser-disable-remote.test.sh`](../tests/fm-spawn-compact-adviser-disable-remote.test.sh).
 
+### Task worker instructions
+
+Ship and scout briefs provide an optional Standing answers subsection under Firstmate spec.
+[`fm-brief.sh --help`](../bin/fm-brief.sh) owns the task-selection contract and the scaffold documents the available defaults.
+[`fm-dod-lib.sh`](../bin/fm-dod-lib.sh) owns the validation handoff and ship preparation step, including diff self-review and documentation updates before validation.
+
+Firstmate sets `AGENT_KIT_TASK_WORKER=1` for ship and scout launches, including relaunches, across supported harnesses and runtime backends.
+Secondmates and the primary Firstmate session do not receive this task-worker marker.
+The marker lets Agent Kit suppress advisory hooks for task workers; Firstmate does not change the kit's safety hooks.
+Launch coverage includes pane and Omnigent environments in [`worker environment tests`](../tests/fm-spawn-compact-adviser-disable.test.sh) and harness configuration in [`T3Code tests`](../tests/fm-backend-t3code.test.sh).
+
 ### Commit attribution
 
 The optional local, gitignored `config/keep-ai-trailers` presence flag opts this home into keeping AI co-author trailers on its launched workers.
