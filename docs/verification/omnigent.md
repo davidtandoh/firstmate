@@ -19,11 +19,10 @@ Other primary harnesses and secondmate homes remain outside the fresh command's 
 ## Worker session lifecycle verification
 
 On 2026-10-30, Omnigent's session schema documented `PATCH /v1/sessions/{id}` labels as an upsert that leaves other keys untouched, and its route merged the requested labels into the stored set.
-The same schema documented `runner_online` as strict runner liveness.
 A read of a live wrapped worker's own session on the managed service returned `status=running`, `runner_online=true`, and `archived=false`.
 `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh` covers recording, generation checks, label confirmation, and archive targeting and failure at a service double.
-The focused command `bash tests/fm-omnigent.test.sh --probe` covers alive, dead, and unknown probe readings and preservation of the pane verdict when the session provides no conclusive verdict.
-It also checks alive and runner-gone session records with 170,000 bytes of padding, with a six-second bound on each complete probe.
+The focused command `bash tests/fm-omnigent.test.sh --probe` covers the [native-owner verdict contract](../omnigent.md#worker-session-lifecycle) across live, stopped, and missing attach endpoints.
+It also checks reachable and disconnected session records with 170,000 bytes of padding, with a six-second bound on each complete probe.
 `tests/fm-control-relaunch.test.sh`, `tests/fm-teardown.test.sh`, and `tests/fm-fresh-session.test.sh` cover archive after a proven stop, after endpoint close, and after a fresh handoff.
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 

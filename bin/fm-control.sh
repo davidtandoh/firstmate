@@ -36,6 +36,8 @@
 #              every uncommitted change. Interrupts first when the task reads
 #              busy, then submits the harness's exit command. Postcondition:
 #              the backend's recovery-grade classifier reports the agent gone.
+#              Wrapped workers also require the native-owner confirmation in
+#              docs/omnigent.md (Worker session lifecycle).
 #              Already-stopped is success (idempotent). An endpoint that reads
 #              `missing` (or, on Rex, `unreadable`, which is how a stopped Rex
 #              server reads without starting it) is put through the control
