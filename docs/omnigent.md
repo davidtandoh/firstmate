@@ -81,7 +81,7 @@ For a bound remote launch, the handoff carries the recorded parent-server bindin
 The launcher then records `omnigent_session` and `omnigent_server` in that task record under the record lock.
 Retirement reads either handoff under that lock before stopping the attach client or closing the endpoint.
 An unverified handoff becomes `omnigent_unnamed` in the task record, so retirement need not wait for naming retries to finish.
-A missing handoff produces a bounded warning and does not block cleanup.
+A missing handoff produces a bounded warning; cleanup still requires the native-owner verdict described below.
 It records only while the record still names the launching spawn generation and that generation has not retired.
 Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
 The same naming request sets `firstmate.home` to the full home-identity hash and `firstmate.task` to the task id; Omnigent merges labels rather than replacing them.
@@ -101,18 +101,23 @@ If a dead session retains an attach client, exit signals only the recorded attac
 The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.
 
-The pane check proves only that the Omnigent attach client is running.
-When it reads alive and a session binding exists, supervision readers consult the shared session snapshot.
+The pane check reports attach-client state rather than native-worker state.
+For an Omnigent-wrapped task, supervision readers consult the shared session snapshot even when the attach client has stopped or its endpoint is missing.
 The watcher, crew-state reconciliation, and stale checks share one sanitized snapshot per task and launch binding.
-The snapshot contains runner liveness and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
+The snapshot contains the session probe verdict and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
+`runner_online` reports tunnel registration freshness rather than native-process liveness.
 A successful session read proves reachability without a separate `/health` request.
-An inconclusive session read also checks `/health` to distinguish an unreachable server from an unknown session verdict.
+An inconclusive session read remains unknown; server health cannot prove native-owner termination.
 Slow or failed reads reduce the refresh rate through bounded backoff.
 The [`bin/fm-omnigent.sh` header](../bin/fm-omnigent.sh) owns expiry, request limits, cache identity, and refresh mechanics.
-An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
-An absent binding or an inconclusive session response leaves the pane verdict unchanged.
+Outside an explicit exit attempt, only a confirmed absent exact session reads as dead and permits recovery.
+A disconnected runner, unreachable server, archived flag, failed turn, absent binding, or inconclusive session response reads as unknown.
+An attach client that stops or disappears does not prove that its native owner stopped.
+Unknown native-owner state withholds process-group signals, replacement, recovery, and teardown lease release; crew-state output reports the degradation.
 Secondmate recovery readers require fresh session reads, including remote recovery probes.
-Lifecycle commands require a fresh session read before stopping a retained attach client, then require the pane-level verdict to confirm that the client stopped.
+Lifecycle commands require a fresh session read before stopping a retained attach client.
+After Firstmate delivers an exit command, that exit attempt can also confirm termination when the attach client stops and fresh session and health reads prove the same session and generation is reachable with no active turn.
+This confirmation is scoped to that exit attempt and its parent relaunch transaction; supervision and independent recovery continue to require native absence.
 Cached supervision verdicts never authorize that signal.
 
 ## Upgrade pause window

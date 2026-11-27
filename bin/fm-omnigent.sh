@@ -93,9 +93,10 @@
 # by server, session and spawn generation. No messages or tool arguments persist.
 # One nonblocking task lock coalesces concurrent refreshes; contention is unknown.
 # Unsafe cache paths or permissions return unknown without an uncached request.
-# Session GETs allow 5 seconds and 2 MiB. Only a failed or inconclusive GET needs
-# /health; unreachable health still proves dead. Failed, malformed or >=3-second
-# reads back off for 30, 60, then 120 seconds, without reusing an expired verdict.
+# Session GETs allow 5 seconds and 2 MiB. Confirmed exact-session absence is
+# dead; connectivity loss and unreadable responses are unknown. Failed,
+# malformed or >=3-second reads back off for 30, 60, then 120 seconds,
+# without reusing an expired verdict.
 # --fresh bypasses cache reads and writes, including backoff; stop-attach requires
 # it before signalling. Native hooks, not session polling, own turn/busy state.
 # FM_TEST_OMNIGENT_SNAPSHOT_NOW fixes the snapshot clock only with FM_TEST_SEAM=1.
@@ -528,9 +529,9 @@ archive_bound_session() {
 }
 
 # Classify the recorded session for supervision. Prints alive, dead or unknown.
-# dead means the server is unreachable or the record proves the session's
-# runner is gone, failed, archived or deleted. No binding, or a reply that
-# proves neither, is unknown. No request is retried within one consult.
+# Only confirmed absence of the exact session proves dead. Connectivity,
+# archive flags and turn failure do not prove native-owner termination.
+# No binding or an inconclusive reply is unknown. No consult retries requests.
 probe_from_snapshot() { # <body file>; prints alive|dead|unknown
   case "$code" in
     404) echo dead; return 0 ;;
@@ -538,9 +539,7 @@ probe_from_snapshot() { # <body file>; prints alive|dead|unknown
     *) echo unknown; return 0 ;;
   esac
   if jq -se --arg id "$SESSION_ID" 'length == 1 and (.[0] | .id == $id and
-    (.archived == true or .status == "failed" or .runner_online == false))' "$1" >/dev/null 2>&1; then
-    echo dead
-  elif jq -se --arg id "$SESSION_ID" 'length == 1 and (.[0] | .id == $id and .runner_online == true)' "$1" >/dev/null 2>&1; then
+    .runner_online == true and .archived != true and .status != "failed")' "$1" >/dev/null 2>&1; then
     echo alive
   else
     echo unknown
@@ -583,7 +582,7 @@ snapshot_now() {
 # existing lock and atomic record publisher own filesystem mutation mechanics.
 # A cache failure refuses the consult instead of multiplying uncached requests.
 supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
-  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code
+  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code=''
   local key now previous='' result probe approvals delay=30 cooldown=0 started cached mode
   shift
   if [ "${1:-}" = --fresh ]; then fresh=1; shift; fi
@@ -631,14 +630,6 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
   if ! session_snapshot "$body"; then code=000; fi
   probe=$(probe_from_snapshot "$body")
   approvals=$(approvals_from_snapshot "$body")
-  if [ "$probe" = unknown ]; then
-    # A healthy session response already proves reachability. A failed health
-    # request preserves the existing stopped-server supervision verdict.
-    if ! fm_run_timed 6 curl --silent --show-error --fail --max-time 5 --max-filesize 131072 --noproxy '*' --proto '=http,https' \
-      "$SERVER/health" 2>/dev/null | head -c 131073 | jq -e '.status == "ok"' >/dev/null 2>&1; then
-      probe=dead
-    fi
-  fi
   if [ "$approvals" = unknown ] || [ "$probe" = unknown ] || [ $((SECONDS - started)) -ge 3 ]; then
     cooldown=1
     if [ -n "$previous" ] && [ "$(printf '%s' "$previous" | jq -r .cooldown)" = true ]; then
@@ -661,6 +652,36 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
 
 probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
+
+confirm_exit() (
+  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health
+  [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
+  read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-exit.XXXXXX") || { echo unknown; return; }
+  trap 'rm -f -- "$body"' EXIT
+  session_snapshot "$body" || { echo unknown; return; }
+  [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
+    [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  if [ "$code" = 404 ]; then echo dead; return; fi
+  if [ "$code" != 200 ]; then echo unknown; return; fi
+  if ! jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
+    .id == $id and .runner_online == true and .status == "idle" and
+    .active_response_id == null and .archived != true)' "$body" >/dev/null 2>&1; then
+    echo unknown
+    return
+  fi
+  health=$(fm_run_timed 6 curl --silent --fail --max-time 5 --max-filesize 131072 \
+    --noproxy '*' --proto '=http,https' "$SERVER/health" 2>/dev/null) \
+    || { echo unknown; return; }
+  printf '%s' "$health" | jq -se 'length == 1 and .[0].status == "ok"' >/dev/null 2>&1 \
+    || { echo unknown; return; }
+  [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
+    [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  echo dead
+)
 
 stop_attach() {
   local meta=$1 pid started current pgid
@@ -1149,6 +1170,7 @@ case "$OP" in
     exit
     ;;
   probe) probe_session "$@"; exit ;;
+  _confirm-exit) [ "$#" -eq 4 ] || fail '_confirm-exit requires a task record, session, server and generation'; confirm_exit "$@"; exit ;;
   approvals) approvals_session "$@"; exit ;;
   binding) binding_op "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;

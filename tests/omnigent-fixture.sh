@@ -54,6 +54,9 @@ body = json.loads(args[args.index('--data') + 1]) if '--data' in args else None
 with (service / 'requests.jsonl').open('a') as output:
     output.write(json.dumps({'method': method, 'url': url, 'body': body}, sort_keys=True) + '\n')
 if url.endswith('/health'):
+    command_file = os.environ.get('OMNI_NATIVE_COMMAND_FILE')
+    if os.environ.get('OMNI_HEALTH_AFTER_EXIT') == 'down' and command_file and pathlib.Path(command_file).read_text() == 'zsh':
+        sys.exit(7)
     print('{"status":"ok"}')
     sys.exit(0)
 # Registered hosts for remote-server launches: OMNI_HOST_STATE selects
@@ -68,7 +71,13 @@ if '/v1/hosts/' in url:
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
 mode = os.environ.get('OMNI_TITLE_MODE', '')
-time.sleep(float(os.environ.get('OMNI_SESSION_DELAY', '0')))
+delay = os.environ.get('OMNI_SESSION_DELAY', '0')
+command_file = os.environ.get('OMNI_NATIVE_COMMAND_FILE')
+if command_file and pathlib.Path(command_file).read_text() == 'zsh':
+    delay = os.environ.get('OMNI_SESSION_DELAY_AFTER_EXIT', delay)
+    if 'OMNI_SESSION_DELAY_AFTER_EXIT' in os.environ:
+        (service / 'slow-read.started').write_text(str(time.monotonic()))
+time.sleep(float(delay))
 # A loaded server: only the first session request is slow (beyond the old
 # 5-second limit) or fails; later requests answer normally.
 if mode in ('slow-first', 'fail-first'):
@@ -109,10 +118,24 @@ elif state == 'failed':
     session['status'] = 'failed'
 elif state == 'archived':
     session['archived'] = True
+elif state in ('native-exit', 'native-disconnected-exit', 'native-active-exit', 'native-response-exit', 'native-error-exit'):
+    if pathlib.Path(os.environ['OMNI_NATIVE_COMMAND_FILE']).read_text() == 'zsh':
+        if state == 'native-disconnected-exit':
+            session['runner_online'] = False
+        elif state == 'native-active-exit':
+            session['status'] = 'running'
+        elif state == 'native-response-exit':
+            session['active_response_id'] = 'response-active'
+        elif state == 'native-error-exit':
+            code = 500
 elif state == 'missing':
     code = 404
 elif state == 'server-error':
     code = 500
+if os.environ.get('OMNI_END_MARKER'):
+    marker = pathlib.Path(os.environ['OMNI_END_MARKER'])
+    if marker.exists() and marker.read_text().strip() == session['id']:
+        code = 404
 if method == 'PATCH' and body.get('archived') is True:
     if os.environ.get('OMNI_ARCHIVE_MODE') == 'http-error':
         sys.exit(22)

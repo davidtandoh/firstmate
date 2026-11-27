@@ -1234,6 +1234,15 @@ test_teardown_archives_the_recorded_omnigent_session() {
     git -C "$case_dir/wt" push -q origin fm/task-x1
     git -C "$case_dir/project" fetch -q origin
     set +e
+    if [ "$archive_mode" = ok ]; then
+      OMNI_SESSION_STATE=runner-gone run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+      rc=$?
+      [ "$rc" -ne 0 ] || fail 'disconnected native owner authorized lease release'
+      [ -e "$case_dir/state/task-x1.meta" ] || fail 'degraded teardown removed the owner record'
+      [ -d "$case_dir/wt" ] || fail 'degraded teardown released the worktree'
+      [ ! -e "$case_dir/serve/archived.jsonl" ] || fail 'degraded teardown archived native work'
+      grep -q 'native owner is unknown' "$case_dir/stderr" || fail 'degraded teardown lost refusal reason'
+    fi
     OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
     rc=$?
     set -e
@@ -1251,15 +1260,16 @@ test_teardown_archives_the_recorded_omnigent_session() {
 }
 
 test_teardown_captures_before_killing_observer() {
-  local case_dir watcher rc
-  case_dir=$(make_case omni-pending)
-  write_meta "$case_dir" no-mistakes ship
-  printf 'omnigent=on\n' >> "$case_dir/state/task-x1.meta"
-  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
-  wt_commit "$case_dir" 'shippable work'
-  git -C "$case_dir/wt" push -q origin fm/task-x1
-  git -C "$case_dir/project" fetch -q origin
-  cat > "$case_dir/fakebin/tmux" <<'SH'
+  local case_dir watcher holder rc mode attempt pending observer
+  for mode in ended unknown unreachable; do
+    case_dir=$(make_case "omni-pending-$mode")
+    write_meta "$case_dir" no-mistakes ship
+    printf 'harness=claude\nomnigent=on\n' >> "$case_dir/state/task-x1.meta"
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
+    wt_commit "$case_dir" 'shippable work'
+    git -C "$case_dir/wt" push -q origin fm/task-x1
+    git -C "$case_dir/project" fetch -q origin
+    cat > "$case_dir/fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = kill-window ]; then
@@ -1268,19 +1278,39 @@ if [ "${1:-}" = kill-window ]; then
   cp "$meta" "$FM_STATE_OVERRIDE/captured-before-close"
   pid=$(cat "$FM_STATE_OVERRIDE/observer-group")
   kill -TERM -- "-$pid"
+  printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$FM_STATE_OVERRIDE/native-ended"
 fi
 SH
-  chmod +x "$case_dir/fakebin/tmux"
-  python3 - "$ROOT" "$case_dir" <<'PYTHON' &
-import os, pathlib, subprocess, sys, time
+    chmod +x "$case_dir/fakebin/tmux"
+    cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = return ]; then
+  : > "$FM_STATE_OVERRIDE/returned"
+fi
+SH
+    chmod +x "$case_dir/fakebin/treehouse"
+    # Keep the observer on its verified handoff while the task record is locked.
+    # An early unverified handoff is deliberately not native-owner evidence.
+    (
+      . "$ROOT/bin/fm-wake-lib.sh"
+      fm_lock_try_acquire "$case_dir/state/.meta-task-x1.lock" || exit 1
+      trap 'fm_lock_release "$case_dir/state/.meta-task-x1.lock"' EXIT
+      : > "$case_dir/holder-ready"
+      for ((attempt=0; attempt<500; attempt++)); do
+        [ ! -f "$case_dir/release-holder" ] || exit 0
+        sleep 0.1
+      done
+      exit 1
+    ) &
+    holder=$!
+    for ((attempt=0; attempt<500; attempt++)); do
+      [ ! -f "$case_dir/holder-ready" ] || break
+      sleep 0.1
+    done
+    python3 - "$ROOT" "$case_dir" <<'PYTHON' &
+import os, pathlib, subprocess, sys
 root, case = map(pathlib.Path, sys.argv[1:])
-lock = case / 'state/.meta-task-x1.lock'
-for _ in range(500):
-    if lock.exists():
-        break
-    time.sleep(0.01)
-else:
-    raise SystemExit('teardown never acquired metadata lock')
 env = dict(os.environ, PATH=str(case / 'fakebin') + os.pathsep + os.environ['PATH'],
            FM_OMNIGENT_RECORD_META=str(case / 'state/task-x1.meta'),
            FM_OMNIGENT_RECORD_GEN='teardown-test-task-x1', OMNI_HOLD='1')
@@ -1290,23 +1320,54 @@ with (case / 'observer-stderr').open('wb') as err:
                             stdout=subprocess.DEVNULL, stderr=err)
     (case / 'state/observer-group').write_text(str(proc.pid))
     try:
-        proc.wait(timeout=30)
+        proc.wait(timeout=60)
     finally:
         try:
             os.killpg(proc.pid, 15)
         except ProcessLookupError:
             pass
 PYTHON
-  watcher=$!
-  rc=0
-  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  wait "$watcher" || fail 'observer fixture failed'
-  expect_code 0 "$rc" "pending observer teardown failed"$'\n'"$(cat "$case_dir/stderr")"
-  [ -f "$case_dir/state/captured-before-close" ] || fail 'session identity was not captured before endpoint close'
-  [ ! -e "$case_dir/state/task-x1.meta" ] || fail 'teardown retained task metadata'
-  jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
-    "$case_dir/serve/archived.jsonl" >/dev/null || fail 'killing the blocked observer lost its session'
-  pass 'teardown captures a blocked observer session before killing its process group'
+    watcher=$!
+    pending="$case_dir/state/.task-x1.omnigent.teardown-test-task-x1.meta"
+    for ((attempt=0; attempt<500; attempt++)); do
+      grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$pending" 2>/dev/null && break
+      sleep 0.1
+    done
+    grep -qx 'omnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$pending" \
+      || fail "observer did not publish verified handoff: $(cat "$case_dir/observer-stderr")"
+    : > "$case_dir/release-holder"
+    wait "$holder" || fail 'fixture metadata lock holder failed'
+    observer=$(cat "$case_dir/state/observer-group")
+    rc=0
+    case "$mode" in
+      ended) OMNI_END_MARKER="$case_dir/state/native-ended" run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
+      unknown) OMNI_SESSION_STATE=runner-gone run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
+      unreachable) OMNI_HEALTH=down run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
+    esac
+    if [ "$mode" = ended ]; then
+      expect_code 0 "$rc" "pending observer teardown failed"$'\n'"$(cat "$case_dir/stderr")"
+      [ -f "$case_dir/state/captured-before-close" ] || fail 'session identity was not captured before endpoint close'
+      [ ! -e "$case_dir/state/task-x1.meta" ] || fail 'teardown retained task metadata'
+      [ -e "$case_dir/state/returned" ] || fail 'positive observer end never returned the worktree lease'
+      jq -se 'length == 1 and .[0].id == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and .[0].body == {archived:true}' \
+        "$case_dir/serve/archived.jsonl" >/dev/null || fail 'killing the blocked observer lost its session'
+      printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' > "$case_dir/ended.meta"
+      [ "$(PATH="$case_dir/fakebin:$PATH" OMNI_END_MARKER="$case_dir/state/native-ended" bash "$ROOT/bin/fm-omnigent.sh" probe --fresh "$case_dir/ended.meta")" = dead ] \
+        || fail 'observer end did not supply exact-session absence evidence'
+    else
+      [ "$rc" -ne 0 ] || fail "$mode observer teardown authorized release"
+      grep -q 'native owner is unknown' "$case_dir/stderr" || fail "$mode refusal lost native-owner uncertainty"
+      [ -f "$case_dir/state/task-x1.meta" ] || fail "$mode teardown removed owner identity"
+      [ -d "$case_dir/wt" ] || fail "$mode teardown removed the worktree"
+      [ ! -e "$case_dir/state/returned" ] || fail "$mode teardown released the worktree lease"
+      [ ! -e "$case_dir/state/captured-before-close" ] || fail "$mode teardown closed the endpoint"
+      [ ! -e "$case_dir/serve/archived.jsonl" ] || fail "$mode teardown archived the native owner"
+      kill -0 "$observer" || fail "$mode teardown signalled the observer"
+      kill -TERM -- "-$observer"
+    fi
+    wait "$watcher" || fail "observer fixture failed: $(cat "$case_dir/stderr") $(cat "$case_dir/observer-stderr")"
+    pass "teardown observer $mode: native-owner evidence governs cleanup and lease retention"
+  done
 }
 
 test_no_mistakes_truly_unpushed_refuses() {
@@ -6876,6 +6937,11 @@ if [ "${1:-}" = --kb-candidates ]; then
   test_kb_candidates_filed_and_declined_allow_cleanup
   test_kb_candidates_declined_with_destination_allows_cleanup
   test_kb_candidates_force_still_discards
+  exit 0
+fi
+
+if [ "${1:-}" = --omnigent-observer ]; then
+  test_teardown_captures_before_killing_observer
   exit 0
 fi
 

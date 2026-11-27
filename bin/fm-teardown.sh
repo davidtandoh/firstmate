@@ -688,6 +688,10 @@ fm_lock_acquire_wait "$META_LOCK"
 META_LOCK_HELD=1
 if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
   "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$META" || true
+  if [ "$(fm_backend_omnigent_agent_state alive "$META")" = unknown ]; then
+    echo "error: task $ID's Omnigent native owner is unknown; preserving endpoint, record and worktree lease" >&2
+    exit 1
+  fi
 fi
 fm_backlog_record_present "$META" "task record" "$STATE" || {
   echo "error: teardown refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
@@ -3646,6 +3650,10 @@ cleanup_firstmate_home_children() {
     if [ "$(meta_value "$child_meta" omnigent)" = on ] && [ -z "$(meta_value "$child_meta" remote_host)" ]; then
       child_omnigent=1
       "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$child_meta" || true
+      if [ "$(fm_backend_omnigent_agent_state alive "$child_meta")" = unknown ]; then
+        echo "error: child $child_id's Omnigent native owner is unknown; preserving endpoint, record and worktree lease" >&2
+        return 1
+      fi
     fi
     if [ -n "$child_t" ]; then
       if [ "$child_backend" = herdr ]; then

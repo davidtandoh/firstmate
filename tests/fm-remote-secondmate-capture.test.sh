@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_ROOT=$(mktemp -d "$ROOT/tests/.remote-capture.XXXXXX")
 trap 'rm -rf -- "$TMP_ROOT"' EXIT
 mkdir -p "$TMP_ROOT/code/bin" "$TMP_ROOT/home/bin" "$TMP_ROOT/user"
-cp "$ROOT/bin/fm-remote-secondmate-control.sh" "$TMP_ROOT/code/bin/"
+cp "$ROOT/bin/fm-remote-secondmate-control.sh" "$ROOT/bin/fm-remote-herdr-identity-lib.sh" "$TMP_ROOT/code/bin/"
 printf 'mate\n' > "$TMP_ROOT/home/.fm-secondmate-home"
 : > "$TMP_ROOT/home/AGENTS.md"
 for lib in fm-ff-lib.sh fm-pending-reply-lib.sh fm-task-inbox-lib.sh; do
@@ -110,7 +110,7 @@ for session_state in alive runner-gone missing server-error; do
   reset_remote_meta
   printf 'alive\n' > "$TMP_ROOT/endpoint-state"
   expected=alive
-  case "$session_state" in runner-gone|missing) expected=dead ;; esac
+  case "$session_state" in missing) expected=dead ;; runner-gone|server-error) expected=unknown ;; esac
   [ "$(OMNI_SESSION_STATE="$session_state" remote_control state mate)" = "$expected" ]
 done
 printf 'ok - host-local state overlays the recorded Omnigent session verdict\n'
@@ -118,7 +118,7 @@ for pane_state in alive dead missing; do
   for archive_mode in ok http-error; do
     reset_remote_meta
     printf '%s\n' "$pane_state" > "$TMP_ROOT/endpoint-state"
-    OMNI_SESSION_STATE=runner-gone OMNI_ARCHIVE_MODE="$archive_mode" remote_control launch mate claude - - herdr \
+    OMNI_SESSION_STATE=missing OMNI_ARCHIVE_MODE="$archive_mode" remote_control launch mate claude - - herdr \
       > "$TMP_ROOT/launch-out" 2> "$TMP_ROOT/launch-error"
     [ -f "$TMP_ROOT/home/state/parent-route/spawned" ]
     if [ "$pane_state" = alive ]; then [ -f "$TMP_ROOT/home/attach-stopped" ]; fi

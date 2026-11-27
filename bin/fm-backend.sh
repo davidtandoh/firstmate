@@ -1550,27 +1550,27 @@ fm_backend_agent_state() {  # <backend> <target>
   esac
 }
 
-# fm_backend_omnigent_agent_state: supervision view of a wrapped worker. The
-# pane's `alive` proves only that the Omnigent attach client runs; when the
-# task record names a recorded Omnigent session, one bounded probe
-# (bin/fm-omnigent.sh probe) turns a server that stopped answering or a
-# session whose runner is gone into `dead`, so the ordinary dead-endpoint
-# report and recovery take over. Every other reading passes through unchanged.
-# Recovery readers use a fresh probe by default. Watcher and crew-state readers
-# may pass --cached to share the bounded supervision snapshot. Lifecycle gates
-# keep the pane-level verdict and stop-attach requires its own fresh proof.
+# fm_backend_omnigent_agent_state: native-owner overlay for wrapped workers.
+# The pane proves only attach-client state. The session probe owns native
+# absence proof; disconnected/unreadable sessions remain unknown even after
+# the attach endpoint disappears. An unbound wrapped launch is also unknown.
+# Recovery readers require fresh reads; --cached shares supervision snapshots.
 fm_backend_omnigent_agent_state() {  # <pane agent state> <task meta> [--cached]
-  local state=$1 meta=$2
+  local state=$1 meta=$2 probe
   local probe_args=(--fresh)
   case "${3:-}" in
     --cached) probe_args=() ;;
     '') ;;
     *) printf 'unknown'; return 0 ;;
   esac
-  if [ "$state" = alive ] && [ "$(fm_meta_get "$meta" omnigent)" = on ] &&
-     [ -n "$(fm_meta_get "$meta" omnigent_session)" ] &&
-     [ "$(bash "$FM_BACKEND_LIB_DIR/fm-omnigent.sh" probe ${probe_args[@]+"${probe_args[@]}"} "$meta" 2>/dev/null)" = dead ]; then
-    state=dead
+  if [ "$(fm_meta_get "$meta" omnigent)" = on ]; then
+    probe=$(bash "$FM_BACKEND_LIB_DIR/fm-omnigent.sh" probe ${probe_args[@]+"${probe_args[@]}"} "$meta" 2>/dev/null) || probe=unknown
+    case "$probe:$state" in
+      dead:alive) state=dead ;;
+      dead:*) ;;
+      alive:alive) ;;
+      *) state=unknown ;;
+    esac
   fi
   printf '%s' "$state"
 }

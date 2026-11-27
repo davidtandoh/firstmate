@@ -188,7 +188,7 @@ test_close_names_unlisted_stopped_runner() (
   state=$(new_state stopped)
   . "$ROOT/tests/omnigent-fixture.sh"
   fm_test_omnigent_service "$TMP_ROOT/probe-service" "$TMP_ROOT/probe-tools"
-  export PATH="$TMP_ROOT/probe-tools:$PATH" OMNI_SESSION_STATE=runner-gone
+  export PATH="$TMP_ROOT/probe-tools:$PATH" OMNI_SESSION_STATE=missing
   printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' > "$state/stopped.meta"
   printf 'omnigent=on\n' > "$state/unbound.meta"
   printf 'omnigent=on\nremote_host=worker\n' > "$state/remote.meta"
@@ -199,6 +199,12 @@ test_close_names_unlisted_stopped_runner() (
   fm_upgrade_window_commit "$state"
   fm_upgrade_window_supervise "$state"
   [ -z "$FM_UPGRADE_WINDOW_REASON" ] || fail 'stopped runner wake repeated'
+  rm "$state/.stopped.omnigent-snapshot.json"
+  write_window job-disconnected resumed 600 upgraded
+  export OMNI_SESSION_STATE=runner-gone
+  fm_upgrade_window_supervise "$state"
+  [ -z "$FM_UPGRADE_WINDOW_REASON" ] || fail 'disconnected runner named for recovery'
+  rm "$state/.stopped.omnigent-snapshot.json"
   write_window job-live resumed 600 upgraded
   export OMNI_SESSION_STATE=alive
   fm_upgrade_window_supervise "$state"
