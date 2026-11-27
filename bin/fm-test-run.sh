@@ -311,7 +311,7 @@ family_for_basename() {
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-subagent-pretool-check.test.sh|\
     fm-supervision-instructions.test.sh|fm-task-delivery.test.sh|\
-    fm-timeout-lib.test.sh|fm-remote-inherit-generation.test.sh|\
+    fm-timeout-lib.test.sh|fm-task-retention.test.sh|fm-remote-inherit-generation.test.sh|\
     fm-tmux-submit-busy.test.sh|fm-trace-context-lib.test.sh|\
     fm-transition-lib.test.sh|\
     fm-test-run.test.sh|fm-test-isolation-proof.test.sh|fm-test-tap-verify.test.sh|\
@@ -1722,6 +1722,9 @@ families_for_changed_path() {
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
     bin/fm-gate-refuse*|bin/fm-lock*)
       printf '%s\n' session-bootstrap
+      ;;
+    bin/fm-task-retention.sh|bin/fm-task-retention.py)
+      printf '%s\n' '__script__:fm-task-retention.test.sh'
       ;;
     bin/fm-status.sh)
       printf '%s\n' "__script__:fm-brief.test.sh"

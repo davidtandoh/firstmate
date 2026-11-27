@@ -160,6 +160,9 @@
 # a later scout promotion could not outrank), stops the scaffold before
 # anything is written. Secondmate charters never take it.
 # Refuses to overwrite an existing brief.
+# --scratch GLOB and --worktree-cache NAME repeat to declare task scratch;
+# bin/fm-task-retention.sh owns declaration syntax and safety. With neither,
+# ordinary task scaffolds declare an empty list (all output is evidence).
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -246,6 +249,7 @@ UPSTREAM_CONSENT_SET=0
 PROJECT_DIR=
 PROJECT_DIR_SET=0
 POS=()
+RETENTION_ARGS=()
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -261,6 +265,8 @@ for a in "$@"; do
       pr) PR_TEXT=$a; PR_TEXT_SET=1 ;;
       upstream-consent) UPSTREAM_CONSENT=$a; UPSTREAM_CONSENT_SET=1 ;;
       project) PROJECT_DIR=$a; PROJECT_DIR_SET=1 ;;
+      scratch) RETENTION_ARGS+=(--scratch "$a") ;;
+      worktree-cache) RETENTION_ARGS+=(--worktree-cache "$a") ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -270,6 +276,8 @@ for a in "$@"; do
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
     --herdr-lab) HERDR_LAB=1 ;;
+    --scratch) want_value=scratch ;;
+    --worktree-cache) want_value=worktree-cache ;;
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
     --mode=*) MODE=${a#--mode=}; MODE_SET=1 ;;
@@ -423,6 +431,10 @@ if [ "$KIND" = secondmate ] && [ "$HERDR_LAB" -eq 1 ]; then
   echo "error: --herdr-lab applies only to crewmate ship or scout briefs" >&2
   exit 1
 fi
+if [ "$KIND" = secondmate ] && [ "${#RETENTION_ARGS[@]}" -gt 0 ]; then
+  echo "error: scratch declarations apply only to task briefs, not secondmate charters" >&2
+  exit 1
+fi
 
 if [ "$NO_PROJECTS" -eq 1 ] && [ "$KIND" != secondmate ]; then
   echo "error: --no-projects applies only to --secondmate charters" >&2
@@ -457,6 +469,10 @@ append_brief_include() {
 BRIEF="$DATA/$ID/brief.md"
 [ -e "$BRIEF" ] && { echo "error: $BRIEF already exists" >&2; exit 1; }
 mkdir -p "$DATA/$ID"
+if [ "$KIND" != secondmate ]; then
+  FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" \
+    bash "$SCRIPT_DIR/fm-task-retention.sh" declare "$ID" "${RETENTION_ARGS[@]+"${RETENTION_ARGS[@]}"}" >/dev/null
+fi
 
 ASK_USER_BLOCK=
 if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
@@ -826,6 +842,7 @@ If the top-level path is the primary checkout or not the worktree you were launc
 # Rules
 $RULE1
 2. Keep project edits inside this worktree; keep proof and scratch output outside it, under \`$DATA/$ID/\` or a temporary directory.
+   Declare expendable output in \`$DATA/$ID/scratch.json\` before creating it; \`bin/fm-task-retention.sh --help\` owns the format and commands. Undeclared output is evidence and is kept.
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. $FORGE_RULE_LINE
