@@ -6,6 +6,10 @@
 # remote_server and unnamed retain only the validated launch identity fallback.
 # Each owner-only receipt is at most 8192 bytes. No transcript or credentials.
 # Publication and removal use the shared record primitives.
+# Receipt locks protect receipt writes. The task's shared snapshot lock covers
+# retirement reads and archive attempts, including unnamed identity polling.
+# Foreground archive waits at most 10 seconds for that lock; a sweep skips a
+# contended task and retains its receipt for a later visit.
 # reconcile-retirements [--dry-run] <state> <remaining-seconds: 1-30> visits at most 20
 # receipts, including invalid/locked ones, within the caller's home deadline.
 # It uses exact-session reads only; unknown stops remain pending and print a

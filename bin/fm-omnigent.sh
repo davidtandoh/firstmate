@@ -95,14 +95,18 @@
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
 # by server, session and spawn generation. No messages or tool arguments persist.
-# One nonblocking task lock coalesces concurrent refreshes; contention is unknown.
+# One task refresh lock serializes supervision, naming, exit confirmation and
+# retirement session reads. Cached consults do not wait; contention is unknown.
+# Fresh consults and exit confirmation wait at most 6 seconds for that lock;
+# naming waits at most 6 seconds within its remaining naming budget.
 # Unsafe cache paths or permissions return unknown without an uncached request.
 # Session GETs allow 5 seconds and 2 MiB. Confirmed exact-session absence is
 # dead; connectivity loss and unreadable responses are unknown. Failed,
 # malformed or >=3-second reads back off for 30, 60, then 120 seconds,
 # without reusing an expired verdict.
-# --fresh bypasses cache reads and writes, including backoff; stop-attach requires
-# it before signalling. Native hooks, not session polling, own turn/busy state.
+# --fresh bypasses cache reads and writes, including backoff, but retains the
+# refresh lock; stop-attach requires it before signalling.
+# Native hooks, not session polling, own turn/busy state.
 # FM_TEST_OMNIGENT_SNAPSHOT_NOW fixes the snapshot clock only with FM_TEST_SEAM=1.
 # FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
 # or failing also report their name, elapsed time and bound on stderr.

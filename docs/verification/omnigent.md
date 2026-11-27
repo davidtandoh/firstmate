@@ -24,6 +24,8 @@ A read of a live wrapped worker's own session on the managed service returned `s
 The focused command `bash tests/fm-omnigent.test.sh --probe` covers the [native-owner verdict contract](../omnigent.md#worker-session-lifecycle) across live, stopped, and missing attach endpoints.
 It also checks reachable and disconnected session records with 170,000 bytes of padding, with a six-second bound on each complete probe.
 `bash tests/fm-control-relaunch.test.sh --close-barrier` selects fixture regressions for the [worker lifecycle contract](../omnigent.md#worker-session-lifecycle), including delayed same-generation identity recovery after refused retirement.
+`bash tests/fm-omnigent.test.sh --retirement` selects isolated retirement fixtures for replay after binding replacement, unknown-stop retention across restart, foreign-home refusal, byte and sweep limits, deadlines, and serialization with probes, cleanup, exit confirmation, and naming.
+The fixtures print elapsed time, request count, receipt bytes, and peak resident memory relative to a bare Bash baseline; memory measurement explicitly skips when `/usr/bin/time` supports neither `-l` nor `-v`.
 `tests/fm-teardown.test.sh` covers descendant cleanup; `tests/fm-fresh-session.test.sh` covers the separate primary-session handoff.
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 
