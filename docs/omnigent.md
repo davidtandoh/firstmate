@@ -71,8 +71,8 @@ flowchart LR
     fallback --> retire
     retire --> intent[Persist retirement intent]
     intent --> stop[Prove old worker stopped]
-    stop --> archive[Confirm exact-session archive]
-    archive --> release[Release endpoint and worktree lease]
+    stop --> archive[Attempt exact-session archive]
+    archive -->|Confirmed or warned on failure| release[Continue cleanup or relaunch]
 ```
 
 Takeaway: retirement proves the old worker stopped before archiving history or releasing its worktree lease.
@@ -85,12 +85,14 @@ The launcher then records `omnigent_session` and `omnigent_server` in that task 
 Retirement reads either handoff under that lock before stopping the attach client or closing the endpoint.
 An unverified handoff becomes `omnigent_unnamed` in the task record, so retirement need not wait for naming retries to finish.
 A missing handoff produces a bounded warning; cleanup still requires the native-owner verdict described below.
-It records only while the record still names the launching spawn generation and that generation has not retired.
-Retirement marks the generation under the same record lock; a late observer cannot overwrite a retired binding or use retirement intent as stop proof.
+The launcher or locked capture can record a verified identity only while the task record still names the launching spawn generation, including after a refused retirement.
+Retirement intent remains durable under that record lock; delayed identity recovery neither clears it nor authorizes archive or lease release without stop proof.
+An unverified fallback cannot be added after retirement, and a removed or superseded task record cannot accept the old generation's verified identity.
+The late observer never archives a session on its own.
 The same naming request sets `firstmate.home` to the full home-identity hash and `firstmate.task` to the task id; Omnigent merges labels rather than replacing them.
 A relaunch drops the previous binding and unnamed fallback from the replacement record.
 
-Cleanup and relaunch persist retirement intent, prove the old worker stopped, then archive its exact recorded session before closing the endpoint or releasing its worktree lease.
+Cleanup and relaunch persist retirement intent, prove the old worker stopped, then attempt to archive its exact recorded session before closing the endpoint, releasing its worktree lease, or launching a replacement.
 Forced secondmate cleanup does the same for each local descendant before removing its record, and automatic local secondmate recovery captures the handoff before closing the old endpoint.
 Archive is a `PATCH` of `{"archived": true}` for the exact session identified by the binding or verified fallback.
 If the identity read never answered, the launcher keeps this launch's own `Web UI` session as `omnigent_unnamed` in the task record instead of a binding.

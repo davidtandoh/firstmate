@@ -1207,8 +1207,8 @@ test_no_mistakes_origin_remote_allows() {
   pass "no-mistakes worktree with HEAD on origin is torn down (no regression)"
 }
 
-# A wrapped task's recorded Omnigent session is archived once its endpoint is
-# closed; an archive failure warns without blocking cleanup.
+# A wrapped task's recorded Omnigent session is archived only after stop proof,
+# before endpoint close; an archive failure warns without blocking cleanup.
 test_teardown_archives_the_recorded_omnigent_session() {
   local case_dir rc archive_mode stop_state session=dddddddddddddddddddddddddddddddd
   for archive_mode in ok http-error; do

@@ -23,7 +23,8 @@ A read of a live wrapped worker's own session on the managed service returned `s
 `bash bin/fm-test-run.sh tests/fm-omnigent.test.sh` covers recording, generation checks, label confirmation, and archive targeting and failure at a service double.
 The focused command `bash tests/fm-omnigent.test.sh --probe` covers the [native-owner verdict contract](../omnigent.md#worker-session-lifecycle) across live, stopped, and missing attach endpoints.
 It also checks reachable and disconnected session records with 170,000 bytes of padding, with a six-second bound on each complete probe.
-`tests/fm-control-relaunch.test.sh`, `tests/fm-teardown.test.sh`, and `tests/fm-fresh-session.test.sh` cover archive after a proven stop, after endpoint close, and after a fresh handoff.
+`bash tests/fm-control-relaunch.test.sh --close-barrier` selects fixture regressions for the [worker lifecycle contract](../omnigent.md#worker-session-lifecycle), including delayed same-generation identity recovery after refused retirement.
+`tests/fm-teardown.test.sh` covers descendant cleanup; `tests/fm-fresh-session.test.sh` covers the separate primary-session handoff.
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 
 `FM_CODEX_NOTIFY_LIVE=1 bash tests/fm-codex-notify-live-e2e.test.sh` runs its wrapped mode against a scratch Omnigent server with its own config, data, and database, started from the managed executable with every inherited `OMNIGENT_*` and `OTEL_*` variable removed.

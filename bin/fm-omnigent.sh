@@ -88,7 +88,7 @@
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
 # without a recorded or verified unnamed session. Callers archive only a
 # proven-stopped worker. retire persists omnigent_retired_gen without an API
-# request; this intent fences late observers and is never stop proof.
+# request; this intent blocks unverified fallback updates and is never stop proof.
 # probe prints alive, dead or unknown for the recorded session.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
