@@ -14,11 +14,13 @@ An open captain hold referencing a task ID, task path, or its merged PR blocks i
 Any task meta (including dead/uncertain endpoints) blocks pruning; only teardown
 owns removing it. Legacy tasks have no completion receipt and stay report-only.
 
-Bounds: 120s wall time, 128 MiB address space where RLIMIT_AS is supported,
+Bounds: 120s wall time, 128 MiB Python engine address space where supported,
 2,000 tasks, 200,000 visited entries, depth 64, 32 patterns of <=256 characters,
 1 MiB per control/backlog input, 2 MiB report. Traversal streams directory
 entries and never opens scratch contents. Limits/errors prevent deletion for
 the affected task; a failed global backlog read prevents every deletion.
+Child commands retain the launcher's inherited address-space limits; the shared
+process-group timeout bounds their runtime, not their memory.
 No worktree is ever modified. Reports measure logical regular-file bytes.
 """
 from __future__ import annotations
@@ -32,6 +34,7 @@ import json
 import os
 from pathlib import Path
 import re
+import resource
 import signal
 import stat
 import subprocess
@@ -47,6 +50,7 @@ CONTROL = {'brief.md', 'report.md', 'scratch.json', 'retention-merge.json',
            'retention-complete.json', 'retention-local.json', 'retention-removals.jsonl'}
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 ID = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$')
+CHILD_ADDRESS_SPACE = resource.getrlimit(resource.RLIMIT_AS)
 
 
 class RetentionError(ValueError):
@@ -226,9 +230,18 @@ def prune(fd, task, patterns, protected, budget, audit, prefix='', depth=0, dry=
                     audit('removed', path, info.st_size)
 
 
+def restore_child_address_space():
+    if resource.getrlimit(resource.RLIMIT_AS) != CHILD_ADDRESS_SPACE:
+        resource.setrlimit(resource.RLIMIT_AS, CHILD_ADDRESS_SPACE)
+
+
+def run_child(*args, **kwargs):
+    return subprocess.run(*args, preexec_fn=restore_child_address_space, **kwargs)
+
+
 def command_output(command, env, timeout=15):
     with tempfile.TemporaryFile() as output:
-        result = subprocess.run(command, env=env, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
+        result = run_child(command, env=env, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
         output.seek(0)
         raw = output.read(LIMIT + 1)
     require(result.returncode == 0 and len(raw) <= LIMIT, 'backlog read failed or exceeded bound')
@@ -260,7 +273,7 @@ def done_confirmed(task_id, rows, env):
     row = rows.get(task_id)
     if row is not None:
         return row['state'] == 'done'
-    result = subprocess.run(['bash', str(Path(__file__).with_suffix('.sh')), 'archived', task_id],
+    result = run_child(['bash', str(Path(__file__).with_suffix('.sh')), 'archived', task_id],
                             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
     return result.returncode == 0
 
@@ -270,10 +283,10 @@ def local_landing(proof):
     require(isinstance(proof['project'], str) and Path(proof['project']).is_absolute(), 'invalid local project')
     require(isinstance(proof['head'], str) and re.fullmatch(r'[0-9a-f]{40,64}', proof['head']), 'invalid local head')
     require(isinstance(proof['branch'], str), 'invalid local branch')
-    result = subprocess.run(['git', '-C', proof['project'], 'check-ref-format', 'refs/heads/' + proof['branch']],
+    result = run_child(['git', '-C', proof['project'], 'check-ref-format', 'refs/heads/' + proof['branch']],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
     require(result.returncode == 0, 'invalid local branch')
-    result = subprocess.run(['git', '-C', proof['project'], 'merge-base', '--is-ancestor', proof['head'],
+    result = run_child(['git', '-C', proof['project'], 'merge-base', '--is-ancestor', proof['head'],
                              'refs/heads/' + proof['branch']],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
     require(result.returncode == 0, 'local landing no longer on default branch')
@@ -541,7 +554,10 @@ def main():
                       'declaration_sha256': hashlib.sha256(canonical(declaration(task)).encode()).hexdigest()}
             path = task / 'retention-complete.json'
         try:
-            destination = publish(path, output, exclusive=args.command != 'complete', dry=args.dry_run)
+            if args.command == 'confirm-merge' and os.path.lexists(path) and read_json(path) == output:
+                destination = str(path)
+            else:
+                destination = publish(path, output, exclusive=args.command not in ('complete', 'confirm-merge'), dry=args.dry_run)
         except FileExistsError:
             if args.command != 'confirm-local':
                 raise
@@ -574,11 +590,12 @@ if __name__ == '__main__':
     signal.signal(signal.SIGALRM, deadline_expired)
     signal.alarm(120)
     try:
-        import resource
         # Linux enforces address space. macOS may reject RLIMIT_AS; the bounded
         # streaming implementation still applies there and is measured in tests.
         try:
-            resource.setrlimit(resource.RLIMIT_AS, (128 * LIMIT, 128 * LIMIT))
+            soft, hard = CHILD_ADDRESS_SPACE
+            capped = 128 * LIMIT if soft == resource.RLIM_INFINITY else min(soft, 128 * LIMIT)
+            resource.setrlimit(resource.RLIMIT_AS, (capped, hard))
         except (ValueError, OSError):
             pass
         main()

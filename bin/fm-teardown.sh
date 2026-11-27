@@ -1822,6 +1822,13 @@ pr_is_merged() {
     [ -n "$resolved_url" ] || return 1
     PR_URL=$resolved_url
   fi
+  if [ -f "$DATA/$ID/scratch.json" ]; then
+    FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+      bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-merge "$ID" --merged-pr "$PR_URL" >/dev/null || {
+        echo "error: verified merged PR evidence could not be preserved; refusing teardown" >&2
+        exit 1
+      }
+  fi
   return 0
 }
 

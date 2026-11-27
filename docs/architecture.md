@@ -526,7 +526,10 @@ flowchart LR
 ```
 
 The lifecycle keeps evidence by default and gives declared scratch a completion owner.
-The brief owns declaration, spawn invalidates previous retention receipts under the task metadata lock, confirmed PR and local merge handling own landing evidence, teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
+The brief owns declaration, and spawn invalidates previous retention receipts under the task metadata lock.
+Confirmed PR and local merge handling own landing evidence; teardown also preserves a PR proof when its independent verification observes an external merge first.
+Each confirmed PR refreshes the task's merge receipt; an identical retry leaves that receipt unchanged.
+Teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
 The retention command reuses the backlog adapter and the configured Done archive owner, shared bounded record reads, and the existing metadata lock before pruning.
 It never removes worktree content; a released worktree that remains on disk is a report item even after its Done row moves to the configured archive.
 A released path named by multiple completed tasks appears once in `shared_worktrees` with ambiguous ownership and no task-attributed bytes.

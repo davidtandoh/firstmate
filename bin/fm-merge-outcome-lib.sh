@@ -73,8 +73,7 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
   # Keep merge evidence beyond teardown's retirement of poll markers. Only
   # tasks that opted into the declaration contract need a retention receipt.
   local retention_data=${FM_DATA_OVERRIDE:-$home/data}
-  if [ -f "$retention_data/$id/scratch.json" ] \
-    && [ ! -e "$retention_data/$id/retention-merge.json" ]; then
+  if [ -f "$retention_data/$id/scratch.json" ]; then
     FM_HOME="$home" FM_DATA_OVERRIDE="$retention_data" FM_STATE_OVERRIDE="$state" \
       bash "$_FM_MERGE_OUTCOME_LIB_DIR/fm-task-retention.sh" confirm-merge "$id" --merged-pr "$url" >/dev/null || return 1
   fi

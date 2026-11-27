@@ -8,6 +8,9 @@ export ROOT
 python3 - <<'PY'
 import json
 import os
+import resource
+import shutil
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
@@ -197,6 +200,32 @@ class Retention(unittest.TestCase):
         self.assertEqual(row['eligible_bytes'], 4096)
         self.assertTrue(proof.exists())
 
+    def test_teardown_preserves_externally_merged_pr_before_poll(self):
+        head = self.local_fixture()
+        url = 'https://github.com/example/repo/pull/7'
+        meta = self.home / 'state/job.meta'
+        value = meta.read_text().replace('mode=local-only', 'mode=no-mistakes')
+        value = value.replace(str(self.home / 'absent-worker'), str(self.home / 'worker'))
+        meta.write_text(value + 'pr=' + url + '\n')
+        gh = self.home / 'tools/fakebin/gh'
+        gh.write_text('#!/usr/bin/env bash\n'
+                      'if [ "${1:-} ${2:-}" = "pr view" ]; then\n'
+                      "  printf 'MERGED\\t%%s\\t%%s\\n' '%s' '%s'\n" % (head, url) +
+                      '  exit 0\nfi\nexit 1\n')
+        gh.chmod(0o755)
+        self.run_cli('declare', 'job', '--scratch', 'cache')
+        self.task('reopen', 'job')
+        self.task('start', 'job')
+        self.assertFalse((self.home / 'data/job/retention-merge.json').exists())
+        self.teardown()
+        proof = json.loads((self.home / 'data/job/retention-merge.json').read_text())
+        receipt = json.loads((self.home / 'data/job/retention-complete.json').read_text())
+        self.assertEqual(proof['url'], url)
+        self.assertEqual(receipt['merged_pr'], url)
+        self.assertIn('grace', self.report()['reason'])
+        self.ready_from_existing()
+        self.assertEqual(self.report()['eligible_bytes'], 4096)
+
     def test_local_teardown_without_landing_proof_stays_ineligible(self):
         self.local_fixture()
         self.run_cli('declare', 'job', '--scratch', 'cache')
@@ -262,9 +291,22 @@ class Retention(unittest.TestCase):
         subprocess.run(['bash', '-c', '. "$1/bin/fm-merge-outcome-lib.sh"; fm_merge_outcome_report "$FM_HOME" "$FM_HOME/state" job "$2" self',
                         '_', os.environ['ROOT'], url], cwd=self.home, env=self.env,
                        check=True, capture_output=True, text=True)
-        proof = json.loads((self.home / 'data/job/retention-merge.json').read_text())
+        path = self.home / 'data/job/retention-merge.json'
+        proof = json.loads(path.read_text())
         self.assertEqual(proof['url'], url)
-        self.task('done', 'job', '--pr', url)
+        original = path.stat()
+        subprocess.run(['bash', '-c', '. "$1/bin/fm-merge-outcome-lib.sh"; fm_merge_outcome_report "$FM_HOME" "$FM_HOME/state" job "$2" self',
+                        '_', os.environ['ROOT'], url], cwd=self.home, env=self.env,
+                       check=True, capture_output=True, text=True)
+        self.assertEqual(path.stat().st_ino, original.st_ino)
+        self.assertEqual(path.stat().st_mtime_ns, original.st_mtime_ns)
+        latest = 'https://github.com/example/repo/pull/2'
+        subprocess.run(['bash', '-c', '. "$1/bin/fm-merge-outcome-lib.sh"; fm_merge_outcome_report "$FM_HOME" "$FM_HOME/state" job "$2" self',
+                        '_', os.environ['ROOT'], latest], cwd=self.home, env=self.env,
+                       check=True, capture_output=True, text=True)
+        self.assertEqual(json.loads(path.read_text())['url'], latest)
+        self.task('done', 'job', '--pr', latest)
+        self.assertNotIn(url, self.run_cli('backlog').stdout)
         self.run_cli('complete', 'job')
         self.ready_from_existing()
         self.assertEqual(self.report()['eligible_bytes'], 4096)
@@ -372,6 +414,62 @@ class Retention(unittest.TestCase):
         row = self.report('--prune')
         self.assertIn('audit', row['reason'])
         self.assertEqual((self.home / 'data/job/report.md').read_text(), 'Kept evidence\n')
+
+    def test_engine_limit_does_not_constrain_real_backlog_children(self):
+        self.ready()
+        real_tasks = shutil.which('tasks-axi', path=self.env['PATH'])
+        self.assertIsNotNone(real_tasks)
+        fakebin = self.home / 'limit-probe-bin'
+        fakebin.mkdir()
+        child_log = self.home / 'child-limits.jsonl'
+        audit_log = self.home / 'engine-limits.jsonl'
+        wrapper = fakebin / 'tasks-axi'
+        wrapper.write_text('#!' + sys.executable + '\nimport json, os, resource, sys\n'
+                           'with open(%r, "a") as log:\n' % str(child_log) +
+                           '    log.write(json.dumps(resource.getrlimit(resource.RLIMIT_AS)) + "\\n")\n'
+                           'os.execv(%r, [%r] + sys.argv[1:])\n' % (real_tasks, real_tasks))
+        wrapper.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env['PATH'])
+        driver = """
+import json, os, resource, runpy, sys
+log_path, engine = sys.argv[1:]
+def record(value):
+    with open(log_path, 'a') as log:
+        log.write(json.dumps(value) + '\\n')
+record({'event': 'baseline', 'pid': os.getpid(), 'limits': resource.getrlimit(resource.RLIMIT_AS)})
+def audit(event, args):
+    if event == 'subprocess.Popen':
+        record({'event': event, 'pid': os.getpid(), 'limits': resource.getrlimit(resource.RLIMIT_AS)})
+    elif event == 'resource.setrlimit' and args[0] == resource.RLIMIT_AS:
+        record({'event': event, 'pid': os.getpid(), 'attempt': args[1]})
+sys.addaudithook(audit)
+sys.argv = [engine, 'report', '--json']
+sys.path.insert(0, os.path.dirname(engine))
+runpy.run_path(engine, run_name='__main__')
+"""
+        result = subprocess.run([sys.executable, '-c', driver, str(audit_log),
+                                 str(Path(os.environ['ROOT']) / 'bin/fm-task-retention.py')],
+                                cwd=self.home, env=env, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(output['tasks'][0]['eligible_bytes'], 4096)
+        events = [json.loads(line) for line in audit_log.read_text().splitlines()]
+        baseline = events[0]
+        parents = [event for event in events if event['pid'] == baseline['pid']]
+        attempts = [event['attempt'] for event in parents if event['event'] == 'resource.setrlimit']
+        self.assertTrue(attempts)
+        self.assertEqual(attempts[0][1], baseline['limits'][1])
+        launches = [event['limits'] for event in parents if event['event'] == 'subprocess.Popen']
+        self.assertTrue(launches)
+        enforced = all(0 < limits[0] <= 128 * 1048576 for limits in launches)
+        if sys.platform.startswith('linux'):
+            self.assertTrue(enforced, launches)
+        print('retention engine address-space cap enforced: %s (%s)' % (enforced, sys.platform))
+        if not sys.platform.startswith('linux'):
+            print('Linux address-space enforcement proof unavailable on this host')
+        children = [json.loads(line) for line in child_log.read_text().splitlines()]
+        self.assertTrue(children)
+        self.assertTrue(all(limits == baseline['limits'] for limits in children), children)
 
     def test_streaming_scan_budget(self):
         self.ready()
