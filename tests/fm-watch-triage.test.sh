@@ -2654,8 +2654,8 @@ test_wedge_guard_never_defers_a_gone_endpoint() {
 # the same window has to get the full alarm back, and its own later death has to be
 # reported again rather than silenced by the record of the first one.
 # A wrapped worker's pane can keep its live attach client after the Omnigent
-# server restarted or its session runner went away. The recorded session then
-# makes the pane read dead in the once-only report instead of a wedge.
+# exact session is confirmed absent. Connectivity loss alone must not make
+# the pane read dead in the once-only report.
 test_omnigent_session_loss_reports_dead_instead_of_wedging() {
   local dir state fakebin out capture window session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   local failed='state: failed · source: run-step · run failed'
@@ -2664,14 +2664,14 @@ test_omnigent_session_loss_reports_dead_instead_of_wedging() {
   state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
   printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$state/wedge.meta"
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$fakebin" )
-  FM_TEST_PANE_COMMAND=grok FM_TEST_TMUX_WINDOWS=fm-wedge OMNI_SESSION_STATE=runner-gone
+  FM_TEST_PANE_COMMAND=grok FM_TEST_TMUX_WINDOWS=fm-wedge OMNI_SESSION_STATE=missing
   export FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS OMNI_SESSION_STATE
   wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$failed" exit \
     || fail "a wrapped worker with a gone session was never reported: $(cat "$out")"
   ack_stopped_cycle "$state" || fail "could not acknowledge the session-loss report"
   unset FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS OMNI_SESSION_STATE
   grep -F 'agent dead' "$out" >/dev/null || fail "a gone Omnigent session was not reported dead: $(cat "$out")"
-  grep -F 'Omnigent server stopped answering or its session runner is gone' "$out" >/dev/null \
+  grep -F 'exact Omnigent session is confirmed absent' "$out" >/dev/null \
     || fail "the report did not name the Omnigent session loss: $(cat "$out")"
   ! grep -F 'possible wedge' "$out" >/dev/null || fail "a gone Omnigent session escalated as a wedge"
   pass "a wrapped worker whose Omnigent session is gone is reported dead once, not escalated as a wedge"

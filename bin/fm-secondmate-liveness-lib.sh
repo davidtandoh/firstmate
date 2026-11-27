@@ -280,6 +280,9 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
     ambiguous)
       FM_SM_LIVE_REASON="existing endpoint has ambiguous agent process (backend=$backend)"
       ;;
+    unknown)
+      FM_SM_LIVE_REASON="Omnigent native owner unknown; connectivity and attach state do not prove termination (backend=$backend)"
+      ;;
     unreadable)
       FM_SM_LIVE_REASON="endpoint probe unreadable (backend=$backend)"
       ;;
@@ -360,6 +363,13 @@ fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
   # pending handoff; closing the endpoint below kills that observer.
   if [ "$(fm_meta_get "$meta" omnigent)" = on ] && [ -z "$(fm_meta_get "$meta" remote_host)" ]; then
     "$FM_SM_LIVE_LIB_DIR/fm-omnigent.sh" capture "$meta" || true
+    if [ "$(bash "$FM_SM_LIVE_LIB_DIR/fm-omnigent.sh" probe --fresh "$meta")" != dead ]; then
+      FM_SM_LIVE_STATUS=skipped
+      FM_SM_LIVE_REASON="Omnigent native owner not proven absent; endpoint and work retained"
+      FM_SM_LIVE_RC=1
+      fm_lock_release "$relaunch_lock" || true
+      return 1
+    fi
   fi
   if [ "$FM_SM_LIVE_KILL" = 1 ]; then
     local backend target window

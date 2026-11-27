@@ -421,7 +421,14 @@ fi
 # --- shared helpers ---------------------------------------------------------
 
 agent_state() {
-  fm_backend_agent_state "$BACKEND" "$T"
+  local state native
+  state=$(fm_backend_agent_state "$BACKEND" "$T")
+  if [ "${VERIFY_OMNIGENT_STOP:-0}" = 1 ]; then
+    native=$(fm_backend_omnigent_agent_state "$state" "$META")
+    # Native absence and attach exit must both hold before a stop wait passes.
+    if [ "$state:$native" != alive:dead ]; then state=$native; fi
+  fi
+  printf '%s' "$state"
 }
 
 busy_verdict() {
@@ -720,6 +727,7 @@ retire_busy_incarnation() {
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  local VERIFY_OMNIGENT_STOP=0
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"
@@ -727,11 +735,15 @@ do_exit() {
     "$SCRIPT_DIR/fm-omnigent.sh" capture "$META" || true
   fi
   state=$(agent_state)
-  if [ "$state" = alive ] && [ "$(fm_backend_omnigent_agent_state "$state" "$META")" = dead ]; then
+  verdict=$(fm_backend_omnigent_agent_state "$state" "$META")
+  [ "$verdict" != unknown ] || die "task $ID's Omnigent native owner is unknown; attach-client state cannot authorize stop or replacement"
+  if [ "$state" = alive ] && [ "$verdict" = dead ]; then
     "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$META" \
       || die "could not stop task $ID's retained Omnigent attach client"
     wait_agent_state "$EXIT_WAIT" dead >/dev/null \
       || die "task $ID's retained Omnigent attach client was not confirmed stopped"
+    [ "$(fm_backend_omnigent_agent_state dead "$META")" = dead ] \
+      || die "task $ID's attach client stopped, but its native owner is not proven absent"
     retire_busy_incarnation
     printf 'stopped'
     return 0
@@ -779,6 +791,8 @@ do_exit() {
       esac
       ;;
   esac
+  # Subsequent waits must prove native absence as well as attach-client exit.
+  VERIFY_OMNIGENT_STOP=1
   # A busy agent is interrupted first before the exit command is submitted.
   case "$(busy_verdict)" in
     busy*)
@@ -951,6 +965,7 @@ relaunch_rollback() {
       ;;
     stopping)
       state=$(agent_state 2>/dev/null || printf unknown)
+      state=$(fm_backend_omnigent_agent_state "$state" "$META")
       case "$state" in
         alive)
           if [ -n "$RELAUNCH_BRIEF" ] && [ -f "$BRIEF_PRIOR" ]; then

@@ -474,7 +474,7 @@ test_omnigent_relaunch_archives_the_stopped_session() {
   expect_code 1 "$rc" "a relaunch refused before exit must fail"$'\n'"$out"
   [ ! -e "$dir/serve/archived.jsonl" ] || fail "a session was archived while its agent was still running"
   rm -f "$dir/fake/composer"
-  out=$(run_control "$dir" "$id" relaunch --note "continue wrapped work"); rc=$?
+  out=$(OMNI_SESSION_STATE=native-exit OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" run_control "$dir" "$id" relaunch --note "continue wrapped work"); rc=$?
   expect_code 0 "$rc" "a wrapped relaunch should succeed"$'\n'"$out"
   assert_grep "/exit" "$dir/fake/literal" "the previous agent should have been exited"
   [ "$(grep -cx 'observe serve status --json' "$dir/serve/agent-kit.log")" = 2 ] \
@@ -500,13 +500,13 @@ test_omnigent_relaunch_defers_during_upgrade_window() {
     '{schema_version:"1", job:"job-c", phase:"pausing", outcome:null, expires_at:$exp, interrupted_sessions:[]}' \
     > "$obs/serve/upgrade-window.json"
   meta_before=$(cat "$dir/home/state/$id.meta")
-  out=$(AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
+  out=$(OMNI_SESSION_STATE=native-exit OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
   expect_code 75 "$rc" "a wrapped relaunch during an upgrade window must defer"$'\n'"$out"
   ! grep -q '/exit' "$dir/fake/literal" 2>/dev/null || fail "the old agent was exited during the upgrade window"
   [ "$(cat "$dir/home/state/$id.meta")" = "$meta_before" ] || fail "the deferred relaunch changed the task record"
   [ ! -e "$dir/serve/archived.jsonl" ] || fail "the deferred relaunch archived the running session"
   jq '.phase = "resumed" | .outcome = "upgraded"' "$obs/serve/upgrade-window.json" > "$obs/w" && mv "$obs/w" "$obs/serve/upgrade-window.json"
-  out=$(AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
+  out=$(OMNI_SESSION_STATE=native-exit OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" AGENT_KIT_OBSERVATION_DIR="$obs" run_control "$dir" "$id" relaunch --note "after upgrade"); rc=$?
   expect_code 0 "$rc" "a wrapped relaunch after the window resumed should succeed"$'\n'"$out"
   pass "fm-control relaunch: an Omnigent upgrade window defers a wrapped relaunch before the old agent stops"
 }
@@ -3394,7 +3394,7 @@ SPAWN
     fm_pid_start_time "$pid"
   )
   printf 'omnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "$pid" "$started" >> "$dir/home/state/$id.meta"
-  out=$(OMNI_SESSION_STATE=runner-gone run_control "$dir" "$id" relaunch --note 'recover dead runner'); rc=$?
+  out=$(OMNI_SESSION_STATE=missing run_control "$dir" "$id" relaunch --note 'recover dead runner'); rc=$?
   kill -TERM "$pid" 2>/dev/null || true
   expect_code 0 "$rc" "dead wrapped runner must recover"$'\n'"$out"
   [ ! -e "$dir/fake/closed-windows" ] || fail 'recovery removed the endpoint'
@@ -3402,6 +3402,77 @@ SPAWN
   [ "$(journal_field "$dir" "$id" phase)" = complete ] || fail 'dead session replacement did not complete'
   pass 'dead wrapped runner stops its exact attach client and recovers'
 }
+
+# Keep an independently owned native process alive while its transport degrades.
+test_omnigent_unknown_withholds_lifecycle() (
+  local dir out rc id=rl-unknown session=dddddddddddddddddddddddddddddddd
+  local pid started condition verb
+  dir=$(new_case omni-unknown "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  pid=$(python3 - <<'SPAWN'
+import subprocess
+p = subprocess.Popen(['sleep', '300'], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(p.pid)
+SPAWN
+)
+  trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
+  started=$( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_start_time "$pid" )
+  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+    "$session" "$pid" "$started" >> "$dir/home/state/$id.meta"
+  cp "$dir/home/state/$id.meta" "$dir/prior.meta"
+  for condition in runner-gone api-down attach-stopped archived failed native-live-exit; do
+    export OMNI_SESSION_STATE=$condition OMNI_HEALTH=ok
+    [ "$condition" != api-down ] || export OMNI_HEALTH=down
+    [ "$condition" != native-live-exit ] || export OMNI_SESSION_STATE=alive
+    if [ "$condition" = attach-stopped ]; then
+      export OMNI_SESSION_STATE=alive
+      printf zsh > "$dir/fake/command"
+    else
+      printf claude > "$dir/fake/command"
+    fi
+    for verb in exit relaunch; do
+      rm -f "$dir/fake/literal"
+      rc=0
+      if [ "$verb" = relaunch ]; then
+        out=$(run_control "$dir" "$id" "$verb" --note 'recover only with native absence') || rc=$?
+      else
+        out=$(run_control "$dir" "$id" "$verb") || rc=$?
+      fi
+      [ "$rc" -ne 0 ] || fail "$condition $verb claimed the native worker stopped: $out"
+      if [ "$condition:$verb" = api-down:relaunch ]; then
+        assert_contains "$out" 'server is unreachable' 'API failure did not refuse at launch preflight'
+      elif [ "$condition:$verb" = native-live-exit:exit ]; then
+        assert_contains "$out" 'exit=unconfirmed' 'attach exit falsely confirmed native stop'
+      else
+        assert_contains "$out" 'native owner is unknown' "$condition $verb lost its refusal reason"
+      fi
+      cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$condition $verb replaced the native owner record"
+      if [ "$condition:$verb" = native-live-exit:exit ]; then
+        assert_grep '/exit' "$dir/fake/literal" 'normal exit was not attempted'
+      else
+        [ ! -s "$dir/fake/literal" ] || fail "$condition $verb delivered lifecycle input"
+      fi
+      [ ! -e "$dir/serve/archived.jsonl" ] || fail "$condition $verb archived the native owner"
+      kill -0 "$pid" || fail "$condition $verb signalled a possibly live owner"
+    done
+    if [ "$condition" = attach-stopped ]; then
+      rc=0
+      out=$(run_spawn "$dir" "$id" --relaunch --harness claude) || rc=$?
+      [ "$rc" -ne 0 ] || fail 'direct spawn replaced a live native owner after attach exit'
+      assert_contains "$out" "endpoint reads 'unknown'" 'direct spawn did not enforce native-owner uncertainty'
+      cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail 'direct spawn replaced the native owner record'
+      [ ! -s "$dir/fake/literal" ] || fail 'direct spawn launched into an unknown native owner'
+      kill -0 "$pid" || fail 'direct spawn signalled the owner'
+    fi
+    if PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" stop-attach "$dir/home/state/$id.meta"; then
+      fail "$condition authorized process-group signalling"
+    fi
+    kill -0 "$pid" || fail "$condition stop-attach signalled the owner"
+  done
+  pass 'disconnect, API failure and attach exit withhold signals and replacement while native work survives'
+)
 
 test_omnigent_late_binding_retirement() {
   local dir state meta id=rl-late mode
@@ -3430,6 +3501,7 @@ if [ "${1:-}" = --omnigent ]; then
   test_omnigent_relaunch_archives_the_stopped_session
   test_omnigent_relaunch_defers_during_upgrade_window
   test_omnigent_dead_attach_recovery
+  test_omnigent_unknown_withholds_lifecycle || exit 1
   test_omnigent_late_binding_retirement
   exit 0
 fi
@@ -3507,6 +3579,7 @@ test_cursor_session_binding_is_retired_on_a_harness_switch
 test_omnigent_relaunch_archives_the_stopped_session
 test_omnigent_relaunch_defers_during_upgrade_window
 test_omnigent_dead_attach_recovery
+test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
 test_missing_worktree_refuses_before_stopping_anything
 test_relaunch_refuses_a_recorded_worktree_that_is_the_primary_home

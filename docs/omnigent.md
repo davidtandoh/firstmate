@@ -106,13 +106,15 @@ When it reads alive and a session binding exists, supervision readers consult th
 The watcher, crew-state reconciliation, and stale checks share one sanitized snapshot per task and launch binding.
 The snapshot contains runner liveness and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
 A successful session read proves reachability without a separate `/health` request.
-An inconclusive session read also checks `/health` to distinguish an unreachable server from an unknown session verdict.
+An inconclusive session read remains unknown; server health cannot prove native-owner termination.
 Slow or failed reads reduce the refresh rate through bounded backoff.
 The [`bin/fm-omnigent.sh` header](../bin/fm-omnigent.sh) owns expiry, request limits, cache identity, and refresh mechanics.
-An unreachable server, or a session that is missing, archived, failed, or without an online runner, reads as dead, so the ordinary dead-endpoint report and recovery take over.
-An absent binding or an inconclusive session response leaves the pane verdict unchanged.
+Only a confirmed absent exact session reads as dead and permits recovery.
+A disconnected runner, unreachable server, archived flag, failed turn, absent binding, or inconclusive session response reads as unknown.
+An attach client that stops or disappears does not prove that its native owner stopped.
+Unknown native-owner state withholds process-group signals, replacement, recovery, and teardown lease release; crew-state output reports the degradation.
 Secondmate recovery readers require fresh session reads, including remote recovery probes.
-Lifecycle commands require a fresh session read before stopping a retained attach client, then require the pane-level verdict to confirm that the client stopped.
+Lifecycle commands require a fresh session read before stopping a retained attach client, then confirm both attach-client exit and fresh native absence.
 Cached supervision verdicts never authorize that signal.
 
 ## Upgrade pause window

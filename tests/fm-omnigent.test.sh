@@ -97,12 +97,12 @@ polling_checks() (
   [ "$(OMNI_PENDING="$pending" "$OMNI" approvals "$poll_meta" | jq -r '.[0].id')" = new ] || fail 'TTL boundary hid a new approval'
   snapshot="$poll_state/.bound.omnigent-snapshot.json"
   if rg -q 'secret|SECRET|content_preview|params' "$snapshot"; then fail 'snapshot persisted private prompt content'; fi
-  [ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe --fresh "$poll_meta")" = dead ] || fail 'fresh consult reused cached live runner'
+  [ "$(OMNI_SESSION_STATE=missing "$OMNI" probe --fresh "$poll_meta")" = dead ] || fail 'fresh consult reused cached live runner'
   [ "$("$OMNI" probe "$poll_meta")" = alive ] || fail 'fresh consult overwrote the shared snapshot'
   printf 'spawn_gen=poll.2\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$poll_meta"
   [ "$(OMNI_PENDING='[]' "$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'new generation reused old approval'
   printf 'spawn_gen=poll.2\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://localhost:6767\n' bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb > "$poll_meta"
-  [ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe "$poll_meta")" = dead ] || fail 'new binding reused old liveness'
+  [ "$(OMNI_SESSION_STATE=missing "$OMNI" probe "$poll_meta")" = dead ] || fail 'new binding reused old liveness'
   printf 'omnigent_attach_pid=%s\nomnigent_attach_start=unused\n' "$$" >> "$poll_meta"
   before=$(requests)
   if "$OMNI" stop-attach "$poll_meta"; then fail 'cached dead verdict authorized stopping a now-live attach client'; fi
@@ -131,7 +131,7 @@ polling_checks() (
   [ "$("$OMNI" approvals "$poll_meta")" = '[]' ] || fail 'server recovery did not restore approvals'
   [ "$(requests)" = 6 ] || fail 'recovery did not reset the normal cadence'
   rm "$snapshot"
-  [ "$(OMNI_HEALTH=down "$OMNI" probe "$poll_meta")" = dead ] || fail 'stopped server lost its dead verdict'
+  [ "$(OMNI_HEALTH=down "$OMNI" probe "$poll_meta")" = unknown ] || fail 'unreachable server falsely proved worker death'
   pass 'failed reads back off for 30/60/120 seconds, preserve unknown and recover'
 
   rm "$snapshot"
@@ -182,41 +182,46 @@ probe_home="$TMP_ROOT/probe/state"
 mkdir -p "$probe_home"
 printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$probe_home/bound.meta"
 printf 'harness=codex\nomnigent=on\n' > "$probe_home/newer.meta"
-# The supervision probe maps a gone server or session to dead.
+# Connectivity loss cannot prove that the native owner ended.
 probe() { "$OMNI" probe --fresh "$probe_home/bound.meta"; }
 [ "$(probe)" = alive ] || fail 'live session did not probe alive'
 # Real records exceed 150 KB. Bound the entire probe, including shell parsing.
 . "$ROOT/bin/fm-timeout-lib.sh"
 for state in alive runner-gone; do
   expected=alive
-  [ "$state" != runner-gone ] || expected=dead
+  [ "$state" != runner-gone ] || expected=unknown
   result=$(OMNI_SESSION_PADDING=170000 OMNI_SESSION_STATE="$state" \
     fm_run_timed 6 bash "$OMNI" probe --fresh "$probe_home/bound.meta") \
     || fail "large $state session probe exceeded its completion bound"
   [ "$result" = "$expected" ] || fail "large $state session probed $result instead of $expected"
 done
 pass 'large session records return the correct supervision verdict within six seconds'
-for gone in runner-gone failed archived missing; do
-  [ "$(OMNI_SESSION_STATE=$gone probe)" = dead ] || fail "$gone session did not probe dead"
+[ "$(OMNI_SESSION_STATE=missing probe)" = dead ] || fail 'confirmed absent session did not probe dead'
+for degraded in runner-gone failed archived; do
+  [ "$(OMNI_SESSION_STATE=$degraded probe)" = unknown ] || fail "$degraded falsely proved native end"
 done
-[ "$(OMNI_HEALTH=down probe)" = dead ] || fail 'unreachable server did not probe dead'
+[ "$(OMNI_HEALTH=down probe)" = unknown ] || fail 'unreachable server falsely proved native end'
 [ "$(OMNI_SESSION_STATE=server-error probe)" = unknown ] || fail 'unproven session reply was treated as a verdict'
 [ "$("$OMNI" probe "$probe_home/newer.meta")" = unknown ] || fail 'record without a session was given a verdict'
 (
 . "$ROOT/bin/fm-backend.sh"
-[ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = dead ] \
+[ "$(OMNI_SESSION_STATE=missing fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = dead ] \
   || fail 'supervision view kept a wrapped worker with a gone session alive'
 [ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = alive ] || fail 'supervision view changed a live wrapped worker'
-[ "$(OMNI_SESSION_STATE=runner-gone "$OMNI" probe "$probe_home/bound.meta")" = dead ] || fail 'could not seed dead supervision snapshot'
+[ "$(OMNI_SESSION_STATE=runner-gone fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = unknown ] || fail 'disconnected native owner was not unknown'
+[ "$(fm_backend_omnigent_agent_state dead "$probe_home/bound.meta")" = unknown ] || fail 'attach exit counted as native end'
+[ "$(OMNI_SESSION_STATE=missing fm_backend_omnigent_agent_state dead "$probe_home/bound.meta")" = dead ] || fail 'confirmed absence did not permit recovery'
+
+[ "$(OMNI_SESSION_STATE=missing "$OMNI" probe "$probe_home/bound.meta")" = dead ] || fail 'could not seed dead supervision snapshot'
 [ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta")" = alive ] || fail 'recovery reader trusted cached death'
 [ "$(fm_backend_omnigent_agent_state alive "$probe_home/bound.meta" --cached)" = dead ] || fail 'supervision reader did not share snapshot'
 rm "$probe_home/.bound.omnigent-snapshot.json"
-[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$probe_home/bound.meta")" = missing ] \
-  || fail 'supervision view rewrote a non-alive pane verdict'
-[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$probe_home/newer.meta")" = alive ] \
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state missing "$probe_home/bound.meta")" = unknown ] \
+  || fail 'missing attach endpoint falsely proved native end'
+[ "$(OMNI_HEALTH=down fm_backend_omnigent_agent_state alive "$probe_home/newer.meta")" = unknown ] \
   || fail 'supervision view probed a record without a session'
 )
-pass 'a stopped server or gone session reads dead in the supervision view only when the pane reads alive'
+pass 'supervision separates native absence from connectivity loss and attach state'
 fi
 if [ "${1:-}" != --claude-accounts ]; then
 export OMNI_PENDING='[{"type":"response.elicitation_request","elicitation_id":"approval-1","params":{"message":"Claude wants to call **Bash**\nsecret command","content_preview":"SECRET"}}]'
@@ -235,6 +240,15 @@ case "$approvals" in *secret*|*SECRET*) fail 'approval leaked command details' ;
 check_watcher_approvals() (
   . "$ROOT/bin/fm-watch.sh"
   wake() { printf '%s\n' "$1"; }
+  # A stopped attach endpoint is not a stopped native owner either.
+  fm_backend_agent_state() { printf '%s' "$attach_state"; }
+  for attach_state in alive dead missing; do
+    rm -f "$probe_home/.bound.omnigent-snapshot.json"
+    if OMNI_SESSION_STATE=runner-gone wedge_dead_record session:fm-bound "$probe_home/since" fixture 300 hash bound > "$TMP_ROOT/degraded-wake"; then
+      fail "$attach_state attach state reported disconnected native work dead"
+    fi
+    [ ! -s "$TMP_ROOT/degraded-wake" ] || fail 'disconnect produced a worker-death wake'
+  done
   rm -f "$probe_home/.bound.omnigent-snapshot.json"
   omnigent_approval_check session:fm-bound bound > "$TMP_ROOT/first-approval"
   [ "$(cat "$TMP_ROOT/first-approval")" = 'check: bound parked on Omnigent approval at session:fm-bound: Claude wants to call Bash' ] || fail 'first poll did not wake with task, endpoint, and safe heading'

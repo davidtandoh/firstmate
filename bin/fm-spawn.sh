@@ -2651,6 +2651,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
         ;;
     esac
   fi
+  RELAUNCH_STATE=$(fm_backend_omnigent_agent_state "$RELAUNCH_STATE" "$RELAUNCH_META")
   case "$RELAUNCH_STATE" in
     dead) ;;
     missing) RELAUNCH_REBIND=1 ;;

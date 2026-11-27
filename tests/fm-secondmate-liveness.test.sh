@@ -899,7 +899,7 @@ test_omnigent_secondmate_session_verdict() {
   printf 'omnigent=on\nomnigent_session=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nomnigent_server=http://127.0.0.1:6767\n' >> "$w/home/state/sm1.meta"
   for state in alive runner-gone missing server-error; do
     expected=alive
-    case "$state" in runner-gone|missing) expected=relaunchable ;; esac
+    case "$state" in missing) expected=relaunchable ;; runner-gone|server-error) expected=skipped ;; esac
     out=$(PATH="$tools:$PATH" FM_HOME="$w/home" STATE="$w/home/state" \
       FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE="$state" bash -c '
       . "$1/bin/fm-secondmate-liveness-lib.sh"
@@ -935,7 +935,7 @@ SPAWN
     chmod +x "$w/runtime/bin/fm-spawn.sh"
     rc=0
     out=$(PATH="$tools:$PATH" FM_HOME="$w/home" FM_ROOT="$w/runtime" STATE="$w/home/state" \
-      FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=runner-gone \
+      FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=missing \
       OMNI_ARCHIVE_MODE="$mode" FM_TEST_FAIL_KILL="$([ "$mode" != refused ] && printf 0 || printf 1)" bash -c '
       . "$1/bin/fm-secondmate-liveness-lib.sh"
       fm_secondmate_liveness_lock sm1 || exit 1
@@ -987,7 +987,7 @@ SPAWN
   chmod +x "$w/runtime/bin/fm-spawn.sh"
   rc=0
   out=$(PATH="$tools:$PATH" FM_HOME="$w/home" FM_ROOT="$w/runtime" STATE="$w/home/state" \
-    FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=runner-gone bash -c '
+    FM_TEST_PANE_CMD=claude FM_TMUX_CALL_LOG="$w/calls.log" OMNI_SESSION_STATE=missing bash -c '
     . "$1/bin/fm-secondmate-liveness-lib.sh"
     fm_secondmate_liveness_lock sm1 || exit 1
     trap "fm_secondmate_liveness_unlock sm1" EXIT

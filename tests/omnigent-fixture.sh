@@ -109,10 +109,17 @@ elif state == 'failed':
     session['status'] = 'failed'
 elif state == 'archived':
     session['archived'] = True
+elif state == 'native-exit':
+    if pathlib.Path(os.environ['OMNI_NATIVE_COMMAND_FILE']).read_text() == 'zsh':
+        code = 404
 elif state == 'missing':
     code = 404
 elif state == 'server-error':
     code = 500
+if os.environ.get('OMNI_END_MARKER'):
+    marker = pathlib.Path(os.environ['OMNI_END_MARKER'])
+    if marker.exists() and marker.read_text().strip() == session['id']:
+        code = 404
 if method == 'PATCH' and body.get('archived') is True:
     if os.environ.get('OMNI_ARCHIVE_MODE') == 'http-error':
         sys.exit(22)

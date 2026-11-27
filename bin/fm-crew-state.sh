@@ -1615,6 +1615,7 @@ if ! pane_readable "$BACKEND_TARGET"; then
     tmux|herdr|rex|t3code) AGENT_STATE=$(fm_backend_agent_state "$TASK_BACKEND" "$BACKEND_TARGET") ;;
     *) AGENT_STATE=none ;;
   esac
+  AGENT_STATE=$(fm_backend_omnigent_agent_state "$AGENT_STATE" "$META" --cached)
   case "$TASK_BACKEND:$AGENT_STATE" in
     tmux:alive|herdr:alive|rex:alive|t3code:alive)
       ;;
@@ -1638,12 +1639,12 @@ fi
 # Only an exact busy verdict reports working here, and only an exact idle
 # verdict permits the status-log fallback below. Missing, malformed, stale, or
 # unverified semantic state remains unknown.
-# A readable pane proves only that a wrapped worker's attach client runs; its
-# recorded Omnigent session must still be reachable (bin/fm-backend.sh owns the
-# overlay), or the agent is gone.
-if [ "$(fm_backend_omnigent_agent_state alive "$META" --cached)" = dead ]; then
-  emit unknown none "Omnigent session gone: server unreachable or runner gone (attach client remains in $BACKEND_TARGET)"
-fi
+# The shared overlay keeps native-owner degradation visible independently of
+# attach-client and semantic busy state.
+case "$(fm_backend_omnigent_agent_state alive "$META" --cached)" in
+  dead) emit unknown none "Omnigent session confirmed absent (attach client remains in $BACKEND_TARGET)" ;;
+  unknown) emit unknown none "Omnigent native owner unknown: disconnected or unreadable session (attach client in $BACKEND_TARGET)" ;;
+esac
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
   case "${BUSY_VERDICT%% *}" in
