@@ -1,0 +1,41 @@
+{
+  "focused_checks": [
+    {
+      "command": [
+        "bash",
+        "tests/fm-omnigent.test.sh",
+        "--probe"
+      ],
+      "duration_ms": 31302,
+      "exit": 0,
+      "gate_skip": false,
+      "timeout": false
+    },
+    {
+      "command": [
+        "bash",
+        "tests/fm-control-relaunch.test.sh",
+        "--omnigent"
+      ],
+      "duration_ms": 88090,
+      "exit": 0,
+      "gate_skip": false,
+      "timeout": false
+    },
+    {
+      "command": [
+        "bash",
+        "tests/fm-teardown.test.sh",
+        "--omnigent"
+      ],
+      "duration_ms": 52630,
+      "exit": 0,
+      "gate_skip": false,
+      "timeout": false
+    }
+  ],
+  "limitation": "No real native worker was launched or disconnected. Existing live guard creates managed-service sessions and writes home-level Herdr state outside the authorized worktree. Fixture results do not establish native remote acceptance.",
+  "live_evidence": "live-probes.json",
+  "source_changes": false,
+  "target": "5cd23defd0ea38960660c4038381f184754c0b69"
+}

@@ -1,0 +1,19 @@
+ok - one worker minute shares two session reads across approval and liveness checks
+ok - expiry, relaunch and binding changes refresh while lifecycle checks bypass snapshots
+ok - failed reads back off for 30/60/120 seconds, preserve unknown and recover
+ok - slow successful reads back off and invalid snapshots fail safely
+ok - concurrent refreshes coalesce and unsafe cache paths fail closed
+ok - large session records return the correct supervision verdict within six seconds
+ok - supervision separates native absence from connectivity loss and attach state
+ok - watcher poll wakes immediately once per approval, with no clear/unknown/native alarms
+ok - busy pane approval surfaces in the first complete watcher poll
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ok - daemon consumes the durable approval wake immediately despite a declared wait
+ok - approval snapshots expose safe summaries and distinguish unknown from cleared

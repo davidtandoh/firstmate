@@ -1,0 +1,15 @@
+ok - fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it
+ok - fm-control relaunch: an Omnigent upgrade window defers a wrapped relaunch before the old agent stops
+ok - dead wrapped runner stops its exact attach client and recovers
+ok - disconnect, API failure and attach exit withhold signals and replacement while native work survives
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+archived Omnigent session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: Omnigent session title: session aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: task record no longer names this launch; not recorded
+ok - late binding archives retired, removed and superseded launches
+ok - only this delivered exit confirms a reachable idle retained session
+ok - direct relaunch stops a retained attach client before sending replacement input
+ok - slow native reads cannot multiply the stop wait budget
+ok - exit works without Perl with both available clock fallbacks

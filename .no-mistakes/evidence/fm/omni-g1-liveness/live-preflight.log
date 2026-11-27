@@ -1,0 +1,6 @@
+{
+  "executable": "/Users/davidtandoh/.agents/state/observation/serve/generations/89ef46b3d6e7c4bafb523ebd042e85f6/runtime/bin/omnigent",
+  "harness": "codex",
+  "server_url": "http://127.0.0.1:52131",
+  "state_file": "/Users/davidtandoh/.agents/state/observation/serve/serve.json"
+}

@@ -1,0 +1,61 @@
+[
+  {
+    "http": {
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "5",
+        "--output",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EE8SKYK7KS47BFYHVYJTBK/.tmp/g1-live-xe8hkh3u/response.json",
+        "--write-out",
+        "%{http_code}",
+        "http://127.0.0.1:52131/v1/sessions/8b4d4f6c7e6a4286899ee0979fc912bb"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "404"
+    },
+    "probe": {
+      "command": [
+        "bash",
+        "bin/fm-omnigent.sh",
+        "probe",
+        "--fresh",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EE8SKYK7KS47BFYHVYJTBK/.tmp/g1-live-xe8hkh3u/worker.meta"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "dead"
+    },
+    "scenario": "Exact absent session on managed service"
+  },
+  {
+    "probe": {
+      "command": [
+        "bash",
+        "bin/fm-omnigent.sh",
+        "probe",
+        "--fresh",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EE8SKYK7KS47BFYHVYJTBK/.tmp/g1-live-xe8hkh3u/worker.meta"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "unknown"
+    },
+    "recorded_process_survived": true,
+    "scenario": "Connection refusal preserves unknown and withholds recorded process-group signal",
+    "stop_attach": {
+      "command": [
+        "bash",
+        "bin/fm-omnigent.sh",
+        "stop-attach",
+        "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8EE8SKYK7KS47BFYHVYJTBK/.tmp/g1-live-xe8hkh3u/worker.meta"
+      ],
+      "exit": 1,
+      "stderr": "",
+      "stdout": ""
+    }
+  }
+]
