@@ -159,13 +159,20 @@ While the window's phase is `pausing` or `switching` and its expiry is in the fu
 Launch and typed-send deferrals print `deferred:` and exit 75.
 Automatic secondmate recovery checks the server owner's window before consuming a recovery attempt or changing the endpoint, including when the destination uses its own Kit service.
 Firstmate does not write the optional acknowledgement; the Kit owns the bounded drain.
-Remote bindings read the server owner's window through a bounded, noninteractive SSH read to the binding's hostname.
-That host must be reachable through SSH with the current account; an unavailable read defers work with exit 75.
+The server-owner home's existing watcher pushes its window to registered remote secondmates through the existing remote transport.
+The watcher publishes observed changes and periodically refreshes unchanged copies through bounded attempts.
+Remote bindings read the pushed copy in their own home; they need no SSH access to the server owner.
+Keep the owner watcher running so remote homes continue to receive fresh status, including when no upgrade window exists.
+Missing, malformed, future-dated, or stale copies defer work with exit 75.
+The owner reads its local window for remote bindings registered to its server.
+[`fm-upgrade-window-lib.sh`](../bin/fm-upgrade-window-lib.sh) owns the copy format and cadence; [`fm-upgrade-window.sh`](../bin/fm-upgrade-window.sh) owns receipt mechanics.
 When the job resumes or its window expires, a home that deferred work for it or has eligible recovery tasks gets one `check: omnigent-upgrade` notification.
+Remote homes observe resumption or expiry only while their pushed copy is usable.
 The notification names local workers whose recorded sessions were interrupted or are proven dead, plus local launches without a session binding whose endpoints are proven dead or missing.
 Review-parked workers and remote secondmates are excluded; a missing binding alone does not establish death.
 Supervision uses the notification to relaunch the named workers and retry deferred dispatch; the notification itself does not launch workers.
-An unreadable window is ignored with a warning, because it carries no expiry that would bound the pause.
+An unreadable local window is ignored with a warning, because it carries no expiry that would bound the pause.
+An unreadable pushed window remains unavailable and holds remote work.
 `bin/fm-upgrade-window-lib.sh` owns this reading.
 
 ## Fresh main sessions

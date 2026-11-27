@@ -155,32 +155,33 @@ test_secondmate_pause_preserves_recovery_budget() (
 )
 
 test_remote_window_uses_server_owner() (
-  local state rc=0
+  local state rc=0 copy now
   state=$(new_state remote)
-  mkdir -p "$TMP_ROOT/remote-bin"
-  cat > "$TMP_ROOT/remote-bin/ssh" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >> "$SSH_LOG"
-[ "${SSH_FAIL:-0}" = 0 ] || exit 255
-cat "$SSH_WINDOW"
-SH
-  chmod +x "$TMP_ROOT/remote-bin/ssh"
-  export PATH="$TMP_ROOT/remote-bin:$PATH" SSH_WINDOW="$TMP_ROOT/remote-window.json" SSH_LOG="$TMP_ROOT/ssh.log"
-  write_window job-remote pausing 600
-  cp "$WINDOW" "$SSH_WINDOW"
-  rm "$WINDOW"
-  fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 2>/dev/null || rc=$?
-  [ "$rc" = 75 ] || fail 'remote server pause was bypassed by absent local window'
-  [ "$(cat "$state/.upgrade-window-deferred")" = job-remote ] || fail 'remote pause not recorded'
-  grep -q -- '-- owner.example ' "$SSH_LOG" || fail 'remote read used the wrong server owner'
+  export FM_HOME="${state%/state}" FM_STATE_OVERRIDE="$state" FM_OMNIGENT_SERVER=https://owner.example:8443
+  now=$(date +%s)
+  copy="$state/upgrade-window-owner.example:8443.json"
   write_window job-remote resumed 600 upgraded
-  cp "$WINDOW" "$SSH_WINDOW"
-  fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 || fail 'remote resume did not admit work'
-  rc=0
-  SSH_FAIL=1 fm_upgrade_window_gate 'remote worker' "$state" https://owner.example:8443 2>/dev/null || rc=$?
-  [ "$rc" = 75 ] || fail 'unavailable remote owner admitted work'
-  pass 'remote binding honors its owner window and fails closed on unavailable reads'
+  jq -n --arg server "$FM_OMNIGENT_SERVER" --argjson now "$now" --slurpfile window "$WINDOW" \
+    '{schema_version:1,server:$server,published_at:$now,window:$window[0]}' > "$copy"
+  fm_upgrade_window_gate 'remote doorbell' "$state" "$FM_OMNIGENT_SERVER" || fail 'fresh closed copy held doorbell'
+  jq '.window.phase="pausing"' "$copy" > "$copy.tmp" && mv "$copy.tmp" "$copy"
+  fm_upgrade_window_gate 'remote doorbell' "$state" "$FM_OMNIGENT_SERVER" 2>/dev/null && fail 'active copy admitted doorbell'
+  [ "$FM_UPGRADE_WINDOW_STATE" = active ] || fail 'active copy was not read'
+  for invalid in stale future malformed missing; do
+    case "$invalid" in
+      stale) jq '.published_at -= 601' "$copy" > "$copy.tmp"; mv "$copy.tmp" "$copy" ;;
+      future) jq --argjson now "$now" '.published_at=$now+1' "$copy" > "$copy.tmp"; mv "$copy.tmp" "$copy" ;;
+      malformed) printf '{broken' > "$copy" ;;
+      missing) rm "$copy" ;;
+    esac
+    rc=0
+    fm_upgrade_window_gate 'remote doorbell' "$state" "$FM_OMNIGENT_SERVER" 2>/dev/null || rc=$?
+    [ "$rc" = 75 ] && [ "$FM_UPGRADE_WINDOW_STATE" = unavailable ] || fail "$invalid copy admitted doorbell"
+  done
+  jq -cn --arg server "$FM_OMNIGENT_SERVER" --argjson now "$now" \
+    '{schema_version:1,server:$server,published_at:$now,window:null}' > "$copy"
+  fm_upgrade_window_gate 'remote doorbell' "$state" "$FM_OMNIGENT_SERVER" || fail 'fresh absent copy held doorbell'
+  pass 'remote copies admit closed windows and defer active, stale, future, malformed or missing copies'
 )
 
 test_close_names_unlisted_stopped_runner() (
@@ -355,6 +356,55 @@ SH
   pass 'remote send retains one durable record and returns 75 until its ring can resume'
 )
 
+test_owner_push_refreshes_and_tracks_phase() (
+  local state destination server now count
+  state=$(new_state publisher)
+  export FM_HOME="${state%/state}" FM_ROOT_OVERRIDE="$ROOT"
+  export FM_DATA_OVERRIDE="$FM_HOME/data"
+  unset FM_OMNIGENT_SERVER
+  destination="$TMP_ROOT/pushed-home"
+  server=https://owner.example:8443
+  now=$(date +%s)
+  mkdir -p "$FM_HOME/data" "$destination"
+  printf -- '- mate - remote (host: fixture; root: /fixture/code; home: /fixture/home; omnigent-server: %s; omnigent-host: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; scope: builds; projects: firstmate; added 2026-11-27)\n' "$server" > "$FM_HOME/data/secondmates.md"
+  export FM_SSH_BIN="$TMP_ROOT/push-ssh" PUSH_DEST="$destination" PUSH_CODE="$ROOT" PUSH_SERVER="$server" PUSH_LOG="$TMP_ROOT/push.log"
+  cat > "$FM_SSH_BIN" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'push\n' >> "$PUSH_LOG"
+FM_HOME="$PUSH_DEST" bash "$PUSH_CODE/bin/fm-upgrade-window.sh" receive "$PUSH_SERVER"
+SH
+  chmod +x "$FM_SSH_BIN"
+  write_window job-push pausing 600
+  fm_upgrade_window_publish "$state" "$now"
+  FM_HOME="$destination" FM_OMNIGENT_SERVER="$server" fm_upgrade_window_read "$now" "$server"
+  [ "$FM_UPGRADE_WINDOW_STATE" = active ] || fail 'phase push did not reach the destination'
+  # A main-home doorbell uses its own file, without reverse SSH or a cache.
+  fm_upgrade_window_read "$now" "$server"
+  [ "$FM_UPGRADE_WINDOW_STATE" = active ] || fail 'owner did not read its own registered binding'
+  fm_upgrade_window_publish "$state" "$((now + 1))"
+  count=$(wc -l < "$PUSH_LOG" | tr -d ' ')
+  [ "$count" = 1 ] || fail 'unchanged phase ignored refresh cadence'
+  write_window job-push resumed 600 upgraded
+  fm_upgrade_window_publish "$state" "$now"
+  FM_HOME="$destination" FM_OMNIGENT_SERVER="$server" fm_upgrade_window_read "$now" "$server"
+  [ "$FM_UPGRADE_WINDOW_STATE" = closed ] || fail 'phase change did not update remote copy'
+  # Move the attempt marker backwards instead of manufacturing future owner time.
+  { printf '%s\n' "$((now - 60))"; tail -n +2 "$state/.upgrade-window-push-mate"; } > "$state/marker"
+  mv "$state/marker" "$state/.upgrade-window-push-mate"
+  fm_upgrade_window_publish "$state" "$now"
+  count=$(wc -l < "$PUSH_LOG" | tr -d ' ')
+  [ "$count" = 3 ] || fail 'bounded refresh did not publish'
+  printf '{broken' | FM_HOME="$destination" bash "$ROOT/bin/fm-upgrade-window.sh" receive "$server" >/dev/null 2>&1 && fail 'receiver accepted malformed envelope'
+  FM_HOME="$destination" FM_OMNIGENT_SERVER="$server" fm_upgrade_window_read "$now" "$server"
+  [ "$FM_UPGRADE_WINDOW_STATE" = closed ] || fail 'rejected input replaced good copy'
+  printf null > "$WINDOW"
+  fm_upgrade_window_publish "$state" "$now"
+  FM_HOME="$destination" FM_OMNIGENT_SERVER="$server" fm_upgrade_window_read "$now" "$server"
+  [ "$FM_UPGRADE_WINDOW_STATE" = unavailable ] || fail 'invalid owner data was published as absent'
+  pass 'existing remote transport pushes phase changes, refreshes at 60s, and rejects malformed input'
+)
+
 fm_test_run \
   test_absent_window_defers_nothing \
   test_paused_window_defers_and_records \
@@ -366,6 +416,7 @@ fm_test_run \
   test_shared_ring_preserves_pending_record \
   test_secondmate_pause_preserves_recovery_budget \
   test_remote_window_uses_server_owner \
+  test_owner_push_refreshes_and_tracks_phase \
   test_close_names_unlisted_stopped_runner \
   test_launch_rechecks_after_preflight \
   test_remote_recovery_checks_destination_before_attempt \
