@@ -77,6 +77,206 @@ fm_test_omnigent_service "$TMP_ROOT/serve" "$TMP_ROOT/tools"
 export PATH="$TMP_ROOT/tools:$PATH"
 OMNI_STATUS="$TMP_ROOT/serve/status.json"
 OMNI_RESULT="$TMP_ROOT/serve/result.json"
+retirement_checks() (
+  . "$ROOT/bin/fm-backend.sh"
+  export FM_HOME="$TMP_ROOT/retirement" FM_STATE_OVERRIDE="$TMP_ROOT/retirement/state"
+  mkdir -p "$FM_STATE_OVERRIDE"
+  meta="$FM_STATE_OVERRIDE/retired.meta"
+  receipts="$FM_STATE_OVERRIDE/omnigent-retirements"
+  binding() {
+    printf 'spawn_gen=%s\nomnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$1" aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > "$meta"
+  }
+  count() { find "$receipts" -name '*.json' | wc -l | tr -d ' '; }
+  binding old.1
+  if OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$meta"; then fail 'archive failure accepted'; fi
+  [ -d "$receipts" ] && [ "$(count)" = 1 ] || fail 'failed archive lost retirement receipt'
+  binding new.2
+  requests_before=$(wc -l < "$TMP_ROOT/serve/requests.jsonl")
+  "$OMNI" reconcile-retirements --dry-run "$FM_STATE_OVERRIDE" 10
+  [ "$(wc -l < "$TMP_ROOT/serve/requests.jsonl")" = "$requests_before" ] || fail 'retirement preview called the API'
+  [ "$(count)" = 1 ] && [ ! -e "$receipts/.cursor" ] || fail 'retirement preview changed inventory'
+  time_flag=''
+  if [ -x /usr/bin/time ]; then
+    if LC_ALL=C /usr/bin/time -l bash -c ':' 2> "$TMP_ROOT/retirement-baseline.time"; then
+      time_flag=-l
+    elif LC_ALL=C /usr/bin/time -v bash -c ':' 2> "$TMP_ROOT/retirement-baseline.time"; then
+      time_flag=-v
+    fi
+  fi
+  receipt_bytes=$(wc -c "$receipts/"*.json | awk 'END {print $1}')
+  requests_before=$(wc -l < "$TMP_ROOT/serve/requests.jsonl")
+  before=$SECONDS
+  if [ -n "$time_flag" ]; then
+    LC_ALL=C /usr/bin/time "$time_flag" bash "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 \
+      2> "$TMP_ROOT/retirement-sweep.time"
+    rss_bytes() {
+      awk '/maximum resident set size/ {print $1; found=1}
+        /Maximum resident set size \(kbytes\)/ {printf "%.0f\n", $NF * 1024; found=1}
+        END {if (!found) exit 1}' "$1"
+    }
+    baseline_rss=$(rss_bytes "$TMP_ROOT/retirement-baseline.time") || fail 'interpreter peak RSS was not measured'
+    sweep_rss=$(rss_bytes "$TMP_ROOT/retirement-sweep.time") || fail 'reconciler peak RSS was not measured'
+    rss_delta=$((sweep_rss - baseline_rss))
+    printf 'retirement RSS: baseline=%s peak=%s delta=%s bytes\n' "$baseline_rss" "$sweep_rss" "$rss_delta"
+    [ "$rss_delta" -lt $((16 * 1024 * 1024)) ] || fail 'reconciler exceeded additional 16 MiB RSS budget'
+  else
+    printf 'SKIP retirement peak RSS: /usr/bin/time supports neither -l nor -v\n'
+    "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+  fi
+  elapsed=$((SECONDS - before))
+  request_count=$(( $(wc -l < "$TMP_ROOT/serve/requests.jsonl") - requests_before ))
+  printf 'retirement sweep: elapsed=%ss requests=%s receipt_bytes=%s\n' "$elapsed" "$request_count" "$receipt_bytes"
+  [ "$elapsed" -le 11 ] || fail 'measured retirement sweep exceeded home budget'
+  [ "$request_count" = 1 ] || fail 'measured retirement sweep exceeded request budget'
+  [ "$(count)" = 0 ] || fail 'later sweep did not clear confirmed archive'
+  [ "$(fm_meta_get "$meta" spawn_gen)" = new.2 ] || fail 'retry changed replacement generation'
+  pass 'failed archive survives binding replacement and succeeds on a later sweep'
+
+  binding unknown.3
+  "$OMNI" retire "$meta"
+  rm -f "$TMP_ROOT/serve/archived.jsonl"
+  for state in runner-gone failed server-error alive; do
+    OMNI_SESSION_STATE=$state "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+    [ "$(count)" = 1 ] || fail 'unknown stop receipt disappeared'
+    [ ! -f "$TMP_ROOT/serve/archived.jsonl" ] || fail 'unknown stop triggered archive'
+  done
+  # A new process models restart: no retry state may live only in the watcher.
+  rm "$meta"
+  OMNI_SESSION_STATE=runner-gone bash "$ROOT/bin/fm-inactive-reconcile.sh" scan --startup
+  [ "$(count)" = 1 ] || fail 'restart lost pending receipt'
+  pass 'unknown stop stays pending across independent reconciliation processes'
+  receipt=$(find "$receipts" -name '*.json')
+  [ "$(wc -c < "$receipt")" -le 8192 ] || fail 'receipt exceeded byte budget'
+  mkdir -p "$TMP_ROOT/foreign/state"
+  mkdir -m 700 "$TMP_ROOT/foreign/state/omnigent-retirements"
+  cp "$receipt" "$TMP_ROOT/foreign/state/omnigent-retirements/"
+  FM_HOME="$TMP_ROOT/foreign" "$OMNI" reconcile-retirements "$TMP_ROOT/foreign/state" 10
+  [ ! -f "$TMP_ROOT/serve/archived.jsonl" ] || fail 'foreign home receipt triggered archive'
+  pass 'receipts stay within byte budget and a foreign home cannot replay them'
+  binding unknown.3
+  for owner in probe retirement; do
+    rm -f "$FM_STATE_OVERRIDE/.retired.omnigent-snapshot.json" \
+      "$TMP_ROOT/serve/identity-read.started" "$TMP_ROOT/serve/identity-read.release"
+    : > "$TMP_ROOT/serve/requests.jsonl"
+    if [ "$owner" = probe ]; then
+      OMNI_TITLE_MODE=wait-identity "$OMNI" probe "$meta" > "$TMP_ROOT/retirement-probe" &
+    else
+      OMNI_TITLE_MODE=wait-identity "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 > "$TMP_ROOT/retirement-retry" &
+    fi
+    first=$!
+    for ((attempt=0; attempt<100; attempt++)); do
+      [ -e "$TMP_ROOT/serve/identity-read.started" ] && break
+      sleep 0.05
+    done
+    [ -e "$TMP_ROOT/serve/identity-read.started" ] || fail 'concurrent retirement fixture did not start its GET'
+    if [ "$owner" = probe ]; then
+      "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+    else
+      [ "$("$OMNI" probe "$meta")" = unknown ] || fail 'probe trusted an in-flight retirement refresh'
+    fi
+    touch "$TMP_ROOT/serve/identity-read.release"
+    wait "$first"
+    [ "$(jq -s '[.[] | select(.method == "GET")] | length' "$TMP_ROOT/serve/requests.jsonl")" = 1 ] \
+      || fail 'concurrent probe and retirement multiplied session GETs'
+    [ "$(count)" = 1 ] || fail 'contending refresh lost pending retirement'
+  done
+  pass 'probe and retirement share one in-flight session refresh in either order'
+  lifecycle_read() (
+    SCRIPT_DIR="$ROOT/bin"
+    case "$1" in
+      fresh) "$OMNI" probe --fresh "$meta" ;;
+      cleanup)
+        . "$SCRIPT_DIR/fm-wake-lib.sh"
+        . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+        . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+        record_lock=$(fm_meta_lock_path "$meta")
+        control_lock="$FM_STATE_OVERRIDE/.control-retired.lock"
+        fm_lock_acquire_wait_bounded "$control_lock" 6 || exit 1
+        trap 'fm_lock_release "$control_lock"; [ -z "${record_lock:-}" ] || fm_lock_release "$record_lock"' EXIT
+        fm_lock_acquire_wait_bounded "$record_lock" 6 || { record_lock=''; exit 1; }
+        fm_control_omnigent_close_locked "$meta" retired "$FM_HOME"
+        ;;
+      exit-confirmation)
+        . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+        META=$meta BACKEND=tmux T=fixture VERIFY_OMNIGENT_STOP=1 OMNIGENT_EXIT_DELIVERED=1
+        OMNIGENT_EXIT_SESSION=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        OMNIGENT_EXIT_SERVER=http://127.0.0.1:6767 OMNIGENT_EXIT_GEN=unknown.3
+        fm_backend_agent_state() { printf dead; }
+        agent_state
+        ;;
+      naming)
+        FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=unknown.3 \
+          "$OMNI" _title-session http://127.0.0.1:6767 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa claude serialized 1
+        ;;
+    esac
+  )
+  for reader in fresh cleanup exit-confirmation naming; do
+    "$OMNI" retire "$meta"
+    rm -f "$TMP_ROOT/serve/identity-read.started" "$TMP_ROOT/serve/identity-read.release" \
+      "$TMP_ROOT/lifecycle-read.finished" "$TMP_ROOT/session-get.overlap"
+    : > "$TMP_ROOT/serve/requests.jsonl"
+    OMNI_SESSION_GET_GUARD="$TMP_ROOT/session-get" OMNI_TITLE_MODE=wait-identity \
+      "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 > "$TMP_ROOT/retirement-retry" &
+    first=$!
+    for ((attempt=0; attempt<100; attempt++)); do
+      [ -e "$TMP_ROOT/serve/identity-read.started" ] && break
+      sleep 0.05
+    done
+    [ -e "$TMP_ROOT/serve/identity-read.started" ] || fail 'retirement did not hold the refresh boundary'
+    (
+      OMNI_SESSION_GET_GUARD="$TMP_ROOT/session-get" \
+        OMNI_SESSION_STATE="$(if [ "$reader" = naming ]; then echo alive; else echo missing; fi)" \
+        lifecycle_read "$reader" > "$TMP_ROOT/lifecycle-read.result"
+      touch "$TMP_ROOT/lifecycle-read.finished"
+    ) &
+    second=$!
+    sleep 1
+    [ ! -e "$TMP_ROOT/lifecycle-read.finished" ] || fail "$reader bypassed the in-flight retirement read"
+    touch "$TMP_ROOT/serve/identity-read.release"
+    wait "$first"
+    wait "$second"
+    [ ! -e "$TMP_ROOT/session-get.overlap" ] || fail "$reader overlapped a retirement session GET"
+    [ "$(jq -s '[.[] | select(.method == "GET")] | length' "$TMP_ROOT/serve/requests.jsonl")" = 2 ] \
+      || fail "$reader did not perform its own fresh read after retirement"
+    case "$reader" in
+      fresh|exit-confirmation)
+        [ "$(cat "$TMP_ROOT/lifecycle-read.result")" = dead ] || fail "$reader lost its fresh result"
+        ;;
+      cleanup) [ "$(count)" = 0 ] || fail 'serialized cleanup did not retire the stopped binding' ;;
+    esac
+  done
+  pass 'fresh reads, cleanup, exit confirmation and naming serialize with retirement'
+  rm -f "$TMP_ROOT/serve/archived.jsonl"
+  rm -f "$receipts/"*.json
+  binding concurrent.4
+  if OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$meta" >/dev/null 2>&1; then fail 'archive failure accepted'; fi
+  before=$SECONDS
+  OMNI_SESSION_DELAY=30 "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 1
+  [ $((SECONDS - before)) -le 3 ] || fail 'slow archive exceeded sweep deadline'
+  [ "$(count)" = 1 ] || fail 'deadline evicted pending receipt'
+  OMNI_SESSION_DELAY=1 "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 &
+  first=$!
+  OMNI_SESSION_DELAY=1 "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10 &
+  second=$!
+  wait "$first"
+  wait "$second"
+  jq -se 'length == 1' "$TMP_ROOT/serve/archived.jsonl" >/dev/null || fail 'concurrent sweeps duplicated archive attempt'
+  [ "$(count)" = 0 ] || fail 'concurrent sweep did not retire confirmed archive'
+  pass 'slow archive respects sweep deadline and concurrent sweeps coalesce per binding'
+  for ((n=1; n<=21; n++)); do
+    binding "bound.$n"
+    if OMNI_ARCHIVE_MODE=http-error "$OMNI" archive "$meta" >/dev/null 2>&1; then fail 'archive failure accepted'; fi
+  done
+  "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 30
+  [ "$(count)" = 1 ] || fail 'sweep did not stop at twenty receipts'
+  "$OMNI" reconcile-retirements "$FM_STATE_OVERRIDE" 10
+  [ "$(count)" = 0 ] || fail 'next sweep did not finish remainder'
+  pass 'receipt sweeps process at most twenty bindings'
+)
+if [ "${1:-}" = --retirement ]; then
+  retirement_checks
+  exit
+fi
 polling_checks() (
   poll_state="$TMP_ROOT/poll/state"
   mkdir -p "$poll_state"
@@ -1186,3 +1386,4 @@ for parent in '' https://other.example.ts.net; do
   grep -q 'invalid server' "$TMP_ROOT/error" || fail "title refusal for an unnamed HTTPS server missing: '$parent'"
 done
 pass 'an HTTPS server is trusted only as the explicitly named parent server'
+retirement_checks

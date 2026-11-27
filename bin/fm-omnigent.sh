@@ -6,6 +6,7 @@
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
 #        fm-omnigent.sh retire [--record-locked] <task-meta>
+#        fm-omnigent.sh reconcile-retirements [--dry-run] <state-dir> <remaining-seconds>
 #        fm-omnigent.sh upgrade-gate
 #        fm-omnigent.sh probe [--fresh] <task-meta>
 #        fm-omnigent.sh approvals [--fresh] <task-meta>
@@ -89,18 +90,23 @@
 # without a recorded or verified unnamed session. Callers archive only a
 # proven-stopped worker. retire persists omnigent_retired_gen without an API
 # request; this intent blocks unverified fallback updates and is never stop proof.
+# Retirement inventory and retry limits: fm-omnigent-retirement-lib.sh header.
 # probe prints alive, dead or unknown for the recorded session.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
 # by server, session and spawn generation. No messages or tool arguments persist.
-# One nonblocking task lock coalesces concurrent refreshes; contention is unknown.
+# One task refresh lock serializes supervision, naming, exit confirmation and
+# retirement session reads. Cached consults do not wait; contention is unknown.
+# Fresh consults and exit confirmation wait at most 6 seconds for that lock;
+# naming waits at most 6 seconds within its remaining naming budget.
 # Unsafe cache paths or permissions return unknown without an uncached request.
 # Session GETs allow 5 seconds and 2 MiB. Confirmed exact-session absence is
 # dead; connectivity loss and unreadable responses are unknown. Failed,
 # malformed or >=3-second reads back off for 30, 60, then 120 seconds,
 # without reusing an expired verdict.
-# --fresh bypasses cache reads and writes, including backoff; stop-attach requires
-# it before signalling. Native hooks, not session polling, own turn/busy state.
+# --fresh bypasses cache reads and writes, including backoff, but retains the
+# refresh lock; stop-attach requires it before signalling.
+# Native hooks, not session polling, own turn/busy state.
 # FM_TEST_OMNIGENT_SNAPSHOT_NOW fixes the snapshot clock only with FM_TEST_SEAM=1.
 # FM_TIMING_LOG records each stage through fm-timing-lib.sh; stages taking 3s
 # or failing also report their name, elapsed time and bound on stderr.
@@ -166,7 +172,7 @@ session_is_launch() { # <wrapper> <launch epoch> <host id or empty> [extra jq co
 # attempt gets up to 15 seconds, never past the deadline. The title and label
 # PATCH is idempotent, so a retry after a lost response is harmless.
 naming_request() { # <deadline> <GET|PATCH> [JSON body]
-  local deadline=$1 delay=1 REQUEST_LIMIT
+  local deadline=$1 delay=1 REQUEST_LIMIT SNAPSHOT_LOCK='' rc wait
   shift
   while :; do
     REQUEST_LIMIT=$((deadline - SECONDS))
@@ -175,7 +181,27 @@ naming_request() { # <deadline> <GET|PATCH> [JSON body]
       REQUEST_ERROR="${REQUEST_ERROR:-session $SESSION_ID: $1 not attempted}; naming budget spent"
       return 1
     fi
-    session_request "$@" && return 0
+    if [ "$1" = GET ] && [ -n "${FM_OMNIGENT_RECORD_META:-}" ]; then
+      wait=$REQUEST_LIMIT
+      [ "$wait" -le 6 ] || wait=6
+      snapshot_lock_acquire "$FM_OMNIGENT_RECORD_META" "$wait" || {
+        REQUEST_ERROR="session $SESSION_ID: refresh lock unavailable"
+        return 1
+      }
+      REQUEST_LIMIT=$((deadline - SECONDS))
+      [ "$REQUEST_LIMIT" -le 15 ] || REQUEST_LIMIT=15
+      if [ "$REQUEST_LIMIT" -lt 1 ]; then
+        fm_lock_release "$SNAPSHOT_LOCK"
+        SNAPSHOT_LOCK=''
+        REQUEST_ERROR="session $SESSION_ID: naming budget spent"
+        return 1
+      fi
+    fi
+    rc=0
+    session_request "$@" || rc=$?
+    [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"
+    SNAPSHOT_LOCK=''
+    [ "$rc" != 0 ] || return 0
     [ $((SECONDS + delay)) -lt "$deadline" ] || { REQUEST_ERROR="$REQUEST_ERROR; naming budget spent"; return 1; }
     sleep "$delay"
     [ "$delay" -ge 8 ] || delay=$((delay * 2))
@@ -444,7 +470,8 @@ retire_session() { # [--dry-run] [--record-locked] <task meta>
     fm_lock_acquire_wait_bounded "$lock" 10 || return 1
   fi
   if [ "$dry" = 0 ]; then
-    if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
+    retirement_save "$meta" || status=1
+    if [ "$status" = 0 ] && fm_backlog_meta_spawn_gen "$meta" "$dir"; then
       gen=$FM_BACKLOG_META_SPAWN_GEN
       tmp="$meta.omnigent.${BASHPID:-$$}"
       if {
@@ -471,14 +498,16 @@ archive_session() { # [--dry-run] [--record-locked] <task meta>
   BINDING_ERROR=
   read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
   if [ -z "$SESSION_ID" ]; then
-    archive_unnamed_session "$dry" "$1"
-    return
+    if [ "$dry" = 1 ]; then archive_unnamed_session "$dry" "$1"; return; fi
+    local wrapper started host extra
+    read_unnamed_session "$1" || return 1
+    [ -n "$SESSION_ID" ] || return 0
   fi
   if [ "$dry" = 1 ]; then
     printf 'would archive Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
     return 0
   fi
-  archive_bound_session
+  retirement_archive "$1"
 }
 
 # Read the cleanup-only fallback from a task record or generation handoff.
@@ -559,6 +588,21 @@ session_snapshot() { # <output file>; sets code
     --output "$1" --write-out '%{http_code}' "$SERVER/v1/sessions/$SESSION_ID" 2>/dev/null)
 }
 
+snapshot_lock_acquire() {
+  local meta=$1 wait=$2 dir base path
+  fm_dirname_to dir "$meta"
+  fm_basename_to base "${meta%.meta}"
+  path="$dir/.$base.omnigent-snapshot.json.lock"
+  # shellcheck source=bin/fm-wake-lib.sh
+  . "$SCRIPT_DIR/fm-wake-lib.sh"
+  if [ "$wait" = 0 ]; then
+    fm_lock_try_acquire "$path" || return 1
+  else
+    fm_lock_acquire_wait_bounded "$path" "$wait" || return 1
+  fi
+  SNAPSHOT_LOCK=$path
+}
+
 # Read-only approval snapshot: JSON array of correlation ids and safe summaries,
 # or literal unknown. Never copy content_preview, tool arguments or raw messages.
 # Only a recognized prompt heading is safe to expose; other wording is generic.
@@ -589,7 +633,7 @@ snapshot_now() {
 # existing lock and atomic record publisher own filesystem mutation mechanics.
 # A cache failure refuses the consult instead of multiplying uncached requests.
 supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
-  local field=$1 fresh=0 meta dir base cache lock='' body='' staged='' code=''
+  local field=$1 fresh=0 meta dir base cache SNAPSHOT_LOCK='' body='' staged='' code=''
   local key now previous='' result probe approvals delay=30 cooldown=0 started cached mode
   shift
   if [ "${1:-}" = --fresh ]; then fresh=1; shift; fi
@@ -597,17 +641,14 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
   meta=$1
   if ! read_binding "$meta" || [ -z "$SESSION_ID" ]; then echo unknown; return 0; fi
   now=$(snapshot_now) || { echo unknown; return 0; }
-  trap 'rm -f -- "${body:-}" "${staged:-}"; [ -z "$lock" ] || fm_lock_release "$lock"' EXIT
+  trap 'rm -f -- "${body:-}" "${staged:-}"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  snapshot_lock_acquire "$meta" "$((fresh * 6))" || { echo unknown; return 0; }
   if [ "$fresh" = 0 ]; then
     fm_dirname_to dir "$meta"
     fm_basename_to base "${meta%.meta}"
     cache="$dir/.$base.omnigent-snapshot.json"
-    # shellcheck source=bin/fm-wake-lib.sh
-    . "$SCRIPT_DIR/fm-wake-lib.sh"
     # shellcheck source=bin/fm-backlog-transition-lib.sh
     . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
-    lock="$cache.lock"
-    fm_lock_try_acquire "$lock" || { lock=''; echo unknown; return 0; }
     key=$(jq -cn --arg server "$SERVER" --arg session "$SESSION_ID" \
       --arg gen "$(fm_meta_get "$meta" spawn_gen)" '{server:$server,session:$session,generation:$gen}')
     if [ -e "$cache" ] || [ -L "$cache" ]; then
@@ -661,12 +702,13 @@ probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
 
 confirm_exit() (
-  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health
+  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health SNAPSHOT_LOCK=''
   [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
   read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
     [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
   body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-exit.XXXXXX") || { echo unknown; return; }
-  trap 'rm -f -- "$body"' EXIT
+  trap 'rm -f -- "$body"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  snapshot_lock_acquire "$meta" 6 || { echo unknown; return; }
   session_snapshot "$body" || { echo unknown; return; }
   [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
     [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
@@ -1166,9 +1208,17 @@ except Exception as error:
 OP=${1:---help}
 shift || true
 case "$OP" in
+  archive|retire|reconcile-retirements|_retry-retirement)
+    # shellcheck source=bin/fm-omnigent-retirement-lib.sh
+    . "$SCRIPT_DIR/fm-omnigent-retirement-lib.sh"
+    ;;
+esac
+case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
   retire) retire_session "$@"; exit ;;
+  reconcile-retirements) retirement_sweep "$@"; exit ;;
+  _retry-retirement) [ "$#" -eq 2 ] || exit 2; retirement_store "$1" && retirement_attempt "$2" false; exit ;;
   capture) capture_session "$@"; exit ;;
   upgrade-gate)
     [ "$#" -eq 0 ] || fail 'upgrade-gate takes no arguments'

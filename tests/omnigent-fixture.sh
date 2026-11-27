@@ -45,12 +45,20 @@ SHIM
 set -euo pipefail
 [ "${OMNI_HEALTH:-ok}" = ok ] || exit 7
 python3 - "$fixture" "$@" <<'PY'
-import json, os, pathlib, sys, time
+import atexit, json, os, pathlib, sys, time
 service = pathlib.Path(sys.argv[1])
 args = sys.argv[2:]
 url = args[-1]
 method = args[args.index('--request') + 1] if '--request' in args else 'GET'
 body = json.loads(args[args.index('--data') + 1]) if '--data' in args else None
+if method == 'GET' and '/v1/sessions/' in url and os.environ.get('OMNI_SESSION_GET_GUARD'):
+    guard = pathlib.Path(os.environ['OMNI_SESSION_GET_GUARD'])
+    try:
+        guard.mkdir()
+    except FileExistsError:
+        guard.with_suffix('.overlap').touch()
+    else:
+        atexit.register(guard.rmdir)
 with (service / 'requests.jsonl').open('a') as output:
     output.write(json.dumps({'method': method, 'url': url, 'body': body}, sort_keys=True) + '\n')
 if url.endswith('/health'):

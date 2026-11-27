@@ -73,6 +73,9 @@ flowchart LR
     intent --> stop[Prove old worker stopped]
     stop --> archive[Attempt exact-session archive]
     archive -->|Confirmed or warned on failure| release[Continue cleanup or relaunch]
+    archive -->|Archive unconfirmed| pending[Retain retirement receipt]
+    pending --> retry[Startup or watcher retry]
+    retry --> archive
 ```
 
 Takeaway: retirement proves the old worker stopped before archiving history or releasing its worktree lease.
@@ -102,7 +105,12 @@ The launch's own stderr record is the fallback source rather than a search of th
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
 The archive flag can commit before the runner stops; archive confirmation is history retirement and never stop proof.
 If stop evidence is unknown, cleanup and relaunch preserve the endpoint, record, and worktree lease.
-After stop proof, an archive failure warns and does not block cleanup or relaunch.
+Before cleanup removes a binding or relaunch replaces it, retirement saves its exact identity in a durable receipt.
+After stop proof, an archive failure warns and does not block cleanup or relaunch; the receipt survives for a later retry.
+Startup and watcher inactive reconciliation retry pending receipts within the existing home budget.
+An unknown stop remains pending and visible, and confirmed archive removes the receipt.
+If rolling back this implementation, preserve pending receipts until retry support is restored; never treat a timeout as stop proof.
+The [retirement library header](../bin/fm-omnigent-retirement-lib.sh) owns the receipt format, matching rules, locks, and sweep limits.
 If a dead session retains an attach client, exit signals only the recorded attach process group after checking its process start time and group ownership.
 The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.
@@ -110,6 +118,7 @@ Relaunch waits for the attach client to stop before it reuses the endpoint.
 The pane check reports attach-client state rather than native-worker state.
 For an Omnigent-wrapped task, supervision readers consult the shared session snapshot even when the attach client has stopped or its endpoint is missing.
 The watcher, crew-state reconciliation, and stale checks share one sanitized snapshot per task and launch binding.
+Naming, lifecycle confirmation, and retirement share the same session refresh boundary as supervision.
 The snapshot contains the session probe verdict and safe approval summaries; native hooks and local status files retain ownership of turn completion and busy state.
 `runner_online` reports tunnel registration freshness rather than native-process liveness.
 A successful session read proves reachability without a separate `/health` request.
