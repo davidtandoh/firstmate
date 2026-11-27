@@ -1,0 +1,160 @@
+[
+  {
+    "scenario": "Dry run reports destination without writing",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443",
+      "--dry-run"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795800509, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 0,
+    "stdout": "updated /Users/davidtandoh/.no-mistakes/evidence/01M8F0NNWP7X0JKCKX5FHBV8D9/receiver-lab-clphut73/state/upgrade-window-owner.example:8443.json\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Receive active owner window",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795800509, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 0,
+    "stdout": "updated /Users/davidtandoh/.no-mistakes/evidence/01M8F0NNWP7X0JKCKX5FHBV8D9/receiver-lab-clphut73/state/upgrade-window-owner.example:8443.json\n",
+    "stderr": ""
+  },
+  {
+    "scenario": "Real launch is deferred by received pause",
+    "argv": [
+      "bin/fm-omnigent.sh",
+      "run",
+      "codex",
+      "test pause boundary"
+    ],
+    "input": null,
+    "exit": 75,
+    "stdout": "",
+    "stderr": "deferred: an Omnigent upgrade (job manual-receiver, phase pausing) has paused new Omnigent work until it resumes or 2026-11-27T17:38Z; the Omnigent codex launch was not started and nothing changed - retry after the window closes\n"
+  },
+  {
+    "scenario": "Malformed JSON is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{broken",
+    "exit": 5,
+    "stdout": "",
+    "stderr": "jq: parse error: Invalid numeric literal at EOF at line 1, column 7\n",
+    "persisted_copy": "unchanged"
+  },
+  {
+    "scenario": "Wrong origin is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://other.example\", \"published_at\": 1795800509, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "",
+    "persisted_copy": "unchanged"
+  },
+  {
+    "scenario": "Stale timestamp is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795799908, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "",
+    "persisted_copy": "unchanged"
+  },
+  {
+    "scenario": "Future timestamp is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795804109, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "",
+    "persisted_copy": "unchanged"
+  },
+  {
+    "scenario": "Oversized payload is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "[65537-byte oversized payload]",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "persisted_copy": "unchanged"
+  },
+  {
+    "scenario": "Unsafe origin path is rejected",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443/../escape"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795800509, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"pausing\", \"expires_at\": 1795801109, \"outcome\": null, \"interrupted_sessions\": []}}",
+    "exit": 2,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scenario": "Receive resumed owner state",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795800509, \"window\": {\"schema_version\": \"1\", \"job\": \"manual-receiver\", \"phase\": \"resumed\", \"expires_at\": 1795801109, \"outcome\": \"upgraded\", \"interrupted_sessions\": []}}",
+    "exit": 0,
+    "stdout": "updated /Users/davidtandoh/.no-mistakes/evidence/01M8F0NNWP7X0JKCKX5FHBV8D9/receiver-lab-clphut73/state/upgrade-window-owner.example:8443.json\n",
+    "stderr": "",
+    "persisted_envelope": {
+      "schema_version": 1,
+      "server": "https://owner.example:8443",
+      "published_at": 1795800509,
+      "window": {
+        "schema_version": "1",
+        "job": "manual-receiver",
+        "phase": "resumed",
+        "expires_at": 1795801109,
+        "outcome": "upgraded",
+        "interrupted_sessions": []
+      }
+    }
+  },
+  {
+    "scenario": "Receive absent owner state",
+    "argv": [
+      "bin/fm-upgrade-window.sh",
+      "receive",
+      "https://owner.example:8443"
+    ],
+    "input": "{\"schema_version\": 1, \"server\": \"https://owner.example:8443\", \"published_at\": 1795800509, \"window\": null}",
+    "exit": 0,
+    "stdout": "updated /Users/davidtandoh/.no-mistakes/evidence/01M8F0NNWP7X0JKCKX5FHBV8D9/receiver-lab-clphut73/state/upgrade-window-owner.example:8443.json\n",
+    "stderr": "",
+    "persisted_envelope": {
+      "schema_version": 1,
+      "server": "https://owner.example:8443",
+      "published_at": 1795800509,
+      "window": null
+    }
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 6923,
+      "failed": 0,
+      "name": "unclassified"
+    }
+  ],
+  "finished_at": "2026-11-27T17:27:37Z",
+  "run_id": "fm-test-run-1795800450830-99504",
+  "scripts": [
+    {
+      "duration_ms": 6923,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-upgrade-window-lib.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-27T17:27:30Z",
+  "summary": {
+    "duration_ms": 6992,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}
