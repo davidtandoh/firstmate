@@ -422,7 +422,8 @@ STUB
     # Compare the public outputs of both real generation paths. The promoted
     # payload ends at its Definition of done, as does an ordinary generated
     # brief, so identical suffixes prove both workers receive the same contract.
-    rm "$home/data/$id/brief.md"
+    # Reset the scaffold and its exclusive declaration in this disposable fixture.
+    rm "$home/data/$id/brief.md" "$home/data/$id/scratch.json"
     FM_HOME="$home" "$BRIEF" "$id" fixture-project --mode "$mode" >/dev/null 2>&1 \
       || fail "$mode: ordinary ship brief generation should succeed"
     brief_dod="$TMP_ROOT/promote-dod/brief-dod-$id"
@@ -779,7 +780,7 @@ STUB
   assert_grep 'Pass `--skip pr,ci` on every `no-mistakes axi run` for this task' "$payload" \
     "the promoted worker was not told to skip the pr and ci steps"
 
-  rm "$home/data/$id/brief.md"
+  rm "$home/data/$id/brief.md" "$home/data/$id/scratch.json"
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes --pr manual >/dev/null 2>&1 \
     || fail "ordinary pr=manual ship brief generation should succeed"
   awk '/^# Definition of done$/ { emit=1 } emit' "$home/data/$id/brief.md" > "$TMP_ROOT/pr-manual-promote/brief-dod"
@@ -1853,7 +1854,7 @@ STUB
 
   # Both real generation paths must end in the same contract, as they do for every
   # mode: a promoted worker is never handed a weaker one than a briefed worker.
-  rm "$home/data/$id/brief.md"
+  rm "$home/data/$id/brief.md" "$home/data/$id/scratch.json"
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes --forge gerrit >/dev/null 2>&1 \
     || fail "ordinary gerrit ship brief generation should succeed"
   awk '/^# Definition of done$/ { emit=1 } emit' "$home/data/$id/brief.md" > "$TMP_ROOT/forge-promote/brief-dod"
