@@ -307,6 +307,42 @@ class Retention(unittest.TestCase):
         path.write_text('{broken')
         self.assertEqual(self.report()['eligible_bytes'], 0)
 
+    def test_completed_tasks_sharing_released_worktree_are_ambiguous(self):
+        worktree = self.home / 'slot/repo'
+        (worktree / 'node_modules').mkdir(parents=True)
+        cache = worktree / 'node_modules/x'
+        cache.write_bytes(b'x' * 128)
+        self.assertFalse((worktree.parent / '.fm-slot-owner').exists())
+        self.run_cli('declare', 'job', '--scratch', 'cache', '--worktree-cache', 'node_modules')
+        self.run_cli('complete', 'job', '--artifact', 'report.md',
+                     '--worktree', str(worktree), '--lease-released')
+        self.ready_from_existing()
+        other = self.home / 'data/other'
+        other.mkdir()
+        (other / 'report.md').write_text('Other task evidence\n')
+        self.task('add', 'other', 'Later slot occupant')
+        self.task('done', 'other', '--report', 'data/other/report.md')
+        self.run_cli('declare', 'other', '--worktree-cache', 'node_modules')
+        self.run_cli('complete', 'other', '--artifact', 'report.md',
+                     '--worktree', str(worktree), '--lease-released')
+        for args in ((), ('--prune',)):
+            if args:
+                (self.home / 'config/task-retention').write_text('prune\n')
+            output = json.loads(self.run_cli('report', '--json', *args).stdout)
+            self.assertEqual(len(output['shared_worktrees']), 1)
+            shared = output['shared_worktrees'][0]
+            self.assertEqual(shared['path'], str(worktree))
+            self.assertEqual(shared['tasks'], ['job', 'other'])
+            self.assertIn('ambiguous', shared['reason'])
+            self.assertEqual(shared['bytes'], 128)
+            self.assertEqual(shared['cache_bytes'], 0)
+            for row in output['tasks']:
+                self.assertIsNone(row['worktree'])
+                self.assertIn('ambiguous', row['worktree_reason'])
+            self.assertEqual(cache.read_bytes(), b'x' * 128)
+        text = self.run_cli('report').stdout
+        self.assertEqual(text.count(str(worktree)), 1)
+
     def test_reassigned_worktree_not_attributed(self):
         self.ready()
         worktree = self.home / 'slot/repo'

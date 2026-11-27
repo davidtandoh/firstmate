@@ -316,22 +316,32 @@ def current_reason(task_id, task, state, receipt, rows, env):
     return ''
 
 
-def worktree_report(receipt, decl, budget):
+def worktree_report(receipt, decl, budget, inventory, task_id):
     path = receipt.get('worktree')
     if not path or not receipt.get('lease_released') or not os.path.lexists(path):
         return None
     # A pool slot may have been reassigned. Do not attribute its caches to the
     # old task when any owner claim now exists. It is still reported as uncertain.
+    key = os.path.normpath(path)
+    if key in inventory:
+        previous = inventory[key]
+        previous['tasks'].append(task_id)
+        previous['report'].update(path=key, cache_bytes=0,
+                                  reason='ambiguous worktree ownership; report only')
+        return previous['report']
     marker = Path(path).parent / '.fm-slot-owner'
     if os.path.lexists(marker):
-        return {'path': path, 'cache_bytes': 0, 'reason': 'worktree claimed or lease uncertain; report only'}
-    fd = directory(path)
-    try:
-        total, caches = scan(fd, budget, decl.get('worktree_cache', []), allow_links=True)
-        return {'path': path, 'bytes': total, 'cache_bytes': caches,
-                'symlinks': 'excluded without following', 'reason': 'released worktree remains; report only'}
-    finally:
-        os.close(fd)
+        result = {'path': path, 'cache_bytes': 0, 'reason': 'worktree claimed or lease uncertain; report only'}
+    else:
+        fd = directory(path)
+        try:
+            total, caches = scan(fd, budget, decl.get('worktree_cache', []), allow_links=True)
+            result = {'path': path, 'bytes': total, 'cache_bytes': caches,
+                      'symlinks': 'excluded without following', 'reason': 'released worktree remains; report only'}
+        finally:
+            os.close(fd)
+    inventory[key] = {'tasks': [task_id], 'report': result}
+    return result
 
 
 def report(args, roots, env):
@@ -350,6 +360,7 @@ def report(args, roots, env):
     rows = backlog(env)
     budget = Budget()
     results = []
+    worktrees = {}
     with os.scandir(data) as entries:
         for entry in entries:
             if args.locked_task and entry.name != args.locked_task:
@@ -373,7 +384,7 @@ def report(args, roots, env):
                         receipt = read_json(task / 'retention-complete.json')
                         row['reason'] = current_reason(task_id, task, state, receipt, rows, env)
                         if done_confirmed(task_id, rows, env):
-                            row['worktree'] = worktree_report(receipt, decl, budget)
+                            row['worktree'] = worktree_report(receipt, decl, budget, worktrees, task_id)
                         protected = CONTROL | {receipt.get('artifact', '')}
                         _, scratch = scan(fd, budget, decl['scratch'], protected)
                         if not row['reason']:
@@ -416,9 +427,19 @@ def report(args, roots, env):
                 row['eligible_bytes'] = 0
                 row['reason'] = str(error)
             results.append(row)
+    shared = []
+    ambiguous_tasks = set()
+    for key, entry in sorted(worktrees.items()):
+        if len(entry['tasks']) > 1:
+            shared.append(dict(entry['report'], tasks=sorted(entry['tasks'])))
+            ambiguous_tasks.update(entry['tasks'])
+    for row in results:
+        if row['task'] in ambiguous_tasks:
+            row['worktree'] = None
+            row['worktree_reason'] = 'ambiguous ownership; see shared_worktrees'
     output = {'version': 1, 'generated_at': int(time.time()), 'mode': mode,
               'home': env['FM_HOME'], 'tasks': sorted(results, key=lambda r: r['task']),
-              'visited_entries': budget.entries}
+              'visited_entries': budget.entries, 'shared_worktrees': shared}
     require(len(canonical(output).encode()) <= 2 * LIMIT, 'report exceeds bound')
     if args.periodic and not args.dry_run:
         publish(destination, output)
@@ -538,6 +559,10 @@ def main():
                 print(('  would touch: ' if args.dry_run else '  audit: ') + path)
             if row.get('worktree'):
                 print('  worktree: ' + canonical(row['worktree']).strip())
+            elif row.get('worktree_reason'):
+                print('  worktree: ' + row['worktree_reason'])
+        for shared in output['shared_worktrees']:
+            print('shared worktree: ' + canonical(shared).strip())
     else:
         print(output['path'])
 

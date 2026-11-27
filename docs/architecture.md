@@ -529,6 +529,7 @@ The lifecycle keeps evidence by default and gives declared scratch a completion 
 The brief owns declaration, spawn invalidates previous retention receipts under the task metadata lock, confirmed PR and local merge handling own landing evidence, teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
 The retention command reuses the backlog adapter and the configured Done archive owner, shared bounded record reads, and the existing metadata lock before pruning.
 It never removes worktree content; a released worktree that remains on disk is a report item even after its Done row moves to the configured archive.
+A released path named by multiple completed tasks appears once in `shared_worktrees` with ambiguous ownership and no task-attributed bytes.
 Operator rollout and the switch are documented in [task scratch retention](configuration.md#task-scratch-retention-configtask-retention).
 [`tests/fm-task-retention.test.sh`](../tests/fm-task-retention.test.sh) exercises the eligibility and deletion boundaries entirely in disposable fixtures.
 
