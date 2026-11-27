@@ -69,10 +69,13 @@ flowchart LR
     record --> watch[Supervision probe]
     record --> retire[Cleanup or relaunch]
     fallback --> retire
-    retire --> archive[Archive exactly that session]
+    retire --> intent[Persist retirement intent]
+    intent --> stop[Prove old worker stopped]
+    stop --> archive[Confirm exact-session archive]
+    archive --> release[Release endpoint and worktree lease]
 ```
 
-Takeaway: supervision uses verified bindings; retirement can also verify an unnamed launch before archiving it.
+Takeaway: retirement proves the old worker stopped before archiving history or releasing its worktree lease.
 
 A spawn or relaunch passes its task record, spawn generation, home identity, and task id to the launcher.
 Before the session identity read, the launcher publishes this launch's own `Web UI` session as an unverified fallback in a generation-specific handoff.
@@ -83,11 +86,11 @@ Retirement reads either handoff under that lock before stopping the attach clien
 An unverified handoff becomes `omnigent_unnamed` in the task record, so retirement need not wait for naming retries to finish.
 A missing handoff produces a bounded warning; cleanup still requires the native-owner verdict described below.
 It records only while the record still names the launching spawn generation and that generation has not retired.
-Retirement marks the generation under the same record lock; a late observer archives its verified session if retirement removed or superseded the record.
+Retirement marks the generation under the same record lock; a late observer cannot overwrite a retired binding or use retirement intent as stop proof.
 The same naming request sets `firstmate.home` to the full home-identity hash and `firstmate.task` to the task id; Omnigent merges labels rather than replacing them.
 A relaunch drops the previous binding and unnamed fallback from the replacement record.
 
-Cleanup archives the recorded session after the endpoint is confirmed closed, and relaunch archives it after the old agent is proven stopped.
+Cleanup and relaunch persist retirement intent, prove the old worker stopped, then archive its exact recorded session before closing the endpoint or releasing its worktree lease.
 Forced secondmate cleanup does the same for each local descendant before removing its record, and automatic local secondmate recovery captures the handoff before closing the old endpoint.
 Archive is a `PATCH` of `{"archived": true}` for the exact session identified by the binding or verified fallback.
 If the identity read never answered, the launcher keeps this launch's own `Web UI` session as `omnigent_unnamed` in the task record instead of a binding.
@@ -95,8 +98,9 @@ Archive then reads that session and archives it only when the server reports the
 A session whose identity read refuted the launch is never kept, and an unnamed session is never used for supervision probes.
 The launch's own stderr record is the fallback source rather than a search of the server's session list, because an unnamed session has no Firstmate labels that could prove its home.
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
-Archiving stops the session's runner, so it never runs against a live worker.
-An archive failure warns and never blocks cleanup or relaunch.
+The archive flag can commit before the runner stops; archive confirmation is history retirement and never stop proof.
+If stop evidence is unknown, cleanup and relaunch preserve the endpoint, record, and worktree lease.
+After stop proof, an archive failure warns and does not block cleanup or relaunch.
 If a dead session retains an attach client, exit signals only the recorded attach process group after checking its process start time and group ownership.
 The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.
@@ -117,7 +121,7 @@ Unknown native-owner state withholds process-group signals, replacement, recover
 Secondmate recovery readers require fresh session reads, including remote recovery probes.
 Lifecycle commands require a fresh session read before stopping a retained attach client.
 After Firstmate delivers an exit command, that exit attempt can also confirm termination when the attach client stops and fresh session and health reads prove the same session and generation is reachable with no active turn.
-This confirmation is scoped to that exit attempt and its parent relaunch transaction; supervision and independent recovery continue to require native absence.
+The shared exit implementation in `bin/fm-control-exit-lib.sh` scopes this confirmation to the exit attempt in control, teardown, or relaunch; supervision and independent recovery continue to require native absence.
 Cached supervision verdicts never authorize that signal.
 
 ## Upgrade pause window
