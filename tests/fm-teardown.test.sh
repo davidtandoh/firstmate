@@ -1207,10 +1207,10 @@ test_no_mistakes_origin_remote_allows() {
   pass "no-mistakes worktree with HEAD on origin is torn down (no regression)"
 }
 
-# A wrapped task's recorded Omnigent session is archived once its endpoint is
-# closed; an archive failure warns without blocking cleanup.
+# A wrapped task's recorded Omnigent session is archived only after stop proof,
+# before endpoint close; an archive failure warns without blocking cleanup.
 test_teardown_archives_the_recorded_omnigent_session() {
-  local case_dir rc archive_mode session=dddddddddddddddddddddddddddddddd
+  local case_dir rc archive_mode stop_state session=dddddddddddddddddddddddddddddddd
   for archive_mode in ok http-error; do
     case_dir=$(make_case "omni-archive-$archive_mode")
     write_meta "$case_dir" no-mistakes ship
@@ -1243,7 +1243,15 @@ test_teardown_archives_the_recorded_omnigent_session() {
       [ ! -e "$case_dir/serve/archived.jsonl" ] || fail 'degraded teardown archived native work'
       grep -q 'native owner is unknown' "$case_dir/stderr" || fail 'degraded teardown lost refusal reason'
     fi
-    OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+    for stop_state in alive archived server-error; do
+      OMNI_SESSION_STATE=$stop_state FM_CONTROL_EXIT_WAIT=1 run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+      rc=$?
+      [ "$rc" -ne 0 ] || fail "$stop_state authorized lease release without stop proof"
+      [ -e "$case_dir/state/task-x1.meta" ] || fail "$stop_state removed the owner record"
+      [ -d "$case_dir/wt" ] || fail "$stop_state released the worktree"
+      [ ! -e "$case_dir/serve/archived.jsonl" ] || fail "$stop_state archived native work"
+    done
+    OMNI_SESSION_STATE=missing OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
     rc=$?
     set -e
     expect_code 0 "$rc" "omni-archive-$archive_mode: teardown should succeed"$'\n'"$(cat "$case_dir/stderr")"
@@ -1340,7 +1348,9 @@ PYTHON
     observer=$(cat "$case_dir/state/observer-group")
     rc=0
     case "$mode" in
-      ended) OMNI_END_MARKER="$case_dir/state/native-ended" run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
+      ended)
+        printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' > "$case_dir/state/native-ended"
+        OMNI_END_MARKER="$case_dir/state/native-ended" run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
       unknown) OMNI_SESSION_STATE=runner-gone run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
       unreachable) OMNI_HEALTH=down run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$? ;;
     esac
@@ -6916,7 +6926,7 @@ test_forced_secondmate_archives_descendant_omnigent_sessions() {
       > "$nested_home/state/.grandchild.omnigent.g1.meta"
     ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$case_dir/serve" "$case_dir/fakebin" )
     rc=0
-    OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    OMNI_SESSION_STATE=missing OMNI_ARCHIVE_MODE=$archive_mode run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     expect_code 0 "$rc" "omni-children-$archive_mode: forced retirement failed: $(cat "$case_dir/stderr")"
     assert_absent "$home" "forced retirement retained secondmate home"
     if [ "$archive_mode" = ok ]; then

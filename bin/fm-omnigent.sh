@@ -5,6 +5,7 @@
 #        fm-omnigent.sh run [--dry-run] <harness> <Firstmate native arguments...>
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
+#        fm-omnigent.sh retire [--record-locked] <task-meta>
 #        fm-omnigent.sh upgrade-gate
 #        fm-omnigent.sh probe [--fresh] <task-meta>
 #        fm-omnigent.sh approvals [--fresh] <task-meta>
@@ -86,7 +87,8 @@
 # archive PATCHes {"archived":true} for the recorded session only, never
 # delete_worktree; it prints a warning and exits 1 on failure, and does nothing
 # without a recorded or verified unnamed session. Callers archive only a
-# proven-stopped worker.
+# proven-stopped worker. retire persists omnigent_retired_gen without an API
+# request; this intent blocks unverified fallback updates and is never stop proof.
 # probe prints alive, dead or unknown for the recorded session.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
@@ -340,9 +342,7 @@ record_session() { # <absolute task meta> <spawn generation>
     fi
     tmp="$dir/.${base%.meta}.meta.omnigent.${BASHPID:-$$}"
     status=0
-    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ] ||
-       [ "$(fm_meta_get "$meta" omnigent_retired_gen)" = "$gen" ]; then
-      archive_bound_session || true
+    if ! fm_backlog_meta_spawn_gen "$meta" "$dir" || [ "$FM_BACKLOG_META_SPAWN_GEN" != "$gen" ]; then
       printf 'error: Omnigent session title: session %s: task record no longer names this launch; not recorded\n' "$SESSION_ID" >&2
       status=1
     elif ! {
@@ -425,14 +425,13 @@ read_binding() { # <task meta>
   fi
 }
 
-# Archive exactly the recorded session. Never sends delete_worktree: the
-# session workspace is a shared worktree slot. Archive stops the session's
-# runner, so callers invoke it only after the worker is proven stopped.
-archive_session() { # [--dry-run] <task meta>
+# Persist retirement intent before stopping the owner. Callers holding the
+# task-record lock pass --record-locked; otherwise acquire it here.
+retire_session() { # [--dry-run] [--record-locked] <task meta>
   local dry=0 locked=0 meta dir lock tmp gen status=0
   if [ "${1:-}" = --dry-run ]; then dry=1; shift; fi
   if [ "${1:-}" = --record-locked ]; then locked=1; shift; fi
-  [ "$#" -eq 1 ] || fail 'archive requires one task record'
+  [ "$#" -eq 1 ] || fail 'retirement requires one task record'
   meta=$1
   fm_dirname_to dir "$meta"
   export FM_STATE_OVERRIDE="$dir"
@@ -461,6 +460,14 @@ archive_session() { # [--dry-run] <task meta>
     [ "$locked" = 1 ] || fm_lock_release "$lock"
     [ "$status" = 0 ] || return 1
   fi
+  return 0
+}
+
+archive_session() { # [--dry-run] [--record-locked] <task meta>
+  local dry=0
+  retire_session "$@" || return 1
+  if [ "${1:-}" = --dry-run ]; then dry=1; shift; fi
+  if [ "${1:-}" = --record-locked ]; then shift; fi
   BINDING_ERROR=
   read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
   if [ -z "$SESSION_ID" ]; then
@@ -1161,6 +1168,7 @@ shift || true
 case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
+  retire) retire_session "$@"; exit ;;
   capture) capture_session "$@"; exit ;;
   upgrade-gate)
     [ "$#" -eq 0 ] || fail 'upgrade-gate takes no arguments'

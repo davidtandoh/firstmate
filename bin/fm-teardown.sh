@@ -688,10 +688,6 @@ fm_lock_acquire_wait "$META_LOCK"
 META_LOCK_HELD=1
 if [ "$(fm_meta_get "$META" omnigent)" = on ]; then
   "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$META" || true
-  if [ "$(fm_backend_omnigent_agent_state alive "$META")" = unknown ]; then
-    echo "error: task $ID's Omnigent native owner is unknown; preserving endpoint, record and worktree lease" >&2
-    exit 1
-  fi
 fi
 fm_backlog_record_present "$META" "task record" "$STATE" || {
   echo "error: teardown refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
@@ -3620,7 +3616,7 @@ endpoint_close_refusal() {  # <subject> <backend> <target> <honors-force>
 }
 
 cleanup_firstmate_home_children() {
-  local home=$1 archive_parent=${2:-$ID} sub_state child_meta child_id child_t child_wt child_proj child_kind child_home child_rex_home child_backend child_orca_worktree_id child_return_rc child_busy_gen child_owner_rc child_pool_slot child_omnigent
+  local home=$1 archive_parent=${2:-$ID} sub_state child_meta child_id child_t child_wt child_proj child_kind child_home child_rex_home child_backend child_orca_worktree_id child_return_rc child_busy_gen child_owner_rc child_pool_slot
   sub_state="$home/state"
   [ -d "$sub_state" ] || return 0
   for child_meta in "$sub_state"/*.meta; do
@@ -3642,18 +3638,13 @@ cleanup_firstmate_home_children() {
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
       fi
     fi
-    # A local wrapped child's session is captured while its observer can still
-    # publish a pending handoff, then archived once its endpoint is closed,
-    # before its record is removed. preflight_descendant_task_locks already
-    # holds the child's record lock. Both are best-effort and only warn.
-    child_omnigent=0
+    # Descendant cleanup uses the same stop-before-archive barrier under the
+    # child's lifecycle and record locks from preflight_descendant_task_locks.
     if [ "$(meta_value "$child_meta" omnigent)" = on ] && [ -z "$(meta_value "$child_meta" remote_host)" ]; then
-      child_omnigent=1
       "$SCRIPT_DIR/fm-omnigent.sh" capture --record-locked "$child_meta" || true
-      if [ "$(fm_backend_omnigent_agent_state alive "$child_meta")" = unknown ]; then
-        echo "error: child $child_id's Omnigent native owner is unknown; preserving endpoint, record and worktree lease" >&2
-        return 1
-      fi
+      # shellcheck source=bin/fm-control-exit-lib.sh
+      . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+      fm_control_omnigent_close_locked "$child_meta" "$child_id" "$home" || return 1
     fi
     if [ -n "$child_t" ]; then
       if [ "$child_backend" = herdr ]; then
@@ -3685,9 +3676,6 @@ cleanup_firstmate_home_children() {
         fm_backend_kill "$child_backend" "$child_t" "$(meta_value "$child_meta" zellij_tab_id)" "fm-$child_id" \
           || { endpoint_close_refusal "child $child_id" "$child_backend" "$child_t" 0; return 1; }
       fi
-    fi
-    if [ "$child_omnigent" = 1 ]; then
-      "$SCRIPT_DIR/fm-omnigent.sh" archive --record-locked "$child_meta" >/dev/null || true
     fi
     if [ "$child_kind" != secondmate ]; then
       FM_TASK_PROC_INBOX="$(cd "$sub_state" && pwd -P)/$child_id.inbox" FM_TASK_PROC_ID=$child_id \
@@ -4014,6 +4002,13 @@ if [ "$BACKEND" = herdr ] \
   fi
 fi
 
+# Prove wrapped owner termination before endpoint close, reaping, or slot return.
+if [ "$(meta_value "$META" omnigent)" = on ]; then
+  # shellcheck source=bin/fm-control-exit-lib.sh
+  . "$SCRIPT_DIR/fm-control-exit-lib.sh"
+  fm_control_omnigent_close_locked "$META" "$ID" || exit 1
+fi
+
 if [ "$HERDR_PRESENTATION_RETIRE_CANDIDATE" = 1 ]; then
   # The presentation lock was acquired above, before any destructive step; a
   # contended lock already refused this teardown while everything was intact.
@@ -4261,12 +4256,6 @@ elif [ "$BACKEND" != orca ] && [ "$BACKEND" != t3code ] && [ "$BACKEND" != herdr
   fi
   fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID" \
     || endpoint_close_refusal "$ID" "$BACKEND" "$T" 1 || exit 1
-fi
-# Every endpoint is closed, so the wrapped worker it held has stopped: archive
-# exactly its recorded Omnigent session (bin/fm-omnigent.sh archive). A
-# failure warns and never blocks cleanup.
-if [ "$(meta_value "$META" omnigent)" = on ]; then
-  "$SCRIPT_DIR/fm-omnigent.sh" archive --record-locked "$META" >/dev/null || true
 fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \

@@ -1877,7 +1877,7 @@ families_for_changed_path() {
       printf '%s\n' pr-forge
       printf '%s\n' rex
       ;;
-    bin/fm-control-lib.sh)
+    bin/fm-control-lib.sh|bin/fm-control-exit-lib.sh)
       printf '%s\n' backend-dispatch
       printf '%s\n' session-bootstrap
       printf '%s\n' "__script__:fm-quota-choose.test.sh"

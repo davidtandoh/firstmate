@@ -467,6 +467,142 @@ test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
 
 # A wrapped task's recorded Omnigent session is archived exactly once, only
 # after the old agent is proven stopped, and the replacement record drops it.
+# Use the same native-exit fixture for both callers of the shared exit path.
+# A pool return log is the observable lease-release boundary.
+test_omnigent_teardown_stop_barrier() {
+  local dir condition archive_mode out rc id=close-barrier
+  for condition in native-exit native-active-exit archived server-error; do
+    for archive_mode in ok http-error; do
+      dir=$(new_case "close-$condition-$archive_mode" "$id")
+      add_ship_task "$dir" "$id" claude
+      printf 'kind=scout\nomnigent=on\nspawn_gen=s1.1.1\nomnigent_session=cccccccccccccccccccccccccccccccc\nomnigent_server=http://127.0.0.1:6767\n' >> "$dir/home/state/$id.meta"
+      ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+      cat > "$dir/fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+      cat > "$dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "$(cat "$OMNI_NATIVE_COMMAND_FILE")" = zsh ] || exit 71
+grep -qx 'omnigent_retired_gen=s1.1.1' "$FM_STATE_OVERRIDE/close-barrier.meta" || exit 72
+jq -se 'any(.[]; .method == "PATCH" and .body.archived == true)' "$FM_TEST_SERVICE/requests.jsonl" >/dev/null || exit 73
+if [ "$OMNI_ARCHIVE_MODE" = ok ]; then [ -s "$FM_TEST_SERVICE/archived.jsonl" ] || exit 74; fi
+printf '%s\n' "$*" >> "$FM_FAKE_DIR/pool-return"
+SH
+      chmod +x "$dir/fakebin/no-mistakes" "$dir/fakebin/treehouse"
+      rc=0
+      out=$(env -u FM_STATE_OVERRIDE -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE \
+        HOME="$dir/user-home" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+        FM_STATE_OVERRIDE="$dir/home/state" FM_TEST_SERVICE="$dir/serve" \
+        FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" \
+        OMNI_SESSION_STATE="$condition" OMNI_ARCHIVE_MODE="$archive_mode" \
+        OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" FM_CONTROL_EXIT_WAIT=2 FM_CONTROL_POLL=0.01 \
+        bash "$ROOT/bin/fm-teardown.sh" "$id" --force 2>&1) || rc=$?
+      if [ "$condition" = native-exit ]; then
+        expect_code 0 "$rc" "proven exit must allow cleanup: $out"
+        assert_absent "$dir/home/state/$id.meta" 'stopped task record survived cleanup'
+        assert_present "$dir/fake/pool-return" 'stopped owner never released its lease'
+        assert_grep /exit "$dir/fake/literal" 'stop was not delivered before cleanup'
+        if [ "$archive_mode" = ok ]; then
+          assert_present "$dir/serve/archived.jsonl" 'stopped session was not archived'
+          jq -se 'map(.method) | index("PATCH") != null' "$dir/serve/requests.jsonl" >/dev/null || fail 'archive confirmation missing'
+        else
+          assert_contains "$out" 'warning: Omnigent archive' 'failed history retirement did not warn'
+        fi
+      else
+        [ "$rc" -ne 0 ] || fail "$condition released an unproven native owner: $out"
+        assert_present "$dir/home/state/$id.meta" 'unproven owner record removed'
+        assert_present "$dir/wt/.git" 'unproven owner worktree removed'
+        assert_absent "$dir/fake/pool-return" 'unproven owner lease released'
+        assert_absent "$dir/fake/closed-windows" 'unproven owner endpoint closed'
+        assert_absent "$dir/serve/archived.jsonl" 'unproven owner history archived'
+        [ "$(meta_field "$dir" "$id" omnigent_retired_gen)" = s1.1.1 ] || fail 'retirement intent missing'
+      fi
+    done
+  done
+  pass 'teardown proves stop before archive and release; unknown retains ownership and archive failure warns'
+}
+
+test_omnigent_delayed_identity_after_refused_retirement() (
+  local dir meta pending lock mode condition out rc attempt observer=
+  local id=close-delayed session=cccccccccccccccccccccccccccccccc
+  . "$ROOT/bin/fm-backend.sh"
+  . "$ROOT/bin/fm-wake-lib.sh"
+  trap 'if [ -n "$observer" ]; then kill "$observer" 2>/dev/null || true; wait "$observer" 2>/dev/null || true; fi' EXIT
+  for mode in observer capture; do
+    dir=$(new_case "close-delayed-$mode" "$id")
+    add_ship_task "$dir" "$id" claude
+    meta="$dir/home/state/$id.meta"
+    pending="$dir/home/state/.$id.omnigent.s1.1.1.meta"
+    printf 'kind=scout\nomnigent=on\nspawn_gen=s1.1.1\n' >> "$meta"
+    ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/fakebin/no-mistakes"
+    # shellcheck disable=SC2016 # Expand FM_FAKE_DIR when the generated shim runs.
+    printf '#!/usr/bin/env bash\nprintf released > "$FM_FAKE_DIR/pool-return"\n' > "$dir/fakebin/treehouse"
+    chmod +x "$dir/fakebin/no-mistakes" "$dir/fakebin/treehouse"
+    PATH="$dir/fakebin:$PATH" OMNI_TITLE_MODE=wait-identity \
+      FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 \
+      bash "$ROOT/bin/fm-omnigent.sh" _title-session http://127.0.0.1:6767 "$session" claude delayed 1 \
+      > "$dir/title-out" 2> "$dir/title-error" &
+    observer=$!
+    for ((attempt=0; attempt<200; attempt++)); do
+      [ ! -e "$dir/serve/identity-read.started" ] || break
+      sleep 0.01
+    done
+    [ -e "$dir/serve/identity-read.started" ] || fail 'identity GET did not reach the fixture barrier'
+    for condition in pending native-active-exit native-exit; do
+      if [ "$condition" != pending ]; then printf claude > "$dir/fake/command"; fi
+      rc=0
+      out=$(env -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE \
+        HOME="$dir/user-home" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+        FM_STATE_OVERRIDE="$dir/home/state" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH" \
+        OMNI_SESSION_STATE="$condition" OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" \
+        FM_CONTROL_EXIT_WAIT=1 FM_CONTROL_POLL=0.01 \
+        bash "$ROOT/bin/fm-teardown.sh" "$id" --force 2>&1) || rc=$?
+      if [ "$condition" = native-exit ]; then
+        expect_code 0 "$rc" "recovered identity must allow proven cleanup: $out"
+        assert_absent "$meta" 'proven cleanup retained the record'
+        assert_present "$dir/fake/pool-return" 'proven cleanup retained the lease'
+        assert_present "$dir/serve/archived.jsonl" 'proven cleanup did not archive'
+        assert_grep /exit "$dir/fake/literal" 'cleanup did not deliver exit'
+        continue
+      fi
+      [ "$rc" -ne 0 ] || fail "$condition allowed cleanup without stop proof: $out"
+      assert_present "$meta" 'refused cleanup removed the record'
+      assert_present "$dir/wt/.git" 'refused cleanup removed the worktree'
+      assert_absent "$dir/fake/pool-return" 'refused cleanup released the lease'
+      assert_absent "$dir/fake/closed-windows" 'refused cleanup closed the endpoint'
+      assert_absent "$dir/serve/archived.jsonl" 'refused cleanup archived history'
+      [ "$(meta_field "$dir" "$id" omnigent_retired_gen)" = s1.1.1 ] || fail 'retirement intent was lost'
+      [ "$condition" = pending ] || continue
+      assert_contains "$out" 'native owner is unknown' 'unverified identity did not refuse'
+      [ -z "$(meta_field "$dir" "$id" omnigent_session)" ] || fail 'pending GET produced a verified binding'
+      [ -n "$(meta_field "$dir" "$id" omnigent_unnamed)" ] || fail 'pending identity was not captured'
+      lock=$(fm_meta_lock_path "$meta")
+      if [ "$mode" = capture ]; then fm_lock_acquire_wait "$lock"; fi
+      touch "$dir/serve/identity-read.release"
+      if [ "$mode" = capture ]; then
+        for ((attempt=0; attempt<200; attempt++)); do
+          [ "$(fm_meta_get "$pending" omnigent_session)" != "$session" ] || break
+          sleep 0.01
+        done
+        [ "$(fm_meta_get "$pending" omnigent_session)" = "$session" ] || fail 'verified handoff was not published'
+        [ -z "$(meta_field "$dir" "$id" omnigent_session)" ] || fail 'observer bypassed the record lock'
+        PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" capture --record-locked "$meta" \
+          || fail 'locked capture rejected the retired generation identity'
+        fm_lock_release "$lock"
+      fi
+      wait "$observer" || fail "delayed observer failed: $(cat "$dir/title-error")"
+      observer=
+      [ "$(meta_field "$dir" "$id" omnigent_session)" = "$session" ] || fail 'delayed verified identity was lost'
+      [ "$(meta_field "$dir" "$id" omnigent_retired_gen)" = s1.1.1 ] || fail 'identity recovery erased retirement intent'
+      assert_absent "$dir/serve/archived.jsonl" 'identity recovery authorized archive'
+    done
+  done
+  pass 'delayed same-generation identity survives refused retirement without bypassing stop proof'
+)
+
 test_omnigent_relaunch_archives_the_stopped_session() {
   local dir out rc id=rl-omni session=cccccccccccccccccccccccccccccccc
   dir=$(new_case omni-archive "$id")
@@ -3449,7 +3585,8 @@ SPAWN
       else
         assert_contains "$out" 'native owner is unknown' "$condition $verb lost its refusal reason"
       fi
-      cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$condition $verb replaced the native owner record"
+      sed '/^omnigent_retired_gen=/d' "$dir/home/state/$id.meta" > "$dir/owner.meta"
+      cmp -s "$dir/prior.meta" "$dir/owner.meta" || fail "$condition $verb replaced the native owner record"
       [ ! -s "$dir/fake/literal" ] || fail "$condition $verb delivered lifecycle input"
       [ ! -e "$dir/serve/archived.jsonl" ] || fail "$condition $verb archived the native owner"
       kill -0 "$pid" || fail "$condition $verb signalled a possibly live owner"
@@ -3459,7 +3596,8 @@ SPAWN
       out=$(run_spawn "$dir" "$id" --relaunch --harness claude) || rc=$?
       [ "$rc" -ne 0 ] || fail 'direct spawn replaced a live native owner after attach exit'
       assert_contains "$out" "endpoint reads 'unknown'" 'direct spawn did not enforce native-owner uncertainty'
-      cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail 'direct spawn replaced the native owner record'
+      sed '/^omnigent_retired_gen=/d' "$dir/home/state/$id.meta" > "$dir/owner.meta"
+      cmp -s "$dir/prior.meta" "$dir/owner.meta" || fail 'direct spawn replaced the native owner record'
       [ ! -s "$dir/fake/literal" ] || fail 'direct spawn launched into an unknown native owner'
       kill -0 "$pid" || fail 'direct spawn signalled the owner'
     fi
@@ -3487,11 +3625,10 @@ test_omnigent_late_binding_retirement() {
     rm -f "$dir/serve/archived.jsonl"
     PATH="$dir/fakebin:$PATH" FM_OMNIGENT_RECORD_META="$meta" FM_OMNIGENT_RECORD_GEN=s1.1.1 \
       "$ROOT/bin/fm-omnigent.sh" _title-session http://127.0.0.1:6767 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa claude late 1
-    jq -se 'length == 1 and .[0].body == {archived:true}' "$dir/serve/archived.jsonl" >/dev/null \
-      || fail "$mode late binding was not archived"
+    [ ! -e "$dir/serve/archived.jsonl" ] || fail "$mode late binding archived without stop proof"
     [ "$mode" != missing ] || [ ! -e "$meta" ] || fail 'late binding recreated removed metadata'
   done
-  pass 'late binding archives retired, removed and superseded launches'
+  pass 'late binding cannot archive retired, removed or superseded launches without stop proof'
 }
 
 test_omnigent_explicit_exit_confirmation() {
@@ -3533,7 +3670,8 @@ test_omnigent_explicit_exit_confirmation() {
         [ "$rc" -ne 0 ] || fail "$condition falsely confirmed $verb"
         assert_contains "$out" 'exit=unconfirmed' "$condition did not report unconfirmed exit"
         [ ! -e "$dir/serve/archived.jsonl" ] || fail "$condition archived an unconfirmed session"
-        cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$condition replaced the prior generation"
+        sed '/^omnigent_retired_gen=/d' "$dir/home/state/$id.meta" > "$dir/owner.meta"
+        cmp -s "$dir/prior.meta" "$dir/owner.meta" || fail "$condition replaced the prior generation"
       fi
     done
   done
@@ -3613,7 +3751,17 @@ if [ "${1:-}" = --stop-budget ]; then
   exit 0
 fi
 
+if [ "${1:-}" = --close-barrier ]; then
+  test_omnigent_teardown_stop_barrier
+  test_omnigent_delayed_identity_after_refused_retirement || exit 1
+  test_omnigent_relaunch_archives_the_stopped_session
+  test_omnigent_unknown_withholds_lifecycle || exit 1
+  exit 0
+fi
+
 if [ "${1:-}" = --omnigent ]; then
+  test_omnigent_teardown_stop_barrier
+  test_omnigent_delayed_identity_after_refused_retirement || exit 1
   test_omnigent_relaunch_archives_the_stopped_session
   test_omnigent_relaunch_defers_during_upgrade_window
   test_omnigent_dead_attach_recovery
@@ -3696,11 +3844,13 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch
+test_omnigent_teardown_stop_barrier
 test_omnigent_relaunch_archives_the_stopped_session
 test_omnigent_relaunch_defers_during_upgrade_window
 test_omnigent_dead_attach_recovery
 test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
+test_omnigent_delayed_identity_after_refused_retirement || exit 1
 test_omnigent_explicit_exit_confirmation
 test_omnigent_direct_relaunch_stops_attach || exit 1
 test_omnigent_stop_budget
