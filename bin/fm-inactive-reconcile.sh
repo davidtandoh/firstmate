@@ -780,6 +780,11 @@ scan() {
     return 0
   fi
   deadline=$(( $(date +%s) + FM_INACTIVE_RECONCILE_BUDGET_SECS ))
+  # Archive retries share this home's existing startup/watcher budget.
+  if [ "$FM_INACTIVE_RECONCILE_BUDGET_SECS" -gt 1 ] && [ -d "$STATE/omnigent-retirements" ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" reconcile-retirements "$STATE" "$((FM_INACTIVE_RECONCILE_BUDGET_SECS / 2))" || true
+    [ "$(date +%s)" -lt "$deadline" ] || return 0
+  fi
   SCAN_FIRST_VISIT_PENDING=1
   scan_pass "$cursor" after "$deadline" "$self" || rc=$?
   if [ "$rc" -eq 0 ] && [ -n "$cursor" ]; then

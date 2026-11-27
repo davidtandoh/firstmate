@@ -102,7 +102,11 @@ The launch's own stderr record is the fallback source rather than a search of th
 Firstmate never sends `delete_worktree`, because the session workspace is a shared worktree slot.
 The archive flag can commit before the runner stops; archive confirmation is history retirement and never stop proof.
 If stop evidence is unknown, cleanup and relaunch preserve the endpoint, record, and worktree lease.
-After stop proof, an archive failure warns and does not block cleanup or relaunch.
+Before cleanup removes a binding or relaunch replaces it, retirement saves its exact identity in a durable receipt.
+After stop proof, an archive failure warns and does not block cleanup or relaunch; the receipt survives for a later retry.
+Startup and watcher inactive reconciliation retry pending receipts within the existing home budget.
+An unknown stop remains pending and visible, and confirmed archive removes the receipt.
+The [retirement library header](../bin/fm-omnigent-retirement-lib.sh) owns the receipt format, matching rules, locks, and sweep limits.
 If a dead session retains an attach client, exit signals only the recorded attach process group after checking its process start time and group ownership.
 The daemon and other tasks remain outside that process group.
 Relaunch waits for the attach client to stop before it reuses the endpoint.

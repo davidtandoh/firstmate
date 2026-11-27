@@ -7701,6 +7701,13 @@ if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK_HELD=1
 fi
 if [ "$RELAUNCH" -eq 1 ]; then
+  if [ "$(fm_meta_get "$STATE/$ID.meta" omnigent)" = on ] &&
+    [ "$(fm_meta_get "$STATE/$ID.meta" omnigent_retired_gen)" != "$(fm_meta_get "$STATE/$ID.meta" spawn_gen)" ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" retire --record-locked "$STATE/$ID.meta" || {
+      echo 'error: could not preserve old Omnigent binding; refusing replacement' >&2
+      exit 1
+    }
+  fi
   SPAWN_META_TMP="$STATE/.$ID.meta.relaunch.${BASHPID:-$$}"
 else
   SPAWN_META_TMP="$STATE/.$ID.meta.spawn.${BASHPID:-$$}"

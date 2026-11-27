@@ -1671,7 +1671,7 @@ families_for_changed_path() {
       ;;
     bin/fm-fresh-session.sh)
       printf '%s\n' pure-contract-unit ;;
-    bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh)
+    bin/fm-agent-process-lib.sh|bin/fm-omnigent.sh|bin/fm-omnigent-retirement-lib.sh)
       # The shared harness-process classifier feeds both the tmux and Herdr
       # liveness verdicts, so a change to it is proven by both backends' suites.
       printf '%s\n' backend-dispatch

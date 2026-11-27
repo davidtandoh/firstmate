@@ -604,8 +604,9 @@ test_omnigent_delayed_identity_after_refused_retirement() (
 )
 
 test_omnigent_relaunch_archives_the_stopped_session() {
-  local dir out rc id=rl-omni session=cccccccccccccccccccccccccccccccc
-  dir=$(new_case omni-archive "$id")
+  local dir out rc archive_mode receipt id=rl-omni session=cccccccccccccccccccccccccccccccc
+  for archive_mode in ok http-error; do
+  dir=$(new_case "omni-archive-$archive_mode" "$id")
   add_ship_task "$dir" "$id" claude
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
   printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
@@ -614,15 +615,25 @@ test_omnigent_relaunch_archives_the_stopped_session() {
   expect_code 1 "$rc" "a relaunch refused before exit must fail"$'\n'"$out"
   [ ! -e "$dir/serve/archived.jsonl" ] || fail "a session was archived while its agent was still running"
   rm -f "$dir/fake/composer"
-  out=$(OMNI_SESSION_STATE=native-exit OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" run_control "$dir" "$id" relaunch --note "continue wrapped work"); rc=$?
+  out=$(OMNI_ARCHIVE_MODE="$archive_mode" OMNI_SESSION_STATE=native-exit OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" run_control "$dir" "$id" relaunch --note "continue wrapped work"); rc=$?
   expect_code 0 "$rc" "a wrapped relaunch should succeed"$'\n'"$out"
   assert_grep "/exit" "$dir/fake/literal" "the previous agent should have been exited"
   [ "$(grep -cx 'observe serve status --json' "$dir/serve/agent-kit.log")" = 2 ] \
     || fail "each relaunch transaction must preflight only once, including the refused transaction"
-  jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
-    "$dir/serve/archived.jsonl" >/dev/null || fail "the stopped agent's recorded session was not archived exactly once"
+  if [ "$archive_mode" = ok ]; then
+    jq -se --arg id "$session" 'length == 1 and .[0].id == $id and .[0].body == {archived:true}' \
+      "$dir/serve/archived.jsonl" >/dev/null || fail "the stopped agent's recorded session was not archived exactly once"
+  else
+    receipt=$(find "$dir/home/state/omnigent-retirements" -name '*.json')
+    [ -n "$receipt" ] || fail 'relaunch forgot failed archive'
+    jq -e --arg id "$session" '.key.session == $id and .key.generation == "s1.1.1" and .stopped == true' "$receipt" >/dev/null \
+      || fail 'relaunch lost the old binding or its stop proof'
+    FM_HOME="$dir/home" PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" reconcile-retirements "$dir/home/state" 10
+    [ ! -f "$receipt" ] || fail 'retry did not clear old generation receipt'
+  fi
   [ -z "$(meta_field "$dir" "$id" omnigent_session)" ] || fail "the replacement record kept the archived session"
   [ "$(meta_field "$dir" "$id" omnigent)" = on ] || fail "the replacement record lost wrapping"
+  done
   pass "fm-control relaunch: a wrapped task archives its stopped session and the replacement drops it"
 }
 

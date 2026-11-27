@@ -6,6 +6,7 @@
 #        fm-omnigent.sh start [--dry-run] <claude|codex>
 #        fm-omnigent.sh archive [--dry-run] <task-meta>
 #        fm-omnigent.sh retire [--record-locked] <task-meta>
+#        fm-omnigent.sh reconcile-retirements [--dry-run] <state-dir> <remaining-seconds>
 #        fm-omnigent.sh upgrade-gate
 #        fm-omnigent.sh probe [--fresh] <task-meta>
 #        fm-omnigent.sh approvals [--fresh] <task-meta>
@@ -89,6 +90,7 @@
 # without a recorded or verified unnamed session. Callers archive only a
 # proven-stopped worker. retire persists omnigent_retired_gen without an API
 # request; this intent blocks unverified fallback updates and is never stop proof.
+# Retirement inventory and retry limits: fm-omnigent-retirement-lib.sh header.
 # probe prints alive, dead or unknown for the recorded session.
 # approvals prints a JSON array of {id,summary}, [] when cleared, or unknown.
 # Both share a sanitized snapshot beside the task meta for 30 seconds, keyed
@@ -444,7 +446,8 @@ retire_session() { # [--dry-run] [--record-locked] <task meta>
     fm_lock_acquire_wait_bounded "$lock" 10 || return 1
   fi
   if [ "$dry" = 0 ]; then
-    if fm_backlog_meta_spawn_gen "$meta" "$dir"; then
+    retirement_save "$meta" || status=1
+    if [ "$status" = 0 ] && fm_backlog_meta_spawn_gen "$meta" "$dir"; then
       gen=$FM_BACKLOG_META_SPAWN_GEN
       tmp="$meta.omnigent.${BASHPID:-$$}"
       if {
@@ -471,14 +474,16 @@ archive_session() { # [--dry-run] [--record-locked] <task meta>
   BINDING_ERROR=
   read_binding "$1" || { printf 'warning: Omnigent archive: %s\n' "${BINDING_ERROR:-unreadable task record}" >&2; return 1; }
   if [ -z "$SESSION_ID" ]; then
-    archive_unnamed_session "$dry" "$1"
-    return
+    if [ "$dry" = 1 ]; then archive_unnamed_session "$dry" "$1"; return; fi
+    local wrapper started host extra
+    read_unnamed_session "$1" || return 1
+    [ -n "$SESSION_ID" ] || return 0
   fi
   if [ "$dry" = 1 ]; then
     printf 'would archive Omnigent session %s/v1/sessions/%s\n' "$SERVER" "$SESSION_ID"
     return 0
   fi
-  archive_bound_session
+  retirement_archive "$1"
 }
 
 # Read the cleanup-only fallback from a task record or generation handoff.
@@ -1166,9 +1171,17 @@ except Exception as error:
 OP=${1:---help}
 shift || true
 case "$OP" in
+  archive|retire|reconcile-retirements|_retry-retirement)
+    # shellcheck source=bin/fm-omnigent-retirement-lib.sh
+    . "$SCRIPT_DIR/fm-omnigent-retirement-lib.sh"
+    ;;
+esac
+case "$OP" in
   _title-session) title_session "$@"; exit ;;
   archive) archive_session "$@"; exit ;;
   retire) retire_session "$@"; exit ;;
+  reconcile-retirements) retirement_sweep "$@"; exit ;;
+  _retry-retirement) [ "$#" -eq 2 ] || exit 2; retirement_store "$1" && retirement_attempt "$2" false; exit ;;
   capture) capture_session "$@"; exit ;;
   upgrade-gate)
     [ "$#" -eq 0 ] || fail 'upgrade-gate takes no arguments'
