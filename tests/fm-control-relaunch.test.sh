@@ -64,6 +64,9 @@ set -u
 D=$FM_FAKE_DIR
 case "${1:-}" in
   send-keys)
+    if [ -n "${FM_FAKE_ATTACH_STOP_MARKER:-}" ] && [ ! -e "$FM_FAKE_ATTACH_STOP_MARKER" ]; then
+      : > "$D/input-before-attach-stop"
+    fi
     shift
     literal=0
     while [ $# -gt 0 ]; do
@@ -236,7 +239,8 @@ EOF
 }
 
 run_control() {  # <case-dir> <args...>
-  local dir=$1; shift
+  local dir=$1 exit_wait=0.05; shift
+  if [ "$(meta_field "$dir" "${1:-}" omnigent 2>/dev/null)" = on ]; then exit_wait=2; fi
   # A claude spawn pre-registers workspace trust in the launching user's own
   # store (bin/fm-claude-trust.sh), and a relaunch reaches it through fm-control.sh, so this runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
@@ -246,7 +250,7 @@ run_control() {  # <case-dir> <args...>
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
-    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT="${FM_TEST_CONTROL_EXIT_WAIT:-0.05}" FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT="${FM_TEST_CONTROL_EXIT_WAIT:-$exit_wait}" FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
     FM_REAL_MV="${FM_REAL_MV:-}" FM_FAKE_COMPLETE_JOURNAL_MV_FAIL="${FM_FAKE_COMPLETE_JOURNAL_MV_FAIL:-}" \
     FM_FAKE_META_PUBLISH_MV_FAIL="${FM_FAKE_META_PUBLISH_MV_FAIL:-}" \
@@ -468,7 +472,7 @@ test_omnigent_relaunch_archives_the_stopped_session() {
   dir=$(new_case omni-archive "$id")
   add_ship_task "$dir" "$id" claude
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
-  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
   printf 'i' > "$dir/fake/composer"
   out=$(run_control "$dir" "$id" relaunch --note "pending draft"); rc=$?
   expect_code 1 "$rc" "a relaunch refused before exit must fail"$'\n'"$out"
@@ -493,7 +497,7 @@ test_omnigent_relaunch_defers_during_upgrade_window() {
   dir=$(new_case omni-window "$id")
   add_ship_task "$dir" "$id" claude
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
-  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' dddddddddddddddddddddddddddddddd >> "$dir/home/state/$id.meta"
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' dddddddddddddddddddddddddddddddd >> "$dir/home/state/$id.meta"
   obs="$dir/observation"
   mkdir -p "$obs/serve"
   jq -n --argjson exp "$(( $(date +%s) + 600 ))" \
@@ -3379,7 +3383,7 @@ test_omnigent_dead_attach_recovery() {
   dir=$(new_case omni-dead "$id")
   add_ship_task "$dir" "$id" claude
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
-  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
   local pid started
   pid=$(python3 - "$dir/fake/command" <<'SPAWN'
 import subprocess, sys
@@ -3419,13 +3423,12 @@ SPAWN
 )
   trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
   started=$( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_start_time "$pid" )
-  printf 'omnigent=on\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' \
     "$session" "$pid" "$started" >> "$dir/home/state/$id.meta"
   cp "$dir/home/state/$id.meta" "$dir/prior.meta"
-  for condition in runner-gone api-down attach-stopped archived failed native-live-exit; do
+  for condition in runner-gone api-down attach-stopped archived failed; do
     export OMNI_SESSION_STATE=$condition OMNI_HEALTH=ok
     [ "$condition" != api-down ] || export OMNI_HEALTH=down
-    [ "$condition" != native-live-exit ] || export OMNI_SESSION_STATE=alive
     if [ "$condition" = attach-stopped ]; then
       export OMNI_SESSION_STATE=alive
       printf zsh > "$dir/fake/command"
@@ -3443,17 +3446,11 @@ SPAWN
       [ "$rc" -ne 0 ] || fail "$condition $verb claimed the native worker stopped: $out"
       if [ "$condition:$verb" = api-down:relaunch ]; then
         assert_contains "$out" 'server is unreachable' 'API failure did not refuse at launch preflight'
-      elif [ "$condition:$verb" = native-live-exit:exit ]; then
-        assert_contains "$out" 'exit=unconfirmed' 'attach exit falsely confirmed native stop'
       else
         assert_contains "$out" 'native owner is unknown' "$condition $verb lost its refusal reason"
       fi
       cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$condition $verb replaced the native owner record"
-      if [ "$condition:$verb" = native-live-exit:exit ]; then
-        assert_grep '/exit' "$dir/fake/literal" 'normal exit was not attempted'
-      else
-        [ ! -s "$dir/fake/literal" ] || fail "$condition $verb delivered lifecycle input"
-      fi
+      [ ! -s "$dir/fake/literal" ] || fail "$condition $verb delivered lifecycle input"
       [ ! -e "$dir/serve/archived.jsonl" ] || fail "$condition $verb archived the native owner"
       kill -0 "$pid" || fail "$condition $verb signalled a possibly live owner"
     done
@@ -3497,12 +3494,83 @@ test_omnigent_late_binding_retirement() {
   pass 'late binding archives retired, removed and superseded launches'
 }
 
+test_omnigent_explicit_exit_confirmation() {
+  local dir out rc condition verb id=rl-own-exit session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  local -a args
+  for condition in native-exit native-disconnected-exit native-active-exit native-response-exit native-error-exit native-health-exit; do
+    for verb in exit relaunch; do
+      dir=$(new_case "own-$condition-$verb" "$id")
+      add_ship_task "$dir" "$id" claude
+      ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+      printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+      cp "$dir/home/state/$id.meta" "$dir/prior.meta"
+      rc=0
+      args=("$verb")
+      [ "$verb" != relaunch ] || args+=(--note 'confirm this exit attempt')
+      out=$(OMNI_SESSION_STATE="$condition" OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" \
+        OMNI_HEALTH_AFTER_EXIT="$(if [ "$condition" = native-health-exit ]; then echo down; else echo ok; fi)" \
+        FM_TEST_CONTROL_EXIT_WAIT=1 run_control "$dir" "$id" "${args[@]}") || rc=$?
+      assert_grep '/exit' "$dir/fake/literal" 'native exit was not delivered'
+      if [ "$condition" = native-exit ]; then
+        expect_code 0 "$rc" "reachable idle retained session must confirm $verb"$'\n'"$out"
+        if [ "$verb" = relaunch ]; then
+          [ -s "$dir/serve/archived.jsonl" ] || fail 'confirmed retained session was not archived'
+          [ "$(journal_field "$dir" "$id" phase)" = complete ] || fail 'confirmed relaunch did not complete'
+        else
+          [ ! -e "$dir/serve/archived.jsonl" ] || fail 'exit archived its retained session'
+          out=$(PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" probe --fresh "$dir/home/state/$id.meta")
+          [ "$out" = alive ] || fail 'retained session did not remain reachable after exit'
+          out=$(PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" _confirm-exit "$dir/home/state/$id.meta" "$session" http://127.0.0.1:6767 stale-generation)
+          [ "$out" = unknown ] || fail 'confirmation accepted another generation'
+          out=$(PATH="$dir/fakebin:$PATH" bash "$ROOT/bin/fm-omnigent.sh" _confirm-exit "$dir/home/state/$id.meta" "$session" http://127.0.0.1:9999 s1.1.1)
+          [ "$out" = unknown ] || fail 'confirmation accepted another server'
+          rc=0
+          out=$(run_spawn "$dir" "$id" --relaunch --harness claude) || rc=$?
+          [ "$rc" -ne 0 ] || fail 'independent relaunch reused a prior exit confirmation'
+          assert_contains "$out" "endpoint reads 'unknown'" 'independent relaunch lost native uncertainty'
+        fi
+      else
+        [ "$rc" -ne 0 ] || fail "$condition falsely confirmed $verb"
+        assert_contains "$out" 'exit=unconfirmed' "$condition did not report unconfirmed exit"
+        [ ! -e "$dir/serve/archived.jsonl" ] || fail "$condition archived an unconfirmed session"
+        cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$condition replaced the prior generation"
+      fi
+    done
+  done
+  pass 'only this delivered exit confirms a reachable idle retained session'
+}
+
+test_omnigent_direct_relaunch_stops_attach() (
+  local dir out rc pid started id=rl-direct-stop
+  dir=$(new_case direct-stop "$id")
+  add_ship_task "$dir" "$id" claude
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  pid=$(python3 - "$dir/fake/command" "$dir/attach-stopped" <<'SPAWN'
+import subprocess, sys
+command = """trap 'printf zsh > "$1"; touch "$2"; exit 0' TERM; while :; do sleep 0.01; done"""
+p = subprocess.Popen(['bash', '-c', command, '_', sys.argv[1], sys.argv[2]],
+                     start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print(p.pid)
+SPAWN
+)
+  trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
+  started=$( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_start_time "$pid" )
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=ffffffffffffffffffffffffffffffff\nomnigent_server=http://127.0.0.1:6767\nomnigent_attach_pid=%s\nomnigent_attach_start=%s\n' "$pid" "$started" >> "$dir/home/state/$id.meta"
+  rc=0
+  out=$(OMNI_SESSION_STATE=missing FM_FAKE_ATTACH_STOP_MARKER="$dir/attach-stopped" run_spawn "$dir" "$id" --relaunch --harness claude) || rc=$?
+  expect_code 0 "$rc" "direct relaunch must stop its retained attach client"$'\n'"$out"
+  [ -e "$dir/attach-stopped" ] || fail 'direct relaunch did not stop its recorded attach group'
+  [ ! -e "$dir/fake/input-before-attach-stop" ] || fail 'replacement input reached a running attach client'
+  assert_contains "$out" "spawned $id" 'direct replacement was not launched'
+  pass 'direct relaunch stops a retained attach client before sending replacement input'
+)
+
 test_omnigent_stop_budget() {
   local dir out rc elapsed id=rl-stop-budget
   dir=$(new_case omni-stop-budget "$id")
   add_ship_task "$dir" "$id" claude
   ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
-  printf 'omnigent=on\nomnigent_session=dddddddddddddddddddddddddddddddd\nomnigent_server=http://127.0.0.1:6767\n' >> "$dir/home/state/$id.meta"
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=dddddddddddddddddddddddddddddddd\nomnigent_server=http://127.0.0.1:6767\n' >> "$dir/home/state/$id.meta"
   rc=0
   out=$(FM_TEST_CONTROL_EXIT_WAIT=1 OMNI_SESSION_DELAY_AFTER_EXIT=3 OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" run_control "$dir" "$id" exit) || rc=$?
   [ "$rc" -ne 0 ] || fail 'unavailable native read confirmed stop'
@@ -3551,6 +3619,8 @@ if [ "${1:-}" = --omnigent ]; then
   test_omnigent_dead_attach_recovery
   test_omnigent_unknown_withholds_lifecycle || exit 1
   test_omnigent_late_binding_retirement
+  test_omnigent_explicit_exit_confirmation
+  test_omnigent_direct_relaunch_stops_attach || exit 1
   test_omnigent_stop_budget
   test_exit_without_perl
   exit 0
@@ -3631,6 +3701,8 @@ test_omnigent_relaunch_defers_during_upgrade_window
 test_omnigent_dead_attach_recovery
 test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
+test_omnigent_explicit_exit_confirmation
+test_omnigent_direct_relaunch_stops_attach || exit 1
 test_omnigent_stop_budget
 test_exit_without_perl
 test_missing_worktree_refuses_before_stopping_anything

@@ -109,12 +109,14 @@ A successful session read proves reachability without a separate `/health` reque
 An inconclusive session read remains unknown; server health cannot prove native-owner termination.
 Slow or failed reads reduce the refresh rate through bounded backoff.
 The [`bin/fm-omnigent.sh` header](../bin/fm-omnigent.sh) owns expiry, request limits, cache identity, and refresh mechanics.
-Only a confirmed absent exact session reads as dead and permits recovery.
+Outside an explicit exit attempt, only a confirmed absent exact session reads as dead and permits recovery.
 A disconnected runner, unreachable server, archived flag, failed turn, absent binding, or inconclusive session response reads as unknown.
 An attach client that stops or disappears does not prove that its native owner stopped.
 Unknown native-owner state withholds process-group signals, replacement, recovery, and teardown lease release; crew-state output reports the degradation.
 Secondmate recovery readers require fresh session reads, including remote recovery probes.
-Lifecycle commands require a fresh session read before stopping a retained attach client, then confirm both attach-client exit and fresh native absence.
+Lifecycle commands require a fresh session read before stopping a retained attach client.
+After Firstmate delivers an exit command, that exit attempt can also confirm termination when the attach client stops and fresh session and health reads prove the same session and generation is reachable with no active turn.
+This confirmation is scoped to that exit attempt and its parent relaunch transaction; supervision and independent recovery continue to require native absence.
 Cached supervision verdicts never authorize that signal.
 
 ## Upgrade pause window

@@ -653,6 +653,33 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
 probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
 
+confirm_exit() (
+  local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code health
+  [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
+  read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-exit.XXXXXX") || { echo unknown; return; }
+  trap 'rm -f -- "$body"' EXIT
+  session_snapshot "$body" || { echo unknown; return; }
+  [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
+    [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  if [ "$code" = 404 ]; then echo dead; return; fi
+  [ "$code" = 200 ] && jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
+    .id == $id and .runner_online == true and .status == "idle" and
+    .active_response_id == null and .archived != true)' "$body" >/dev/null 2>&1 \
+    || { echo unknown; return; }
+  health=$(fm_run_timed 6 curl --silent --fail --max-time 5 --max-filesize 131072 \
+    --noproxy '*' --proto '=http,https' "$SERVER/health" 2>/dev/null) \
+    || { echo unknown; return; }
+  printf '%s' "$health" | jq -se 'length == 1 and .[0].status == "ok"' >/dev/null 2>&1 \
+    || { echo unknown; return; }
+  [ "$(fm_meta_get "$meta" omnigent_session)" = "$expected_session" ] &&
+    [ "$(fm_meta_get "$meta" omnigent_server)" = "$expected_server" ] &&
+    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  echo dead
+)
+
 stop_attach() {
   local meta=$1 pid started current pgid
   # shellcheck source=bin/fm-wake-lib.sh
@@ -1140,6 +1167,7 @@ case "$OP" in
     exit
     ;;
   probe) probe_session "$@"; exit ;;
+  _confirm-exit) [ "$#" -eq 4 ] || fail '_confirm-exit requires a task record, session, server and generation'; confirm_exit "$@"; exit ;;
   approvals) approvals_session "$@"; exit ;;
   binding) binding_op "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;

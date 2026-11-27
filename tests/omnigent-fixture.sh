@@ -54,6 +54,9 @@ body = json.loads(args[args.index('--data') + 1]) if '--data' in args else None
 with (service / 'requests.jsonl').open('a') as output:
     output.write(json.dumps({'method': method, 'url': url, 'body': body}, sort_keys=True) + '\n')
 if url.endswith('/health'):
+    command_file = os.environ.get('OMNI_NATIVE_COMMAND_FILE')
+    if os.environ.get('OMNI_HEALTH_AFTER_EXIT') == 'down' and command_file and pathlib.Path(command_file).read_text() == 'zsh':
+        sys.exit(7)
     print('{"status":"ok"}')
     sys.exit(0)
 # Registered hosts for remote-server launches: OMNI_HOST_STATE selects
@@ -115,9 +118,16 @@ elif state == 'failed':
     session['status'] = 'failed'
 elif state == 'archived':
     session['archived'] = True
-elif state == 'native-exit':
+elif state in ('native-exit', 'native-disconnected-exit', 'native-active-exit', 'native-response-exit', 'native-error-exit'):
     if pathlib.Path(os.environ['OMNI_NATIVE_COMMAND_FILE']).read_text() == 'zsh':
-        code = 404
+        if state == 'native-disconnected-exit':
+            session['runner_online'] = False
+        elif state == 'native-active-exit':
+            session['status'] = 'running'
+        elif state == 'native-response-exit':
+            session['active_response_id'] = 'response-active'
+        elif state == 'native-error-exit':
+            code = 500
 elif state == 'missing':
     code = 404
 elif state == 'server-error':

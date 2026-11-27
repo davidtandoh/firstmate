@@ -424,25 +424,31 @@ fi
 
 agent_state() {
   local state native remaining
+  local -a native_command
   state=$(fm_backend_agent_state "$BACKEND" "$T")
   if [ "${VERIFY_OMNIGENT_STOP:-0}" = 1 ] && [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+    if [ "$state" = dead ] && [ "${OMNIGENT_EXIT_DELIVERED:-0}" = 1 ]; then
+      native_command=(bash "$SCRIPT_DIR/fm-omnigent.sh" _confirm-exit "$META"
+        "$OMNIGENT_EXIT_SESSION" "$OMNIGENT_EXIT_SERVER" "$OMNIGENT_EXIT_GEN")
+    else
+      native_command=(bash -c '
+        . "$1"
+        fm_backend_omnigent_agent_state "$2" "$3"
+      ' _ "$SCRIPT_DIR/fm-backend.sh" "$state" "$META")
+    fi
     if [ -n "${1:-}" ]; then
       if remaining=$(awk -v deadline="$1" -v now="$(fm_timing_now_ms)" 'BEGIN {
         remaining = (deadline - now) / 1000
         if (remaining <= 0) exit 1
         printf "%.6f", remaining
       }'); then
-        native=$(fm_run_timed "$remaining" bash -c '
-          . "$1"
-          fm_backend_omnigent_agent_state "$2" "$3"
-        ' _ "$SCRIPT_DIR/fm-backend.sh" "$state" "$META" 2>/dev/null) || native=unknown
+        native=$(fm_run_timed "$remaining" "${native_command[@]}" 2>/dev/null) || native=unknown
       else
         native=unknown
       fi
     else
-      native=$(fm_backend_omnigent_agent_state "$state" "$META")
+      native=$("${native_command[@]}") || native=unknown
     fi
-    # Native absence and attach exit must both hold before a stop wait passes.
     if [ "$state:$native" != alive:dead ]; then state=$native; fi
   fi
   printf '%s' "$state"
@@ -474,7 +480,7 @@ wait_agent_state() {  # <timeout> <wanted>...
     pause=$(awk -v deadline="$deadline" -v now="$(fm_timing_now_ms)" -v poll="$POLL" 'BEGIN {
       remaining = (deadline - now) / 1000
       if (remaining <= 0) exit 1
-      printf "%.6f", remaining < poll ? remaining : poll
+      printf "%.6f", (remaining < poll ? remaining : poll)
     }') || break
     sleep "$pause"
   done
@@ -753,7 +759,8 @@ retire_busy_incarnation() {
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
-  local VERIFY_OMNIGENT_STOP=0
+  local VERIFY_OMNIGENT_STOP=0 OMNIGENT_EXIT_DELIVERED=0
+  local OMNIGENT_EXIT_SESSION= OMNIGENT_EXIT_SERVER= OMNIGENT_EXIT_GEN=
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"
@@ -871,12 +878,16 @@ do_exit() {
   # interacting with the typed submit verification. A Ctrl-C over leftover
   # composer text only clears it, so Ctrl-U clears the composer first and one
   # more Ctrl-C follows if the agent is still alive.
+  OMNIGENT_EXIT_SESSION=$(fm_meta_get "$META" omnigent_session)
+  OMNIGENT_EXIT_SERVER=$(fm_meta_get "$META" omnigent_server)
+  OMNIGENT_EXIT_GEN=$(fm_meta_get "$META" spawn_gen)
   case "$cmd" in
     C-c)
       fm_backend_send_key "$BACKEND" "$T" C-u "$LABEL" \
         || die "the exit key could not be sent to task $ID on $BACKEND"
       fm_backend_send_key "$BACKEND" "$T" C-c "$LABEL" \
         || die "the exit key could not be sent to task $ID on $BACKEND"
+      OMNIGENT_EXIT_DELIVERED=1
       if ! wait_agent_state "$SETTLE_WAIT" dead >/dev/null; then
         fm_backend_send_key "$BACKEND" "$T" C-c "$LABEL" \
           || die "the exit key could not be sent to task $ID on $BACKEND"
@@ -887,6 +898,7 @@ do_exit() {
         || die "the exit command could not be sent to task $ID on $BACKEND"
       [ "$verdict" != send-failed ] \
         || die "the exit command could not be sent to task $ID on $BACKEND"
+      OMNIGENT_EXIT_DELIVERED=1
       # The submitting Enter can open the picker. The agent is still alive, and
       # another Enter would confirm the selected row. A dead agent may leave the
       # same text behind; that is not a prompt still waiting.
@@ -1344,7 +1356,7 @@ relaunch_upgrade_window_gate() {
 }
 
 do_relaunch() {
-  local exit_result state note_line
+  local exit_result state note_line exit_session exit_server exit_gen
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -1385,7 +1397,11 @@ do_relaunch() {
   journal_write noted "${CHECKPOINT_LINES[@]}" "$note_line"
 
   journal_write stopping "${CHECKPOINT_LINES[@]}" "$note_line"
+  exit_session=$(fm_meta_get "$META" omnigent_session)
+  exit_server=$(fm_meta_get "$META" omnigent_server)
+  exit_gen=$(fm_meta_get "$META" spawn_gen)
   exit_result=$(do_exit)
+  if [ "$exit_result" != stopped ]; then exit_session=; exit_server=; exit_gen=; fi
   journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
   # do_exit returned, so the old agent is proven stopped or its endpoint gone:
   # archive exactly its recorded Omnigent session before the replacement
@@ -1406,6 +1422,9 @@ do_relaunch() {
   if FM_CONTROL_OMNIGENT_CHECKED="${OMNIGENT_CHECKED:-0}" \
       FM_CONTROL_OMNIGENT_ROOT="${OMNIGENT_CHECKED_ROOT:-}" \
       FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
+      FM_CONTROL_OMNIGENT_EXIT_SESSION="$exit_session" \
+      FM_CONTROL_OMNIGENT_EXIT_SERVER="$exit_server" \
+      FM_CONTROL_OMNIGENT_EXIT_GEN="$exit_gen" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded

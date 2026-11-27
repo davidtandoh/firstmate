@@ -2651,7 +2651,34 @@ if [ "$RELAUNCH" -eq 1 ]; then
         ;;
     esac
   fi
-  RELAUNCH_STATE=$(fm_backend_omnigent_agent_state "$RELAUNCH_STATE" "$RELAUNCH_META")
+  RELAUNCH_ATTACH_STATE=$RELAUNCH_STATE
+  if [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "$RELAUNCH_ATTACH_STATE" = dead ] &&
+    [ -n "${FM_CONTROL_OMNIGENT_EXIT_SESSION:-}" ] && [ -n "${FM_CONTROL_OMNIGENT_EXIT_GEN:-}" ] &&
+    [ "$(fm_meta_get "$RELAUNCH_META" omnigent_session)" = "$FM_CONTROL_OMNIGENT_EXIT_SESSION" ] &&
+    [ "$(fm_meta_get "$RELAUNCH_META" omnigent_server)" = "${FM_CONTROL_OMNIGENT_EXIT_SERVER:-}" ] &&
+    [ "$(fm_meta_get "$RELAUNCH_META" spawn_gen)" = "$FM_CONTROL_OMNIGENT_EXIT_GEN" ] &&
+    [ -n "${FM_CONTROL_RELAUNCH_TX:-}" ] &&
+    [ "$(fm_meta_get "$STATE/$ID.control-relaunch" phase)" = launching ] &&
+    [ "$(fm_meta_get "$STATE/$ID.control-relaunch" relaunch_tx)" = "$FM_CONTROL_RELAUNCH_TX" ]; then
+    RELAUNCH_STATE=dead
+  else
+    RELAUNCH_STATE=$(fm_backend_omnigent_agent_state "$RELAUNCH_STATE" "$RELAUNCH_META")
+  fi
+  if [ "$RELAUNCH_ATTACH_STATE" = alive ] && [ "$RELAUNCH_STATE" = dead ]; then
+    "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$RELAUNCH_META" || {
+      echo "error: could not stop task $ID's retained Omnigent attach client" >&2
+      exit 1
+    }
+    RELAUNCH_ATTACH_DEADLINE=$((SECONDS + 5))
+    while [ "$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")" != dead ]; do
+      if [ "$SECONDS" -ge "$RELAUNCH_ATTACH_DEADLINE" ]; then
+        echo "error: task $ID's retained Omnigent attach client was not confirmed stopped" >&2
+        exit 1
+      fi
+      sleep 0.1
+    done
+    RELAUNCH_STATE=$(fm_backend_omnigent_agent_state dead "$RELAUNCH_META")
+  fi
   case "$RELAUNCH_STATE" in
     dead) ;;
     missing) RELAUNCH_REBIND=1 ;;
