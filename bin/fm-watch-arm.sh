@@ -77,6 +77,8 @@
 # lock identity before and after close, and successor disposition. The separate
 # state/.watch-triage.log remains exclusively the watcher's absorbed-wake debug
 # log and is never written here.
+# Arm exits also append bounded metadata to state/.watch-continuity.log through
+# the shared writer in bin/fm-wake-lib.sh, including failures before a cycle.
 #
 # --restart: stop ONLY this FM_HOME's watcher (the pid recorded in THIS home's
 # state/.watch.lock) and own a fresh cycle, or attach if a verified live peer
@@ -149,6 +151,13 @@ if [ "${FM_GATE_REFUSE_BYPASS:-}" != 1 ]; then
 fi
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+
+ARM_DIAGNOSTIC=entered
+arm_exit_log() {
+  local rc=$?
+  fm_watch_continuity_log "$STATE" arm "$ARM_DIAGNOSTIC" "$rc"
+}
+trap arm_exit_log EXIT
 
 # Home-local watcher tuning is independent of Relay's generated cadence
 # artifact. Relay, when active, is sourced second so its required 30s cadence
@@ -274,6 +283,7 @@ cycle_signal_name() {
 
 cycle_log_append() {
   local exit_code=$1 signal=$2 reason=$3 successor=$4 ended_at beacon_age lock_after size tmp raw i
+  ARM_DIAGNOSTIC=$reason
   [ "$cycle_active" -eq 1 ] || return 0
   ended_at=$(date +%s)
   beacon_age=$(fm_path_age "$BEAT")

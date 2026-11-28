@@ -2331,11 +2331,13 @@ test_arm_confirms_a_slow_post_claim_startup() {
 
 # A live foreign .wake-queue.lock holder makes the child's bounded startup
 # recovery read refuse inside FM_WATCHER_STARTUP_LOCK_BOUND; the child ends
-# with the typed line, the arm relays it verbatim, and the same clean exit
-# still publishes a drainable downtime. A predecessor's fresh beacon must not
+# with the typed line and the arm relays it verbatim. Cleanup retains dead
+# singleton evidence until the queue lock permits recovery publication.
+# Re-arming after release must surface drainable downtime and release the lock.
+# A predecessor's fresh beacon must not
 # confirm the child while it is still blocked before its first poll.
 test_arm_relays_a_startup_lock_held_by_live_pid() {
-  local dir state fakebin armout holder status i
+  local dir state fakebin armout holder status i retained_pid
   dir=$(make_case arm-startup-lock-held)
   state="$dir/state"
   fakebin="$dir/fakebin"
@@ -2370,8 +2372,15 @@ test_arm_relays_a_startup_lock_held_by_live_pid() {
   fi
   grep -F "watcher: FAILED - startup lock $state/.wake-queue.lock held by live pid" "$armout" \
     || fail "arm did not relay the typed startup-lock line: $(cat "$armout")"
-  [ ! -e "$state/.watch.lock" ] \
-    || fail "the refused child retained its singleton instead of publishing downtime"
+  retained_pid=$(cat "$state/.watch.lock/pid")
+  ! is_live_non_zombie "$retained_pid" || fail "startup-refused child stayed alive"
+  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    "$WATCH_ARM" > "$dir/recovery.out" 2>&1 \
+    || fail "could not reclaim retained startup evidence"
+  grep -q 'check: rearm-resurface' "$dir/recovery.out" \
+    || fail "retained evidence did not surface recovery"
+  [ ! -e "$state/.watch.lock" ] || fail "recovery child retained singleton after contention cleared"
   drain_and_ack "$state" \
     || fail "drain after the typed startup-lock failure did not present the downtime"
   pass "arm relays a live-holder startup-lock refusal and keeps the downtime drainable"
