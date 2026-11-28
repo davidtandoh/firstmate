@@ -24,10 +24,16 @@ Any task meta (including dead/uncertain endpoints) blocks pruning; only teardown
 owns removing it. Legacy tasks have no completion receipt and stay report-only.
 
 Bounds: 120s wall time, 128 MiB Python engine address space where supported,
-2,000 tasks, 200,000 visited entries, depth 64, 32 patterns of <=256 characters,
-1 MiB per control/backlog input, 2 MiB report. Traversal streams directory
+2,000 candidates, 200 held tasks, 10s per task read, 200,000 visited entries,
+depth 64, 32 patterns of <=256 characters,
+1 MiB per control/backlog input and combined held details, 2 MiB report. Traversal streams directory
 entries and never opens scratch contents. Limits/errors prevent deletion for
-the affected task; a failed global backlog read prevents every deletion.
+the affected task; a failed or incomplete hold scan prevents every deletion.
+Candidate state and closed fields come from home-addressed show --full reads;
+held IDs use only the first slug field of a count-checked bounded listing.
+Missing candidates are ineligible; absent live rows use the configured Done archive.
+Empty overrides use defaults; relative overrides resolve beneath absolute FM_HOME.
+An absent config directory or task-retention file leaves report-only enabled.
 Child commands retain the launcher's inherited address-space limits; the shared
 process-group timeout bounds their runtime, not their memory.
 No worktree is ever modified. Reports measure logical regular-file bytes.
@@ -35,7 +41,6 @@ No worktree is ever modified. Reports measure logical regular-file bytes.
 from __future__ import annotations
 
 import argparse
-import csv
 import fnmatch
 from functools import lru_cache
 import hashlib
@@ -226,43 +231,80 @@ def run_child(*args, **kwargs):
     return subprocess.run(*args, preexec_fn=restore_child_address_space, **kwargs)
 
 
-def command_output(command, env, timeout=15):
+def command_output(command, env, timeout=15, allow_not_found=False):
     with tempfile.TemporaryFile() as output:
         result = run_child(command, env=env, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
         output.seek(0)
         raw = output.read(LIMIT + 1)
-    require(result.returncode == 0 and len(raw) <= LIMIT, 'backlog read failed or exceeded bound')
+    require(len(raw) <= LIMIT, 'backlog read exceeded bound')
+    if allow_not_found and result.returncode != 0 and b'code: NOT_FOUND' in raw.splitlines():
+        return None
+    require(result.returncode == 0, 'backlog read failed or exceeded bound')
     return raw.decode()
 
 
-def backlog(env):
-    raw = command_output(['bash', str(Path(__file__).with_suffix('.sh')), 'backlog'], env)
+def task_row(env, task_id, allow_archive=True):
+    require(ID.fullmatch(task_id), 'unsafe task ID')
+    try:
+        raw = command_output(['bash', str(Path(__file__).with_name('fm-tasks-axi.sh')),
+                              'show', task_id, '--full'], env, timeout=10, allow_not_found=allow_archive)
+        if raw is None:
+            raw = command_output(['bash', str(Path(__file__).with_suffix('.sh')),
+                                  'archived', task_id], env, timeout=10)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        raise RetentionError('task unavailable in backlog: ' + task_id + ': ' + str(error)) from error
+    rows = {}
+    for line in raw.splitlines():
+        match = re.fullmatch(r'  ([a-z_]+): (.*)', line)
+        if not match:
+            continue
+        key, value = match.groups()
+        if key not in ('id', 'title', 'state', 'closed', 'hold_kind', 'hold_reason', 'body', 'links'):
+            continue
+        require(key not in rows, 'duplicate task field: ' + key)
+        rows[key] = json.loads(value) if value.startswith('"') else value
+        require(isinstance(rows[key], str), 'invalid task field: ' + key)
+        require(not re.search(r'\n\.\.\. \(truncated, \d+ chars total - use .*--full', rows[key]),
+                'truncated task detail: ' + task_id)
+    require(rows.get('id') == task_id and rows.get('state') in ('queued', 'in_flight', 'done')
+            and 'closed' in rows, 'invalid task state fields: ' + task_id)
+    require({'title', 'hold_kind', 'hold_reason', 'body', 'links'} <= rows.keys(),
+            'incomplete task detail: ' + task_id)
+    return rows
+
+
+def held_rows(env):
+    # Only the unquoted slug before the first comma is read from this listing.
+    # The wrapper projects IDs only; titles, bodies and notes are discarded.
+    raw = command_output(['bash', str(Path(__file__).with_suffix('.sh')), 'held'], env)
     lines = raw.splitlines()
-    headers = [(n, re.fullmatch(r'tasks\[(\d+)\]\{([^}]+)\}:', line)) for n, line in enumerate(lines)]
-    headers = [(n, m) for n, m in headers if m]
-    require(len(headers) == 1, 'invalid backlog table')
-    start, header = headers[0]
-    count = int(header.group(1))
-    require(count <= 2000, 'backlog task bound exceeded')
-    fields = header.group(2).split(',')
-    require({'id', 'state', 'body', 'hold_kind', 'hold_reason', 'links'} <= set(fields), 'missing backlog fields')
-    rows = []
-    for line in lines[start + 1:start + 1 + count]:
-        require(line.startswith('  '), 'invalid backlog row')
-        values = next(csv.reader([line[2:]], strict=True))
-        require(len(values) == len(fields), 'invalid backlog row width')
-        rows.append(dict(zip(fields, values)))
-    require(len(rows) == count and len({r['id'] for r in rows}) == count, 'invalid backlog count or duplicates')
-    return {row['id']: row for row in rows}
+    counts = [re.fullmatch(r'count: (\d+)', line) for line in lines if line.startswith('count:')]
+    require(len(counts) == 1 and counts[0] is not None, 'held task listing truncated or invalid')
+    count = int(counts[0].group(1))
+    require(count <= 200, 'held task bound exceeded')
+    ids = []
+    require(len(lines) == (count + 2 if count else 1), 'incomplete held task listing')
+    if count:
+        header = 'tasks[%d]{id,state,kind,repo,title}:' % count
+        require(lines.count(header) == 1, 'invalid held task listing')
+        start = lines.index(header) + 1
+        for line in lines[start:start + count]:
+            match = ID.fullmatch(line)
+            require(match is not None, 'invalid held task ID')
+            ids.append(match.group(0))
+    require(len(ids) == count and len(set(ids)) == count, 'invalid held task count')
+    rows = {}
+    size = 0
+    for task_id in ids:
+        rows[task_id] = task_row(env, task_id, allow_archive=False)
+        size += len(canonical(rows[task_id]).encode())
+        require(size <= LIMIT, 'held task detail budget exceeded')
+    return rows
 
 
 def done_confirmed(task_id, rows, env):
-    row = rows.get(task_id)
-    if row is not None:
-        return row['state'] == 'done'
-    result = run_child(['bash', str(Path(__file__).with_suffix('.sh')), 'archived', task_id],
-                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-    return result.returncode == 0
+    row = rows.get(task_id, {})
+    return row.get('state') == 'done' and row.get('closed') not in (None, '', '-')
 
 
 def local_landing(proof):
@@ -290,7 +332,7 @@ def current_reason(task_id, task, state, receipt, rows, env):
     require(receipt['declaration_sha256'] == hashlib.sha256(canonical(declaration(task)).encode()).hexdigest(),
             'scratch declaration changed after completion')
     if not done_confirmed(task_id, rows, env):
-        return 'task not confirmed Done in backlog/archive'
+        return 'task not confirmed Done in backlog'
     for other in rows.values():
         if other['state'] != 'done' and other['hold_kind'] == 'captain':
             text = canonical(other)
@@ -357,7 +399,12 @@ def report(args, roots, env):
         raw, _ = read_regular(config / 'task-retention', 32)
         mode = raw.decode().strip()
         require(mode in ('report', 'prune'), 'config/task-retention must be report or prune')
-    rows = backlog(env)
+    try:
+        holds = held_rows(env)
+        hold_error = ''
+    except (OSError, ValueError, RecordError, subprocess.TimeoutExpired) as error:
+        holds = {}
+        hold_error = 'captain hold scan incomplete: ' + str(error)
     budget = Budget()
     results = []
     worktrees = {}
@@ -375,7 +422,11 @@ def report(args, roots, env):
                 fd = directory(task)
                 try:
                     row['bytes'], _ = scan(fd, budget)
-                    if not os.path.lexists(task / 'scratch.json'):
+                    rows = dict(holds)
+                    rows[task_id] = task_row(env, task_id)
+                    if hold_error:
+                        row['reason'] = hold_error
+                    elif not os.path.lexists(task / 'scratch.json'):
                         row['reason'] = 'undeclared legacy data; decision required'
                     elif not os.path.lexists(task / 'retention-complete.json'):
                         row['reason'] = 'completion not recorded'
@@ -405,7 +456,9 @@ def report(args, roots, env):
                                 elif not args.dry_run:
                                     # Re-read all backlog/hold state immediately before
                                     # unlink, rather than trusting the report snapshot.
-                                    reason = current_reason(task_id, task, state, receipt, backlog(env), env)
+                                    fresh = held_rows(env)
+                                    fresh[task_id] = task_row(env, task_id)
+                                    reason = current_reason(task_id, task, state, receipt, fresh, env)
                                     require(not reason, reason)
                                     log_fd = os.open('retention-removals.jsonl', os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=fd)
                                     try:
@@ -473,14 +526,21 @@ def main():
         p.add_argument('--' + flag, action='store_true')
     p.add_argument('--locked-task', help=argparse.SUPPRESS)
     args = parser.parse_args()
-    home = Path(os.environ.get('FM_HOME', Path(__file__).resolve().parent.parent))
-    roots = tuple(Path(os.environ.get('FM_' + name + '_OVERRIDE', home / name.lower()))
+    home = Path(os.path.abspath(os.environ.get('FM_HOME') or os.environ.get('FM_ROOT_OVERRIDE')
+                                or Path(__file__).resolve().parent.parent))
+    roots = tuple(home / (os.environ.get('FM_' + name + '_OVERRIDE') or name.lower())
                   for name in ('DATA', 'STATE', 'CONFIG'))
     checked_roots = (home, roots[0]) if args.command == 'declare' else (home,) + roots
     for root in checked_roots:
-        fd = directory(root)
+        try:
+            fd = directory(root)
+        except FileNotFoundError:
+            if root == roots[2] and root not in (home, roots[0], roots[1]):
+                continue
+            raise
         os.close(fd)
-    env = dict(os.environ, FM_HOME=str(home))
+    env = dict(os.environ, FM_HOME=str(home), FM_DATA_OVERRIDE=str(roots[0]),
+               FM_STATE_OVERRIDE=str(roots[1]), FM_CONFIG_OVERRIDE=str(roots[2]))
     if args.command == 'report':
         output = report(args, roots, env)
         if output is None:
@@ -517,7 +577,7 @@ def main():
             output = {'version': 1, 'url': args.merged_pr}
             path = task / 'retention-merge.json'
         else:
-            rows = backlog(env)
+            rows = {args.task: task_row(env, args.task)}
             require(rows.get(args.task, {}).get('state') == 'done', 'completion requires task Done in backlog')
             artifact = args.artifact
             merged = None

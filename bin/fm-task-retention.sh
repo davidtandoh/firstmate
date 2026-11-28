@@ -18,6 +18,8 @@
 # existing watcher. --dry-run lists intended paths and writes/deletes nothing.
 # tick is the watcher's detached, singleton scheduling entrypoint; a successful
 # weekly publication or failure appends one existing durable check wake.
+# .task-retention-attempt records the last attempt under the singleton lock;
+# retries back off for one hour across watcher restarts and drained wake queues.
 # Schema, resource bounds, validation and descriptor-safe traversal are owned
 # by fm-task-retention.py. Internal backlog/archived modes reuse backlog owners.
 set -euo pipefail
@@ -48,6 +50,16 @@ if [ "${1:-}" = tick ]; then
   lock="$STATE/.task-retention.lock"
   fm_lock_try_acquire "$lock" || exit 0
   trap 'fm_lock_release "$lock"' EXIT
+  attempt="$STATE/.task-retention-attempt"
+  if [ -e "$attempt" ] || [ -L "$attempt" ]; then
+    [ ! -L "$attempt" ] && [ -d "$attempt" ] || {
+      echo 'error: unsafe task retention attempt marker' >&2
+      exit 1
+    }
+    [ "$(fm_path_age "$attempt")" -ge 3600 ] || exit 0
+    rmdir "$attempt"
+  fi
+  mkdir "$attempt"
   if output=$(fm_exec_timed 120 1 python3 "$SCRIPT_DIR/fm-task-retention.py" report --periodic --prune); then
     [ -z "$output" ] || fm_wake_append check task-retention \
       "check: task-retention report ready: $STATE/task-retention-report.json"
@@ -68,13 +80,21 @@ if [ "${1:-}" = _locked-prune ]; then
   python3 "$SCRIPT_DIR/fm-task-retention.py" report --prune --locked-task "$2" --json
   exit
 fi
-if [ "${1:-}" = backlog ] || [ "${1:-}" = archived ]; then
+if [ "${1:-}" = held ] || [ "${1:-}" = backlog ] || [ "${1:-}" = archived ]; then
   # shellcheck source=bin/fm-tasks-axi-lib.sh
   . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
   # shellcheck source=bin/fm-backlog-transition-lib.sh
   . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
   if [ "$1" = archived ]; then
-    fm_exec_timed 8 1 bash "$SCRIPT_DIR/fm-captain-hold.sh" archived "$2"
+    fm_exec_timed 8 1 bash "$SCRIPT_DIR/fm-captain-hold.sh" archived "$2" --full
+  fi
+  if [ "$1" = held ]; then
+    FM_TASKS_AXI_TIMEOUT=10 fm_backlog_row_list "${FM_DATA_OVERRIDE:-${FM_HOME:?FM_HOME required}/data}" \
+      --state held --limit 201 | awk -F, '
+        /^count:/ || /^tasks\[/ { print; next }
+        /^  [A-Za-z0-9_][A-Za-z0-9._-]*,/ { sub(/^  /, "", $1); print $1 }
+      '
+    exit
   fi
   FM_TASKS_AXI_TIMEOUT=10 fm_backlog_row_list "${FM_DATA_OVERRIDE:-${FM_HOME:?FM_HOME required}/data}" \
     --limit 2001 --fields body,hold_kind,hold_reason,links
