@@ -1,0 +1,30 @@
+FM_TEST_BEGIN 2026-11-28T11:15:25Z tests/fm-watch-arm.test.sh family=watcher-wake-lock expected_gate_skip=none
+ok - watch-arm: interpreter failure preserves acknowledgement while later work still wakes
+ok - watch-arm: handling successor delivers fresh new inbox work after-ack (intact counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work before-ack (intact counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work after-ack (missing counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work before-ack (missing counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work after-ack (malformed counter) without consuming or looping
+ok - watch-arm: handling successor delivers fresh new inbox work before-ack (malformed counter) without consuming or looping
+ok - watch-arm: handling successor delivers identical new inbox work after-ack (missing counter) without consuming or looping
+ok - watch-arm: handling successor delivers identical new inbox work after-ack (malformed counter) without consuming or looping
+ok - watch-arm: an attached arm reports the wake its cycle delivered instead of a false failure
+ok - watch-arm: a delivered wake consumed by the handling turn still closes the attached arm cleanly
+ok - watch-arm: an unusable launch confirm window refuses to arm by name
+ok - watch-arm: a disposable validation checkout refuses to arm
+ok - watch-arm: a watcher exits when its state directory is removed
+ok - watch-arm: a watcher exits when its home is removed
+ok - watch-arm: an attached arm exits within its bound when its root is removed
+ok - watch-arm: the test reaper stops a watcher armed for a tracked temporary home
+ok - watch-arm: a cycle that delivered no wake of its own still fails loudly
+ok - watch-arm: an attached arm keeps following a slow live holder and reports its wake
+ok - watch-arm: an attached arm hands a holder stalled past the bound to its owner's replacement
+/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GXRKAX8WHJ4GYM58D9RDWH/bin/fm-watch-arm.sh: line 906: 13529 Killed: 9                  "$WATCH" > "$child_out"
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 14091.1795864702.M9UN3e
+not ok - tests/fm-watch-arm.test.sh exceeded the per-script bound of 180s and was terminated
+FM_TEST_END 2026-11-28T11:18:25Z tests/fm-watch-arm.test.sh exit=124 duration_ms=180240 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=180287
+FM_TEST_SUMMARY_FAMILY family=watcher-wake-lock count=1 duration_ms=180240 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-watch-arm.test.sh duration_ms=180240
+fm-test-run: wrote timing artifact: /Users/davidtandoh/.no-mistakes/evidence/01M8GXRKAX8WHJ4GYM58D9RDWH/watch-arm-timing.json
+FM_TEST_BUDGET max_wall_ms=210000 duration_ms=180287

@@ -1,0 +1,25 @@
+/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab.9swt0hgm
+
+────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GXRKAX8WHJ4GYM58D9R
+ DWH
+
+ Quick safety check: Is this a project you created or one you trust? (Like your
+ own code, a well-known open source project, or work from your team). If not,
+ take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ ⚠ This folder configures hooks that can run commands without asking, declared
+ in .claude/settings.json
+
+ Trusting this folder loads .claude/settings.json (runs commands).
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+
