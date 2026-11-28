@@ -360,6 +360,24 @@ do_exit() {
   fi
   state=$(agent_state)
   verdict=$(fm_backend_omnigent_agent_state "$state" "$META")
+  if [ "$state" = dead ] && [ "$verdict" = unknown ] && [ "$HARNESS" = codex ] \
+    && [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+    # A serve switch can detach every client while native sessions survive.
+    # The exact-session stop verifies the binding independently of the client;
+    # its acknowledgement alone is not positive evidence that the owner ended.
+    OMNIGENT_EXIT_SESSION=$(fm_meta_get "$META" omnigent_session)
+    OMNIGENT_EXIT_SERVER=$(fm_meta_get "$META" omnigent_server)
+    OMNIGENT_EXIT_GEN=$(fm_meta_get "$META" spawn_gen)
+    "$SCRIPT_DIR/fm-omnigent.sh" _stop-codex "$META" \
+      "$OMNIGENT_EXIT_SESSION" "$OMNIGENT_EXIT_SERVER" "$OMNIGENT_EXIT_GEN" \
+      || die "task $ID's Omnigent native owner is unknown; detached native-stop=unconfirmed"
+    VERIFY_OMNIGENT_STOP=1 OMNIGENT_EXIT_DELIVERED=1 OMNIGENT_NATIVE_STOP=1
+    wait_agent_state "$EXIT_WAIT" dead >/dev/null \
+      || die "task $ID's detached Omnigent native-stop=unconfirmed; preserving the native owner and endpoint"
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
+  fi
   [ "$verdict" != unknown ] || die "task $ID's Omnigent native owner is unknown; attach-client state cannot authorize stop or replacement"
   if [ "$state" = alive ] && [ "$verdict" = dead ]; then
     "$SCRIPT_DIR/fm-omnigent.sh" stop-attach "$META" \
