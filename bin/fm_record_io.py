@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Bounded regular-file reads and canonical JSON for Firstmate record readers."""
+"""Shared no-follow directory traversal, bounded reads and canonical record JSON."""
 import json
 import os
 import stat
@@ -8,6 +8,25 @@ import stat
 
 class RecordError(ValueError):
     """A record violates its filesystem or byte-bound contract."""
+
+
+def open_absolute_directory(path, label='directory'):
+    path = os.fspath(path)
+    if not os.path.isabs(path):
+        raise RecordError('{} must be absolute: {}'.format(label, path))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0)
+    fd = os.open(os.sep, flags)
+    try:
+        for part in (part for part in path.split(os.sep) if part):
+            if part in ('.', '..'):
+                raise RecordError('{} contains an unsafe component: {}'.format(label, path))
+            next_fd = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
 
 
 def canonical(value):

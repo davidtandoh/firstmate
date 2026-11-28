@@ -1611,6 +1611,8 @@ test_completion_closes_a_scout_with_its_report() {
   # captain-call completion gate; satisfy both the way a real scout does.
   mkdir -p "$(home_of "$case_dir")/data/$id"
   printf 'findings\n' > "$(home_of "$case_dir")/data/$id/report.md"
+  FM_HOME="$(home_of "$case_dir")" bash "$ROOT/bin/fm-task-retention.sh" \
+    declare "$id" --scratch renders >/dev/null
   FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$(home_of "$case_dir")" \
     PATH="$case_dir/fakebin:$PATH" \
     "$ROOT/bin/fm-captain-hold.sh" complete "$id" --none >/dev/null \
@@ -1621,6 +1623,8 @@ test_completion_closes_a_scout_with_its_report() {
     || fail "teardown reported success with the scout item still $(row_state "$case_dir" "$id")"
   assert_grep "data/$id/report.md" "$(backlog_of "$case_dir")" \
     "a closed scout item did not record its report"
+  assert_present "$(home_of "$case_dir")/data/$id/retention-complete.json" \
+    "successful scout teardown did not start the scratch retention clock"
   pass "completion closes a scout item against its report"
 }
 

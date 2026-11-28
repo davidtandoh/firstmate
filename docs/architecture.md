@@ -513,6 +513,29 @@ Before the worktree is returned, teardown concludes the task's own no-mistakes r
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the landed-work proofs, slot-ownership proof, endpoint-close refusal, PR-discovery fallback, pre-teardown run conclusion, and stale-lock recovery procedure; [`tests/fm-teardown-endpoint-safety.test.sh`](../tests/fm-teardown-endpoint-safety.test.sh) and [`tests/fm-secondmate-safety.test.sh`](../tests/fm-secondmate-safety.test.sh) pin the slot-collision boundary.
 Brief generation and teardown share browser identity through [`bin/fm-task-proc-lib.sh`](../bin/fm-task-proc-lib.sh), whose header owns leftover-process cleanup for direct tasks and children of retiring secondmates; [`tests/fm-task-proc-lib.test.sh`](../tests/fm-task-proc-lib.test.sh) covers that contract with fake process listings.
 
+### Task data lifecycle
+
+```mermaid
+flowchart LR
+  Brief[Brief scratch declaration] --> Retention[Local retention command]
+  Merge[Confirmed PR or local landing or recorded artifact] --> Teardown[Successful task teardown]
+  Teardown --> Retention
+  Watcher[Existing watcher weekly check] --> Retention
+  Retention --> Report[Per-home space report]
+  Retention --> Prune[Explicitly enabled scratch pruning]
+```
+
+The lifecycle keeps evidence by default and gives declared scratch a completion owner.
+The brief owns declaration, and spawn invalidates previous retention receipts under the task metadata lock.
+Confirmed PR and local merge handling own landing evidence; the common teardown completion boundary also verifies and preserves external-merge evidence before retiring records, including for already-pushed branches.
+Each confirmed PR refreshes the task's merge receipt; an identical retry leaves that receipt unchanged.
+Teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
+The retention command reuses the backlog adapter and the configured Done archive owner, shared no-follow descriptor traversal and bounded reads from `fm_record_io`, and the existing metadata lock before pruning.
+It never removes worktree content; a released worktree that remains on disk is a report item even after its Done row moves to the configured archive.
+A released path named by multiple completed tasks appears once in `shared_worktrees` with ambiguous ownership and no task-attributed bytes.
+Operator rollout and the switch are documented in [task scratch retention](configuration.md#task-scratch-retention-configtask-retention).
+[`tests/fm-task-retention.test.sh`](../tests/fm-task-retention.test.sh) exercises the eligibility and deletion boundaries entirely in disposable fixtures.
+
 ## Optional Relay
 
 Relay is opt-in presence for the shared `@myfirstmate` bot on both public surfaces it supports, X and Discord.

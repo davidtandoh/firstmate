@@ -3996,6 +3996,21 @@ fi
 # re-derives current state from the owning home anyway, while beacon freshness
 # is what the whole supervision chain rests on.
 HOME_SUMMARY_PID=
+# Retention work can scan many filesystem entries. Keep it outside the watcher
+# beacon path, like home-summary publication, and let its own singleton and
+# runtime bound contain it. Each home schedules only its own report.
+TASK_RETENTION_PID=
+TASK_RETENTION_LAST=0
+task_retention_refresh_detached() {
+  if [ -n "$TASK_RETENTION_PID" ]; then
+    kill -0 "$TASK_RETENTION_PID" 2>/dev/null && return 0
+    wait "$TASK_RETENTION_PID" 2>/dev/null || true
+  fi
+  FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+    bash "$SCRIPT_DIR/fm-task-retention.sh" tick </dev/null >/dev/null 2>&1 &
+  TASK_RETENTION_PID=$!
+}
+
 home_summary_refresh_detached() {
   if [ -n "$HOME_SUMMARY_PID" ]; then
     if kill -0 "$HOME_SUMMARY_PID" 2>/dev/null; then
@@ -4170,6 +4185,12 @@ while :; do
 
   if [ "$(age_of "$STATE/home-summary.json")" -ge "$HOME_SUMMARY_INTERVAL" ]; then
     home_summary_refresh_detached
+  fi
+  if [ "$(( $(date +%s) - TASK_RETENTION_LAST ))" -ge 3600 ]; then
+    TASK_RETENTION_LAST=$(date +%s)
+    if [ "$(age_of "$STATE/task-retention-report.json")" -ge 604800 ]; then
+      task_retention_refresh_detached
+    fi
   fi
   # Opt-in lane capacity facts: off costs one file test.
   if [ -e "$CONFIG/lane-capacity" ] && [ "$(age_of "$STATE/lane-capacity.json")" -ge 30 ]; then

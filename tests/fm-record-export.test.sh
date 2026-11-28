@@ -168,7 +168,7 @@ test_sync_accepts_an_absolute_export_root_with_spaces() {
 
 test_sync_refuses_malformed_config_and_unsafe_paths() {
   local home export_root outside rc case_name
-  for case_name in relative multiline config-link root-link source-link source-fifo destination-link unsafe-task; do
+  for case_name in relative multiline config-link root-link root-ancestor-link source-link source-fifo destination-link unsafe-task; do
     home=$(make_home "sync-unsafe-$case_name")
     export_root="$TMP_ROOT/export-unsafe-$case_name"
     outside="$TMP_ROOT/outside-$case_name"
@@ -187,6 +187,10 @@ test_sync_refuses_malformed_config_and_unsafe_paths() {
       root-link)
         rm -rf "$export_root"
         ln -s "$outside" "$export_root"
+        ;;
+      root-ancestor-link)
+        ln -s "$outside" "$TMP_ROOT/export-parent-link"
+        printf '%s\n' "$TMP_ROOT/export-parent-link/export" > "$home/config/record-export-root"
         ;;
       source-link)
         rm "$home/data/projects.md"
@@ -209,6 +213,7 @@ test_sync_refuses_malformed_config_and_unsafe_paths() {
     run_export "$home" sync > "$home/stdout" 2> "$home/stderr" || rc=$?
     [ "$rc" -ne 0 ] || fail "sync accepted unsafe $case_name input"
     assert_grep 'outside sentinel' "$outside/sentinel" "unsafe $case_name input changed its target"
+    assert_absent "$outside/export" "unsafe $case_name input created an export through its ancestor"
   done
   pass "record export sync refuses malformed config, traversal-shaped names, symlinks, and non-regular files"
 }
@@ -639,6 +644,7 @@ import os
 import sys
 from unittest.mock import patch
 
+sys.path.insert(0, os.path.dirname(sys.argv[1]))
 spec = importlib.util.spec_from_file_location("record_export", sys.argv[1])
 exporter = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = exporter

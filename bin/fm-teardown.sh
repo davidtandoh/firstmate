@@ -1320,6 +1320,7 @@ if [ "${FM_TEARDOWN_GUARD_DONE:-0}" != 1 ]; then
 fi
 HOME_PATH=$(grep '^home=' "$META" | cut -d= -f2- || true)
 PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
+TEARDOWN_VERIFIED_PR=
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
 # (/tmp/fm-<id>/); absent for tasks spawned before that change, so tolerate empty.
 TASK_TMP=$(grep '^tasktmp=' "$META" | cut -d= -f2- || true)
@@ -1822,6 +1823,7 @@ pr_is_merged() {
     [ -n "$resolved_url" ] || return 1
     PR_URL=$resolved_url
   fi
+  TEARDOWN_VERIFIED_PR=$PR_URL
   return 0
 }
 
@@ -3922,6 +3924,21 @@ if teardown_owns_worktree && [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   fi
 fi
 
+if [ "$KIND" = ship ] && [ "$MODE" != local-only ] && [ "$FORCE" != --force ] \
+    && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ] && [ -f "$DATA/$ID/scratch.json" ]; then
+  if [ -z "$TEARDOWN_VERIFIED_PR" ] && teardown_owns_worktree && [ -d "$WT" ]; then
+    RETENTION_PR_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || printf 'HEAD')
+    pr_is_merged "$RETENTION_PR_BRANCH" || true
+  fi
+  if [ -n "$TEARDOWN_VERIFIED_PR" ]; then
+    FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+      bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-merge "$ID" --merged-pr "$TEARDOWN_VERIFIED_PR" >/dev/null || {
+        echo "error: verified merged PR evidence could not be preserved; refusing teardown" >&2
+        exit 1
+      }
+  fi
+fi
+
 # A Herdr close may reposition shared workspace order, so the whole
 # destructive sequence below (pane close, worktree return, record removal)
 # runs under the named-session presentation lock, acquired BEFORE anything is
@@ -4400,6 +4417,21 @@ else
     echo "error: $ID's endpoint and local copy are cleaned up, but its task record could not be removed ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     exit 1
   fi
+fi
+# Record the retention clock only after the closed endpoint, returned lease,
+# and successful Done transition. A held or discarded task gets no receipt.
+# A failed receipt leaves all data ineligible, without undoing completed teardown.
+if [ "$KIND" != secondmate ] && [ "$BACKLOG_TRANSITION" != retain ] \
+  && [ "$FORCE" != --force ] && [ -f "$DATA/$ID/scratch.json" ]; then
+  RETENTION_COMPLETE_ARGS=(complete "$ID" --worktree "$WT" --lease-released)
+  if [ "$KIND" = scout ]; then
+    RETENTION_COMPLETE_ARGS+=(--artifact report.md)
+  elif [ "$MODE" = local-only ]; then
+    RETENTION_COMPLETE_ARGS+=(--artifact retention-local.json)
+  fi
+  FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+    bash "$SCRIPT_DIR/fm-task-retention.sh" "${RETENTION_COMPLETE_ARGS[@]}" >/dev/null \
+    || echo "warning: retention completion not recorded for $ID; its data remains ineligible" >&2
 fi
 fm_lock_release "$META_LOCK"
 META_LOCK_HELD=0

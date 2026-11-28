@@ -940,6 +940,31 @@ With the flag present, registration records a degraded/train baseline and each p
 Without the flag, registration performs no baseline read, polls make no GitHub rollup or GitLab JSON, pipeline, or train reads, and the watcher ignores `degraded` and `ontrain` results while retaining the existing merged-PR wake.
 The flag is home-local, is not inherited by secondmate homes, and takes effect on the next check sweep.
 
+## Task scratch retention (config/task-retention)
+
+Task retention runs locally in each home's existing watcher and publishes a weekly report at `state/task-retention-report.json`.
+The watcher queues a durable `check: task-retention` wake when publication succeeds or fails.
+The report lists each task's logical file bytes, eligible scratch bytes, and the reason that data is kept.
+The default is report-only; leave the switch absent or set it to `report` for the first weeks of rollout.
+Review the weekly reports before deliberately setting this home's gitignored `config/task-retention` to `prune`.
+The setting is home-local and is not inherited by secondmate homes.
+Returning it to `report` stops subsequent pruning; deleted scratch cannot be restored by this feature.
+
+Use [`bin/fm-task-retention.sh`](../bin/fm-task-retention.sh) for manual reports and previews; its header and `--help` output own the commands and declaration format.
+Brief generation creates an explicit scratch declaration, empty unless scratch patterns or named worktree caches were supplied.
+Workers must declare expendable output before creating it; all other output remains evidence.
+Confirmed PR merges and guarded local landings preserve deliverable evidence, and successful teardown records the completion time after the endpoint, lease, and backlog transition finish.
+Each fresh spawn or relaunch invalidates the previous retention receipts; the next confirmed completion starts a new seven-day grace period.
+Completion seals the declaration's digest; later declaration changes make the task ineligible.
+The eligibility and filesystem-safety contract, resource limits, report schema, and audit format are owned by [`bin/fm-task-retention.py`](../bin/fm-task-retention.py).
+
+Older tasks without declarations remain ineligible and appear for an operator decision.
+Do not infer declarations from familiar filenames or cache names.
+Worktree remnants and named worktree-cache sizes are report-only, including a released slot whose directory remains; reassigned or uncertain slots are labeled separately.
+The report does not administer a worktree pool or scan another home's endpoint namespace.
+For older pool slots without task completion records, the separate [Treehouse pool report](#treehouse-pool-report-configtreehouse-pool-report) remains the read-only inventory.
+No developer-cache cleanup or `/tmp` cleanup is included.
+
 ## Treehouse pool report (config/treehouse-pool-report)
 
 The optional local, gitignored `config/treehouse-pool-report` presence flag opts this home into a read-only Treehouse pool hygiene report at bootstrap.
@@ -2528,6 +2553,7 @@ Required tools come in two parts: a universal toolchain every home needs regardl
 Every home requires:
 
 - node and git.
+- `python3` (Python 3.9 or newer) for task scratch declarations and retention lifecycle commands.
 - gh, with GitHub authentication through `gh auth login`.
 - no-mistakes v1.46.0 or newer.
 - Compatible gh-axi.
@@ -2571,7 +2597,6 @@ A herdr, zellij, cmux, paseo, rex, t3code, or tern home is therefore never told 
 
 - When `config/crew-dispatch.json` exists, bootstrap also requires `jq` for dispatch profile validation.
 - When Relay is opted in, bootstrap also requires `curl` and `jq` before arming the relay poll shim.
-- When `config/record-export-root` exists, record sync and teardown archival require `python3` for descriptor-relative filesystem transactions and strict manifest parsing.
 
 **Missing and outdated tool diagnostics**
 
