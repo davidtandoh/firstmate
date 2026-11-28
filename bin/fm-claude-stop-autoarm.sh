@@ -135,9 +135,9 @@
 #
 # In hook mode it never blocks the Stop decision itself or prints to stdout:
 # exit 0 is silent, and exit 2 carries the rewake banner on stderr.
-# On any uncertainty such as unresolvable ancestry, malformed lock state, or
-# lock contention, it exits 0 and leaves continuity to the synchronous guard and
-# the model.
+# On unresolvable ancestry, malformed lock state, or contention that remains
+# after the retry below, it exits 0 and leaves continuity to the synchronous
+# guard and the model.
 # Short generation-ledger contention is retried for up to five seconds in the
 # same firing: after a delivered wake there may be no later Stop to retry it.
 # The retry rechecks session ownership, away posture, need, and competing claims.

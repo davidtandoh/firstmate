@@ -436,7 +436,7 @@ The file is size-capped through `FM_WATCH_CYCLE_LOG_MAX_BYTES` and `FM_WATCH_CYC
 
 The Stop hook and arm also append admission decisions and return outcomes to `state/.watch-continuity.log`.
 This record distinguishes a skipped hook from a claimed hook whose arm or successor failed.
-Firings outside a primary checkout write no diagnostic record.
+Stop-hook firings outside a primary checkout write no diagnostic record; the arm logger has no primary-checkout filter.
 Records contain fixed event names, timestamps, process identifiers, exit codes, and generation numbers; they contain no hook payload or command output.
 The shared writer in `bin/fm-wake-lib.sh` owns the format, size bound, and trimming rule.
 Diagnostic writes are best effort and do not establish watcher health or change a hook's exit status.
@@ -574,6 +574,8 @@ It checks that a newly appended keyed decision is classified without rereading e
 - Stale and live session owners.
 - Unchanged AFK and need boundaries.
 - Single-flight.
+- Claim retry after short ledger contention following a delivered check, with session ownership, away posture, and supervision need rechecked before retrying.
+- Bounded metadata diagnostics that omit payloads and reject symlink destinations.
 - Supersession of a dead session's orphaned claim by the replacement session's first Stop, including a resumed session that carries the dead one's conversation id, and a claim with no readable session lock.
 - A recycled background bridge keeping its live claim on the trusted session id pinned to the lock holder's recorded session-lock identity.
 - The Windows/Git Bash session-lock readers for the supervision-host key, claim read-back, and mid-turn health, plus untagged-value parity with the numeric helpers, in `tests/fm-session-lock-windows-consumers.test.sh`.
