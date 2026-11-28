@@ -191,7 +191,7 @@ SH
 # new_case <name> [id] -> echoes a case dir with a live claude ship task.
 new_case() {
   local id=${2:-t1} dir="$TMP_ROOT/$1-$RANDOM"
-  mkdir -p "$dir/home/state" "$dir/home/data" "$dir/fake"
+  mkdir -p "$dir/home/state" "$dir/home/data" "$dir/home/config" "$dir/fake"
   : > "$dir/fake/literal"
   : > "$dir/fake/keys"
   printf 'claude' > "$dir/fake/command"
@@ -3714,6 +3714,73 @@ SPAWN
   pass 'direct relaunch stops a retained attach client before sending replacement input'
 )
 
+test_omnigent_codex_detach_stops_native() {
+  local dir out rc verb mode id=rl-codex-detach session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  local -a args
+  for mode in ok http-error bad-ack no-effect active unreachable; do
+    for verb in exit relaunch; do
+      dir=$(new_case "codex-detach-$mode-$verb" "$id")
+      add_ship_task "$dir" "$id" codex
+      printf codex > "$dir/fake/command"
+      printf codex > "$dir/fake/becomes"
+      ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+      printf '{"argv":["codex"]}\n' > "$dir/serve/result.json"
+      printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+      args=("$verb")
+      [ "$verb" != relaunch ] || args+=(--note 'continue after native stop')
+      rc=0
+      out=$(OMNI_STOP_MODE="$mode" \
+        OMNI_SESSION_STATE="$(if [ "$mode" = no-effect ]; then echo native-exit; else echo native-active-exit; fi)" \
+        OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" \
+        OMNI_HEALTH_AFTER_EXIT="$(if [ "$mode" = unreachable ]; then echo down; else echo ok; fi)" \
+        FM_TEST_CONTROL_EXIT_WAIT=1 run_control "$dir" "$id" "${args[@]}") || rc=$?
+      assert_grep '/quit' "$dir/fake/literal" 'Codex exit was not delivered'
+      if [ "$mode" = ok ]; then
+        expect_code 0 "$rc" "Codex $verb must stop its native owner after attach detaches"$'\n'"$out"
+        jq -e --arg id "$session" '.id == $id' "$dir/serve/native-stopped.json" >/dev/null || fail 'wrong native owner stopped'
+        jq -se --arg url "http://127.0.0.1:6767/v1/sessions/$session/events" \
+          '[.[] | select(.method == "POST")] | length == 1 and .[0].url == $url and .[0].body.type == "stop_session"' \
+          "$dir/serve/requests.jsonl" >/dev/null || fail 'native stop was not exact and once-only'
+        if [ "$verb" = relaunch ]; then
+          [ "$(journal_field "$dir" "$id" phase)" = complete ] || fail 'Codex replacement did not launch'
+        else
+          [ "$(cat "$dir/fake/command")" = zsh ] || fail 'attach client did not detach'
+        fi
+      else
+        [ "$rc" -ne 0 ] || fail "$mode falsely confirmed native stop"
+        assert_contains "$out" unconfirmed "$mode lost the unconfirmed stop outcome"
+        [ "$(meta_field "$dir" "$id" spawn_gen)" = s1.1.1 ] || fail "$mode replaced the native owner"
+        [ ! -e "$dir/serve/archived.jsonl" ] || fail "$mode archived unproven native work"
+      fi
+    done
+  done
+  pass 'Codex detach stops only its native owner; unconfirmed native stops withhold replacement'
+}
+
+test_omnigent_codex_stop_rejects_foreign_binding() {
+  local dir rc mode out id=rl-codex-binding session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  local -a args
+  dir=$(new_case codex-binding "$id")
+  add_ship_task "$dir" "$id" codex
+  ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+  printf '{"argv":["codex"]}\n' > "$dir/serve/result.json"
+  printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+  for mode in session server generation wrong-harness; do
+    args=("$dir/home/state/$id.meta" "$session" http://127.0.0.1:6767 s1.1.1)
+    case "$mode" in
+      session) args[1]=ffffffffffffffffffffffffffffffff ;;
+      server) args[2]=http://127.0.0.1:6768 ;;
+      generation) args[3]=stale ;;
+    esac
+    rc=0
+    out=$(PATH="$dir/fakebin:$PATH" OMNI_TITLE_MODE="$mode" bash "$ROOT/bin/fm-omnigent.sh" _stop-codex "${args[@]}" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "$mode allowed an unrelated native stop: $out"
+  done
+  [ ! -e "$dir/serve/native-stopped.json" ] || fail 'foreign binding stopped native work'
+  jq -se 'all(.[]; .method != "POST")' "$dir/serve/requests.jsonl" >/dev/null || fail 'foreign binding sent a stop event'
+  pass 'native Codex stop rejects foreign session, server, generation and wrapper'
+}
+
 test_omnigent_stop_budget() {
   local dir out rc elapsed id=rl-stop-budget
   dir=$(new_case omni-stop-budget "$id")
@@ -3756,6 +3823,12 @@ test_exit_without_perl() {
   pass 'exit works without Perl with both available clock fallbacks'
 }
 
+if [ "${1:-}" = --codex-detach ]; then
+  test_omnigent_codex_detach_stops_native
+  test_omnigent_codex_stop_rejects_foreign_binding
+  exit 0
+fi
+
 if [ "${1:-}" = --stop-budget ]; then
   test_omnigent_stop_budget
   test_exit_without_perl
@@ -3771,6 +3844,8 @@ if [ "${1:-}" = --close-barrier ]; then
 fi
 
 if [ "${1:-}" = --omnigent ]; then
+  test_omnigent_codex_detach_stops_native
+  test_omnigent_codex_stop_rejects_foreign_binding
   test_omnigent_teardown_stop_barrier
   test_omnigent_delayed_identity_after_refused_retirement || exit 1
   test_omnigent_relaunch_archives_the_stopped_session
@@ -3863,6 +3938,8 @@ test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
 test_omnigent_delayed_identity_after_refused_retirement || exit 1
 test_omnigent_explicit_exit_confirmation
+test_omnigent_codex_detach_stops_native
+test_omnigent_codex_stop_rejects_foreign_binding
 test_omnigent_direct_relaunch_stops_attach || exit 1
 test_omnigent_stop_budget
 test_exit_without_perl

@@ -112,7 +112,8 @@ result_file = service / 'result.json'
 harness = json.loads(result_file.read_text())['argv'][0] if result_file.exists() else 'claude'
 labels = {'claude': 'claude-code-native-ui', 'codex': 'codex-native-ui',
           'kiro': 'kiro-native-ui', 'agy': 'antigravity-native-ui'}
-session = {'id': url.rsplit('/', 1)[-1], 'labels': {'omnigent.wrapper': labels[harness]},
+session_id = url.split('/v1/sessions/', 1)[-1].split('/')[0]
+session = {'id': session_id, 'labels': {'omnigent.wrapper': labels[harness]},
            'created_at': time.time(), 'title': None, 'status': 'idle',
            'runner_online': True, 'archived': False}
 if os.environ.get('OMNI_SESSION_HOST'):
@@ -146,6 +147,21 @@ if os.environ.get('OMNI_END_MARKER'):
     marker = pathlib.Path(os.environ['OMNI_END_MARKER'])
     if marker.exists() and marker.read_text().strip() == session['id']:
         code = 404
+stopped = service / 'native-stopped.json'
+if stopped.exists() and json.loads(stopped.read_text())['id'] == session_id:
+    session.update(status='idle', runner_online=False, active_response_id=None)
+    if os.environ.get('OMNI_STOP_MODE') == 'active':
+        session['active_response_id'] = 'still-active'
+if method == 'POST' and url.endswith('/events'):
+    if body != {'type': 'stop_session', 'data': {}}:
+        sys.exit(22)
+    stop_mode = os.environ.get('OMNI_STOP_MODE', 'ok')
+    if stop_mode == 'http-error':
+        sys.exit(22)
+    if stop_mode not in ('no-effect', 'bad-ack'):
+        stopped.write_text(json.dumps({'id': session_id}))
+    print(json.dumps({'queued': stop_mode == 'bad-ack'}))
+    sys.exit(0)
 if method == 'PATCH' and body.get('archived') is True:
     if os.environ.get('OMNI_ARCHIVE_MODE') == 'http-error':
         sys.exit(22)

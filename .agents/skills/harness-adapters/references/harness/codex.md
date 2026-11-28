@@ -9,7 +9,7 @@ These command-line and terminal facts apply to pane-backed sessions; for T3 Code
 | Fact | Value |
 |---|---|
 | Busy state | General semantic busy classification stays unknown; bound native failure and completion evidence is handled separately by `bin/fm-codex-native.sh`. |
-| Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
+| Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles; wrapped sessions follow the [Omnigent lifecycle contract](../../../../../docs/omnigent.md#worker-session-lifecycle). |
 | Interrupt | Single Escape. |
 | Skill invocation | `$<skill>`, for example `$no-mistakes`; `/<skill>` is Claude-only and Codex rejects it as "Unrecognized command". |
 | Resume | `codex resume <session-id>`, using the id printed on quit. |

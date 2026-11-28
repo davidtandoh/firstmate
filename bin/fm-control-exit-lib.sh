@@ -13,6 +13,7 @@ agent_state() {
     if [ "$state" = dead ] && [ "${OMNIGENT_EXIT_DELIVERED:-0}" = 1 ]; then
       native_command=(bash "$SCRIPT_DIR/fm-omnigent.sh" _confirm-exit "$META"
         "$OMNIGENT_EXIT_SESSION" "$OMNIGENT_EXIT_SERVER" "$OMNIGENT_EXIT_GEN")
+      [ "${OMNIGENT_NATIVE_STOP:-0}" != 1 ] || native_command+=(native-stop)
     else
       # shellcheck disable=SC2016 # The child shell expands its positional arguments.
       native_command=(bash -c '
@@ -345,6 +346,7 @@ retire_busy_incarnation() {
 do_exit() {
   local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
   local VERIFY_OMNIGENT_STOP=0 OMNIGENT_EXIT_DELIVERED=0
+  local OMNIGENT_NATIVE_STOP=0
   local OMNIGENT_EXIT_SESSION='' OMNIGENT_EXIT_SERVER='' OMNIGENT_EXIT_GEN=''
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
@@ -499,6 +501,15 @@ do_exit() {
       fi
       ;;
   esac
+  if [ "$HARNESS" = codex ] && [ "$(fm_meta_get "$META" omnigent)" = on ]; then
+    # The TUI and the app server have different owners. /quit can detach the
+    # TUI while the runner keeps the app server alive, so stop that exact
+    # native session through its owner before accepting attach-client exit.
+    "$SCRIPT_DIR/fm-omnigent.sh" _stop-codex "$META" \
+      "$OMNIGENT_EXIT_SESSION" "$OMNIGENT_EXIT_SERVER" "$OMNIGENT_EXIT_GEN" \
+      || die "exit-delivered $ID native-stop=unconfirmed; preserving the native owner and endpoint"
+    OMNIGENT_NATIVE_STOP=1
+  fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
     # A submit can return before any read sees the picker: a native busy
     # verdict needs no composer read, and a cleared composer can be read

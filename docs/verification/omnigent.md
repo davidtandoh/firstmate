@@ -29,6 +29,10 @@ The fixtures print elapsed time, request count, receipt bytes, and peak resident
 `tests/fm-teardown.test.sh` covers descendant cleanup; `tests/fm-fresh-session.test.sh` covers the separate primary-session handoff.
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 
+On 2026-11-28, with Bash `5.3.20(1)-release`, `bash tests/fm-control-relaunch.test.sh --codex-detach` returned `ok - Codex detach stops only its native owner; unconfirmed native stops withhold replacement`.
+The isolated API fixtures exercise the [Codex native-stop boundary](../omnigent.md#worker-session-lifecycle) for exit and relaunch, including a rejected stop, an invalid acknowledgement, an unchanged native owner, an active response after acknowledgement, and a server that becomes unreachable after attach exit.
+These fixtures exercise the protocol through the shared lifecycle executable; they do not claim a live Codex or Herdr stop.
+
 `FM_CODEX_NOTIFY_LIVE=1 bash tests/fm-codex-notify-live-e2e.test.sh` runs its wrapped mode against a scratch Omnigent server with its own config, data, and database, started from the managed executable with every inherited `OMNIGENT_*` and `OTEL_*` variable removed.
 It starts the scratch host before launching, because a cold host missed the wrapper's 30-second connect window on a loaded machine.
 On 2026-10-30, with Codex `0.166.0` and Omnigent `0.20.0` (`bbda8af3`), it reported `ok` for both direct and wrapped modes and exited 0.
