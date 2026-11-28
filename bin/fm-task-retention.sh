@@ -86,7 +86,7 @@ if [ "${1:-}" = held ] || [ "${1:-}" = backlog ] || [ "${1:-}" = archived ]; the
   # shellcheck source=bin/fm-backlog-transition-lib.sh
   . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
   if [ "$1" = archived ]; then
-    fm_exec_timed 8 1 bash "$SCRIPT_DIR/fm-captain-hold.sh" archived "$2"
+    fm_exec_timed 8 1 bash "$SCRIPT_DIR/fm-captain-hold.sh" archived "$2" --full
   fi
   if [ "$1" = held ]; then
     FM_TASKS_AXI_TIMEOUT=10 fm_backlog_row_list "${FM_DATA_OVERRIDE:-${FM_HOME:?FM_HOME required}/data}" \

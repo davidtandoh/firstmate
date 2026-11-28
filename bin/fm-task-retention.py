@@ -31,7 +31,7 @@ entries and never opens scratch contents. Limits/errors prevent deletion for
 the affected task; a failed or incomplete hold scan prevents every deletion.
 Candidate state and closed fields come from home-addressed show --full reads;
 held IDs use only the first slug field of a count-checked bounded listing.
-Missing candidates are ineligible; archive-only records do not prove current state.
+Missing candidates are ineligible; absent live rows use the configured Done archive.
 Empty overrides use defaults; relative overrides resolve beneath absolute FM_HOME.
 An absent config directory or task-retention file leaves report-only enabled.
 Child commands retain the launcher's inherited address-space limits; the shared
@@ -231,20 +231,26 @@ def run_child(*args, **kwargs):
     return subprocess.run(*args, preexec_fn=restore_child_address_space, **kwargs)
 
 
-def command_output(command, env, timeout=15):
+def command_output(command, env, timeout=15, allow_not_found=False):
     with tempfile.TemporaryFile() as output:
         result = run_child(command, env=env, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
         output.seek(0)
         raw = output.read(LIMIT + 1)
-    require(result.returncode == 0 and len(raw) <= LIMIT, 'backlog read failed or exceeded bound')
+    require(len(raw) <= LIMIT, 'backlog read exceeded bound')
+    if allow_not_found and result.returncode != 0 and b'code: NOT_FOUND' in raw.splitlines():
+        return None
+    require(result.returncode == 0, 'backlog read failed or exceeded bound')
     return raw.decode()
 
 
-def task_row(env, task_id):
+def task_row(env, task_id, allow_archive=True):
     require(ID.fullmatch(task_id), 'unsafe task ID')
     try:
         raw = command_output(['bash', str(Path(__file__).with_name('fm-tasks-axi.sh')),
-                              'show', task_id, '--full'], env, timeout=10)
+                              'show', task_id, '--full'], env, timeout=10, allow_not_found=allow_archive)
+        if raw is None:
+            raw = command_output(['bash', str(Path(__file__).with_suffix('.sh')),
+                                  'archived', task_id], env, timeout=10)
     except (OSError, ValueError, subprocess.TimeoutExpired) as error:
         raise RetentionError('task unavailable in backlog: ' + task_id + ': ' + str(error)) from error
     rows = {}
@@ -253,7 +259,7 @@ def task_row(env, task_id):
         if not match:
             continue
         key, value = match.groups()
-        if key not in ('id', 'state', 'closed', 'hold_kind', 'hold_reason', 'body', 'links'):
+        if key not in ('id', 'title', 'state', 'closed', 'hold_kind', 'hold_reason', 'body', 'links'):
             continue
         require(key not in rows, 'duplicate task field: ' + key)
         rows[key] = json.loads(value) if value.startswith('"') else value
@@ -262,7 +268,7 @@ def task_row(env, task_id):
                 'truncated task detail: ' + task_id)
     require(rows.get('id') == task_id and rows.get('state') in ('queued', 'in_flight', 'done')
             and 'closed' in rows, 'invalid task state fields: ' + task_id)
-    require({'hold_kind', 'hold_reason', 'body', 'links'} <= rows.keys(),
+    require({'title', 'hold_kind', 'hold_reason', 'body', 'links'} <= rows.keys(),
             'incomplete task detail: ' + task_id)
     return rows
 
@@ -290,7 +296,7 @@ def held_rows(env):
     rows = {}
     size = 0
     for task_id in ids:
-        rows[task_id] = task_row(env, task_id)
+        rows[task_id] = task_row(env, task_id, allow_archive=False)
         size += len(canonical(rows[task_id]).encode())
         require(size <= LIMIT, 'held task detail budget exceeded')
     return rows

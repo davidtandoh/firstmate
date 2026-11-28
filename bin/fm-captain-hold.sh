@@ -33,7 +33,7 @@
 #   fm-captain-hold.sh complete <origin-id> (--none | <task-id>...)
 #   fm-captain-hold.sh verify <origin-id>
 #   fm-captain-hold.sh open <task-id> [--identity] [--distinguish-absent]
-#   fm-captain-hold.sh archived <task-id>
+#   fm-captain-hold.sh archived <task-id> [--full]
 #   fm-captain-hold.sh diverged
 #   fm-captain-hold.sh reconcile list
 #   fm-captain-hold.sh reconcile close <task-id> --evidence-file <path>
@@ -165,7 +165,7 @@
 # and no keyed status decision may be open.
 # `archived` is a read-only predicate over the configured markdown Done archive:
 # exit 0 means the id is archived, 1 means it is not, and other statuses are errors.
-# It prints nothing and does not modify backlog records.
+# It prints nothing unless --full requests the task row, and never modifies backlog records.
 # `complete` and `verify` also read an entry that markdown Done retention moved
 # into the configured Done archive, where it counts only through a recorded
 # resolution; `archived` also reads the archive to reserve completed identities.
@@ -2435,10 +2435,13 @@ case "${1:-}" in
   open) shift; command_open "$@" ;;
   archived)
     shift
-    [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+    { [ "$#" -eq 1 ] || { [ "$#" -eq 2 ] && [ "$2" = --full ]; }; } || { usage >&2; exit 2; }
     validate_slug task-id "$1"
     fm_tasks_axi_compatible || exit 2
     task_show_archived "$1" || exit $?
+    if [ "${2:-}" = --full ]; then
+      printf '%s\n' "$TASK_SHOW_OUTPUT"
+    fi
     ;;
   diverged) shift; command_diverged "$@" ;;
   reconcile) shift; command_reconcile "$@" ;;
