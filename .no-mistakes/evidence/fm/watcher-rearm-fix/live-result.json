@@ -1,0 +1,18 @@
+[
+  {
+    "scenario": "clean startup",
+    "watcher_pid": 15216,
+    "output": "watcher: started pid=15216 (beacon fresh)\n"
+  },
+  {
+    "scenario": "notification delivered",
+    "exit": 0,
+    "output": "watcher: started pid=15216 (beacon fresh)\nsignal: /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GNHBN3WCRA2MY51BB8RSCF/.nm-watcher-lab/state/probe.status\n"
+  },
+  {
+    "scenario": "arm diagnostics",
+    "rows": [
+      "at=1795855941\tpid=14743\tcomponent=arm\tevent=actionable-signal\trc=0\tgeneration=0"
+    ]
+  }
+]

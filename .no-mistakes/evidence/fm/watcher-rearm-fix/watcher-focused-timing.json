@@ -1,0 +1,11 @@
+{
+  "exit": 0,
+  "gate_skip": false,
+  "command": [
+    "bash",
+    "tests/fm-watcher-lock.test.sh",
+    "test_arm_relays_a_startup_lock_held_by_live_pid",
+    "test_cycle_exit_ledger_links_successor_and_stays_bounded"
+  ],
+  "duration_ms": 13874
+}

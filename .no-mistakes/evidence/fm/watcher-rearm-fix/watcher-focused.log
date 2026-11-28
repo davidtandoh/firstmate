@@ -1,0 +1,4 @@
+ok - disposable watcher refuses inherited state outside its marked lab
+watcher: FAILED - startup lock /private/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-watcher-lock-tests.gTT5H5/arm-startup-lock-held/state/.wake-queue.lock held by live pid 26314
+ok - arm relays a live-holder startup-lock refusal and keeps the downtime drainable
+ok - cycle-exit ledger links a verified successor and remains size-capped
