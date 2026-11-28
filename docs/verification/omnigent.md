@@ -30,7 +30,8 @@ The fixtures print elapsed time, request count, receipt bytes, and peak resident
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 
 On 2026-11-28, with Bash `5.3.20(1)-release`, `bash tests/fm-control-relaunch.test.sh --codex-detach` returned `ok - Codex detach stops only its native owner; unconfirmed native stops withhold replacement`.
-The isolated API fixtures exercise the [Codex native-stop boundary](../omnigent.md#worker-session-lifecycle) for exit and relaunch, including a rejected stop, an invalid acknowledgement, an unchanged native owner, an active response after acknowledgement, and a server that becomes unreachable after attach exit.
+The isolated API fixtures exercise the [Codex native-stop boundary](../omnigent.md#worker-session-lifecycle) for exit and relaunch with ordinary session records and records containing 170,000 bytes of padding.
+They also cover a rejected stop, an invalid acknowledgement, an unchanged native owner, an active response after acknowledgement, a server that becomes unreachable after attach exit, and refusal to send a stop event for a foreign session, server, generation, or wrapper.
 These fixtures exercise the protocol through the shared lifecycle executable; they do not claim a live Codex or Herdr stop.
 
 `FM_CODEX_NOTIFY_LIVE=1 bash tests/fm-codex-notify-live-e2e.test.sh` runs its wrapped mode against a scratch Omnigent server with its own config, data, and database, started from the managed executable with every inherited `OMNIGENT_*` and `OTEL_*` variable removed.
@@ -180,7 +181,7 @@ This check did not run Herdr lifecycle commands or repeat the Mac mini's parent-
 
 | Check | Observed result |
 |---|---|
-| Codex turn-end notification and control exit | Passed on the current runtime above. |
+| Codex turn-end notification and control exit | Passed on the 2026-10-01 runtime above; the current native-stop path has only [fixture coverage](#worker-session-lifecycle-verification). |
 | Codex interrupt and recovery | The replacement launch path passed on an agent-free endpoint; interrupt and replacement of a running worker remain unverified. |
 | Claude 2.1.284 wrapper | The real Python wrapper classified as alive; native startup stopped at external-import consent. |
 | Claude native exit | Passed on `2.1.286` in the live guard below; busy hooks and steering were not exercised. |
