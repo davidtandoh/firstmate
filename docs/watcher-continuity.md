@@ -95,6 +95,10 @@ A valid session-lock owner that the shared `fm_session_lock_pid_blocks_reclaim` 
 If a session exits mid-cycle and leaves an orphaned auto-arm hook, the replacement session's first eligible Stop or StopFailure supersedes its claim, attaches to the running watcher through `bin/fm-watch-arm.sh`, and delivers the cycle's close.
 [`turnend-guard.md`](turnend-guard.md#auto-arm-generation-claim) owns the open-claim definition.
 While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
+On the plain-arm path, an acknowledged recovery marker also permits that continuation: the handling turn may have consumed the wake before the attached arm returned its delivery record.
+The hook preserves the acknowledgement and commits only its owning generation, so its detached successor still has a receiving session after turn end.
+The supervision host keeps its separate downtime-only hand-back contract.
+Continuity diagnostics distinguish commit refusals caused by session-lock ownership, marker reads, marker tokens, and ledger writes.
 StopFailure-driven continuations are paced rather than dropped during persistent API errors; after waiting, the hook stands down silently if away mode appeared or supervision is no longer needed.
 The script header owns the storm-bound mechanics, [configuration](configuration.md#environment-variables) lists the cooldown override, and [StopFailure verification](verification/supervision.md#stopfailure-auto-arm) records the Herdr-hosted evidence and deterministic regression entry point.
 
@@ -584,6 +588,8 @@ It checks that a newly appended keyed decision is classified without rereading e
 - Benign live-watcher cycle ends.
 - One-notice failure episodes.
 - Exit-2 translation.
+- An attached delivery returned after a real mid-turn drain and acknowledgement, without reopening the acknowledged episode.
+- Distinct commit-refusal diagnostics for lost session ownership and invalid recovery tokens.
 - The handling successor an ended attached cycle starts with the closed arm as its predecessor and that outlives the rewake.
 - An unconfirmed successor reported in the banner without withholding the wake.
 - The [session-bound HUP/TERM/INT failure handoff](turnend-guard.md#failure-progression-and-block-budget) and replacement-session notice isolation.

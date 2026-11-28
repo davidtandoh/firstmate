@@ -104,6 +104,9 @@ write_arm_fixture() {
 #!/usr/bin/env bash
 if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
   printf 'arm=%s predecessor=%s\n' "$$" "$FM_WATCH_PREDECESSOR_ARM_PID" >> "$FM_HOME/state/successor-ran"
+  if [ -f "$FM_HOME/state/successor-lock-pid" ]; then
+    cp "$FM_HOME/state/successor-lock-pid" "$FM_HOME/state/.lock"
+  fi
   if [ -e "$FM_HOME/state/successor-fail" ]; then
     printf 'watcher: FAILED - no live watcher with a fresh beacon\n'
     exit 1
@@ -115,6 +118,13 @@ fi
 echo "$$" >> "$FM_HOME/state/arm-ran"
 SH
   case "$kind" in
+    attached-after-ack)
+      cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
+printf 'watcher: attached pid=%s (beacon 2s)\n' "$$"
+printf 'signal: task.status done: already handled\n'
+exit 0
+SH
+      ;;
     actionable-check)
       cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
 printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
@@ -178,15 +188,18 @@ printf 'signal: task.status done: slow fixture\n'
 exit 0
 SH
       ;;
-    blocking-actionable)
+    blocking-actionable|blocking-acked-actionable)
       cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
 sleep 6
 printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
 touch "$FM_HOME/state/.last-watcher-beat"
 printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
 printf 'stale: fixture-win actionable\n'
-exit 0
 SH
+      if [ "$kind" = blocking-acked-actionable ]; then
+        printf 'printf "acked:downtime:fixture-generation\\n" > "$FM_HOME/state/.watcher-down"\n' >> "$dir/bin/fm-watch-arm.sh"
+      fi
+      printf 'exit 0\n' >> "$dir/bin/fm-watch-arm.sh"
       ;;
     supersede-then-fail)
       cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
@@ -694,6 +707,78 @@ test_attached_cycle_end_starts_handling_successor() {
   assert_not_contains "$out" "did not confirm" "a confirmed successor adds nothing to the rewake"
   [ "$(epoch_outcome "$dir")" = rewake ] || fail "epoch must record outcome=rewake, got: $(epoch_outcome "$dir")"
   pass "auto-arm: an attached cycle's end starts a handling successor named after the closed arm before the rewake"
+}
+
+# The handling turn can consume the successor's wake before Stop attaches to
+# that ended cycle. The arm still returns its identity-bound delivery record;
+# retiring the queue's recovery episode must not strand its next successor.
+test_attached_wake_after_midturn_ack_rewakes() {
+  local dir out status generation timing token
+  for timing in handled newer-before-ack newer-after-ack; do
+    dir=$(make_primary_dir "$TMP_ROOT/attached-after-ack-$timing")
+    : > "$dir/state/task.meta"
+    FM_HOME="$dir" bash -c '
+      . "$1/bin/fm-wake-lib.sh"
+      fm_wake_append signal earlier "signal: earlier handling turn" || exit 1
+    ' _ "$ROOT" || fail "could not enqueue the earlier wake"
+    FM_HOME="$dir" bash "$ROOT/bin/fm-wake-drain.sh" > "$dir/drain.out" 2> "$dir/drain.err" \
+      || fail "could not present the earlier wake"
+    generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation //p' "$dir/drain.err")
+    [ -n "$generation" ] || fail "earlier wake had no acknowledgement"
+    if [ "$timing" = newer-before-ack ]; then
+      FM_HOME="$dir" bash -c '. "$1/bin/fm-wake-lib.sh"; fm_wake_append signal newer "signal: newer during handling"' _ "$ROOT" \
+        || fail "could not enqueue the newer wake before acknowledgement"
+    fi
+    FM_HOME="$dir" bash "$ROOT/bin/fm-wake-drain.sh" --ack-through 1 --recovery-generation "$generation" \
+      || fail "could not acknowledge the earlier wake"
+    if [ "$timing" = newer-after-ack ]; then
+      FM_HOME="$dir" bash -c '. "$1/bin/fm-wake-lib.sh"; fm_wake_append signal newer "signal: newer after acknowledgement"' _ "$ROOT" \
+        || fail "could not enqueue the newer wake after acknowledgement"
+    fi
+    token=$(cat "$dir/state/.watcher-down")
+    case "$timing:$token" in
+      handled:acked:handling:*) ;;
+      newer-*:pending:downtime:*)
+        assert_contains "$(cat "$dir/state/.wake-queue")" 'newer' "the old acknowledgement consumed a newer wake"
+        ;;
+      *) fail "unexpected recovery token for $timing: $token" ;;
+    esac
+    write_arm_fixture "$dir" attached-after-ack
+    out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+    expect_code 2 "$status" "an attached actionable close after mid-turn acknowledgement must still rewake"
+    assert_contains "$out" "signal: task.status done: already handled" "rewake must carry the attached close"
+    [ "$(epoch_outcome "$dir")" = rewake ] || fail "the acknowledged episode stranded the handling successor"
+    [ "$(cat "$dir/state/.watcher-down")" = "$token" ] \
+      || fail "the hook must preserve the recovery episode for $timing"
+  done
+  pass "auto-arm: an attached wake after mid-turn acknowledgement still commits its continuation"
+}
+
+test_rewake_commit_refusal_reasons() {
+  local dir out status reason pid
+  for reason in session-lock marker-token; do
+    dir=$(make_primary_dir "$TMP_ROOT/commit-refused-$reason")
+    : > "$dir/state/task.meta"
+    write_arm_fixture "$dir" actionable
+    if [ "$reason" = session-lock ]; then
+      sleep 60 &
+      pid=$!
+      printf '%s\n' "$pid" > "$dir/state/successor-lock-pid"
+    else
+      write_arm_fixture "$dir" attached-after-ack
+      printf 'malformed-token\n' > "$dir/state/.watcher-down"
+    fi
+    out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+    if [ "$reason" = session-lock ]; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+    expect_code 0 "$status" "$reason must still refuse the rewake commit"
+    [ "$(epoch_outcome "$dir")" = arming ] || fail "$reason incorrectly committed a rewake"
+    assert_contains "$(cat "$dir/state/.watch-continuity.log")" "event=commit-refused-$reason" \
+      "$reason refusal must be distinguishable in continuity diagnostics"
+  done
+  pass "auto-arm: lost session ownership and invalid marker tokens refuse with distinct reasons"
 }
 
 test_unconfirmed_handling_successor_still_rewakes() {
@@ -2047,7 +2132,7 @@ test_superseded_owner_goes_silent_and_never_double_translates() {
   local dir a_out b_out b_status c_out c_status a_status count
   dir=$(make_primary_dir "$TMP_ROOT/v2-superseded-silence")
   : > "$dir/state/task1.meta"
-  write_arm_fixture "$dir" blocking-actionable
+  write_arm_fixture "$dir" blocking-acked-actionable
   a_out="$dir/state/a.out"
   # All three firings belong to ONE session, as concurrent Stop hooks do: the
   # fake harness holds the lock for the whole scenario and each hook runs as
@@ -2511,6 +2596,8 @@ test_fm_lock_status_still_works_with_shared_lib() {
   pass "fm-lock: shared session-lock lib preserves the status path"
 }
 
+test_attached_wake_after_midturn_ack_rewakes
+test_rewake_commit_refusal_reasons
 test_inert_in_child_worktree
 test_inert_without_session_lock
 test_reclaims_stale_session_lock_before_arming

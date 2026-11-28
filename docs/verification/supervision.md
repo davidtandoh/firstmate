@@ -594,6 +594,28 @@ The timeout hook trapped `TERM`, backgrounded `sleep 300`, waited, and on `TERM`
 
 ## Watcher continuity
 
+### Claude acknowledged-cycle handoff
+
+On 2026-11-28, the isolated hook regression ran on macOS with GNU Bash 5.3.20, ShellCheck 0.11.0, and actionlint 1.7.12.
+It used real wake append and drain commands with the auto-arm suite's existing fake harness and arm boundary.
+The observed contract is that acknowledgement preserves the recovery token while an attached actionable close still commits its owning hook's continuation.
+Newer wakes on either side of acknowledgement remain queued, and a changed session lock still refuses the commit with a distinct diagnostic.
+The shared real-watcher arm scenario is `test_attached_arm_reports_the_delivered_wake_after_drain` in `tests/fm-watch-arm.test.sh`.
+This verifies deterministic hook state and exit status; it adds no claim about live Claude, Omnigent, or Herdr delivery.
+
+```sh
+bin/fm-test-run.sh tests/fm-claude-stop-autoarm.test.sh
+```
+
+Observed regression output:
+
+```text
+ok - auto-arm: an attached wake after mid-turn acknowledgement still commits its continuation
+ok - auto-arm: lost session ownership and invalid marker tokens refuse with distinct reasons
+```
+
+### Cross-harness live evidence
+
 The cross-harness evidence combines the 2026-07-17 live pass with Claude's replacement Stop-owned path revalidated on 2026-09-21, all against isolated project and home state.
 No credential material was copied into a fixture.
 

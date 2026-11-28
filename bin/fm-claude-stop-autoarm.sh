@@ -90,6 +90,10 @@
 #     the harness delivers the collected stderr only on exit 2, so an owned
 #     terminal commit decides the exit. Markerless outcomes commit with the
 #     ledger write; the failure notice additionally requires its marker write.
+#     A plain arm can replay a cycle already acknowledged during the handling
+#     turn. Its acked recovery token still permits this generation's rewake:
+#     the detached successor needs a receiving session after this hook exits.
+#     The supervision host retains its downtime-only hand-back contract.
 #     A refused generation exits 0 silently even after printing. A close that
 #     reports no actionable reason is benign when a live identity-matched
 #     watcher still has a fresh beacon.
@@ -371,15 +375,28 @@ fm_watch_continuity_log "$STATE" hook claimed 0 "$MY_GEN"
 # even an already-printed banner is never delivered by a losing generation.
 autoarm_commit() {  # <outcome> [marker-file] [interrupted-session-identity]
   local outcome=$1 marker=${2:-} marker_identity=${3:-} session_pid recovery
-  AUTOARM_BRANCH=commit-refused
+  AUTOARM_BRANCH=commit-refused-ledger
   stopfailure_pace
   if [ "$outcome" = rewake ]; then
-    fm_session_lock_owned_by_self "$STATE" || return 2
+    if ! fm_session_lock_owned_by_self "$STATE"; then
+      AUTOARM_BRANCH=commit-refused-session-lock
+      return 2
+    fi
     session_pid=$(sed -n '1p' "$STATE/.lock" 2>/dev/null || true)
-    fm_recovery_marker_snapshot "$STATE/.watcher-down" || return 2
+    if ! fm_recovery_marker_snapshot "$STATE/.watcher-down"; then
+      AUTOARM_BRANCH=commit-refused-marker-read
+      return 2
+    fi
     case "$FM_RECOVERY_MARKER_TOKEN" in
       pending:downtime:*|announced:downtime:*) recovery=${FM_RECOVERY_MARKER_TOKEN##*:} ;;
-      *) return 2 ;;
+      acked:downtime:*|acked:handling:*)
+        if [ "$HOST_MODE" -eq 1 ]; then
+          AUTOARM_BRANCH=commit-refused-marker-token
+          return 2
+        fi
+        recovery=${FM_RECOVERY_MARKER_TOKEN##*:}
+        ;;
+      *) AUTOARM_BRANCH=commit-refused-marker-token; return 2 ;;
     esac
     fm_autoarm_write_owned "$STATE" "$MY_GEN" "$outcome" "$marker" "$session_pid" "$recovery" || return
   else
