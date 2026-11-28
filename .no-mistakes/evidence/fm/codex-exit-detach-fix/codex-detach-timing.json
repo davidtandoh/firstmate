@@ -1,0 +1,1 @@
+{"command": ["bash", "tests/fm-control-relaunch.test.sh", "--codex-detach"], "duration_ms": 62577, "exit": 0, "fixture_only": true, "gate_skip": false}
