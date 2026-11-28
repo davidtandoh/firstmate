@@ -89,6 +89,8 @@ Claude's `.claude/settings.json` Stop/StopFailure `asyncRewake` hook (`bin/fm-cl
 Do not run the hook as a manual arm from a tool turn: a short-lived tool process cannot own its park; its header and help own the invocation contract.
 The hook fires on every Stop and StopFailure, covering API-error turn ends that skip Stop entirely.
 On either event, an eligible primary with supervision need admits one home-scoped owner, which foregrounds `bin/fm-watch-arm.sh` inside the hook-owned process tree.
+Short contention on the generation ledger delays that firing's claim instead of depending on a later turn end to retry it.
+Each retry rechecks session ownership, away posture, and supervision need; the hook header owns the retry bound and refusal paths.
 A valid session-lock owner that the shared `fm_session_lock_pid_blocks_reclaim` predicate does not protect, because it is dead or readably not a harness, is reclaimed through `bin/fm-lock.sh` before auto-arm state changes; a live owner or an owner with unreadable process evidence is never reclaimed.
 If a session exits mid-cycle and leaves an orphaned auto-arm hook, the replacement session's first eligible Stop or StopFailure supersedes its claim, attaches to the running watcher through `bin/fm-watch-arm.sh`, and delivers the cycle's close.
 [`turnend-guard.md`](turnend-guard.md#auto-arm-generation-claim) owns the open-claim definition.
@@ -431,6 +433,13 @@ Each record includes:
 
 The file is size-capped through `FM_WATCH_CYCLE_LOG_MAX_BYTES` and `FM_WATCH_CYCLE_LOG_KEEP_LINES`.
 `state/.watch-triage.log` remains only the watcher's bounded absorbed-wake debug log and carries no lifecycle semantics.
+
+The Stop hook and arm also append admission decisions and return outcomes to `state/.watch-continuity.log`.
+This record distinguishes a skipped hook from a claimed hook whose arm or successor failed.
+Firings outside a primary checkout write no diagnostic record.
+Records contain fixed event names, timestamps, process identifiers, exit codes, and generation numbers; they contain no hook payload or command output.
+The shared writer in `bin/fm-wake-lib.sh` owns the format, size bound, and trimming rule.
+Diagnostic writes are best effort and do not establish watcher health or change a hook's exit status.
 
 ### Grace, beacon, and stop signals
 

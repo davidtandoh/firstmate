@@ -115,6 +115,15 @@ fi
 echo "$$" >> "$FM_HOME/state/arm-ran"
 SH
   case "$kind" in
+    actionable-check)
+      cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
+printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
+touch "$FM_HOME/state/.last-watcher-beat"
+printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
+printf 'check: fixture actionable\n'
+exit 0
+SH
+      ;;
     actionable)
       cat >> "$dir/bin/fm-watch-arm.sh" <<'SH'
 printf 'pending:downtime:fixture-generation\n' > "$FM_HOME/state/.watcher-down"
@@ -952,6 +961,119 @@ test_single_flight_admits_exactly_one_owner() {
   { [ "$rc1" = 2 ] && [ "$rc2" = 0 ]; } || { [ "$rc1" = 0 ] && [ "$rc2" = 2 ]; } \
     || fail "exactly one firing must translate the close (rc 2) and the other must no-op (rc 0), got rc1=$rc1 rc2=$rc2"
   pass "auto-arm: concurrent firings admit one owner and one rewake translation"
+}
+
+# A delivered check can leave no handling successor if startup failed. The
+# handling turn's Stop is then the only automatic retry. A short ledger hold
+# must delay that retry rather than silently spend the last turn-end event.
+test_turn_after_check_retries_contended_generation_claim() {
+  local dir status
+  dir=$(make_primary_dir "$TMP_ROOT/check-claim-contention")
+  : > "$dir/state/task.meta"
+  write_arm_fixture "$dir" actionable-check
+  : > "$dir/state/successor-fail"
+  FM_HOME="$dir" "$FAKE_CLAUDE" -c '
+    printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+    printf "%s\n" "{\"session_id\":\"same-session\"}" \
+      | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" >"$FM_HOME/first.out" 2>&1
+    [ "$?" -eq 2 ] || exit 10
+    (
+      . "$FM_HOME/bin/fm-wake-lib.sh"
+      fm_lock_try_acquire "$FM_HOME/state/.claude-autoarm.lock" || exit 11
+      : > "$FM_HOME/state/claim-held"
+      sleep 3
+      fm_lock_release "$FM_HOME/state/.claude-autoarm.lock"
+    ) &
+    holder=$!
+    for _ in $(seq 1 200); do
+      [ -e "$FM_HOME/state/claim-held" ] && break
+      sleep 0.05
+    done
+    [ -e "$FM_HOME/state/claim-held" ] || exit 12
+    printf "%s\n" "{\"session_id\":\"same-session\"}" \
+      | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" >"$FM_HOME/second.out" 2>&1
+    rc=$?
+    wait "$holder" || exit 13
+    exit "$rc"
+  '
+  status=$?
+  if [ "$status" -ne 2 ]; then
+    cat "$dir/second.out" "$dir/state/.watch-continuity.log" >&2 2>/dev/null || true
+  fi
+  expect_code 2 "$status" "the handling turn must retry its claim after a short ledger hold"
+  assert_contains "$(cat "$dir/state/.watch-continuity.log")" 'event=claim-contended' "the handling turn never exercised contention"
+  assert_contains "$(cat "$dir/first.out")" 'check: fixture actionable' "the first turn must deliver a check"
+  [ "$(wc -l < "$dir/state/arm-ran" | tr -d ' ')" -eq 2 ] \
+    || fail "the handling turn ended without re-arming after a delivered check"
+  pass "auto-arm: the turn after a delivered check retries a contended generation claim"
+}
+
+test_contended_claim_rechecks_admission() {
+  local dir gate status
+  for gate in away idle session; do
+    dir=$(make_primary_dir "$TMP_ROOT/claim-gate-$gate")
+    : > "$dir/state/task.meta"
+    write_arm_fixture "$dir" actionable
+    FM_TEST_CLAIM_GATE="$gate" FM_HOME="$dir" "$FAKE_CLAUDE" -c '
+      printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+      (
+        . "$FM_HOME/bin/fm-wake-lib.sh"
+        fm_lock_try_acquire "$FM_HOME/state/.claude-autoarm.lock" || exit 10
+        : > "$FM_HOME/state/claim-held"
+        for _ in $(seq 1 200); do
+          grep -q "event=claim-contended" "$FM_HOME/state/.watch-continuity.log" 2>/dev/null && break
+          sleep 0.05
+        done
+        case "$FM_TEST_CLAIM_GATE" in
+          away) : > "$FM_HOME/state/.afk" ;;
+          idle) rm -f "$FM_HOME/state/task.meta" ;;
+          session) printf "9999999\n" > "$FM_HOME/state/.lock" ;;
+        esac
+        fm_lock_release "$FM_HOME/state/.claude-autoarm.lock"
+      ) &
+      holder=$!
+      for _ in $(seq 1 200); do
+        [ -e "$FM_HOME/state/claim-held" ] && break
+        sleep 0.05
+      done
+      printf "%s\n" "{\"session_id\":\"same-session\"}" \
+        | "$FM_HOME/bin/fm-claude-stop-autoarm.sh" >"$FM_HOME/hook.out" 2>&1
+      rc=$?
+      wait "$holder" || exit 11
+      exit "$rc"
+    '
+    status=$?
+    expect_code 0 "$status" "$gate during contention must close quietly"
+    assert_absent "$dir/state/arm-ran" "$gate during contention still armed"
+    assert_contains "$(cat "$dir/state/.watch-continuity.log")" 'event=claim-contended' "$gate never exercised contention"
+  done
+  pass "auto-arm: contended claims recheck away posture, supervision need, and session ownership"
+}
+
+test_continuity_diagnostics_are_bounded_metadata() {
+  local dir out status i size target
+  dir=$(make_primary_dir "$TMP_ROOT/diagnostic-metadata")
+  write_arm_fixture "$dir" actionable
+  for i in $(seq 1 2000); do
+    printf 'at=1\tpid=1\tcomponent=hook\tevent=idle\trc=0\tgeneration=0\n'
+  done > "$dir/state/.watch-continuity.log"
+  out=$(run_autoarm "$dir" '{"session_id":"secret-payload-canary","prompt":"secret-payload-canary"}' 2>/dev/null); status=$?
+  expect_code 0 "$status" "idle diagnostic firing must remain silent"
+  [ -z "$out" ] || fail "diagnostic firing printed hook output"
+  size=$(wc -c < "$dir/state/.watch-continuity.log" | tr -d ' ')
+  [ "$size" -le 65536 ] || fail "continuity diagnostics exceeded their byte bound"
+  [ "$(wc -l < "$dir/state/.watch-continuity.log" | tr -d ' ')" -le 256 ] \
+    || fail "continuity diagnostics did not trim old rows"
+  assert_contains "$(tail -1 "$dir/state/.watch-continuity.log")" 'event=idle' "idle admission branch was not recorded"
+  assert_not_contains "$(cat "$dir/state/.watch-continuity.log")" 'secret-payload-canary' "diagnostics retained hook payload"
+  target="$dir/untouched"
+  printf 'sentinel\n' > "$target"
+  rm -f "$dir/state/.watch-continuity.log"
+  ln -s "$target" "$dir/state/.watch-continuity.log"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "a refused diagnostic destination must not change hook outcome"
+  [ "$(cat "$target")" = sentinel ] || fail "diagnostics followed a symlink"
+  pass "auto-arm: bounded metadata diagnostics omit payloads and reject symlink destinations"
 }
 
 # Claude terminates the complete async hook process tree when the declared hook
@@ -2415,6 +2537,9 @@ test_owner_mutex_contention_preserves_failure_episode_reset
 test_arms_for_x_mode_poll_need_without_inflight
 test_arms_for_registered_custom_check_without_inflight
 test_single_flight_admits_exactly_one_owner
+test_turn_after_check_retries_contended_generation_claim
+test_contended_claim_rechecks_admission
+test_continuity_diagnostics_are_bounded_metadata
 test_term_mid_arm_commits_failure_and_rewakes
 test_replacement_retires_interrupted_session_episode
 test_reused_identity_with_new_session_retires_interrupted_episode

@@ -138,6 +138,12 @@
 # On any uncertainty such as unresolvable ancestry, malformed lock state, or
 # lock contention, it exits 0 and leaves continuity to the synchronous guard and
 # the model.
+# Short generation-ledger contention is retried for up to five seconds in the
+# same firing: after a delivered wake there may be no later Stop to retry it.
+# The retry rechecks session ownership, away posture, need, and competing claims.
+# Primary-home firings append bounded metadata to state/.watch-continuity.log,
+# including admission skips, claim outcomes, arm returns, and the final exit.
+# bin/fm-wake-lib.sh owns the diagnostic format and retention bounds.
 #
 # The Stop hook passes no arguments, so any argument means a manual run: -h or
 # --help prints usage and an unknown argument is refused, both before anything
@@ -207,6 +213,18 @@ esac
 # shellcheck source=bin/fm-supervision-engine-lib.sh
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
 
+AUTOARM_BRANCH=entered
+autoarm_exit_log() {
+  local rc=$?
+  fm_primary_scope_matches "$FM_ROOT" "$STATE" || return 0
+  fm_watch_continuity_log "$STATE" hook "$AUTOARM_BRANCH" "$rc" "${MY_GEN:-0}"
+}
+trap autoarm_exit_log EXIT
+autoarm_skip() {
+  AUTOARM_BRANCH=$1
+  exit 0
+}
+
 # fm-watch.sh touches the liveness beacon once per cycle, immediately before
 # its terminal wait, so a healthy watcher's beacon can legitimately age up to
 # FM_POLL seconds between touches (docs/turnend-guard.md "Guard grace and the
@@ -228,7 +246,7 @@ HOOK_EVENT_NAME=$(printf '%s' "$PAYLOAD" | jq -r '.hook_event_name // empty' 2>/
 # the declared multi-hour timeout - the exact wedge grok 1.0.0 produced
 # (docs/turnend-guard.md "Harness integrations"). Cursor's own park adapter owns
 # its turn boundary, so stand down on a Cursor-delivered payload.
-fm_hook_payload_is_foreign_host "$PAYLOAD" && exit 0
+fm_hook_payload_is_foreign_host "$PAYLOAD" && autoarm_skip foreign-host
 
 # pi-code (Pi's Claude-hook compatibility extension) also loads the tracked
 # Claude settings and has no asyncRewake, so it awaits every Stop hook and this
@@ -241,11 +259,11 @@ fm_hook_payload_is_foreign_host "$PAYLOAD" && exit 0
 # Fail direction matches the guard above: no payload, no jq, or no
 # transcript_path means the hook RUNS.
 if [ -n "$PAYLOAD" ] && command -v jq >/dev/null 2>&1; then
-  printf '%s' "$PAYLOAD" | jq -e '(.transcript_path // "") | type == "string" and contains("/.pi/")' >/dev/null 2>&1 && exit 0
+  printf '%s' "$PAYLOAD" | jq -e '(.transcript_path // "") | type == "string" and contains("/.pi/")' >/dev/null 2>&1 && autoarm_skip pi-host
 fi
 
 # --- scope: genuine primary checkout only -----------------------------------
-fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
+fm_primary_scope_matches "$FM_ROOT" "$STATE" || autoarm_skip outside-primary
 
 # --- identity: only the lock-owning session's hooks may arm ------------------
 # A prior session may have died after leaving its harness identity in .lock.
@@ -254,32 +272,33 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 # session is still recoverable rather than being read as a malformed lock nobody
 # may ever clear.
 # Defer the mutating claim until after the unchanged AFK and need gates, so an
-# idle or away home remains byte-for-byte inert. Missing or malformed locks are
+# idle or away home changes no operational state beyond continuity diagnostics.
+# Missing or malformed locks are
 # uncertainty rather than stale-owner evidence and remain inert.
 RECOVER_SESSION_LOCK=0
 if ! fm_session_lock_owned_by_self "$STATE"; then
   LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
-  fm_session_pid_valid "$LOCK_PID" || exit 0
-  fm_session_lock_pid_blocks_reclaim "$LOCK_PID" && exit 0
+  fm_session_pid_valid "$LOCK_PID" || autoarm_skip invalid-session-lock
+  fm_session_lock_pid_blocks_reclaim "$LOCK_PID" && autoarm_skip other-session
   RECOVER_SESSION_LOCK=1
 fi
 
 # --- AFK: the away daemon owns the watcher and triage; never rewake ----------
-[ -e "$STATE/.afk" ] && exit 0
+[ -e "$STATE/.afk" ] && autoarm_skip away
 
 # --- need: whatever bin/fm-supervision-lib.sh counts as supervision need ------
 need_supervision() {
   fm_supervision_needed "$STATE" "$GRACE"
 }
-need_supervision || exit 0
+need_supervision || autoarm_skip idle
 
 # --- stale session-lock recovery ---------------------------------------------
 # Delegate the claim to fm-lock.sh so its live-owner refusal and write semantics
 # remain the single acquisition owner, then re-verify current-session identity
 # before touching any auto-arm state.
 if [ "$RECOVER_SESSION_LOCK" -eq 1 ]; then
-  "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || exit 0
-  fm_session_lock_owned_by_self "$STATE" || exit 0
+  "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || autoarm_skip session-recovery-refused
+  fm_session_lock_owned_by_self "$STATE" || autoarm_skip session-recovery-unowned
 fi
 
 # --- single-flight generation claim --------------------------------------------
@@ -292,7 +311,7 @@ SESSION_ID=$(fm_session_lock_recorded_session_id "$STATE" 2>/dev/null || true)
 # is superseded by taking the next generation (fm_autoarm_claim_open and
 # fm_autoarm_claim_next in bin/fm-wake-lib.sh own the contract). No mutex is
 # held past this point. A micro-mutex contention with a bare hold is another
-# participant's short ledger section and the next Stop firing simply retries,
+# participant's short ledger section and this firing retries within its bound,
 # while a role-carrying hold is a legacy lock-holding claim from a
 # pre-generation build (or the guard's own terminal-check), which the legacy
 # shim defers to while genuinely deciding and reclaims once when proven
@@ -309,18 +328,39 @@ fi
 case "$HOOK_SESSION" in
   *[!A-Za-z0-9._-]*) HOOK_SESSION= ;;
 esac
-fm_autoarm_claim_open "$STATE" "$GRACE" "$HOOK_SESSION" && exit 0
-fm_autoarm_claim_next "$STATE" "$GRACE" "$HOOK_SESSION"
-CLAIM_RC=$?
-if [ "$CLAIM_RC" -ne 0 ]; then
-  [ "$CLAIM_RC" -eq 2 ] && exit 0
+fm_autoarm_claim_open "$STATE" "$GRACE" "$HOOK_SESSION" && autoarm_skip claim-open
+CLAIM_DEADLINE=$(( $(date +%s) + 5 ))
+CLAIM_WAIT_LOGGED=0
+while :; do
+  fm_autoarm_claim_next "$STATE" "$GRACE" "$HOOK_SESSION"
+  CLAIM_RC=$?
+  [ "$CLAIM_RC" -eq 1 ] || break
+  [ "$FM_AUTOARM_CLAIM_CONTENDED" -eq 1 ] || break
+  # Only retry an actually held micro-mutex. Identity/write failures retain
+  # their existing refusal path; a legacy role still uses guarded recovery.
   ROLE=$(fm_lock_role "$OWNER_LOCK" 2>/dev/null || true)
-  [ -n "$ROLE" ] || exit 0
-  fm_autoarm_release_abandoned "$STATE" "$GRACE" || exit 0
-  fm_autoarm_claim_next "$STATE" "$GRACE" "$HOOK_SESSION" || exit 0
+  [ -z "$ROLE" ] || break
+  if [ "$CLAIM_WAIT_LOGGED" -eq 0 ]; then
+    fm_watch_continuity_log "$STATE" hook claim-contended 0
+    CLAIM_WAIT_LOGGED=1
+  fi
+  [ "$(date +%s)" -lt "$CLAIM_DEADLINE" ] || break
+  sleep 0.1
+  fm_session_lock_owned_by_self "$STATE" || autoarm_skip claim-session-changed
+  [ ! -e "$STATE/.afk" ] || autoarm_skip claim-away
+  need_supervision || autoarm_skip claim-idle
+done
+if [ "$CLAIM_RC" -ne 0 ]; then
+  [ "$CLAIM_RC" -eq 2 ] && autoarm_skip claim-open
+  ROLE=$(fm_lock_role "$OWNER_LOCK" 2>/dev/null || true)
+  [ -n "$ROLE" ] || autoarm_skip claim-refused
+  fm_autoarm_release_abandoned "$STATE" "$GRACE" || autoarm_skip legacy-claim-held
+  fm_autoarm_claim_next "$STATE" "$GRACE" "$HOOK_SESSION" || autoarm_skip legacy-claim-refused
 fi
 MY_GEN=$FM_AUTOARM_MY_GEN
-[ -n "$MY_GEN" ] || exit 0
+[ -n "$MY_GEN" ] || autoarm_skip claim-missing-generation
+AUTOARM_BRANCH=claimed
+fm_watch_continuity_log "$STATE" hook claimed 0 "$MY_GEN"
 
 # Commit <outcome> (optionally with the once-per-episode notice marker) for
 # this generation. Success means this generation's translation WINS and the
@@ -331,6 +371,7 @@ MY_GEN=$FM_AUTOARM_MY_GEN
 # even an already-printed banner is never delivered by a losing generation.
 autoarm_commit() {  # <outcome> [marker-file] [interrupted-session-identity]
   local outcome=$1 marker=${2:-} marker_identity=${3:-} session_pid recovery
+  AUTOARM_BRANCH=commit-refused
   stopfailure_pace
   if [ "$outcome" = rewake ]; then
     fm_session_lock_owned_by_self "$STATE" || return 2
@@ -345,11 +386,13 @@ autoarm_commit() {  # <outcome> [marker-file] [interrupted-session-identity]
     fm_autoarm_write_owned "$STATE" "$MY_GEN" "$outcome" "$marker" '' '' "$marker_identity" "$SESSION_ID" || return
   fi
   stopfailure_paced
+  AUTOARM_BRANCH=committed-$outcome
 }
 
 # Best-effort ownership-checked record for exit-0 paths, where supersession
 # changes nothing about the action taken.
 autoarm_record() {  # <outcome>
+  AUTOARM_BRANCH=recorded-$1
   fm_autoarm_write_owned "$STATE" "$MY_GEN" "$1" >/dev/null 2>&1 || true
 }
 
@@ -574,13 +617,15 @@ trap 'handle_autoarm_signal INT' INT
 ARM_PID=
 CLOSED_ARM_PID=
 run_arm() {  # <output file, or empty for none>
+  local rc=0
   if [ -n "$1" ]; then
     FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" >"$1" 2>&1 &
   else
     FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" >/dev/null 2>&1 &
   fi
   ARM_PID=$!
-  wait "$ARM_PID" || true
+  wait "$ARM_PID" || rc=$?
+  fm_watch_continuity_log "$STATE" hook arm-return "$rc" "$MY_GEN"
   CLOSED_ARM_PID=$ARM_PID
   ARM_PID=
 }
@@ -614,6 +659,7 @@ start_handling_successor() {  # <closed-arm-pid>
   while :; do
     if grep -Eq '^watcher: (started|attached) pid=[0-9]+' "$out" 2>/dev/null; then
       rm -f "$out" 2>/dev/null || true
+      fm_watch_continuity_log "$STATE" hook successor-confirmed 0 "$MY_GEN"
       return 0
     fi
     grep -q '^watcher: FAILED' "$out" 2>/dev/null && break
@@ -624,6 +670,7 @@ start_handling_successor() {  # <closed-arm-pid>
   rm -f "$out" 2>/dev/null || true
   [ -z "$line" ] || line=" ($line)"
   SUCCESSOR_FAILURE="The handling successor pid=$pid did not confirm a live watcher$line; this handling turn runs uncovered until the next turn end re-arms."
+  fm_watch_continuity_log "$STATE" hook successor-unconfirmed 1 "$MY_GEN"
   return 1
 }
 

@@ -2469,11 +2469,14 @@ fm_autoarm_session_matches() {  # <state-dir> <identity> [recorded-session-id]
 # FM_AUTOARM_MY_GEN set on success, 2 when a competing claimant won the race
 # (the ledger holds a claim open to this session), and 1 when the micro-mutex
 # is contended, the mandatory identity cannot be computed, or the write failed.
+# FM_AUTOARM_CLAIM_CONTENDED distinguishes the mutex refusal for callers that
+# retry it, even when its holder releases before the caller inspects the lock.
 fm_autoarm_claim_next() {  # <state-dir> [grace] [claude-session]
   local state=$1 grace=${2:-${FM_GUARD_GRACE:-300}} claude_session=${3:-} lock epoch pid gen identity session_id lock_pid lock_identity tmp interrupted_identity interrupted_session
   lock="$state/.claude-autoarm.lock"
   epoch="$state/.claude-autoarm-epoch"
   FM_AUTOARM_MY_GEN=
+  FM_AUTOARM_CLAIM_CONTENDED=0
   case "$claude_session" in
     *[!A-Za-z0-9._-]*) claude_session= ;;
   esac
@@ -2491,7 +2494,10 @@ fm_autoarm_claim_next() {  # <state-dir> [grace] [claude-session]
   lock_pid=$(sed -n '1p' "$state/.lock" 2>/dev/null || true)
   lock_identity=$(fm_session_pid_identity "$lock_pid" 2>/dev/null || true)
   [ -n "$lock_identity" ] || session_id=
-  fm_lock_try_acquire "$lock" || return 1
+  if ! fm_lock_try_acquire "$lock"; then
+    FM_AUTOARM_CLAIM_CONTENDED=1
+    return 1
+  fi
   if fm_autoarm_claim_open "$state" "$grace" "$claude_session"; then
     fm_lock_release "$lock"
     return 2
@@ -2531,6 +2537,46 @@ fm_autoarm_claim_next() {  # <state-dir> [grace] [claude-session]
   FM_AUTOARM_MY_GEN=$gen
   return 0
 }
+
+# Best-effort watcher continuity diagnostics shared by the Stop hook and arm.
+# Fixed metadata only: no payload, session id, output, argv, or environment.
+# Trim at 64 KiB to the newest 256 complete rows within that byte limit.
+# A contended diagnostic lock drops the row instead of blocking supervision;
+# callers never depend on this log.
+fm_watch_continuity_log() {  # <state> <component> <event> <exit-code> [generation]
+  local state=$1 component=$2 event=$3 rc=$4 gen=${5:-0} log lock tmp size
+  case "$component" in hook|arm) ;; *) return 0 ;; esac
+  case "$event" in ''|*[!a-z0-9-]*) return 0 ;; esac
+  [ "${#event}" -le 64 ] || return 0
+  case "$rc:$gen" in *[!0-9:]*) return 0 ;; esac
+  [ -d "$state" ] && [ ! -L "$state" ] || return 0
+  log="$state/.watch-continuity.log"
+  lock="$state/.watch-continuity-log.lock"
+  [ ! -L "$log" ] || return 0
+  [ ! -e "$log" ] || [ -f "$log" ] || return 0
+  fm_lock_try_acquire "$lock" || return 0
+  if [ ! -L "$log" ] && { [ ! -e "$log" ] || [ -f "$log" ]; }; then
+    printf 'at=%s\tpid=%s\tcomponent=%s\tevent=%s\trc=%s\tgeneration=%s\n' \
+      "$(date +%s)" "${BASHPID:-$$}" "$component" "$event" "$rc" "$gen" >> "$log" 2>/dev/null || true
+    size=$(wc -c < "$log" 2>/dev/null | tr -d '[:space:]')
+    case "$size" in
+      ''|*[!0-9]*) ;;
+      *)
+        if [ "$size" -ge 65536 ]; then
+          tmp=$(mktemp "$state/.watch-continuity.XXXXXX") || tmp=
+          if [ -n "$tmp" ]; then
+            tail -n 256 "$log" 2>/dev/null | tail -c 65536 \
+              | awk 'NR > 1 || /^at=/' > "$tmp" 2>/dev/null \
+              && mv -f "$tmp" "$log" 2>/dev/null
+            rm -f "$tmp" 2>/dev/null || true
+          fi
+        fi
+        ;;
+    esac
+  fi
+  fm_lock_release "$lock"
+  return 0
+} >/dev/null 2>&1
 
 # Write a new outcome for a generation this process still owns, re-verified
 # under the micro-mutex so a superseded owner can never clobber a newer claim.
