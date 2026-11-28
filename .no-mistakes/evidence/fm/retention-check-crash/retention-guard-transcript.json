@@ -1,0 +1,75 @@
+[
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "add",
+      "job",
+      "Scratch job"
+    ],
+    "exit": 0,
+    "stdout": "ok: added job -> Queued\ntask:\n  id: job\n  title: Scratch job\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-28\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi start job` to move it to in flight\n  - Run `tasks-axi block job --by <other>` to record a dependency\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "done",
+      "job",
+      "--report",
+      "data/job/report.md"
+    ],
+    "exit": 0,
+    "stdout": "ok: done job -> Done (report data/job/report.md)\nhelp[1]:\n  - Run `tasks-axi ready` to dispatch work unblocked by this\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "declare",
+      "job",
+      "--scratch",
+      "cache"
+    ],
+    "exit": 0,
+    "stdout": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-guard-yypqjdf4/data/job/scratch.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "complete",
+      "job",
+      "--artifact",
+      "report.md"
+    ],
+    "exit": 0,
+    "stdout": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-guard-yypqjdf4/data/job/retention-complete.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856189,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-guard-yypqjdf4\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4378,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json",
+      "--prune"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856189,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-guard-yypqjdf4\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4378,\"eligible_bytes\":0,\"reason\":\"task unavailable in backlog: job: backlog read failed or exceeded bound\",\"task\":\"job\"}],\"version\":1,\"visited_entries\":5}\n",
+    "stderr": ""
+  },
+  {
+    "observable_result": "Unreadable task backend leaves all scratch intact",
+    "reason": "task unavailable in backlog: job: backlog read failed or exceeded bound",
+    "scratch_exists": true
+  }
+]

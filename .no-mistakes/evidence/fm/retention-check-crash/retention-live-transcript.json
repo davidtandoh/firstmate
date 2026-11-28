@@ -1,0 +1,258 @@
+[
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "add",
+      "job",
+      "Retention \"quoted\", comma task"
+    ],
+    "exit": 0,
+    "stdout": "ok: added job -> Queued\ntask:\n  id: job\n  title: \"Retention \\\"quoted\\\", comma task\"\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-28\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi start job` to move it to in flight\n  - Run `tasks-axi block job --by <other>` to record a dependency\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "done",
+      "job",
+      "--report",
+      "data/job/report.md"
+    ],
+    "exit": 0,
+    "stdout": "ok: done job -> Done (report data/job/report.md)\nhelp[1]:\n  - Run `tasks-axi ready` to dispatch work unblocked by this\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "declare",
+      "job",
+      "--scratch",
+      "cache"
+    ],
+    "exit": 0,
+    "stdout": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/scratch.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "complete",
+      "job",
+      "--artifact",
+      "report.md"
+    ],
+    "exit": 0,
+    "stdout": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-complete.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856131,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"report\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856132,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"report\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856133,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"report\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json",
+      "--prune"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856133,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"report\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "start",
+      "job",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"paths\":[\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-complete.json\",\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-merge.json\",\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-local.json\"]}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "complete",
+      "job",
+      "--artifact",
+      "report.md"
+    ],
+    "exit": 0,
+    "stdout": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-complete.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "add",
+      "decision",
+      "Review job evidence"
+    ],
+    "exit": 0,
+    "stdout": "ok: added decision -> Queued\ntask:\n  id: decision\n  title: Review job evidence\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-28\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi start decision` to move it to in flight\n  - Run `tasks-axi block decision --by <other>` to record a dependency\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "hold",
+      "decision",
+      "--kind",
+      "captain",
+      "--reason",
+      "Awaiting approval"
+    ],
+    "exit": 0,
+    "stdout": "ok: hold decision -> held (captain)\ntask:\n  id: decision\n  title: Review job evidence\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: Awaiting approval\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-28\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"\"\nhelp[2]:\n  - Run `tasks-axi unhold decision` to resume dispatch\n  - Run `tasks-axi ready --include-held` to review paused work\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json",
+      "--prune"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856135,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":0,\"reason\":\"open captain hold references task: decision\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "update",
+      "decision",
+      "--title",
+      "Review \"quoted\", comma evidence",
+      "--body",
+      "Long notes \"quoted\", comma\nnotes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes \ndata/job/cache/file"
+    ],
+    "exit": 0,
+    "stdout": "ok: updated decision (title, body)\ntask:\n  id: decision\n  title: \"Review \\\"quoted\\\", comma evidence\"\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: Awaiting approval\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-11-28\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Long notes \\\"quoted\\\", comma\\nnotes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes notes\\n... (truncated, 947 chars total - use show decision --full to see complete text)\"\nhelp[1]:\n  - Run `tasks-axi show decision --full` to see the result\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json",
+      "--prune"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856135,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":0,\"reason\":\"open captain hold references task: decision\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-tasks-axi.sh",
+      "done",
+      "decision"
+    ],
+    "exit": 0,
+    "stdout": "ok: done decision -> Done; pruned 1\nhelp[1]:\n  - Run `tasks-axi ready` to dispatch work unblocked by this\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856137,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "report",
+      "--prune",
+      "--json"
+    ],
+    "exit": 0,
+    "stdout": "{\"generated_at\":1795856140,\"home\":\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07\",\"mode\":\"prune\",\"shared_worktrees\":[],\"tasks\":[{\"bytes\":4386,\"eligible_bytes\":4096,\"paths\":[\"/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-removals.jsonl\"],\"pruned\":true,\"reason\":\"eligible\",\"task\":\"job\",\"worktree\":null}],\"version\":1,\"visited_entries\":10}\n",
+    "stderr": ""
+  },
+  {
+    "persisted_pruning_audit": "{\"at\":1795856140,\"bytes\":4096,\"event\":\"planned\",\"path\":\"cache/file\",\"task\":\"job\"}\n{\"at\":1795856140,\"bytes\":4096,\"event\":\"removed\",\"path\":\"cache/file\",\"task\":\"job\"}\n"
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "tick"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "task-retention: config/task-retention must be report or prune\n"
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "tick"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "tick"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "tick"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "task-retention: config/task-retention must be report or prune\n"
+  },
+  {
+    "first_failure_wake": "1795856141\t1\tcheck\ttask-retention\tcheck: task-retention report failed; run bin/fm-task-retention.sh report for the bounded diagnostic\n",
+    "wake_after_backoff_expired": "1795856141\t2\tcheck\ttask-retention\tcheck: task-retention report failed; run bin/fm-task-retention.sh report for the bounded diagnostic\n"
+  },
+  {
+    "command": [
+      "fm-task-retention.sh",
+      "start",
+      "job"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "task-retention: [Errno 1] Operation not permitted: '/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GN567QM5DTEM2RWRHBPP0F/.retention-live-5k8lvt07/data/job/retention-complete.json'\n"
+  }
+]

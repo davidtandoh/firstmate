@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Empty path overrides resolve to isolated home defaults",
+    "result": "pass"
+  },
+  {
+    "name": "Relative home and roots produce absolute report paths",
+    "result": "pass"
+  },
+  {
+    "name": "Missing config defaults to report-only and receipt invalidation succeeds",
+    "result": "pass"
+  },
+  {
+    "name": "Title-only cross-task hold prevents pruning",
+    "result": "pass"
+  },
+  {
+    "name": "Real tasks-axi quoted multiline held details preserve referenced scratch",
+    "result": "pass"
+  },
+  {
+    "name": "Archived completed task prunes declared scratch and preserves report",
+    "result": "pass"
+  },
+  {
+    "name": "Failed watcher check stays silent after queue drain until retry delay expires",
+    "result": "pass"
+  },
+  {
+    "name": "Unsafe completion receipt causes invalidation refusal",
+    "result": "pass"
+  }
+]
