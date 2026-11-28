@@ -113,6 +113,11 @@
 # Kit's internal status stages remain Kit-owned; this boundary measures the
 # complete status command rather than guessing which internal probe was slow.
 # _title-session is the private bounded API operation used by the stderr reader.
+# _stop-codex <meta> <session> <server> <generation> sends the native stop
+# event only after a fresh matching Codex session read, under the snapshot lock.
+# Its acknowledgement is scoped to this exit attempt. _confirm-exit accepts
+# an optional native-stop acknowledgement from that caller, permitting an
+# offline runner only after the acknowledged stop and a fresh idle session read.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -143,14 +148,14 @@ fail() {
 }
 title_fail() { printf 'error: Omnigent session title: %s\n' "$*" >&2; exit 1; }
 
-session_request() { # <GET|PATCH> [JSON body]; sets REQUEST_RESULT or REQUEST_ERROR
+session_request() { # <GET|PATCH|POST> [JSON body] [path suffix]; sets REQUEST_RESULT or REQUEST_ERROR
   local rc=0 limit=${REQUEST_LIMIT:-5}
   local LC_ALL=C
   local args=(--silent --show-error --fail --max-time "$limit" --noproxy '*' --proto '=http,https' --request "$1")
   [ "$#" -lt 2 ] || args+=(--header 'Content-Type: application/json' --data "$2")
   REQUEST_ERROR=
   REQUEST_RESULT=$(fm_run_timed "$((limit + 1))" curl "${args[@]}" \
-    "${SERVER%/}/v1/sessions/$SESSION_ID" | head -c 131073) || rc=$?
+    "${SERVER%/}/v1/sessions/$SESSION_ID${3:-}" | head -c 131073) || rc=$?
   if [ "$rc" != 0 ]; then REQUEST_ERROR="session $SESSION_ID: $1 failed (exit $rc)"; return 1; fi
   if [ "${#REQUEST_RESULT}" -gt 131072 ]; then REQUEST_ERROR="session $SESSION_ID: oversized $1 response"; return 1; fi
   printf '%s' "$REQUEST_RESULT" | jq -se 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 \
@@ -701,11 +706,36 @@ supervision_snapshot() ( # <probe|approvals> [--fresh] <task meta>
 probe_session() { supervision_snapshot probe "$@"; }
 approvals_session() { supervision_snapshot approvals "$@"; }
 
+exit_binding_matches() { # <meta> <session> <server> <generation>
+  [ -n "$2" ] && [ -n "$4" ] && read_binding "$1" &&
+    [ "$SESSION_ID" = "$2" ] && [ "$SERVER" = "$3" ] &&
+    [ "$(fm_meta_get "$1" spawn_gen)" = "$4" ]
+}
+
+stop_codex() (
+  local meta=$1 expected_session=$2 body='' code='' SNAPSHOT_LOCK=''
+  exit_binding_matches "$@" || return 1
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-stop.XXXXXX") || return 1
+  trap 'rm -f -- "$body"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  snapshot_lock_acquire "$meta" 6 || return 1
+  exit_binding_matches "$@" || return 1
+  session_snapshot "$body" || return 1
+  [ "$code" = 200 ] || return 1
+  jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
+    .id == $id and .labels["omnigent.wrapper"] == "codex-native-ui" and
+    .runner_online == true and .archived != true and .status != "failed")' "$body" >/dev/null || return 1
+  [ "$(fm_meta_get "$meta" harness)" = codex ] || return 1
+  exit_binding_matches "$@" || return 1
+  session_request POST '{"type":"stop_session","data":{}}' /events || return 1
+  printf '%s' "$REQUEST_RESULT" | jq -e '.queued == false' >/dev/null || return 1
+  exit_binding_matches "$@"
+)
+
 confirm_exit() (
   local meta=$1 expected_session=$2 expected_server=$3 expected_gen=$4 body='' code='' health SNAPSHOT_LOCK=''
+  local native_stop=${5:-none}
   [ -n "$expected_session" ] && [ -n "$expected_gen" ] || { echo unknown; return; }
-  read_binding "$meta" && [ "$SESSION_ID" = "$expected_session" ] && [ "$SERVER" = "$expected_server" ] &&
-    [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
+  exit_binding_matches "$meta" "$expected_session" "$expected_server" "$expected_gen" || { echo unknown; return; }
   body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-exit.XXXXXX") || { echo unknown; return; }
   trap 'rm -f -- "$body"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
   snapshot_lock_acquire "$meta" 6 || { echo unknown; return; }
@@ -715,8 +745,9 @@ confirm_exit() (
     [ "$(fm_meta_get "$meta" spawn_gen)" = "$expected_gen" ] || { echo unknown; return; }
   if [ "$code" = 404 ]; then echo dead; return; fi
   if [ "$code" != 200 ]; then echo unknown; return; fi
-  if ! jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
-    .id == $id and .runner_online == true and .status == "idle" and
+  if ! jq -se --arg id "$expected_session" --arg stop "$native_stop" 'length == 1 and (.[0] |
+    .id == $id and (($stop == "none" and .runner_online == true) or
+      ($stop == "native-stop" and .runner_online == false and .labels["omnigent.wrapper"] == "codex-native-ui")) and .status == "idle" and
     .active_response_id == null and .archived != true)' "$body" >/dev/null 2>&1; then
     echo unknown
     return
@@ -1228,7 +1259,8 @@ case "$OP" in
     exit
     ;;
   probe) probe_session "$@"; exit ;;
-  _confirm-exit) [ "$#" -eq 4 ] || fail '_confirm-exit requires a task record, session, server and generation'; confirm_exit "$@"; exit ;;
+  _confirm-exit) [ "$#" -eq 4 ] || { [ "$#" -eq 5 ] && [ "$5" = native-stop ]; } || fail '_confirm-exit requires a task record, session, server and generation, optionally native-stop'; confirm_exit "$@"; exit ;;
+  _stop-codex) [ "$#" -eq 4 ] || fail '_stop-codex requires a task record, session, server and generation'; stop_codex "$@"; exit ;;
   approvals) approvals_session "$@"; exit ;;
   binding) binding_op "$@"; exit ;;
   stop-attach) [ "$#" -eq 1 ] || fail 'stop-attach requires one task record'; stop_attach "$1"; exit ;;

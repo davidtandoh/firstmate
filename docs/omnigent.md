@@ -132,6 +132,9 @@ Unknown native-owner state withholds process-group signals, replacement, recover
 Secondmate recovery readers require fresh session reads, including remote recovery probes.
 Lifecycle commands require a fresh session read before stopping a retained attach client.
 After Firstmate delivers an exit command, that exit attempt can also confirm termination when the attach client stops and fresh session and health reads prove the same session and generation is reachable with no active turn.
+For Codex, the shared exit implementation also asks Omnigent to stop the exact recorded native session, because the runner owns the app server separately from the attached terminal.
+The stop preserves conversation history and must be acknowledged before a fresh idle session with an offline runner can confirm that exit attempt.
+An acknowledgement alone, a still-online runner, an active response, or a failed read cannot confirm the native stop.
 The shared exit implementation in `bin/fm-control-exit-lib.sh` scopes this confirmation to the exit attempt in control, teardown, or relaunch; supervision and independent recovery continue to require native absence.
 Cached supervision verdicts never authorize that signal.
 
