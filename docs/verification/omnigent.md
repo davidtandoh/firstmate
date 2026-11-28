@@ -30,6 +30,8 @@ The fixtures print elapsed time, request count, receipt bytes, and peak resident
 These are fixture results; archive and dead detection against a restarted live server are not claimed.
 
 On 2026-11-28, with Bash `5.3.20(1)-release`, `bash tests/fm-control-relaunch.test.sh --codex-detach` returned `ok - Codex detach stops only its native owner; unconfirmed native stops withhold replacement`.
+`bash tests/fm-control-relaunch.test.sh --already-detached` selects the serve-switch regression and returns `ok - serve-switch detach recovers exact Codex sessions and refuses unreachable or mismatched owners`.
+That fixture starts with an already-detached client, confirms exact-session stop before retirement, and checks exit and relaunch refusal for unreachable servers, mismatched session identities or wrappers, and ineffective stop acknowledgements.
 The isolated API fixtures exercise the [Codex native-stop boundary](../omnigent.md#worker-session-lifecycle) for exit and relaunch with ordinary session records and records containing 170,000 bytes of padding.
 They also cover a rejected stop, an invalid acknowledgement, an unchanged native owner, an active response after acknowledgement, a server that becomes unreachable after attach exit, and refusal to send a stop event for a foreign session, server, generation, or wrapper.
 These fixtures exercise the protocol through the shared lifecycle executable; they do not claim a live Codex or Herdr stop.

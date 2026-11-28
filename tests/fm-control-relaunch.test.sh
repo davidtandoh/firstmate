@@ -3758,6 +3758,48 @@ test_omnigent_codex_detach_stops_native() {
   pass 'Codex detach stops only its native owner; unconfirmed native stops withhold replacement'
 }
 
+# A serve switch detaches every client; retained sessions must be stopped by id.
+test_omnigent_codex_already_detached() {
+  local dir out rc verb mode id=rl-switch session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  local -a args
+  for mode in ok unreachable wrong-id wrong-harness no-effect; do
+    for verb in exit relaunch; do
+      dir=$(new_case "serve-switch-$mode-$verb" "$id")
+      add_ship_task "$dir" "$id" codex
+      printf zsh > "$dir/fake/command"
+      ( . "$ROOT/tests/omnigent-fixture.sh"; fm_test_omnigent_service "$dir/serve" "$dir/fakebin" )
+      printf '{"argv":["codex"]}\n' > "$dir/serve/result.json"
+      printf 'omnigent=on\nspawn_gen=s1.1.1\nomnigent_session=%s\nomnigent_server=http://127.0.0.1:6767\n' "$session" >> "$dir/home/state/$id.meta"
+      args=("$verb")
+      [ "$verb" != relaunch ] || args+=(--note 'recover after serve switch detached all clients')
+      rc=0
+      out=$(OMNI_HEALTH="$(if [ "$mode" = unreachable ]; then echo down; else echo ok; fi)" \
+        OMNI_TITLE_MODE="$mode" OMNI_STOP_MODE="$mode" FM_TEST_CONTROL_EXIT_WAIT=5 \
+        run_control "$dir" "$id" "${args[@]}") || rc=$?
+      if [ "$mode" = ok ]; then
+        expect_code 0 "$rc" "already-detached Codex $verb must stop retained session"$'\n'"$out"
+        jq -se --arg url "http://127.0.0.1:6767/v1/sessions/$session/events" \
+          '[.[] | select(.method == "POST")] | length == 1 and .[0].url == $url' \
+          "$dir/serve/requests.jsonl" >/dev/null || fail 'detached stop was not exact and once-only'
+        if [ "$verb" = relaunch ]; then
+          [ "$(journal_field "$dir" "$id" phase)" = complete ] || fail 'detached replacement did not complete'
+          jq -se 'map(select(.method == "POST" or (.method == "PATCH" and .body.archived == true))) | .[0].method == "POST" and .[1].body.archived == true' \
+            "$dir/serve/requests.jsonl" >/dev/null || fail 'retirement preceded native stop'
+        fi
+      else
+        [ "$rc" -ne 0 ] || fail "$mode allowed detached replacement"
+        [ "$(meta_field "$dir" "$id" spawn_gen)" = s1.1.1 ] || fail "$mode changed owner"
+        [ ! -e "$dir/serve/archived.jsonl" ] || fail "$mode archived unproven work"
+        [ ! -e "$dir/serve/native-stopped.json" ] || [ "$mode" = no-effect ] || fail "$mode stopped unverified owner"
+      fi
+      if [ -f "$dir/fake/literal" ]; then
+        assert_not_contains "$(cat "$dir/fake/literal")" /quit 'detached path typed lifecycle input into shell'
+      fi
+    done
+  done
+  pass 'serve-switch detach recovers exact Codex sessions and refuses unreachable or mismatched owners'
+}
+
 test_omnigent_codex_stop_rejects_foreign_binding() {
   local dir rc mode out id=rl-codex-binding session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   local -a args
@@ -3824,7 +3866,13 @@ test_exit_without_perl() {
   pass 'exit works without Perl with both available clock fallbacks'
 }
 
+if [ "${1:-}" = --already-detached ]; then
+  test_omnigent_codex_already_detached
+  exit 0
+fi
+
 if [ "${1:-}" = --codex-detach ]; then
+  test_omnigent_codex_already_detached
   test_omnigent_codex_detach_stops_native
   test_omnigent_codex_stop_rejects_foreign_binding
   exit 0
@@ -3845,6 +3893,7 @@ if [ "${1:-}" = --close-barrier ]; then
 fi
 
 if [ "${1:-}" = --omnigent ]; then
+  test_omnigent_codex_already_detached
   test_omnigent_codex_detach_stops_native
   test_omnigent_codex_stop_rejects_foreign_binding
   test_omnigent_teardown_stop_barrier
@@ -3939,6 +3988,7 @@ test_omnigent_unknown_withholds_lifecycle || exit 1
 test_omnigent_late_binding_retirement
 test_omnigent_delayed_identity_after_refused_retirement || exit 1
 test_omnigent_explicit_exit_confirmation
+test_omnigent_codex_already_detached
 test_omnigent_codex_detach_stops_native
 test_omnigent_codex_stop_rejects_foreign_binding
 test_omnigent_direct_relaunch_stops_attach || exit 1
