@@ -170,8 +170,12 @@ if method == 'PATCH' and body.get('archived') is True:
     session['archived'] = True
     print(json.dumps(session))
     sys.exit(0)
+session['padding'] = 'x' * int(os.environ.get('OMNI_SESSION_PADDING', '0'))
+if mode == 'wrong-id':
+    session['id'] = 'b' * 32
+if mode == 'wrong-harness':
+    session['labels']['omnigent.wrapper'] = 'unrelated'
 if '--write-out' in args:
-    session['padding'] = 'x' * int(os.environ.get('OMNI_SESSION_PADDING', '0'))
     response = json.dumps(session) if code == 200 else '{"error":"not found"}'
     if '--output' in args:
         pathlib.Path(args[args.index('--output') + 1]).write_text(response)
@@ -179,10 +183,6 @@ if '--write-out' in args:
         sys.stdout.write(response)
     sys.stdout.write(args[args.index('--write-out') + 1].replace('%{http_code}', str(code)))
     sys.exit(0)
-if mode == 'wrong-id':
-    session['id'] = 'b' * 32
-if mode == 'wrong-harness':
-    session['labels']['omnigent.wrapper'] = 'unrelated'
 if mode == 'old-session':
     session['created_at'] = 1
 if method == 'PATCH':

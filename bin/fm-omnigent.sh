@@ -713,15 +713,17 @@ exit_binding_matches() { # <meta> <session> <server> <generation>
 }
 
 stop_codex() (
-  local meta=$1 expected_session=$2 SNAPSHOT_LOCK=''
+  local meta=$1 expected_session=$2 body='' code='' SNAPSHOT_LOCK=''
   exit_binding_matches "$@" || return 1
-  trap '[ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
+  body=$(mktemp "${TMPDIR:-/tmp}/fm-omnigent-stop.XXXXXX") || return 1
+  trap 'rm -f -- "$body"; [ -z "$SNAPSHOT_LOCK" ] || fm_lock_release "$SNAPSHOT_LOCK"' EXIT
   snapshot_lock_acquire "$meta" 6 || return 1
   exit_binding_matches "$@" || return 1
-  session_request GET || return 1
-  printf '%s' "$REQUEST_RESULT" | jq -e --arg id "$expected_session" '
+  session_snapshot "$body" || return 1
+  [ "$code" = 200 ] || return 1
+  jq -se --arg id "$expected_session" 'length == 1 and (.[0] |
     .id == $id and .labels["omnigent.wrapper"] == "codex-native-ui" and
-    .runner_online == true and .archived != true and .status != "failed"' >/dev/null || return 1
+    .runner_online == true and .archived != true and .status != "failed")' "$body" >/dev/null || return 1
   [ "$(fm_meta_get "$meta" harness)" = codex ] || return 1
   exit_binding_matches "$@" || return 1
   session_request POST '{"type":"stop_session","data":{}}' /events || return 1

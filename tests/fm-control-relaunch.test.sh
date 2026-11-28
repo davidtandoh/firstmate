@@ -3717,7 +3717,7 @@ SPAWN
 test_omnigent_codex_detach_stops_native() {
   local dir out rc verb mode id=rl-codex-detach session=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   local -a args
-  for mode in ok http-error bad-ack no-effect active unreachable; do
+  for mode in ok large-record http-error bad-ack no-effect active unreachable; do
     for verb in exit relaunch; do
       dir=$(new_case "codex-detach-$mode-$verb" "$id")
       add_ship_task "$dir" "$id" codex
@@ -3730,12 +3730,13 @@ test_omnigent_codex_detach_stops_native() {
       [ "$verb" != relaunch ] || args+=(--note 'continue after native stop')
       rc=0
       out=$(OMNI_STOP_MODE="$mode" \
+        OMNI_SESSION_PADDING="$(if [ "$mode" = large-record ]; then echo 170000; else echo 0; fi)" \
         OMNI_SESSION_STATE="$(if [ "$mode" = no-effect ]; then echo native-exit; else echo native-active-exit; fi)" \
         OMNI_NATIVE_COMMAND_FILE="$dir/fake/command" \
         OMNI_HEALTH_AFTER_EXIT="$(if [ "$mode" = unreachable ]; then echo down; else echo ok; fi)" \
         FM_TEST_CONTROL_EXIT_WAIT=1 run_control "$dir" "$id" "${args[@]}") || rc=$?
       assert_grep '/quit' "$dir/fake/literal" 'Codex exit was not delivered'
-      if [ "$mode" = ok ]; then
+      if [ "$mode" = ok ] || [ "$mode" = large-record ]; then
         expect_code 0 "$rc" "Codex $verb must stop its native owner after attach detaches"$'\n'"$out"
         jq -e --arg id "$session" '.id == $id' "$dir/serve/native-stopped.json" >/dev/null || fail 'wrong native owner stopped'
         jq -se --arg url "http://127.0.0.1:6767/v1/sessions/$session/events" \
