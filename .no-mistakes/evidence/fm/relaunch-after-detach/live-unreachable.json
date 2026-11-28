@@ -1,0 +1,83 @@
+[
+  {
+    "argv": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GV941VJXFFSHDH1ZVT9EED/.test-detached-lab"
+    ],
+    "exit": 0,
+    "output": "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GV941VJXFFSHDH1ZVT9EED/.test-detached-lab\n"
+  },
+  {
+    "argv": [
+      "tmux",
+      "-S",
+      "/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab-socket.jnw0ccr_/tmux",
+      "new-session",
+      "-d",
+      "-s",
+      "primary",
+      "-n",
+      "fm-detached",
+      "-c",
+      "/Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GV941VJXFFSHDH1ZVT9EED",
+      "/bin/zsh -f"
+    ],
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "argv": [
+      "tmux",
+      "-S",
+      "/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab-socket.jnw0ccr_/tmux",
+      "display-message",
+      "-p",
+      "#{socket_path},#{pid},0"
+    ],
+    "exit": 0,
+    "output": "/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab-socket.jnw0ccr_/tmux,51816,0\n"
+  },
+  {
+    "argv": [
+      "bash",
+      "bin/fm-control.sh",
+      "detached",
+      "exit"
+    ],
+    "exit": 1,
+    "output": "fm-gate-refuse: gate agent lifecycle permitted only against lab home /Users/davidtandoh/.no-mistakes/worktrees/e54530c4a65d/01M8GV941VJXFFSHDH1ZVT9EED/.test-detached-lab\nerror: task detached's Omnigent native owner is unknown; detached native-stop=unconfirmed\n"
+  },
+  {
+    "argv": [
+      "tmux",
+      "-S",
+      "/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab-socket.jnw0ccr_/tmux",
+      "capture-pane",
+      "-p",
+      "-t",
+      "primary:fm-detached"
+    ],
+    "exit": 0,
+    "output": "Davids-Mac-mini%\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "observable_checks": {
+      "command_exit": 1,
+      "metadata_preserved": true,
+      "expected_refusal": true,
+      "shell_input_absent": true
+    }
+  },
+  {
+    "argv": [
+      "tmux",
+      "-S",
+      "/var/folders/kl/p3btvrf95298vt81dt2wcnsw0000gn/T/fm-lab-socket.jnw0ccr_/tmux",
+      "kill-server"
+    ],
+    "exit": 0,
+    "output": ""
+  }
+]

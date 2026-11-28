@@ -1,0 +1,3 @@
+ok - serve-switch detach recovers exact Codex sessions and refuses unreachable or mismatched owners
+ok - Codex detach stops only its native owner; unconfirmed native stops withhold replacement
+ok - native Codex stop rejects foreign session, server, generation and wrapper
