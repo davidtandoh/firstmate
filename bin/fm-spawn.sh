@@ -5311,7 +5311,8 @@ fi
 
 if [ "$KIND" != secondmate ] && [ -d "$DATA/$ID" ]; then
   FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
-    bash "$SCRIPT_DIR/fm-task-retention.sh" start "$ID" >/dev/null || exit 1
+    bash "$SCRIPT_DIR/fm-task-retention.sh" start "$ID" >/dev/null \
+    || echo "warning: retention receipts could not be invalidated for $ID; continuing launch" >&2
 fi
 
 W="fm-$ID"

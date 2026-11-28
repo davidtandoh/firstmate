@@ -27,7 +27,11 @@ class Retention(unittest.TestCase):
             (self.home / name).mkdir(parents=True)
         (self.home / '.tasks.toml').write_text('backend = "markdown"\n[markdown]\npath = "data/backlog.md"\ndone_keep = 100\n')
         (self.home / 'data/backlog.md').write_text('# Backlog\n\n## In flight\n\n## Queued\n\n## Done\n')
-        self.env = dict(os.environ, HOME=str(self.home / 'user'), FM_HOME=str(self.home))
+        self.env = dict(os.environ, HOME=str(self.home / 'user'), FM_HOME=str(self.home),
+                        FM_ROOT_OVERRIDE='', FM_DATA_OVERRIDE=str(self.home / 'data'),
+                        FM_STATE_OVERRIDE=str(self.home / 'state'),
+                        FM_CONFIG_OVERRIDE=str(self.home / 'config'),
+                        FM_PROJECTS_OVERRIDE=str(self.home / 'projects'))
         self.env.pop('TASKS_AXI_FILE', None)
         self.env.pop('TASKS_AXI_BACKEND', None)
         self.task('add', 'job', 'Retention fixture')
@@ -59,6 +63,91 @@ class Retention(unittest.TestCase):
     def report(self, *args):
         output = self.run_cli('report', '--json', *args).stdout
         return next(row for row in json.loads(output)['tasks'] if row['task'] == 'job')
+
+    def test_missing_config_uses_report_default_and_start_still_invalidates(self):
+        self.ready()
+        (self.home / 'config').rmdir()
+        self.assertEqual(self.report('--prune')['eligible_bytes'], 4096)
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+        self.run_cli('start', 'job')
+        self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
+        self.assertFalse((self.home / 'config').exists())
+
+    def test_relative_roots_resolve_from_home(self):
+        self.ready()
+        self.env.update(FM_HOME='.', FM_DATA_OVERRIDE='data',
+                        FM_STATE_OVERRIDE='state', FM_CONFIG_OVERRIDE='config')
+        self.assertEqual(self.report()['eligible_bytes'], 4096)
+
+    def test_empty_overrides_use_home_defaults(self):
+        for name in ('DATA', 'STATE', 'CONFIG', 'ROOT'):
+            self.env['FM_' + name + '_OVERRIDE'] = ''
+        self.assertEqual(self.report()['eligible_bytes'], 0)
+
+    def test_backlog_preserves_punctuation_and_multiline_holds(self):
+        self.ready()
+        title = 'Review "quoted", comma and (truncated marker'
+        self.task('add', 'decision', title)
+        self.task('update', 'decision', '--body',
+                  'Review "evidence", details\n' + 'long notes ' * 100 + '\ndata/job/cache/file (truncated')
+        self.task('hold', 'decision', '--kind', 'captain', '--reason', 'Review evidence')
+        self.assertIn('hold', self.report()['reason'])
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_failed_tick_backs_off_after_queue_is_drained(self):
+        (self.home / 'config/task-retention').write_text('invalid\n')
+        self.run_cli('tick', ok=False)
+        queue = self.home / 'state/.wake-queue'
+        self.assertIn('task-retention report failed', queue.read_text())
+        queue.write_text('')
+        self.run_cli('tick')
+        self.assertEqual(queue.read_text(), '')
+        # A fresh process also respects the durable retry delay.
+        self.run_cli('tick')
+        self.assertEqual(queue.read_text(), '')
+        attempt = self.home / 'state/.task-retention-attempt'
+        os.utime(attempt, (self.old, self.old))
+        self.run_cli('tick', ok=False)
+        self.assertIn('task-retention report failed', queue.read_text())
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_missing_candidate_is_reported_without_deletion(self):
+        self.ready()
+        self.task('rm', 'job')
+        row = self.report('--prune')
+        self.assertEqual(row['eligible_bytes'], 0)
+        self.assertIn('unavailable in backlog', row['reason'])
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_incomplete_hold_reads_block_all_deletion(self):
+        self.ready()
+        (self.home / 'config/task-retention').write_text('prune\n')
+        self.task('add', 'decision', 'A "quoted", hold')
+        self.task('hold', 'decision', '--kind', 'captain', '--reason', 'Review')
+        fakebin = self.home / 'fakebin'
+        fakebin.mkdir()
+        tool = fakebin / 'tasks-axi'
+        real = shutil.which('tasks-axi', path=self.env['PATH'])
+        original_path = self.env['PATH']
+        self.env['PATH'] = str(fakebin) + os.pathsep + original_path
+        for mode in ('failed', 'count', 'truncated'):
+            with self.subTest(mode=mode):
+                tool.write_text('#!' + sys.executable + '\n'
+                    'import os, sys\n'
+                    'args = sys.argv[1:]\n'
+                    'mode = ' + repr(mode) + '\n'
+                    'if mode == "count" and args[0] == "list":\n'
+                    '    print("count: 201 of 300 total"); sys.exit(0)\n'
+                    'if args[:2] == ["show", "decision"]:\n'
+                    '    if mode == "failed": sys.exit(1)\n'
+                    '    if mode == "truncated":\n'
+                    '        print(' + repr('task:\n  id: decision\n  state: queued\n  closed: -\n  hold_kind: captain\n  hold_reason: Review\n  links: none\n  body: "notes\\n... (truncated, 900 chars total - use show decision --full to see complete text)"') + '); sys.exit(0)\n'
+                    'os.execv(' + repr(real) + ', [' + repr(real) + '] + args)\n')
+                tool.chmod(0o755)
+                row = self.report('--prune')
+                self.assertEqual(row['eligible_bytes'], 0)
+                self.assertIn('captain hold scan incomplete', row['reason'])
+                self.assertTrue((self.home / 'data/job/cache/file').exists())
 
     def test_undeclared_kept(self):
         self.assertEqual(self.report()['eligible_bytes'], 0)
@@ -260,10 +349,8 @@ class Retention(unittest.TestCase):
         self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
         self.assertEqual(self.report()['eligible_bytes'], 0)
 
-    def test_reused_task_spawn_invalidates_completion_and_refreshes_grace(self):
-        self.ready()
-        self.task('reopen', 'job')
-        self.shell(''' . "$1/tests/fixtures.sh"
+    def spawn_fixture(self):
+        return self.shell(''' . "$1/tests/fixtures.sh"
             fm_git_worktree "$2/project" "$2/pool" fm/job
             fm_test_spawn_home "$2" codex
             fakebin=$(fm_test_make_spawn_fakebin "$2/tools" gh gh-axi)
@@ -271,6 +358,27 @@ class Retention(unittest.TestCase):
             printf '\\n# Definition of done\\nDelivery contract: mode=local-only\\n' >> "$2/data/job/brief.md"
             fm_test_run_spawn "$2" "$2/pool" "$fakebin" job "$2/project" --mode local-only --yolo off
         ''')
+
+    def test_launch_continues_when_retention_invalidation_fails(self):
+        self.ready()
+        receipt = self.home / 'data/job/retention-complete.json'
+        receipt.unlink()
+        receipt.mkdir()
+        self.task('reopen', 'job')
+        result = self.spawn_fixture()
+        self.assertIn('retention receipts could not be invalidated', result.stdout)
+        self.assertTrue((self.home / 'state/job.meta').exists())
+
+    def test_teardown_continues_when_retention_merge_write_fails(self):
+        self.external_pr_fixture()
+        (self.home / 'data/job/retention-merge.json').mkdir()
+        self.teardown()
+        self.assertTrue((self.home / 'data/job/cache/file').exists())
+
+    def test_reused_task_spawn_invalidates_completion_and_refreshes_grace(self):
+        self.ready()
+        self.task('reopen', 'job')
+        self.spawn_fixture()
         self.assertFalse((self.home / 'data/job/retention-complete.json').exists())
         self.assertEqual(self.report()['eligible_bytes'], 0)
         (self.home / 'state/job.meta').unlink()
@@ -282,7 +390,7 @@ class Retention(unittest.TestCase):
         self.assertIn('grace', self.report()['reason'])
         self.assertTrue((self.home / 'data/job/cache/file').exists())
 
-    def test_archived_done_keeps_worktree_inventory(self):
+    def test_archive_only_task_stays_ineligible(self):
         self.run_cli('declare', 'job', '--scratch', 'cache', '--worktree-cache', 'node_modules')
         worktree = self.home / 'slot/repo'
         (worktree / 'node_modules').mkdir(parents=True)
@@ -297,8 +405,8 @@ class Retention(unittest.TestCase):
         self.assertNotIn('job', self.run_cli('backlog').stdout)
         self.run_cli('archived', 'job')
         row = self.report()
-        self.assertEqual(row['eligible_bytes'], 4096)
-        self.assertEqual(row['worktree']['cache_bytes'], 128)
+        self.assertEqual(row['eligible_bytes'], 0)
+        self.assertIn('unavailable in backlog', row['reason'])
         self.assertTrue((worktree / 'node_modules/x').exists())
 
     def test_brief_creates_explicit_declaration(self):
@@ -425,7 +533,9 @@ class Retention(unittest.TestCase):
         self.ready()
         (self.home / 'config/task-retention').write_text('prune\n')
         (self.home / '.tasks.toml').write_text('backend = [invalid\n')
-        self.run_cli('report', '--prune', ok=False)
+        row = self.report('--prune')
+        self.assertEqual(row['eligible_bytes'], 0)
+        self.assertIn('backlog', row['reason'])
         self.assertTrue((self.home / 'data/job/cache/file').exists())
 
     def test_data_root_symlink_ancestor_is_refused(self):

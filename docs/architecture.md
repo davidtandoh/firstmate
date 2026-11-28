@@ -527,11 +527,14 @@ flowchart LR
 
 The lifecycle keeps evidence by default and gives declared scratch a completion owner.
 The brief owns declaration, and spawn invalidates previous retention receipts under the task metadata lock.
+Retention errors warn without blocking launch, relaunch or teardown.
 Confirmed PR and local merge handling own landing evidence; the common teardown completion boundary also verifies and preserves external-merge evidence before retiring records, including for already-pushed branches.
 Each confirmed PR refreshes the task's merge receipt; an identical retry leaves that receipt unchanged.
 Teardown owns the completion clock, and the existing watcher schedules a bounded detached report without blocking its liveness beacon.
-The retention command reuses the backlog adapter and the configured Done archive owner, shared no-follow descriptor traversal and bounded reads from `fm_record_io`, and the existing metadata lock before pruning.
-It never removes worktree content; a released worktree that remains on disk is a report item even after its Done row moves to the configured archive.
+The retention command reads candidate state and full held-task details through the home-addressed backlog adapter, and fails closed when the bounded hold scan is incomplete.
+It reuses shared no-follow descriptor traversal and bounded reads from `fm_record_io`, and the existing metadata lock before pruning.
+It never removes worktree content; a current completed task can report a released worktree that remains on disk.
+An archive-only task remains ineligible because its current state cannot be confirmed.
 A released path named by multiple completed tasks appears once in `shared_worktrees` with ambiguous ownership and no task-attributed bytes.
 Operator rollout and the switch are documented in [task scratch retention](configuration.md#task-scratch-retention-configtask-retention).
 [`tests/fm-task-retention.test.sh`](../tests/fm-task-retention.test.sh) exercises the eligibility and deletion boundaries entirely in disposable fixtures.

@@ -3933,8 +3933,7 @@ if [ "$KIND" = ship ] && [ "$MODE" != local-only ] && [ "$FORCE" != --force ] \
   if [ -n "$TEARDOWN_VERIFIED_PR" ]; then
     FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
       bash "$SCRIPT_DIR/fm-task-retention.sh" confirm-merge "$ID" --merged-pr "$TEARDOWN_VERIFIED_PR" >/dev/null || {
-        echo "error: verified merged PR evidence could not be preserved; refusing teardown" >&2
-        exit 1
+        echo "warning: verified merged PR retention evidence could not be preserved; continuing teardown" >&2
       }
   fi
 fi

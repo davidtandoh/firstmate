@@ -944,6 +944,7 @@ The flag is home-local, is not inherited by secondmate homes, and takes effect o
 
 Task retention runs locally in each home's existing watcher and publishes a weekly report at `state/task-retention-report.json`.
 The watcher queues a durable `check: task-retention` wake when publication succeeds or fails.
+Failed attempts use the durable retry backoff owned by [`bin/fm-task-retention.sh`](../bin/fm-task-retention.sh); manual reports remain available.
 The report lists each task's logical file bytes, eligible scratch bytes, and the reason that data is kept.
 The default is report-only; leave the switch absent or set it to `report` for the first weeks of rollout.
 Review the weekly reports before deliberately setting this home's gitignored `config/task-retention` to `prune`.
